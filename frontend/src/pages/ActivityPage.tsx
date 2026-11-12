@@ -1,3 +1,4 @@
+import HealthView from "@/components/activity/health/HealthView";
 import { useCallback, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -99,7 +100,7 @@ export default function ActivityPage() {
   const currentView: ActivityView =
     searchParams.get("state") === "in_flight"
       ? "in_flight"
-      : rawView === "history" || rawView === "queue"
+      : rawView === "history" || rawView === "queue" || rawView === "health"
         ? rawView
         : "timeline";
 
@@ -128,7 +129,9 @@ export default function ActivityPage() {
         ? "Searches running now and downloads on their way in"
         : currentView === "queue"
           ? "Direct downloads, live"
-          : "Every download, newest first";
+          : currentView === "health"
+            ? "Background jobs and connections, and whether each one is working"
+            : "Every download, newest first";
 
   return (
     <div className="page-transition flex h-full min-h-0 flex-col">
@@ -137,6 +140,7 @@ export default function ActivityPage() {
       <ActivityTabs active={currentView} onSelect={setView} />
 
       <div className="flex-1 min-h-0 flex flex-col">
+        {currentView === "health" && <HealthView />}
         {currentView === "timeline" && (
           <TimelineView scope_type={scope_type} scope_id={scope_id} />
         )}

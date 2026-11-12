@@ -1475,6 +1475,48 @@ export function mockApiResponse(
       preview_cap: 5,
     };
   }
+  if (m === "GET" && url === "/api/system/jobs") {
+    const now = Math.floor(Date.now() / 1000);
+    const at = (seconds: number) =>
+      new Date((now + seconds) * 1000).toISOString();
+    const job = (
+      id: string,
+      name: string,
+      ranAgo: number,
+      nextIn: number,
+      failed = false,
+    ) => ({
+      id,
+      name,
+      next_run_time: at(nextIn),
+      trigger: "interval",
+      status: failed ? "Error" : "Waiting",
+      state: failed ? "error" : "waiting",
+      dispatch: {
+        state: failed ? "error" : "waiting",
+        last_attempt: now - ranAgo,
+        last_success: failed ? now - 3 * 86400 : now - ranAgo,
+        last_failure: failed ? now - ranAgo : null,
+        last_error: failed
+          ? "Folder not found: /downloads/complete/comics"
+          : null,
+      },
+    });
+    return {
+      jobs: [
+        job("search", "Auto-Search", 6 * 3600, 18 * 3600),
+        job("rss", "RSS Feeds", 12 * 60, 8 * 60),
+        job("monitor", "Folder Monitor", 60, 4 * 60, true),
+        job("weekly", "Weekly Pullist", 2 * 86400, 5 * 86400),
+        job("dbupdater", "DB Updater", 9 * 3600, 15 * 3600),
+        job("version", "Check Version", 3 * 3600, 3 * 3600),
+      ],
+    };
+  }
+  const runJob = url.match(/^\/api\/system\/jobs\/([^/]+)\/run$/);
+  if (m === "POST" && runJob) {
+    return { accepted: true, state: "queued" };
+  }
   if (m === "GET" && url === "/api/search/health") {
     const now = Math.floor(Date.now() / 1000);
     return {
