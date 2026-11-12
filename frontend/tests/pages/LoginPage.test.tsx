@@ -29,7 +29,8 @@ describe("LoginPage", () => {
     expect(
       screen.getByPlaceholderText("from server logs if required"),
     ).toBeTruthy();
-    expect(screen.getByText(formatAppVersion())).toBeTruthy();
+    // The public sign-in page doesn't say which version is running.
+    expect(screen.queryByText(formatAppVersion())).toBeNull();
     const confirm = screen.getByLabelText("Confirm password");
     expect(confirm).toBe(document.querySelectorAll("form input")[2]);
     expect((confirm as HTMLInputElement).placeholder).toBe("confirm");
@@ -118,5 +119,41 @@ describe("LoginPage", () => {
       expect(screen.getByLabelText("Username")).toBeTruthy();
     });
     expect(screen.getByLabelText("Password")).toBeTruthy();
+  });
+});
+
+describe("LoginPage cover wall", () => {
+  it("draws the server's cover tiles when the wall is on", async () => {
+    server.use(
+      http.get("/api/auth/check-setup", () =>
+        HttpResponse.json({ success: true, needs_setup: false }),
+      ),
+      http.get("/api/auth/cover-wall", () =>
+        HttpResponse.json({ enabled: true, tiles: 2 }),
+      ),
+    );
+    render(<LoginPage />);
+
+    const wall = await screen.findByTestId("cover-wall");
+    const sources = [...wall.querySelectorAll("img")].map((img) =>
+      img.getAttribute("src"),
+    );
+    expect(new Set(sources)).toEqual(
+      new Set(["/api/auth/cover-wall/0", "/api/auth/cover-wall/1"]),
+    );
+    expect(
+      screen.getByText("self-hosted · your covers stay on this server"),
+    ).toBeTruthy();
+  });
+
+  it("keeps the grid backdrop when the wall is off", async () => {
+    server.use(
+      http.get("/api/auth/check-setup", () =>
+        HttpResponse.json({ success: true, needs_setup: false }),
+      ),
+    );
+    render(<LoginPage />);
+    await screen.findByText("COMICARR · READY");
+    expect(screen.queryByTestId("cover-wall")).toBeNull();
   });
 });

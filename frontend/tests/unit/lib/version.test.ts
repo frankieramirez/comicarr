@@ -15,7 +15,6 @@ const VERSION_DISPLAY_CONSUMERS = [
   "src/components/layout/VersionChip.tsx",
   "src/components/onboarding/OnboardingDialog.tsx",
   "src/components/settings/AboutTab.tsx",
-  "src/pages/LoginPage.tsx",
   "src/pages/SettingsPage.tsx",
 ] as const;
 

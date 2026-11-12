@@ -279,6 +279,9 @@ export const handlers = [
     }),
   ),
 
+  http.get("/api/auth/cover-wall", () =>
+    HttpResponse.json({ enabled: false, tiles: 0 }),
+  ),
   http.get("/api/system/jobs", () =>
     HttpResponse.json({
       jobs: [

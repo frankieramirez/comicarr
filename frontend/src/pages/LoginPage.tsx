@@ -13,8 +13,9 @@ import { checkHealth, checkSetup, setupCredentials } from "@/lib/api";
 import { Kbd } from "@/components/ui/kbd";
 import { Callout } from "@/components/ui/callout";
 import GridShader from "@/components/login/GridShader";
+import CoverWall from "@/components/login/CoverWall";
+import { useCoverWall } from "@/hooks/useCoverWall";
 import Logo from "@/components/Logo";
-import { formatAppVersion } from "@/lib/version";
 
 function MonoLabel({
   children,
@@ -385,11 +386,14 @@ function LoginForm() {
 
 export default function LoginPage() {
   const { needsSetup } = useAuth();
+  const coverTiles = useCoverWall();
+  const showWall = !needsSetup && coverTiles > 0;
 
   return (
     <div className="min-h-screen w-full bg-background text-foreground relative overflow-hidden grid place-items-center px-4">
-      {/* Interactive shader grid backdrop */}
-      <GridShader />
+      {/* The library's own covers when the operator turned the wall on,
+          otherwise the interactive grid. */}
+      {showWall ? <CoverWall tiles={coverTiles} /> : <GridShader />}
 
       {/* Card */}
       <div
@@ -402,9 +406,6 @@ export default function LoginPage() {
         {/* Brand row */}
         <div className="flex items-center gap-2 mb-6">
           <Logo className="h-4 w-auto text-foreground" />
-          <span className="ml-auto font-mono text-[10px] text-muted-foreground px-1.5 py-0.5 border border-border rounded-sm">
-            {formatAppVersion()}
-          </span>
         </div>
 
         <h1 className="mb-1 text-lg font-semibold tracking-tight">
@@ -419,17 +420,25 @@ export default function LoginPage() {
         {needsSetup ? <SetupForm /> : <LoginForm />}
       </div>
 
-      {/* Bottom status strip */}
-      <div className="absolute left-5 right-5 bottom-5 flex justify-between font-mono text-[10px] text-muted-foreground z-10 pointer-events-none">
-        <span className="flex items-center gap-1.5">
-          <span
-            className="w-1.5 h-1.5 rounded-full"
-            style={{ background: "var(--status-active)" }}
-          />
-          HOME.LAN
-        </span>
-        <span>COMICARR · READY</span>
-      </div>
+      {showWall ? (
+        <div className="absolute inset-x-0 bottom-5 z-10 flex justify-center pointer-events-none">
+          <span className="rounded-full border border-border bg-card px-3 py-1 font-mono text-[10px] text-muted-foreground">
+            self-hosted · your covers stay on this server
+          </span>
+        </div>
+      ) : (
+        /* Bottom status strip */
+        <div className="absolute left-5 right-5 bottom-5 flex justify-between font-mono text-[10px] text-muted-foreground z-10 pointer-events-none">
+          <span className="flex items-center gap-1.5">
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: "var(--status-active)" }}
+            />
+            HOME.LAN
+          </span>
+          <span>COMICARR · READY</span>
+        </div>
+      )}
     </div>
   );
 }

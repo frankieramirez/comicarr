@@ -36,6 +36,7 @@ export interface ReadableConfig {
   http_root?: string;
   enable_https?: boolean;
   authentication?: number;
+  login_cover_wall?: boolean;
   comicvine_enabled?: boolean;
   cv_verify?: boolean;
   cv_only?: boolean;
@@ -176,6 +177,7 @@ export interface WritableConfig {
   http_host?: string;
   http_root?: string;
   enable_https?: boolean;
+  login_cover_wall?: boolean;
   comicvine_enabled?: boolean;
   comicvine_api?: string;
   cv_verify?: boolean;
