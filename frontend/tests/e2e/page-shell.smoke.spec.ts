@@ -158,7 +158,7 @@ async function assertHeaderPins(page: Page) {
 const routes = [
   { path: "/wanted", title: "Wanted" },
   { path: "/discover", title: "Discover" },
-  { path: "/activity/attention", title: "Needs attention" },
+  { path: "/activity/attention", title: "Activity" },
 ];
 
 for (const viewport of [

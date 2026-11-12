@@ -32,7 +32,7 @@ async function expectOneH1(name: string | RegExp) {
 
 const listPages: Array<{ name: string; ui: ReactElement }> = [
   { name: "Activity", ui: <ActivityPage /> },
-  { name: "Needs attention", ui: <AttentionPage /> },
+  { name: "Activity", ui: <AttentionPage /> },
   { name: "Dashboard", ui: <DashboardPage /> },
   { name: "Discover", ui: <DiscoverPage /> },
   { name: "Import", ui: <ImportPage /> },

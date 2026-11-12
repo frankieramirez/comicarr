@@ -2,7 +2,7 @@
  * `/activity/attention` — the needs-attention triage surface (#526).
  *
  * A real route, not a tab and not a sheet: the status bar lands here, deep
- * links survive a refresh, and Timeline · Direct Downloads · Download History
+ * links survive a refresh, and Timeline · Direct downloads · History
  * keep the tab contract the ADR fixes.
  *
  * **Against Download History:** this shows only *unresolved, actionable*
@@ -12,13 +12,12 @@
 
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import PageHeader from "@/components/layout/PageHeader";
+import { ActivityTabs } from "@/components/activity/ActivityTabs";
 import PageShell from "@/components/layout/PageShell";
 import EmptyState from "@/components/ui/EmptyState";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import FilterField from "@/components/ui/FilterField";
-import { ToggleChip } from "@/components/ui/toggle-chip";
 import RelativeTime from "@/components/ui/RelativeTime";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
@@ -189,13 +188,16 @@ export default function AttentionPage() {
     return (
       <PageShell
         header={
-          <PageHeader
-            title="Needs attention"
-            meta="what Comicarr can't finish alone"
-          />
+          <>
+            <PageHeader
+              title="Activity"
+              meta="What Comicarr can't finish without you"
+            />
+            <ActivityTabs active="attention" />
+          </>
         }
       >
-        <div className="space-y-2 px-5 py-4">
+        <div className="space-y-2 px-8 py-4">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-20" />
           ))}
@@ -208,13 +210,16 @@ export default function AttentionPage() {
     return (
       <PageShell
         header={
-          <PageHeader
-            title="Needs attention"
-            meta="what Comicarr can't finish alone"
-          />
+          <>
+            <PageHeader
+              title="Activity"
+              meta="What Comicarr can't finish without you"
+            />
+            <ActivityTabs active="attention" />
+          </>
         }
       >
-        <div className="px-5 py-4">
+        <div className="px-8 py-4">
           <ErrorDisplay
             error={band.error}
             title="Unable to load needs attention"
@@ -230,25 +235,17 @@ export default function AttentionPage() {
       header={
         <>
           <PageHeader
-            title="Needs attention"
+            title="Activity"
             meta={
               groups.length === 0
-                ? "nothing is waiting on you"
+                ? "Nothing is waiting on you"
                 : `${groups.length} ${groups.length === 1 ? "problem" : "problems"} · ${band.data?.member_total ?? 0} issues`
             }
-            actions={
-              <Link
-                to="/activity"
-                className="inline-flex items-center gap-1 rounded-control border px-2 py-1 mono-meta hover:text-foreground"
-                style={{ borderColor: "var(--border)" }}
-              >
-                <ArrowLeft className="h-3 w-3" /> Activity
-              </Link>
-            }
           />
+          <ActivityTabs active="attention" />
 
           {scoped && (
-            <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-2 mono-meta">
+            <div className="flex shrink-0 items-center gap-2 border-b border-border px-8 py-2 mono-meta">
               <span>
                 Scoped to {scope_type}:{scope_id}
               </span>
@@ -261,7 +258,7 @@ export default function AttentionPage() {
             </div>
           )}
 
-          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-5 py-2.5">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 px-8 pt-1 pb-3">
             <div className="max-w-xs flex-1">
               <FilterField
                 placeholder="Filter by series or reason…"
@@ -274,7 +271,7 @@ export default function AttentionPage() {
             <div
               role="group"
               aria-label="Filter by stage"
-              className="flex items-center gap-1"
+              className="inline-flex rounded-md border border-border-subtle bg-surface-1 p-0.5"
             >
               {(
                 [
@@ -283,13 +280,15 @@ export default function AttentionPage() {
                   ["manual_review", "Manual review"],
                 ] as const
               ).map(([id, label]) => (
-                <ToggleChip
+                <button
                   key={id}
-                  pressed={stage === id}
-                  onPressedChange={() => setStage(id)}
+                  type="button"
+                  aria-pressed={stage === id}
+                  onClick={() => setStage(id)}
+                  className="h-7 rounded-[5px] px-2.5 text-[13px] text-foreground-2 aria-pressed:bg-surface-3 aria-pressed:font-medium aria-pressed:text-foreground"
                 >
                   {label}
-                </ToggleChip>
+                </button>
               ))}
             </div>
             <select
@@ -319,7 +318,7 @@ export default function AttentionPage() {
               </label>
             )}
             <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-              unresolved only · Download History keeps the full ledger
+              unresolved only · History keeps the full ledger
             </span>
           </div>
 
@@ -327,7 +326,7 @@ export default function AttentionPage() {
             <div
               role="group"
               aria-label="Selected issues"
-              className="flex shrink-0 flex-wrap items-center gap-2 border-b px-5 py-2"
+              className="flex shrink-0 flex-wrap items-center gap-2 border-b px-8 py-2"
               style={{
                 borderColor: "var(--border)",
                 background:
@@ -393,7 +392,7 @@ export default function AttentionPage() {
         </>
       }
     >
-      <div className="p-5">
+      <div className="px-8 pb-6 pt-1">
         {filtered.length === 0 ? (
           <EmptyState
             variant="custom"
@@ -407,7 +406,7 @@ export default function AttentionPage() {
             }
             description={
               groups.length === 0
-                ? "Failures and stalled imports show up here until you act on them. Finished work lives in Download History."
+                ? "Failures and stalled imports show up here until you act on them. Finished work lives in History."
                 : "Try a wider stage or age filter."
             }
             action={

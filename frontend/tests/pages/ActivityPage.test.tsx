@@ -76,10 +76,10 @@ describe("ActivityPage", () => {
     expect(await screen.findByText("Nothing has happened yet")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Timeline" })).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Direct Downloads" }),
+      screen.getByRole("button", { name: "Direct downloads" }),
     ).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Download History" }),
+      screen.getByRole("button", { name: "History" }),
     ).toBeTruthy();
     // Queue-specific chrome must not be the default landing surface.
     expect(

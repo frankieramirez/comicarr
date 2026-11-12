@@ -402,6 +402,134 @@ function recentNarrativeEvents() {
   });
 }
 
+/** Two days of timeline events, newest first, for the Activity mock. */
+function timelineEvents() {
+  const now = Date.now();
+  const min = 60 * 1000;
+  const hour = 60 * min;
+  const rows: Array<
+    [
+      number,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string | null,
+      string | null,
+    ]
+  > = [
+    [
+      12 * min,
+      "add",
+      "succeeded",
+      "series",
+      COVERS[4].id,
+      COVERS[4].title,
+      null,
+      null,
+    ],
+    [
+      95 * min,
+      "search",
+      "succeeded",
+      "run",
+      "run-41",
+      "Wanted search",
+      null,
+      null,
+    ],
+    [
+      3 * hour,
+      "grab",
+      "succeeded",
+      "issue",
+      `${COVERS[0].id}-${COVERS[0].have}`,
+      `${COVERS[0].title} #${COVERS[0].have}`,
+      null,
+      null,
+    ],
+    [
+      3 * hour + 4 * min,
+      "import",
+      "succeeded",
+      "issue",
+      `${COVERS[0].id}-${COVERS[0].have}`,
+      `${COVERS[0].title} #${COVERS[0].have}`,
+      null,
+      null,
+    ],
+    [
+      5 * hour,
+      "refresh",
+      "succeeded",
+      "series",
+      COVERS[2].id,
+      COVERS[2].title,
+      null,
+      null,
+    ],
+    [
+      26 * hour,
+      "import",
+      "failed",
+      "issue",
+      `${COVERS[1].id}-${COVERS[1].have + 1}`,
+      `${COVERS[1].title} #${COVERS[1].have + 1}`,
+      "import_failed",
+      "sh: /scripts/comictagger.sh: not found",
+    ],
+    [
+      27 * hour,
+      "grab",
+      "failed",
+      "issue",
+      `${COVERS[3].id}-${COVERS[3].have + 1}`,
+      `${COVERS[3].title} #${COVERS[3].have + 1}`,
+      "provider_error",
+      "SABnzbd: duplicate NZB, job skipped",
+    ],
+    [
+      30 * hour,
+      "download",
+      "succeeded",
+      "issue",
+      `${COVERS[6].id}-${COVERS[6].have}`,
+      `${COVERS[6].title} #${COVERS[6].have}`,
+      null,
+      null,
+    ],
+  ];
+  return rows.map(
+    (
+      [
+        ago,
+        activity,
+        status,
+        subject_type,
+        subject_id,
+        subject_label,
+        reason_code,
+        reason_detail,
+      ],
+      i,
+    ) => ({
+      event_id: 100 + i,
+      created_at: new Date(now - ago).toISOString(),
+      activity,
+      status,
+      subject_type,
+      subject_id,
+      subject_label,
+      reason_code,
+      reason_detail,
+      run_id: subject_type === "run" ? subject_id : null,
+      parent_series_id:
+        subject_type === "issue" ? subject_id.replace(/-\d+$/, "") : null,
+    }),
+  );
+}
+
 function upcomingReleases() {
   const base = new Date();
   const addDays = (d: Date, n: number) => {
@@ -645,6 +773,16 @@ export function mockApiResponse(
   }
   if (m === "GET" && url === "/api/health") {
     return { status: "ok" };
+  }
+  if (m === "GET" && url === "/api/activity/timeline") {
+    const results = timelineEvents();
+    return {
+      results,
+      total: results.length,
+      limit: 100,
+      offset: 0,
+      has_more: false,
+    };
   }
   if (m === "GET" && url === "/api/attention") {
     const group = (

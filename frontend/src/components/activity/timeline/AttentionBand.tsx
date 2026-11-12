@@ -36,8 +36,8 @@ function GroupCard({ group, href }: { group: AttentionGroup; href: string }) {
   return (
     <Link
       to={`${href}${href.includes("?") ? "&" : "?"}group=${encodeURIComponent(group.group_key)}`}
-      className="flex w-[200px] shrink-0 flex-col rounded-control border bg-[var(--background)] p-2.5 text-left hover:border-[var(--primary)]"
-      style={{ borderColor: "var(--border)", height: CARD_HEIGHT }}
+      className="flex w-[200px] shrink-0 flex-col rounded-lg border border-border-subtle bg-surface-1 p-3 text-left hover:border-border-emphasis"
+      style={{ height: CARD_HEIGHT }}
     >
       <div className="flex items-center gap-1.5">
         <span
@@ -45,21 +45,21 @@ function GroupCard({ group, href }: { group: AttentionGroup; href: string }) {
           style={{ background: accent }}
         />
         <span
-          className="font-mono text-[9px] uppercase tracking-wider"
+          className="text-[11px] font-semibold uppercase tracking-[0.04em]"
           style={{ color: accent }}
         >
           {stageLabel(group.stage)}
         </span>
-        <span className="ml-auto font-mono text-[11px] font-semibold tabular-nums">
+        <span className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
           ×{group.member_count}
         </span>
       </div>
 
-      <div className="mt-1.5 line-clamp-2 text-[12px] font-medium leading-snug">
+      <div className="mt-1.5 line-clamp-2 text-[13px] font-medium leading-snug">
         {group.series_label}
       </div>
 
-      <div className="mt-auto line-clamp-2 text-[10px] text-muted-foreground">
+      <div className="mt-auto line-clamp-2 text-[12px] text-foreground-2">
         {group.reason_phrase}
       </div>
     </Link>
@@ -89,27 +89,16 @@ export function AttentionBand({
   const newest = preview[0]?.newest_updated_at;
 
   return (
-    <section
-      aria-label="Needs attention"
-      className="shrink-0 border-b"
-      style={{
-        borderColor: "var(--border)",
-        background:
-          "var(--status-error-bg, color-mix(in oklab, var(--status-error) 8%, transparent))",
-      }}
-    >
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-5 pt-3 pb-2">
+    <section aria-label="Needs attention" className="shrink-0 px-8 pt-4 pb-4">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 pb-2">
         <AlertTriangle
-          className="h-3.5 w-3.5"
+          className="h-3.5 w-3.5 self-center"
           style={{ color: "var(--status-error)" }}
         />
-        <span
-          className="font-mono text-[11px] uppercase tracking-[0.1em]"
-          style={{ color: "var(--status-error)" }}
-        >
+        <span className="text-[13px] font-semibold text-foreground">
           {total} need{total === 1 ? "s" : ""} attention
         </span>
-        <span className="font-mono text-[10px] text-muted-foreground">
+        <span className="font-mono text-[11px] text-muted-foreground">
           {memberTotal === total
             ? "clears only by action"
             : `${memberTotal} issues · clears only by action`}
@@ -117,22 +106,21 @@ export function AttentionBand({
         {newest && <RelativeTime value={newest} />}
         <Link
           to={href}
-          className="ml-auto font-mono text-[11px] hover:underline"
-          style={{ color: "var(--status-error)" }}
+          className="ml-auto text-[13px] text-foreground-2 hover:text-foreground"
         >
           See all {total} →
         </Link>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto px-5 pb-3">
+      <div className="flex gap-2 overflow-x-auto">
         {preview.map((group) => (
           <GroupCard key={group.group_key} group={group} href={href} />
         ))}
         {more > 0 && (
           <Link
             to={href}
-            className="flex w-[120px] shrink-0 flex-col items-center justify-center rounded-control border border-dashed mono-meta hover:text-foreground"
-            style={{ borderColor: "var(--border)", height: CARD_HEIGHT }}
+            className="flex w-[120px] shrink-0 flex-col items-center justify-center rounded-lg border border-dashed border-border-subtle mono-meta hover:text-foreground"
+            style={{ height: CARD_HEIGHT }}
           >
             +{more}
             <span className="mt-1">more</span>
