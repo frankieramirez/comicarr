@@ -213,17 +213,20 @@ export default function WantedPage() {
                 <span className="max-md:sr-only">Search settings</span>
               </Link>
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="toolbar"
-              className="bg-surface-2"
-              onClick={handleForceSearch}
-              disabled={forceSearch.isPending}
-            >
-              <Search />
-              <span className="max-md:sr-only">Force search</span>
-            </Button>
+            {/* By series, the pacing banner carries "Search now". */}
+            {view === "issue" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="toolbar"
+                className="bg-surface-2"
+                onClick={handleForceSearch}
+                disabled={forceSearch.isPending}
+              >
+                <Search />
+                <span className="max-md:sr-only">Force search</span>
+              </Button>
+            )}
           </>
         }
       />
@@ -273,7 +276,12 @@ export default function WantedPage() {
       </div>
 
       {view === "series" && (
-        <WantedBySeries search={debouncedSearch} onTotals={setSeriesTotals} />
+        <WantedBySeries
+          search={debouncedSearch}
+          onTotals={setSeriesTotals}
+          onSearchNow={() => void handleForceSearch()}
+          searching={forceSearch.isPending}
+        />
       )}
 
       {/* Body column — the table owns the scrolling inside it. */}

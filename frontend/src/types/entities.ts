@@ -368,12 +368,34 @@ export interface WantedSeries {
   /** Most search attempts among its not-found issues. */
   max_attempts: number;
   last_searched_at: string | null;
+  /** Hours until auto-search reaches this series' last unchecked issue. */
+  eta_hours?: number | null;
+}
+
+/** How fast auto-search is working through Wanted (RSS watchlist pass). */
+export interface WantedPacing {
+  state: "checking" | "waiting_for_feed" | "off" | "idle";
+  total: number;
+  checked: number;
+  waiting: number;
+  per_hour: number;
+  /** False when per_hour is the configured ceiling, not a measurement. */
+  measured: boolean;
+  per_pass: number;
+  interval_minutes: number;
+  finishes_in_hours: number | null;
+  next_pass_at: string | null;
+  new_issue_days: number;
+  search_interval_minutes: number;
+  next_search_at: string | null;
+  indexers: number;
 }
 
 export interface WantedSeriesResponse {
   series: WantedSeries[];
   /** Issue counts per reason across the whole filtered set. */
   counts: Record<"all" | WantedBucket, number>;
+  pacing?: WantedPacing;
   pagination: {
     total: number;
     limit: number;
