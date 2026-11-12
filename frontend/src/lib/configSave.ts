@@ -17,6 +17,10 @@ const REDACTED_SECRET_FIELDS: ReadonlyArray<{
   { field: "mattermost_webhook_url", indicator: "mattermost_webhook_url_set" },
   { field: "discord_webhook_url", indicator: "discord_webhook_url_set" },
   { field: "sab_apikey", indicator: "sab_apikey_set" },
+  { field: "nzbget_password", indicator: "nzbget_password_set" },
+  { field: "qbittorrent_password", indicator: "qbittorrent_password_set" },
+  { field: "deluge_password", indicator: "deluge_password_set" },
+  { field: "transmission_password", indicator: "transmission_password_set" },
 ];
 
 export function prepareConfigSaveData(

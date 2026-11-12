@@ -1901,8 +1901,9 @@ export function mockApiResponse(
         version: "4.3.2",
         active: 0,
       }),
-      check("qbittorrent", "qBittorrent", "client", "torrent", 61, {
+      check("qbittorrent", "qBittorrent", "client", "torrent", 12, {
         version: "v5.0.2",
+        active: 3,
       }),
       check("ddl", "Direct download", "client", "ddl", null, {
         result: "Ready",
@@ -2272,6 +2273,22 @@ export function mockApiResponse(
       import_dir: "/data/downloads/comics/inbox",
       comic_dir: "/data/comics",
       manga_dir: "/data/manga",
+      check_folder: "/data/downloads/complete",
+      nzb_downloader: 0,
+      nzb_downloader_label: "SABnzbd",
+      sab_host: "http://sabnzbd:8085",
+      sab_apikey_set: true,
+      sab_category: "comics",
+      sab_directory: "/downloads/complete",
+      enable_torrents: true,
+      torrent_downloader: 5,
+      torrent_downloader_label: "qBittorrent",
+      qbittorrent_host: "http://qbittorrent:8080",
+      qbittorrent_username: "comicarr",
+      qbittorrent_password_set: true,
+      qbittorrent_label: "comics",
+      qbittorrent_root_routes: "/data/comics | comics\n/data/manga | manga",
+      enable_ddl: true,
     };
   }
   if (m === "GET" && url === "/api/import") {

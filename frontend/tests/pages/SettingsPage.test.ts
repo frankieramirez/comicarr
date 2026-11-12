@@ -111,21 +111,122 @@ describe("settings configuration", () => {
       screen.getAllByRole("button", { name: "Download clients" })[0],
     );
 
-    const host = await screen.findByLabelText("SABnzbd URL");
-    expect(
-      screen.getByLabelText("SABnzbd API key").getAttribute("placeholder"),
-    ).toBe("API key saved (enter a new value to change)");
+    await user.click(
+      await screen.findByRole("button", { name: "Edit SABnzbd" }),
+    );
+    const host = await screen.findByLabelText("URL");
+    expect(screen.getByLabelText("API key").getAttribute("placeholder")).toBe(
+      "Saved (enter a new one to change)",
+    );
     await user.clear(host);
     await user.type(host, "http://sab:8080");
-    await user.type(
-      screen.getByLabelText("SABnzbd API key"),
-      "replacement-key",
-    );
+    await user.type(screen.getByLabelText("API key"), "replacement-key");
     await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() => expect(saved).not.toBeNull());
     expect(saved).toMatchObject({ sab_host: "http://sab:8080" });
     expect(saved).toMatchObject({ sab_apikey: "replacement-key" });
+  });
+
+  it("asks for the qBittorrent password again when its server changes", async () => {
+    let saved: unknown = null;
+    server.use(
+      http.get("/api/config", () =>
+        HttpResponse.json({
+          nzb_downloader: 3,
+          enable_torrents: true,
+          torrent_downloader: 5,
+          qbittorrent_host: "http://qbit:8080",
+          qbittorrent_username: "comicarr",
+          qbittorrent_password_set: true,
+        }),
+      ),
+      http.put("/api/config", async ({ request }) => {
+        saved = await request.json();
+        return HttpResponse.json({ success: true });
+      }),
+    );
+    const user = userEvent.setup();
+    render(createElement(SettingsPage));
+    await screen.findByText("Settings");
+    await user.click(
+      screen.getAllByRole("button", { name: "Download clients" })[0],
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Edit qBittorrent" }),
+    );
+    const url = screen.getByLabelText("URL");
+    await user.clear(url);
+    await user.type(url, "http://elsewhere:8080");
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+    expect(
+      await screen.findByText(
+        /Enter the qBittorrent password again when changing the server/,
+      ),
+    ).toBeTruthy();
+    expect(saved).toBeNull();
+
+    await user.type(screen.getByLabelText("Password"), "fresh");
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+    await waitFor(() =>
+      expect(saved).toEqual({
+        qbittorrent_host: "http://elsewhere:8080",
+        qbittorrent_password: "fresh",
+      }),
+    );
+  });
+
+  it("turns a client off and adds one from Add client", async () => {
+    let saved: unknown = null;
+    server.use(
+      http.get("/api/config", () =>
+        HttpResponse.json({
+          nzb_downloader: 0,
+          sab_host: "http://sab:8080",
+          sab_apikey_set: true,
+          enable_torrents: false,
+          torrent_downloader: 0,
+          enable_ddl: false,
+        }),
+      ),
+      http.put("/api/config", async ({ request }) => {
+        saved = await request.json();
+        return HttpResponse.json({ success: true });
+      }),
+    );
+    const user = userEvent.setup();
+    render(createElement(SettingsPage));
+    await screen.findByText("Settings");
+    await user.click(
+      screen.getAllByRole("button", { name: "Download clients" })[0],
+    );
+
+    const sab = await screen.findByRole("switch", {
+      name: "Send usenet releases to SABnzbd",
+    });
+    expect(sab.getAttribute("aria-checked")).toBe("true");
+    await user.click(sab);
+    expect(sab.getAttribute("aria-checked")).toBe("false");
+
+    await user.click(screen.getByRole("button", { name: "Add client" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "qBittorrent" }),
+    );
+    expect(
+      screen
+        .getByRole("switch", { name: "Send torrent releases to qBittorrent" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(screen.getByLabelText("URL")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+    await waitFor(() =>
+      expect(saved).toEqual({
+        nzb_downloader: 3,
+        torrent_downloader: 5,
+        enable_torrents: true,
+      }),
+    );
   });
 
   it("edits Newznab indexers without exposing stored API keys", async () => {

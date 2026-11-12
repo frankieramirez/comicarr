@@ -9,6 +9,7 @@ import { InterfaceTab } from "@/components/settings/InterfaceTab";
 import { ApiTab } from "@/components/settings/ApiTab";
 import { SearchTab } from "@/components/settings/SearchTab";
 import { DownloadClientsTab } from "@/components/settings/DownloadClientsTab";
+import { hostKey } from "@/lib/downloadClients";
 import { AiTab } from "@/components/settings/AiTab";
 import { NotificationsTab } from "@/components/settings/NotificationsTab";
 import { MediaManagementTab } from "@/components/settings/MediaManagementTab";
@@ -239,6 +240,34 @@ export default function SettingsPage() {
       ) {
         errors.sab_apikey =
           "Enter the SABnzbd API key again when changing the server";
+      }
+    }
+    const clientSecrets = [
+      [
+        "qbittorrent_host",
+        "qbittorrent_password",
+        "qbittorrent_password_set",
+        "qBittorrent",
+      ],
+      ["nzbget_host", "nzbget_password", "nzbget_password_set", "NZBGet"],
+      ["deluge_host", "deluge_password", "deluge_password_set", "Deluge"],
+      [
+        "transmission_host",
+        "transmission_password",
+        "transmission_password_set",
+        "Transmission",
+      ],
+    ] as const;
+    for (const [hostField, secretField, setField, label] of clientSecrets) {
+      const next = data[hostField];
+      if (
+        typeof next === "string" &&
+        config?.[setField] &&
+        hostKey(next) !== hostKey(config[hostField] as string | undefined) &&
+        !data[secretField]
+      ) {
+        errors[secretField] =
+          `Enter the ${label} password again when changing the server`;
       }
     }
     return errors;
