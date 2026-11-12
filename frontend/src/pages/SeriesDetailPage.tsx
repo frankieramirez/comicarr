@@ -12,11 +12,13 @@ import {
   Search,
   TextSearch,
   Trash2,
+  ChevronLeft,
 } from "lucide-react";
 import IssueStatusMenu from "@/components/series/IssueStatusMenu";
 import { SeriesContentKind } from "@/components/series/SeriesContentKind";
 import { SeriesSearchProviders } from "@/components/series/SeriesSearchProviders";
 import { SeriesFolder } from "@/components/series/SeriesFolder";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -260,6 +262,7 @@ export default function SeriesDetailPage() {
   // Compact bar: shown once the hero has scrolled out of the body scroller.
   // In the split layout the body never scrolls, so the hero stays put.
   const heroRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
   const [compact, setCompact] = useState(false);
   const onBodyScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
     const hero = heroRef.current;
@@ -877,16 +880,23 @@ export default function SeriesDetailPage() {
             />
           )}
 
-          <div className="relative px-8 pt-5">
+          <div className="relative px-4 pt-4 md:px-8 md:pt-5">
             <nav
               aria-label="Breadcrumb"
-              className="mb-5 flex items-center gap-2 text-[13px] text-foreground-2"
+              className="mb-4 flex items-center gap-2 text-[13px] text-foreground-2 md:mb-5"
             >
-              <Link to="/library" className="hover:text-foreground">
+              <Link
+                to="/library"
+                className="inline-flex items-center gap-1 hover:text-foreground max-md:text-[15px]"
+              >
+                <ChevronLeft
+                  className="size-5 -ml-1 md:hidden"
+                  aria-hidden="true"
+                />
                 Library
               </Link>
-              <span className="text-muted-foreground">/</span>
-              <span className="truncate text-foreground">
+              <span className="text-muted-foreground max-md:hidden">/</span>
+              <span className="truncate text-foreground max-md:hidden">
                 {comic.ComicName}
               </span>
               <span className="mono-meta ml-auto hidden shrink-0 sm:inline">
@@ -894,7 +904,7 @@ export default function SeriesDetailPage() {
               </span>
             </nav>
 
-            <div className="flex flex-col gap-5 md:flex-row md:items-start">
+            <div className="grid grid-cols-[96px_minmax(0,1fr)] items-end gap-4 md:flex md:flex-row md:items-start md:gap-5">
               <div className="aspect-[2/3] w-24 shrink-0 overflow-hidden rounded-md bg-surface-2 shadow-sm">
                 {coverSrc && (
                   <img
@@ -910,7 +920,7 @@ export default function SeriesDetailPage() {
 
               <div className="min-w-0 flex-1 pt-1">
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em]">
+                  <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] md:text-[28px]">
                     {comic.ComicName}
                   </h1>
                   <span className="rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
@@ -940,7 +950,7 @@ export default function SeriesDetailPage() {
                   {progressSummary && <span>{progressSummary}</span>}
                 </div>
 
-                {comic.Description && (
+                {comic.Description && !isMobile && (
                   <p
                     className="mt-2 max-h-40 max-w-[640px] overflow-y-auto text-[13px] leading-relaxed text-foreground-2"
                     data-testid="series-description"
@@ -968,7 +978,12 @@ export default function SeriesDetailPage() {
                 ) : null}
               </div>
 
-              <div className="flex shrink-0 flex-wrap items-center gap-2 md:pt-12">
+              {comic.Description && isMobile && (
+                <p className="col-span-2 line-clamp-3 text-[13px] leading-relaxed text-foreground-2">
+                  {comic.Description}
+                </p>
+              )}
+              <div className="col-span-2 flex shrink-0 flex-wrap items-center gap-2 md:pt-12">
                 {!showDeleteConfirm ? (
                   <>
                     <Button

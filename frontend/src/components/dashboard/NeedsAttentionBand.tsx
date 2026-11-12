@@ -106,7 +106,7 @@ function CauseRow({
 
   return (
     <div
-      className="flex items-center gap-3.5 border-b border-border-subtle py-3"
+      className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5 border-b border-border-subtle py-3 max-sm:items-start"
       data-testid="needs-attention-cause"
     >
       <Icon
@@ -114,16 +114,16 @@ function CauseRow({
         style={{ color: stageAccent(cause.stage) }}
         aria-hidden="true"
       />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-foreground">
+      <div className="min-w-0 flex-1 max-sm:basis-[calc(100%-32px)]">
+        <div className="text-sm font-medium text-foreground sm:truncate">
           {cause.headline}
         </div>
-        <div className="truncate text-[13px] text-foreground-2">
+        <div className="text-[13px] text-foreground-2 sm:truncate">
           {causeSubline(cause)}
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2 max-sm:ml-8">
         {cause.fix ? (
           <Link
             to={cause.fix.href}
