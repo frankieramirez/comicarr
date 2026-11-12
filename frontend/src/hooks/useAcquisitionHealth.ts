@@ -423,3 +423,39 @@ export function useAcquisitionHealth(
     refresh,
   };
 }
+
+/** Scheduled jobs for Activity > Health, sharing Settings' cache entry. */
+export function useJobsHealth() {
+  return useQuery<SystemJobsResponse>({
+    queryKey: ["system", "jobs"],
+    queryFn: () =>
+      apiRequest<SystemJobsResponse>(
+        "GET",
+        "/api/system/jobs?include_acquisition=false",
+      ),
+    staleTime: 5_000,
+    refetchInterval: HEALTH_POLL_MS,
+  });
+}
+
+export interface RunJobResult {
+  accepted: boolean;
+  state: string;
+  error?: string;
+  next_run_time?: string;
+}
+
+/** Start one scheduled job now (POST /api/system/jobs/{id}/run). */
+export function useRunJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (jobId: string) =>
+      apiRequest<RunJobResult>(
+        "POST",
+        `/api/system/jobs/${encodeURIComponent(jobId)}/run`,
+      ),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["system", "jobs"] });
+    },
+  });
+}

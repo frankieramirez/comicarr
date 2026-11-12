@@ -441,6 +441,15 @@ def get_jobs(include_acquisition: bool = True, ctx: AppContext = Depends(get_con
     return system_service.get_job_info(ctx, include_acquisition=include_acquisition)
 
 
+@router.post("/system/jobs/{job_id}/run", dependencies=[Depends(require_session)])
+def run_job(job_id: str, ctx: AppContext = Depends(get_context)):
+    """Run one scheduled job now instead of at its next scheduled time."""
+    result = system_service.request_job_run(ctx, job_id)
+    if result is None:
+        return JSONResponse(status_code=404, content={"detail": "No runnable job with that id."})
+    return result
+
+
 @router.get("/system/diagnostics", dependencies=[Depends(require_session)])
 def get_startup_diagnostics(include_acquisition: bool = True, ctx: AppContext = Depends(get_context)):
     """Return startup diagnostics (db empty, migration dismissed)."""

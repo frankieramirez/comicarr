@@ -1,8 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { Tab, TabRow } from "@/components/layout/PageHeader";
 import { useActivityStatus } from "@/hooks/useActivityStatus";
+import { useJobsHealth } from "@/hooks/useAcquisitionHealth";
+import { jobRows } from "@/lib/healthRows";
 
-export type ActivityTab = "timeline" | "in_flight" | "queue" | "history";
+export type ActivityTab =
+  "timeline" | "in_flight" | "queue" | "history" | "health";
 
 /**
  * The tab row Activity and its Needs you route share, so moving between the
@@ -17,6 +20,9 @@ export function ActivityTabs({
 }) {
   const navigate = useNavigate();
   const attention = useActivityStatus().data?.attention ?? 0;
+  const failingJobs = jobRows(useJobsHealth().data?.jobs ?? []).filter(
+    (job) => job.failing,
+  ).length;
   const go = (view: ActivityTab) => {
     if (onSelect) {
       onSelect(view);
@@ -62,6 +68,18 @@ export function ActivityTabs({
           ) : undefined
         }
         onClick={() => navigate("/activity/attention")}
+      />
+      <Tab
+        active={active === "health"}
+        label="Health"
+        meta={
+          failingJobs > 0 ? (
+            <span style={{ color: "var(--status-error)" }}>
+              {failingJobs} failing
+            </span>
+          ) : undefined
+        }
+        onClick={() => go("health")}
       />
     </TabRow>
   );

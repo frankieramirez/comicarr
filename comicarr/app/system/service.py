@@ -1081,6 +1081,32 @@ def _get_job_history(job_name):
         return {}
 
 
+# Jobs Activity > Health may start early. Retention sweeps and the version
+# check stay on their own schedule: running them by hand fixes nothing.
+RUNNABLE_JOBS = frozenset({"search", "rss", "monitor", "dbupdater", "importinbox", "manga_sync", "weekly"})
+
+
+def request_job_run(ctx, job_id):
+    """Move one scheduled job's next run to now, the way weekly refresh does.
+
+    Returns ``None`` for a job that is not runnable from Activity > Health.
+    """
+    if job_id not in RUNNABLE_JOBS:
+        return None
+    if job_id == "weekly":
+        return request_weekly_refresh(ctx)
+    scheduler = getattr(ctx, "scheduler", None)
+    job = scheduler.get_job(job_id) if scheduler is not None else None
+    if job is None:
+        return {"accepted": False, "state": "unavailable", "error": "That job is not scheduled"}
+    if job.next_run_time is None:
+        return {"accepted": False, "state": "paused", "error": "That job is paused"}
+    next_run_time = datetime.datetime.now(datetime.timezone.utc)
+    job.modify(next_run_time=next_run_time)
+    logger.info("[SCHEDULER] %s queued to run now from Activity" % job.name)
+    return {"accepted": True, "state": "queued", "next_run_time": str(next_run_time)}
+
+
 def request_weekly_refresh(ctx):
     """Queue the existing weekly APScheduler job for an immediate, coalesced run."""
     from comicarr.app.core.runtime import set_runtime_field

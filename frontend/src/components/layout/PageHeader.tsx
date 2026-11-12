@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 
 interface PageHeaderProps {
   title: string;
@@ -59,7 +59,7 @@ export function TabRow({ children, ariaLabel }: TabRowProps) {
     <div
       role="group"
       aria-label={ariaLabel ?? "View toggles"}
-      className="shrink-0 mx-8 border-b border-border-subtle flex items-end gap-6"
+      className="shrink-0 mx-8 border-b border-border-subtle flex items-end gap-6 max-md:gap-5 max-md:overflow-x-auto max-md:[scrollbar-width:none]"
     >
       {children}
     </div>
@@ -74,12 +74,20 @@ interface TabProps {
 }
 
 export function Tab({ active, label, onClick, meta }: TabProps) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const hasMeta = meta != null;
+  // On phones the row scrolls sideways; keep the current tab in view.
+  useEffect(() => {
+    if (active)
+      ref.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [active, hasMeta]);
   return (
     <button
+      ref={ref}
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`relative pb-2.5 -mb-px text-sm font-medium flex items-center gap-1.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+      className={`relative shrink-0 whitespace-nowrap pb-2.5 -mb-px text-sm font-medium flex items-center gap-1.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
         active ? "text-foreground" : "text-foreground-2 hover:text-foreground"
       }`}
     >
