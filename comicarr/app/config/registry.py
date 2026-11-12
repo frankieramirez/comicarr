@@ -214,6 +214,7 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("HTTPS_KEY", str, "Interface", None),
     ConfigKey("AUTHENTICATION", int, "Interface", 2, readable=True),
     ConfigKey("LOGIN_TIMEOUT", int, "Interface", 43800),
+    ConfigKey("LOGIN_COVER_WALL", bool, "Interface", False, readable=True, writable=True),
     ConfigKey("API_ENABLED", bool, "API", False),
     ConfigKey("API_KEY", str, "API", None),
     ConfigKey("COMICVINE_ENABLED", bool, "CV", True, readable=True, writable=True),

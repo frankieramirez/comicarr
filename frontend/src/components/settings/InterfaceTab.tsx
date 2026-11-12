@@ -60,6 +60,15 @@ export function InterfaceTab({
           onChange={(checked) => onChange("launch_browser", checked as boolean)}
           helpText="Automatically open browser when Comicarr starts"
         />
+        <SettingField
+          label="Cover wall on sign-in"
+          type="checkbox"
+          checked={formData.login_cover_wall}
+          onChange={(checked) =>
+            onChange("login_cover_wall", checked as boolean)
+          }
+          helpText="Show your library's covers behind the sign-in form. Anyone who can reach the sign-in page sees them. Series rated adult are always left out; unrated series can appear."
+        />
       </SettingGroup>
     </div>
   );

@@ -29,7 +29,8 @@ describe("LoginPage", () => {
     expect(
       screen.getByPlaceholderText("from server logs if required"),
     ).toBeTruthy();
-    expect(screen.getByText(formatAppVersion())).toBeTruthy();
+    // The public sign-in page doesn't say which version is running.
+    expect(screen.queryByText(formatAppVersion())).toBeNull();
     const confirm = screen.getByLabelText("Confirm password");
     expect(confirm).toBe(document.querySelectorAll("form input")[2]);
     expect((confirm as HTMLInputElement).placeholder).toBe("confirm");
@@ -100,23 +101,89 @@ describe("LoginPage", () => {
     render(<LoginPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Sign in")).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Sign in" })).toBeTruthy();
     });
 
-    await userEvent.type(screen.getByPlaceholderText("username"), "wronguser");
-    await userEvent.type(screen.getByPlaceholderText("password"), "wrongpass");
-    await userEvent.click(screen.getByRole("button", { name: /continue/i }));
+    await userEvent.type(screen.getByLabelText("Username"), "wronguser");
+    await userEvent.type(screen.getByLabelText("Password"), "wrongpass");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Invalid username or password");
   });
 
-  it("labels the login form fields from MonoLabel", async () => {
+  it("sends Keep me signed in with the sign-in, ticked by default", async () => {
+    const bodies: unknown[] = [];
+    server.use(
+      http.get("/api/auth/check-setup", () =>
+        HttpResponse.json({ success: true, needs_setup: false }),
+      ),
+      http.get("/api/auth/check-session", () =>
+        HttpResponse.json({ success: true, authenticated: false }),
+      ),
+      http.post("/api/auth/login", async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({ success: false, error: "nope" });
+      }),
+    );
+    render(<LoginPage />);
+
+    const remember = await screen.findByLabelText("Keep me signed in");
+    expect((remember as HTMLInputElement).checked).toBe(true);
+    await userEvent.type(screen.getByLabelText("Username"), "admin");
+    await userEvent.type(screen.getByLabelText("Password"), "pw");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await screen.findByRole("alert");
+    await userEvent.click(remember);
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[0]).toMatchObject({ username: "admin", remember: true });
+    expect(bodies[1]).toMatchObject({ remember: false });
+  });
+
+  it("labels the login form fields", async () => {
     render(<LoginPage />);
 
     await waitFor(() => {
       expect(screen.getByLabelText("Username")).toBeTruthy();
     });
     expect(screen.getByLabelText("Password")).toBeTruthy();
+  });
+});
+
+describe("LoginPage cover wall", () => {
+  it("draws the server's cover tiles when the wall is on", async () => {
+    server.use(
+      http.get("/api/auth/check-setup", () =>
+        HttpResponse.json({ success: true, needs_setup: false }),
+      ),
+      http.get("/api/auth/cover-wall", () =>
+        HttpResponse.json({ enabled: true, tiles: 2 }),
+      ),
+    );
+    render(<LoginPage />);
+
+    const wall = await screen.findByTestId("cover-wall");
+    const sources = [...wall.querySelectorAll("img")].map((img) =>
+      img.getAttribute("src"),
+    );
+    expect(new Set(sources)).toEqual(
+      new Set(["/api/auth/cover-wall/0", "/api/auth/cover-wall/1"]),
+    );
+    expect(
+      screen.getByText("self-hosted · your covers stay on this server"),
+    ).toBeTruthy();
+  });
+
+  it("keeps the grid backdrop when the wall is off", async () => {
+    server.use(
+      http.get("/api/auth/check-setup", () =>
+        HttpResponse.json({ success: true, needs_setup: false }),
+      ),
+    );
+    render(<LoginPage />);
+    await screen.findByText("COMICARR · READY");
+    expect(screen.queryByTestId("cover-wall")).toBeNull();
   });
 });

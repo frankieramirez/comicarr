@@ -71,10 +71,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = async (
     username: string,
     password: string,
+    remember = true,
   ): Promise<{ success: boolean; error?: string }> => {
     setIsVerifying(true);
     try {
-      const result = await apiLogin(username, password);
+      const result = await apiLogin(username, password, remember);
       if (result.success && result.username) {
         setUser({ username: result.username });
         return { success: true };

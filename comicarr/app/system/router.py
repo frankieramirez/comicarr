@@ -20,7 +20,7 @@ import threading
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 
 from comicarr import logger
@@ -37,6 +37,9 @@ from comicarr.app.system import support_bundle as support_bundle_module
 from comicarr.app.system.log_files import LogFileError
 
 router = APIRouter(prefix="/api", tags=["system"])
+
+#: Longest session when "Keep me signed in" is unticked (12 hours).
+SHORT_SESSION_MINUTES = 12 * 60
 
 
 @router.post("/auth/login")
@@ -63,6 +66,12 @@ async def login(request: Request, ctx: AppContext = Depends(get_context)):
         )
 
     login_timeout = getattr(ctx.config, "LOGIN_TIMEOUT", 43800) if ctx.config else 43800
+    # "Keep me signed in" (the default) keeps the session for LOGIN_TIMEOUT
+    # minutes across browser restarts. Unticked, the cookie ends with the
+    # browser session and the token is capped at SHORT_SESSION_MINUTES.
+    remember = body.get("remember", True) is not False
+    if not remember:
+        login_timeout = min(login_timeout, SHORT_SESSION_MINUTES)
     with ctx.runtime_lock:
         token = create_session_token(username, ctx.jwt_secret_key, ctx.jwt_generation, login_timeout)
 
@@ -74,7 +83,7 @@ async def login(request: Request, ctx: AppContext = Depends(get_context)):
         httponly=True,
         secure=enable_https,
         samesite="strict",
-        max_age=2_628_000,
+        max_age=max(login_timeout, 1) * 60 if remember else None,
     )
     return response
 
@@ -115,6 +124,25 @@ def check_setup(ctx: AppContext = Depends(get_context)):
     """Check if initial setup is needed."""
     needs_setup = not getattr(ctx.config, "HTTP_USERNAME", None) or not getattr(ctx.config, "HTTP_PASSWORD", None)
     return {"success": True, "needs_setup": needs_setup}
+
+
+@router.get("/auth/cover-wall")
+def get_cover_wall(ctx: AppContext = Depends(get_context)):
+    """Public: how many cover tiles the sign-in page may show (0 when off)."""
+    from comicarr.app.system import cover_wall
+
+    return {"enabled": cover_wall.enabled(ctx.config), "tiles": len(cover_wall.tiles(ctx.config))}
+
+
+@router.get("/auth/cover-wall/{slot}")
+def get_cover_wall_tile(slot: int, ctx: AppContext = Depends(get_context)):
+    """Public: one cached cover for the sign-in wall, by slot number."""
+    from comicarr.app.system import cover_wall
+
+    path = cover_wall.cover_path(ctx.config, slot)
+    if path is None:
+        return JSONResponse(status_code=404, content={"detail": "No cover in that slot."})
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
 
 
 _setup_lock = threading.Lock()

@@ -13,20 +13,9 @@ import { formatAppVersion } from "@/lib/version";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/layout/AppSidebar";
 import OnboardingDialog from "@/components/onboarding/OnboardingDialog";
-import LoginPage from "@/pages/LoginPage";
 import SettingsPage from "@/pages/SettingsPage";
 
 describe("version display consumers", () => {
-  it("LoginPage badge uses formatAppVersion()", async () => {
-    server.use(
-      http.get("/api/auth/check-setup", () =>
-        HttpResponse.json({ success: true, needs_setup: false }),
-      ),
-    );
-    render(createElement(LoginPage));
-    expect(await screen.findByText(formatAppVersion())).toBeTruthy();
-  });
-
   it("OnboardingDialog welcome label uses formatAppVersion()", async () => {
     render(
       createElement(OnboardingDialog, {

@@ -10,11 +10,11 @@ setup("authenticate seeded admin", async ({ page }) => {
   mkdirSync(dirname(authFile), { recursive: true });
 
   await page.goto("/login");
-  await expect(page.getByText("Sign in")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 
-  await page.getByPlaceholder("username").fill(ADMIN_USERNAME);
-  await page.getByPlaceholder("password").fill(ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByLabel("Username", { exact: true }).fill(ADMIN_USERNAME);
+  await page.getByLabel("Password", { exact: true }).fill(ADMIN_PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page.getByText("Dashboard").first()).toBeVisible();
 

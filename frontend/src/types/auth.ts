@@ -21,6 +21,7 @@ export interface AuthContextValue {
   login: (
     username: string,
     password: string,
+    remember?: boolean,
   ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<LogoutResponse>;
 }
