@@ -43,6 +43,8 @@ test("operator can classify a ComicVine series as manga", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Solo Leveling" }),
   ).toBeVisible();
+  // v2 moved content kind and metadata provider into the series Settings tab.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(
     page.getByText(/Metadata still comes from ComicVine/),
   ).toBeVisible();
