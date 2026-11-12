@@ -615,6 +615,7 @@ export type ImportPickReason =
   | "no_match"
   | "tied"
   | "mixed_years"
+  | "other_year"
   | "below_bar"
   | "confident";
 

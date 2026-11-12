@@ -163,6 +163,18 @@ describe("importPick helpers", () => {
     expect(
       pickNote(panel({ reason: "no_match", pick: null, remembers: false })),
     ).toBe("Nothing in your library looks like this.");
+    expect(
+      pickNote(
+        panel({
+          reason: "other_year",
+          years: ["2026"],
+          remembers: false,
+          tied: 1,
+        }),
+      ),
+    ).toBe(
+      "The files name 2026, but BLAME! (2016) started in 2016. Files often carry the issue's cover year, so check it's the right volume. Comicarr's pick is selected.",
+    );
   });
 });
 

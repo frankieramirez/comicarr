@@ -79,6 +79,13 @@ export function pickNote(panel: ImportPickPanel): string {
     case "mixed_years":
       why = `The files name more than one year (${panel.years.join(", ")}), so they may not be one series.`;
       break;
+    case "other_year": {
+      const top = panel.candidates[0];
+      why = `The files name ${panel.years.join(", ")}, but ${
+        top ? candidateTitle(top) : "the closest series"
+      } started in ${top?.year ?? "another year"}. Files often carry the issue's cover year, so check it's the right volume.`;
+      break;
+    }
     case "below_bar":
       why = `The best guess scored ${best}%, under your ${panel.confidence_bar}% auto-import bar.`;
       break;

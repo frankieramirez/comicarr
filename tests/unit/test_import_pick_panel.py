@@ -128,6 +128,23 @@ def test_candidates_say_when_the_best_guess_is_under_the_bar(pick_db):
     assert 40 <= panel["candidates"][0]["score"] < 80
 
 
+def test_a_series_from_an_earlier_year_is_offered_below_the_bar(pick_db):
+    # Files carry the issue's cover year; Saga began in 2012. A series that
+    # began after the files' year cannot hold them and stays out.
+    _series(pick_db.engine, "cv-saga", "Saga", "2012", publisher="Image")
+    _series(pick_db.engine, "cv-saga-later", "Saga", "2030", publisher="Image")
+    _, ids = _group(pick_db, "Saga (2026)", ["Saga 055 (2026).cbz", "Saga 056 (2026).cbz"])
+
+    panel = candidates.group_candidates(pick_db.ctx, ids)
+
+    assert [c["comic_id"] for c in panel["candidates"]] == ["cv-saga"]
+    assert panel["candidates"][0]["score"] == 70
+    assert panel["pick"] == "cv-saga"
+    assert panel["reason"] == "other_year"
+    # Auto-import keeps the strict rule.
+    assert importinbox.score_series("Saga", {"2026"}, {"ComicName": "Saga", "ComicYear": "2012"}) == 0.0
+
+
 def test_candidates_with_nothing_close_say_no_match(pick_db):
     _series(pick_db.engine, "cv-batman", "Batman", "2016")
     _, ids = _group(pick_db, "Scan_0042", ["Scan_0042.pdf"])
