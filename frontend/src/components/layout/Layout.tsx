@@ -136,7 +136,9 @@ export default function Layout({ children }: LayoutProps) {
         {/* Mobile header with trigger - only visible on mobile */}
         <header className="z-10 flex h-16 shrink-0 items-center gap-4 border-b bg-background px-4 md:hidden">
           <SidebarTrigger />
-          <span className="text-lg font-bold gradient-brand">Comicarr</span>
+          <span className="text-lg font-semibold text-foreground">
+            Comicarr<span className="text-primary">.</span>
+          </span>
           {showAiBell && (
             <div className="ml-auto flex items-center gap-1">
               <button
@@ -151,7 +153,7 @@ export default function Layout({ children }: LayoutProps) {
         </header>
 
         {/* Desktop omni status bar */}
-        <div className="hidden md:flex h-12 shrink-0 items-center gap-3 border-b-[0.5px] border-border bg-card px-4 mono-meta">
+        <div className="hidden md:flex h-10 shrink-0 items-center gap-3 border-b border-border-subtle bg-background px-4 mono-meta">
           <SidebarTrigger />
           <AppStatusBar />
           <div className="ml-auto flex items-center gap-3">

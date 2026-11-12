@@ -192,8 +192,8 @@ export default function WantedPage() {
               disabled={forceSearch.isPending}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control text-[12px] font-semibold disabled:opacity-60"
               style={{
-                background: "var(--primary)",
-                color: "var(--primary-foreground)",
+                background: "var(--act)",
+                color: "var(--act-foreground)",
               }}
             >
               <Search className="w-3.5 h-3.5" />

@@ -305,7 +305,7 @@ export default function DashboardPage() {
               type="submit"
               aria-label="Ask Comicarr"
               disabled={!question.trim()}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-primary text-primary-foreground disabled:opacity-40"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-act text-act-foreground disabled:opacity-40"
             >
               <ArrowUp className="w-3.5 h-3.5" />
             </button>

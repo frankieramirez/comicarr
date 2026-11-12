@@ -81,7 +81,7 @@ export function SeriesContentKind({
                 }}
                 className={`rounded-[3px] px-3 py-2 font-mono text-[12px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70 ${
                   active
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-surface-3 text-foreground"
                     : "text-muted-foreground"
                 }`}
               >

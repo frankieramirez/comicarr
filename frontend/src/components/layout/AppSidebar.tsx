@@ -205,7 +205,7 @@ export default function AppSidebar() {
   return (
     <Sidebar collapsible="icon" variant="sidebar">
       {/* Brand header */}
-      <SidebarHeader className="px-3 pt-3 pb-3 border-b-[0.5px] border-sidebar-border h-12">
+      <SidebarHeader className="px-3 py-0 justify-center border-b border-border-subtle h-10">
         <div className="flex items-center gap-2">
           <Link
             to="/"
@@ -276,7 +276,9 @@ export default function AppSidebar() {
             Only shown when an AI provider is configured (v2: MCP is the agent path). */}
         <div
           className={
-            aiConfigured ? "py-2 group-data-[collapsible=icon]:hidden" : "hidden"
+            aiConfigured
+              ? "py-2 group-data-[collapsible=icon]:hidden"
+              : "hidden"
           }
         >
           <button

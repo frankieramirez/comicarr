@@ -61,7 +61,7 @@ describe("page headings", () => {
       screen.getByRole("heading", { level: 1, name: "Activity" }),
     ).toBeTruthy();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    const meta = container.querySelector(".mono-meta");
+    const meta = container.querySelector("[data-testid=page-header-meta]");
     expect(meta?.textContent).toBe("in flight");
   });
 
@@ -72,7 +72,7 @@ describe("page headings", () => {
         name,
       });
       while (el) {
-        const pad = [...el.classList].find((cls) => cls.startsWith("py-"));
+        const pad = [...el.classList].find((cls) => cls.startsWith("pt-"));
         if (pad) return pad;
         el = el.parentElement;
       }
@@ -81,7 +81,7 @@ describe("page headings", () => {
 
     const dashboard = render(<DashboardPage />);
     await waitFor(() => {
-      expect(headerPadding("Dashboard")).toBe("py-3.5");
+      expect(headerPadding("Dashboard")).toBe("pt-5");
     });
     dashboard.unmount();
 
@@ -91,13 +91,13 @@ describe("page headings", () => {
       </NuqsAdapter>,
     );
     await waitFor(() => {
-      expect(headerPadding("Library")).toBe("py-3.5");
+      expect(headerPadding("Library")).toBe("pt-5");
     });
     library.unmount();
 
     const releases = render(<ReleasesPage />);
     await waitFor(() => {
-      expect(headerPadding("Releases")).toBe("py-3.5");
+      expect(headerPadding("Releases")).toBe("pt-5");
     });
     releases.unmount();
   });

@@ -8,8 +8,9 @@ interface PageHeaderProps {
 }
 
 /**
- * Standard Direction B page header — 18/semibold title + mono meta on the
- * left, optional actions on the right, hairline divider below.
+ * v2 page header: 24/semibold title with a plain-language subtitle on the
+ * left, at most one primary action on the right. No divider; the content
+ * below brings its own hairlines.
  */
 export default function PageHeader({
   title,
@@ -20,14 +21,19 @@ export default function PageHeader({
   return (
     <div
       data-testid="page-header"
-      className={`shrink-0 px-5 py-3.5 border-b border-border flex items-center gap-3 ${className}`}
+      className={`shrink-0 px-5 pt-5 pb-4 flex items-end gap-3 ${className}`}
     >
       <div className="min-w-0">
-        <h1 className="text-[18px] font-semibold tracking-tight leading-none">
+        <h1 className="text-2xl font-semibold tracking-tight leading-tight">
           {title}
         </h1>
         {meta != null && (
-          <div className="mono-meta mt-1.5 truncate">{meta}</div>
+          <div
+            data-testid="page-header-meta"
+            className="mt-1 truncate text-sm text-foreground-2"
+          >
+            {meta}
+          </div>
         )}
       </div>
       {actions != null && (
@@ -53,7 +59,7 @@ export function TabRow({ children, ariaLabel }: TabRowProps) {
     <div
       role="group"
       aria-label={ariaLabel ?? "View toggles"}
-      className="shrink-0 px-5 pt-3 border-b border-border flex items-end gap-6"
+      className="shrink-0 mx-5 border-b border-border-subtle flex items-end gap-6"
     >
       {children}
     </div>
@@ -73,20 +79,18 @@ export function Tab({ active, label, onClick, meta }: TabProps) {
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className="relative pb-3 -mb-px font-mono text-[11px] tracking-[0.1em] uppercase flex items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      style={{
-        color: active ? "var(--foreground)" : "var(--muted-foreground)",
-      }}
+      className={`relative pb-2.5 -mb-px text-sm font-medium flex items-center gap-1.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+        active ? "text-foreground" : "text-foreground-2 hover:text-foreground"
+      }`}
     >
       <span>{label}</span>
       {meta != null && (
-        <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-          {meta}
-        </span>
+        <span className="font-mono text-xs text-muted-foreground">{meta}</span>
       )}
       <span
-        className="absolute left-0 right-0 bottom-0 h-[2px]"
-        style={{ background: active ? "var(--primary)" : "transparent" }}
+        className={`absolute left-0 right-0 bottom-0 h-0.5 ${
+          active ? "bg-primary" : "bg-transparent"
+        }`}
       />
     </button>
   );

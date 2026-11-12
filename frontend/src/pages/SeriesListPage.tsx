@@ -44,8 +44,8 @@ export default function SeriesListPage() {
             to="/search"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control text-[12px] font-semibold"
             style={{
-              background: "var(--primary)",
-              color: "var(--primary-foreground)",
+              background: "var(--act)",
+              color: "var(--act-foreground)",
             }}
           >
             <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
