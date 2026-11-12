@@ -20,7 +20,7 @@ export function DataTableSortHeader<
 
   return (
     <div
-      className="flex items-center gap-1 cursor-pointer select-none hover:text-foreground"
+      className="group/sort flex items-center gap-1 cursor-pointer select-none hover:text-foreground"
       role="button"
       tabIndex={0}
       onClick={column.getToggleSortingHandler()}
@@ -33,12 +33,12 @@ export function DataTableSortHeader<
     >
       <span>{title}</span>
       {column.getIsSorted() === "asc" ? (
-        <ChevronUp className="w-4 h-4" aria-hidden />
+        <ChevronUp className="w-3 h-3" aria-hidden />
       ) : column.getIsSorted() === "desc" ? (
-        <ChevronDown className="w-4 h-4" aria-hidden />
+        <ChevronDown className="w-3 h-3" aria-hidden />
       ) : (
         <ChevronsUpDown
-          className="w-4 h-4 text-muted-foreground/50"
+          className="w-3 h-3 opacity-0 group-hover/sort:opacity-60"
           aria-hidden
         />
       )}

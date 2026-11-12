@@ -1,13 +1,17 @@
-import { Link } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import LibraryTabs from "@/components/series/LibraryTabs";
+import { useLibrarySummary } from "@/hooks/useLibrarySummary";
 import { useSeries } from "@/hooks/useSeries";
 import SeriesTable from "@/components/series/SeriesTable";
 import PageHeader from "@/components/layout/PageHeader";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
-import { Kbd } from "@/components/ui/kbd";
 
 export default function SeriesListPage() {
   const { data: series = [], isLoading, error } = useSeries();
+  const summary = useLibrarySummary();
+  const navigate = useNavigate();
 
   if (error) {
     return (
@@ -22,46 +26,36 @@ export default function SeriesListPage() {
     );
   }
 
-  const total = series.length;
-  const mangaCount = series.filter(
-    (s) => (s.ContentType || "").toLowerCase() === "manga",
-  ).length;
-  const comicCount = total - mangaCount;
-
   return (
     <div className="h-full flex flex-col page-transition">
       <PageHeader
         title="Library"
-        meta={
-          isLoading
-            ? "loading…"
-            : total === 0
-              ? "0 series"
-              : `${total} series · ${comicCount} comic${comicCount === 1 ? "" : "s"} · ${mangaCount} manga`
-        }
+        meta={summary}
         actions={
-          <Link
-            to="/search"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control text-[12px] font-semibold"
-            style={{
-              background: "var(--primary)",
-              color: "var(--primary-foreground)",
-            }}
-          >
-            <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-            <span>Add</span>
-            <Kbd
-              className="bg-black/10! border-black/20! text-black/70!"
-              style={{ color: "rgba(0,0,0,0.7)" }}
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="toolbar"
+              className="bg-surface-2"
+              onClick={() => navigate("/import")}
             >
-              N
-            </Kbd>
-          </Link>
+              <RefreshCw />
+              Scan libraries
+            </Button>
+            <Button size="toolbar" asChild>
+              <Link to="/search" title="Add series (N)">
+                <Plus />
+                Add series
+              </Link>
+            </Button>
+          </>
         }
       />
+      <LibraryTabs />
 
       {/* Table body */}
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 flex flex-col pt-4">
         <SeriesTable data={series} isLoading={isLoading} />
       </div>
     </div>

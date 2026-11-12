@@ -51,7 +51,7 @@ export default function VersionChip() {
           "group-data-[collapsible=icon]:hidden relative font-mono text-[10px] px-1.5 py-0.5 border rounded-sm transition-colors",
           behind
             ? "border-primary/50 text-foreground pr-3.5 hover:bg-primary/5"
-            : "border-sidebar-border text-muted-foreground",
+            : "border-transparent px-0 text-muted-foreground",
           !behind && "pointer-events-none",
         )}
         aria-label={ariaLabel}

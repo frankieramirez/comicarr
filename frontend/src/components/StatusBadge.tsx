@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge";
 import { statusTone } from "@/lib/statusTone";
 
 interface StatusBadgeProps {
@@ -25,46 +24,29 @@ export default function StatusBadge({
   const text = label ?? tone.label;
   const caption = title;
 
-  if (variant === "dot") {
-    return (
-      <span
-        className={
-          className ??
-          "inline-flex items-center gap-1.5 font-mono text-[10px] uppercase"
-        }
-        style={{ color: tone.token }}
-        title={caption}
-        aria-label={caption ? `${text}: ${caption}` : text}
-      >
-        {showIcon && (
-          <span
-            data-testid="status-dot"
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: tone.token }}
-          />
-        )}
-        {text}
-      </span>
-    );
-  }
-
+  // v2: status is always a 6px dot plus plain text. The dot carries the
+  // tone; the words stay in readable secondary text. "pill" keeps a slightly
+  // larger label for headers, "dot" is the dense row form.
+  const textClass =
+    variant === "dot"
+      ? "inline-flex items-center gap-1.5 text-xs text-foreground-2"
+      : "inline-flex items-center gap-2 text-[13px] text-foreground-2";
+  // "Needs you" states keep the words at full contrast, not just the dot.
+  const needsYou = tone.badgeVariant === "error";
   return (
-    <Badge
-      variant={tone.badgeVariant}
-      className={className ?? "gap-1.5 rounded-full px-2.5 py-1"}
+    <span
+      className={className ?? textClass}
       title={caption}
+      aria-label={caption ? `${text}: ${caption}` : text}
     >
       {showIcon && (
         <span
           data-testid="status-dot"
-          className="inline-block h-1.5 w-1.5 rounded-full"
-          style={{
-            backgroundColor: tone.token,
-            boxShadow: `0 0 8px 2px color-mix(in srgb, ${tone.glowColor} 50%, transparent)`,
-          }}
+          className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+          style={{ backgroundColor: tone.token }}
         />
       )}
-      {text}
-    </Badge>
+      <span className={needsYou ? "text-foreground" : undefined}>{text}</span>
+    </span>
   );
 }

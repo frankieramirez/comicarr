@@ -233,8 +233,8 @@ function SetupForm() {
         disabled={isSubmitting}
         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-[13px] font-semibold disabled:opacity-60"
         style={{
-          background: "var(--primary)",
-          color: "var(--primary-foreground)",
+          background: "var(--act)",
+          color: "var(--act-foreground)",
         }}
       >
         {isSubmitting ? (
@@ -346,8 +346,8 @@ function LoginForm() {
         disabled={isVerifying}
         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-[13px] font-semibold disabled:opacity-60"
         style={{
-          background: "var(--primary)",
-          color: "var(--primary-foreground)",
+          background: "var(--act)",
+          color: "var(--act-foreground)",
         }}
       >
         {isVerifying ? (

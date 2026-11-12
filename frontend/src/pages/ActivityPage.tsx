@@ -35,12 +35,16 @@ import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import EmptyState from "@/components/ui/EmptyState";
 import FilterField from "@/components/ui/FilterField";
 import RelativeTime from "@/components/ui/RelativeTime";
-import PageHeader, { Tab, TabRow } from "@/components/layout/PageHeader";
+import PageHeader from "@/components/layout/PageHeader";
+import {
+  ActivityTabs,
+  type ActivityTab,
+} from "@/components/activity/ActivityTabs";
 import StatusBadge from "@/components/StatusBadge";
 import { useToast } from "@/components/ui/toast";
 import type { PaginationMeta } from "@/types";
 
-type ActivityView = "timeline" | "in_flight" | "queue" | "history";
+type ActivityView = ActivityTab;
 const PAGE_SIZE = 25;
 
 const ACTIVITY_STATUS_TITLES: Record<string, string> = {
@@ -119,39 +123,18 @@ export default function ActivityPage() {
 
   const meta =
     currentView === "timeline"
-      ? "what Comicarr has been doing"
+      ? "Everything Comicarr did, and what went wrong"
       : currentView === "in_flight"
-        ? "running searches and open download rows"
+        ? "Searches running now and downloads on their way in"
         : currentView === "queue"
-          ? "live direct downloads"
-          : "download history";
+          ? "Direct downloads, live"
+          : "Every download, newest first";
 
   return (
     <div className="page-transition flex h-full min-h-0 flex-col">
       <PageHeader title="Activity" meta={meta} />
 
-      <TabRow>
-        <Tab
-          active={currentView === "timeline"}
-          label="Timeline"
-          onClick={() => setView("timeline")}
-        />
-        <Tab
-          active={currentView === "in_flight"}
-          label="In flight"
-          onClick={() => setView("in_flight")}
-        />
-        <Tab
-          active={currentView === "queue"}
-          label="Direct Downloads"
-          onClick={() => setView("queue")}
-        />
-        <Tab
-          active={currentView === "history"}
-          label="Download History"
-          onClick={() => setView("history")}
-        />
-      </TabRow>
+      <ActivityTabs active={currentView} onSelect={setView} />
 
       <div className="flex-1 min-h-0 flex flex-col">
         {currentView === "timeline" && (
@@ -262,7 +245,7 @@ function InFlightView() {
 
   if (hardError) {
     return (
-      <div className="px-5 py-4">
+      <div className="px-8 py-4">
         <ErrorDisplay
           error={hardError}
           title="Unable to load in-flight work"
@@ -274,7 +257,7 @@ function InFlightView() {
 
   if (items.length === 0) {
     return (
-      <div className="px-5 py-10">
+      <div className="px-8 py-10">
         <EmptyState
           variant="custom"
           eyebrow="IN FLIGHT · EMPTY"
@@ -287,16 +270,13 @@ function InFlightView() {
   }
 
   return (
-    <ul
-      className="flex-1 min-h-0 overflow-auto divide-y divide-border"
-      aria-label="In-flight items"
-    >
+    <ul className="flex-1 min-h-0 overflow-auto" aria-label="In-flight items">
       {items.map((item) => {
         const href = inFlightHref(item);
         return (
           <li
             key={inFlightRowId(item)}
-            className="flex items-start gap-3 px-5 py-2.5"
+            className="mx-8 flex items-start gap-3 border-b border-border-subtle px-2 py-2"
             data-kind={item.kind}
             data-item-id={
               item.kind === "run" ? String(item.item_id) : item.release_key
@@ -386,7 +366,7 @@ function ActivityToolbar({
   onRefresh: () => void;
 }) {
   return (
-    <div className="shrink-0 px-5 py-2.5 border-b border-border flex items-center gap-3">
+    <div className="shrink-0 px-8 pt-1 pb-3 flex items-center gap-3">
       <div className="flex-1 max-w-lg">
         <FilterField
           placeholder={placeholder}
@@ -396,25 +376,24 @@ function ActivityToolbar({
           shortcut="/"
         />
       </div>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         onClick={onRefresh}
         disabled={isRefreshing}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-control border mono-meta disabled:opacity-60"
-        style={{ borderColor: "var(--border)" }}
+        aria-label="Refresh"
+        title="Refresh"
       >
-        <RefreshCw
-          className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`}
-        />
-        refresh
-      </button>
+        <RefreshCw className={isRefreshing ? "animate-spin" : ""} />
+      </Button>
     </div>
   );
 }
 
 function LoadingRows() {
   return (
-    <div className="px-5 py-4 space-y-2">
+    <div className="px-8 py-4 space-y-2">
       {[0, 1, 2].map((index) => (
         <Skeleton key={index} className="h-11" />
       ))}
@@ -529,12 +508,12 @@ function ActivityTableView<TData extends RowData>({
       />
       {isLoading && <LoadingRows />}
       {error && (
-        <div className="px-5 py-4">
+        <div className="px-8 py-4">
           <ErrorDisplay error={error} title={errorTitle} onRetry={onRefresh} />
         </div>
       )}
       {!isLoading && !error && rows.length === 0 && (
-        <div className="px-5 py-4">
+        <div className="px-8 py-4">
           <EmptyState
             variant="custom"
             eyebrow={
@@ -555,7 +534,7 @@ function ActivityTableView<TData extends RowData>({
         </div>
       )}
       {!isLoading && !error && pagination && rows.length > 0 && (
-        <div className="flex-1 min-h-0 flex flex-col border-b border-border">
+        <div className="flex-1 min-h-0 flex flex-col">
           <div className="flex-1 min-h-0 overflow-auto">
             <DataTable table={table} />
           </div>

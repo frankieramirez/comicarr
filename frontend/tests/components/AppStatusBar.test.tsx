@@ -74,13 +74,11 @@ describe("AppStatusBar", () => {
 
     await waitFor(() => {
       expect(screen.getByText("3 in flight")).toBeTruthy();
-      expect(screen.getByText("⚠ 2 need attention")).toBeTruthy();
+      expect(screen.getByText("2 need you")).toBeTruthy();
     });
 
     expect(
-      screen
-        .getByRole("link", { name: "⚠ 2 need attention" })
-        .getAttribute("href"),
+      screen.getByRole("link", { name: "2 need you" }).getAttribute("href"),
     ).toBe("/activity/attention");
   });
 

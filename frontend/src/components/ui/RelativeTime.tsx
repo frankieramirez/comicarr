@@ -7,7 +7,29 @@ function parseDate(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export default function RelativeTime({ value }: { value?: string | null }) {
+const COMPACT_UNITS: Record<string, string> = {
+  second: "s",
+  minute: "m",
+  hour: "h",
+  day: "d",
+  month: "mo",
+  year: "y",
+};
+
+/** "9 minutes ago" becomes "9m": for narrow rails where the column says when. */
+function compactDistance(date: Date): string {
+  const [amount, unit] = formatDistanceToNowStrict(date).split(" ");
+  const key = unit.replace(/s$/, "");
+  return `${amount}${COMPACT_UNITS[key] ?? key}`;
+}
+
+export default function RelativeTime({
+  value,
+  compact = false,
+}: {
+  value?: string | null;
+  compact?: boolean;
+}) {
   const date = parseDate(value || "");
   if (!date) return <span className="text-muted-foreground">—</span>;
 
@@ -17,7 +39,9 @@ export default function RelativeTime({ value }: { value?: string | null }) {
       title={format(date, "PPpp")}
       className="mono-meta whitespace-nowrap"
     >
-      {formatDistanceToNowStrict(date, { addSuffix: true })}
+      {compact
+        ? compactDistance(date)
+        : formatDistanceToNowStrict(date, { addSuffix: true })}
     </time>
   );
 }

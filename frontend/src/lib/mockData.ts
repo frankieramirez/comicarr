@@ -402,6 +402,188 @@ function recentNarrativeEvents() {
   });
 }
 
+/** Two days of timeline events, newest first, for the Activity mock. */
+function timelineEvents() {
+  const now = Date.now();
+  const min = 60 * 1000;
+  const hour = 60 * min;
+  const rows: Array<
+    [
+      number,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string | null,
+      string | null,
+    ]
+  > = [
+    [
+      12 * min,
+      "add",
+      "succeeded",
+      "series",
+      COVERS[4].id,
+      COVERS[4].title,
+      null,
+      null,
+    ],
+    [
+      95 * min,
+      "search",
+      "succeeded",
+      "run",
+      "run-41",
+      "Wanted search",
+      null,
+      null,
+    ],
+    [
+      3 * hour,
+      "grab",
+      "succeeded",
+      "issue",
+      `${COVERS[0].id}-${COVERS[0].have}`,
+      `${COVERS[0].title} #${COVERS[0].have}`,
+      null,
+      null,
+    ],
+    [
+      3 * hour + 4 * min,
+      "import",
+      "succeeded",
+      "issue",
+      `${COVERS[0].id}-${COVERS[0].have}`,
+      `${COVERS[0].title} #${COVERS[0].have}`,
+      null,
+      null,
+    ],
+    [
+      5 * hour,
+      "refresh",
+      "succeeded",
+      "series",
+      COVERS[2].id,
+      COVERS[2].title,
+      null,
+      null,
+    ],
+    [
+      26 * hour,
+      "import",
+      "failed",
+      "issue",
+      `${COVERS[1].id}-${COVERS[1].have + 1}`,
+      `${COVERS[1].title} #${COVERS[1].have + 1}`,
+      "import_failed",
+      "sh: /scripts/comictagger.sh: not found",
+    ],
+    [
+      27 * hour,
+      "grab",
+      "failed",
+      "issue",
+      `${COVERS[3].id}-${COVERS[3].have + 1}`,
+      `${COVERS[3].title} #${COVERS[3].have + 1}`,
+      "provider_error",
+      "SABnzbd: duplicate NZB, job skipped",
+    ],
+    [
+      30 * hour,
+      "download",
+      "succeeded",
+      "issue",
+      `${COVERS[6].id}-${COVERS[6].have}`,
+      `${COVERS[6].title} #${COVERS[6].have}`,
+      null,
+      null,
+    ],
+  ];
+  return rows.map(
+    (
+      [
+        ago,
+        activity,
+        status,
+        subject_type,
+        subject_id,
+        subject_label,
+        reason_code,
+        reason_detail,
+      ],
+      i,
+    ) => ({
+      event_id: 100 + i,
+      created_at: new Date(now - ago).toISOString(),
+      activity,
+      status,
+      subject_type,
+      subject_id,
+      subject_label,
+      reason_code,
+      reason_detail,
+      run_id: subject_type === "run" ? subject_id : null,
+      parent_series_id:
+        subject_type === "issue" ? subject_id.replace(/-\d+$/, "") : null,
+    }),
+  );
+}
+
+/** Pending import groups: a spread of confident, shaky and unmatched guesses. */
+function importGroups() {
+  const rows: Array<
+    [string, string | null, number, string, string | null, number | null]
+  > = [
+    [
+      "BLAME! Master Edition",
+      null,
+      6,
+      "inbox/BLAME! Master Edition",
+      "BLAME! (2016)",
+      72,
+    ],
+    ["superman_ann_2025", "2025", 1, "inbox", "Superman Annual (2025)", 41],
+    [
+      "Ashita no Joe",
+      "1968",
+      20,
+      "library/manga/Ashita no Joe",
+      "Ashita no Joe (1968)",
+      64,
+    ],
+    ["Magi", "2018", 1, "inbox", "Magi (2009)", 58],
+    ["Scan_0042", null, 1, "inbox", null, null],
+  ];
+  return rows.map(([name, year, count, folder, suggested, confidence], i) => ({
+    DynamicName: `folder:${folder}`,
+    ComicName: name,
+    Volume: null,
+    ComicYear: year,
+    FileCount: count,
+    Status: suggested ? "Suggested" : "Unmatched",
+    SRID: null,
+    ComicID: null,
+    MatchConfidence: confidence,
+    SuggestedComicID: suggested ? `mock-${i}` : null,
+    SuggestedComicName: suggested,
+    files: Array.from({ length: count }, (_, f) => ({
+      impID: `imp-${i}-${f}`,
+      ComicFilename: `${name} ${String(f + 1).padStart(2, "0")}.cbz`,
+      ComicLocation: `/data/${folder}/${name} ${String(f + 1).padStart(2, "0")}.cbz`,
+      IssueNumber: count > 1 ? String(f + 1) : null,
+      ComicYear: year,
+      Status: "Unmatched",
+      IgnoreFile: 0,
+      MatchConfidence: confidence,
+      SuggestedComicID: suggested ? `mock-${i}` : null,
+      SuggestedComicName: suggested,
+      SuggestedIssueID: null,
+      MatchSource: suggested ? "comicvine" : null,
+    })),
+  }));
+}
+
 function upcomingReleases() {
   const base = new Date();
   const addDays = (d: Date, n: number) => {
@@ -646,8 +828,101 @@ export function mockApiResponse(
   if (m === "GET" && url === "/api/health") {
     return { status: "ok" };
   }
+  if (m === "GET" && url === "/api/activity/timeline") {
+    const results = timelineEvents();
+    return {
+      results,
+      total: results.length,
+      limit: 100,
+      offset: 0,
+      has_more: false,
+    };
+  }
+  if (m === "GET" && url === "/api/attention") {
+    const group = (
+      comicid: string,
+      series_label: string,
+      base_reason: string,
+      reason_phrase: string,
+      member_count: number,
+      available_actions: string[],
+    ) => ({
+      group_key: `${comicid}|${base_reason}`,
+      comicid,
+      series_label,
+      base_reason,
+      reason_phrase,
+      member_count,
+      newest_updated_at: "2026-11-11 09:00:00",
+      oldest_updated_at: "2026-11-10 09:00:00",
+      stage: "failed",
+      available_actions,
+      members: Array.from({ length: member_count }, (_, i) => ({
+        release_key: `${comicid}-rk-${i}`,
+        issue_label: `${series_label} #${i + 1}`,
+        issueid: `${comicid}-iss-${i}`,
+        stage: "failed",
+        available_actions,
+        updated_date: "2026-11-11 09:00:00",
+      })),
+    });
+    const results = [
+      group(
+        "mock-1",
+        "Absolute Wonder Woman",
+        "postprocess_error",
+        "post-processing failed",
+        12,
+        ["retry", "stop_wanting"],
+      ),
+      group(
+        "mock-2",
+        "Absolute Batman",
+        "postprocess_error",
+        "post-processing failed",
+        11,
+        ["retry", "stop_wanting"],
+      ),
+      group("mock-3", "Absolute Flash", "search_error", "search failed", 1, [
+        "retry",
+        "stop_wanting",
+      ]),
+    ];
+    return { results, total: 5, member_total: 27, preview_cap: 3 };
+  }
+  if (m === "GET" && url === "/api/search/health") {
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      viable_route: true,
+      routes: {
+        nzb: {
+          ready: true,
+          reason: "ready",
+          downstream: "sabnzbd",
+          providers: [
+            {
+              name: "nzbgeek",
+              kind: "newznab",
+              blocked: false,
+              attempted: true,
+            },
+            {
+              name: "drunkenslug",
+              kind: "newznab",
+              blocked: false,
+              attempted: true,
+            },
+          ],
+        },
+      },
+      workers: { search: { state: "idle", alive: true, healthy: true } },
+      maintenance: { blocked: false },
+      blocked_producer_count: 0,
+      providers: [{ provider: "nzbgeek", lastrun: now - 6 * 3600 }],
+    };
+  }
   if (m === "GET" && url === "/api/activity/status") {
-    return { in_flight: 2, recovery_pending: 1, attention: 0 };
+    return { in_flight: 2, recovery_pending: 1, attention: 5 };
   }
   if (m === "GET" && url === "/api/activity/in-flight") {
     return {
@@ -747,6 +1022,7 @@ export function mockApiResponse(
       ComicID: u.ComicID,
       ComicName: u.ComicName,
       Issue_Number: u.IssueNumber,
+      IssueNumber: u.IssueNumber,
       IssueName: null,
       IssueDate: u.IssueDate,
       Status: u.Status,
@@ -800,7 +1076,27 @@ export function mockApiResponse(
     };
   }
   if (m === "GET" && url === "/api/config") {
-    return {};
+    return {
+      import_dir: "/data/downloads/comics/inbox",
+      comic_dir: "/data/comics",
+      manga_dir: "/data/manga",
+    };
+  }
+  if (m === "GET" && url === "/api/import") {
+    const imports = importGroups();
+    return {
+      imports,
+      pagination: {
+        total: imports.length,
+        limit: 50,
+        offset: 0,
+        has_more: false,
+      },
+      summary: {
+        group_count: imports.length,
+        file_count: imports.reduce((n, g) => n + g.FileCount, 0),
+      },
+    };
   }
 
   const detailMatch = url.match(/^\/api\/series\/([^/]+)$/);

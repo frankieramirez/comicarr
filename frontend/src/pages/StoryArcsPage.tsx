@@ -8,6 +8,9 @@ import StoryArcEmptyState from "@/components/storyarcs/StoryArcEmptyState";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
 import PageHeader from "@/components/layout/PageHeader";
+import LibraryTabs from "@/components/series/LibraryTabs";
+import { useLibrarySummary } from "@/hooks/useLibrarySummary";
+import { Info } from "lucide-react";
 
 export default function StoryArcsPage() {
   const { data: arcs, isLoading, error, refetch, isFetching } = useStoryArcs();
@@ -21,19 +24,19 @@ export default function StoryArcsPage() {
   };
 
   const count = arcs?.length ?? 0;
+  const summary = useLibrarySummary();
 
   return (
     <div className="page-transition flex h-full min-h-0 flex-col">
-      <PageHeader
-        title="Story Arcs"
-        meta={
-          isLoading
-            ? "loading…"
-            : `${count} arc${count === 1 ? "" : "s"} tracked`
-        }
-      />
+      <PageHeader title="Library" meta={summary} />
+      <LibraryTabs />
 
-      <div className="flex-1 min-h-0 overflow-auto px-5 py-4 space-y-6">
+      <div className="flex-1 min-h-0 overflow-auto px-8 py-4 space-y-5">
+        <p className="flex items-start gap-2 text-[13px] text-foreground-2">
+          <Info className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+          Story arcs are frozen for 1.0: they keep working, but get no new
+          features. {count} arc{count === 1 ? "" : "s"} tracked.
+        </p>
         {aiStatus?.configured && <ArcGenerator />}
 
         <ArcSearch searchInputRef={searchInputRef} formRef={searchFormRef} />
@@ -64,7 +67,7 @@ export default function StoryArcsPage() {
             isRetrying={isFetching}
           />
         ) : arcs && arcs.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="border-t border-border-subtle">
             {arcs.map((arc) => (
               <StoryArcCard key={arc.StoryArcID} arc={arc} />
             ))}

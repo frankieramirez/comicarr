@@ -20,7 +20,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
   ({ className, variant = "default", ...props }, ref) => {
     const variants: Record<BadgeVariant, string> = {
-      default: "bg-muted text-muted-foreground",
+      default: "border border-border-strong text-muted-foreground",
       secondary: "bg-secondary text-secondary-foreground",
       outline: "border border-input bg-background text-foreground",
       active: "bg-[var(--status-active-bg)] text-[var(--status-active)]",
@@ -37,7 +37,7 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
       <span
         ref={ref}
         className={cn(
-          "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-all hover:scale-105",
+          "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em]",
           variants[variant],
           className,
         )}

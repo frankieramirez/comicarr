@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
-import { Search, RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
+import { RefreshCw, Search, SlidersHorizontal } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   useWanted,
   useForceSearch,
@@ -170,40 +172,43 @@ export default function WantedPage() {
         meta={
           isLoading
             ? "loading…"
-            : `${total} issue${total === 1 ? "" : "s"} in queue`
+            : `${total.toLocaleString()} missing issue${total === 1 ? "" : "s"}`
         }
         actions={
           <>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => refetch()}
               disabled={isFetching}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-control border mono-meta"
-              style={{ borderColor: "var(--border)" }}
+              aria-label="Refresh"
+              title="Refresh"
             >
-              <RefreshCw
-                className={`w-3 h-3 ${isFetching ? "animate-spin" : ""}`}
-              />
-              refresh
-            </button>
-            <button
+              <RefreshCw className={isFetching ? "animate-spin" : ""} />
+            </Button>
+            <Button variant="ghost" size="toolbar" asChild>
+              <Link to="/settings?section=search">
+                <SlidersHorizontal />
+                Search settings
+              </Link>
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="toolbar"
+              className="bg-surface-2"
               onClick={handleForceSearch}
               disabled={forceSearch.isPending}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control text-[12px] font-semibold disabled:opacity-60"
-              style={{
-                background: "var(--primary)",
-                color: "var(--primary-foreground)",
-              }}
             >
-              <Search className="w-3.5 h-3.5" />
+              <Search />
               Force search
-            </button>
+            </Button>
           </>
         }
       />
 
-      <div className="shrink-0 px-5 py-2.5 border-b border-border flex items-center gap-3">
+      <div className="shrink-0 px-8 pb-3 flex items-center gap-3">
         <div className="flex-1 max-w-md">
           <FilterField
             placeholder="Filter wanted issues…"
@@ -224,7 +229,7 @@ export default function WantedPage() {
       {/* Body column — the table owns the scrolling inside it. */}
       <div className="flex-1 min-h-0 flex flex-col">
         {isLoading && (
-          <div className="px-5 py-4 space-y-2">
+          <div className="px-8 py-4 space-y-2">
             <Skeleton className="h-14" />
             <Skeleton className="h-14" />
             <Skeleton className="h-14" />
@@ -232,7 +237,7 @@ export default function WantedPage() {
         )}
 
         {error && (
-          <div className="px-5 py-4">
+          <div className="px-8 py-4">
             <ErrorDisplay
               error={error}
               title="Unable to load wanted issues"

@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
-import { RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ChevronRight, RefreshCw } from "lucide-react";
 import type { PanelState } from "@/lib/panelState";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -16,7 +17,54 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 /** An honest sentence in the panel's own voice — never a blank card. */
 export function PanelNote({ children }: { children: ReactNode }) {
-  return <div className="mono-meta py-3">{children}</div>;
+  return <div className="py-2 text-sm text-foreground-2">{children}</div>;
+}
+
+/**
+ * v2 section heading. `main` sections (left column) use a 15px title with a
+ * mono count; `rail` sections use a small uppercase label. Both end in at
+ * most one quiet link out to the full view.
+ */
+export function SectionHeader({
+  title,
+  meta,
+  action,
+  variant = "main",
+}: {
+  title: string;
+  meta?: ReactNode;
+  action?: { label: string; to: string };
+  variant?: "main" | "rail";
+}) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-3">
+      <div className="flex min-w-0 items-baseline gap-2.5">
+        <h2
+          className={
+            variant === "main"
+              ? "shrink-0 whitespace-nowrap text-[15px] font-semibold text-foreground"
+              : "shrink-0 whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground"
+          }
+        >
+          {title}
+        </h2>
+        {meta != null && (
+          <span className="truncate font-mono text-xs text-muted-foreground max-sm:hidden">
+            {meta}
+          </span>
+        )}
+      </div>
+      {action && (
+        <Link
+          to={action.to}
+          className="inline-flex shrink-0 items-center gap-0.5 text-[13px] text-foreground-2 hover:text-foreground"
+        >
+          {action.label}
+          <ChevronRight className="size-3.5 text-muted-foreground" />
+        </Link>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -33,14 +81,14 @@ export function PanelUnavailable({
   isRetrying?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2.5 py-3 font-mono text-[11px]">
+    <div className="flex items-center gap-2.5 py-2 text-sm">
       <span style={{ color: "var(--status-error)" }}>{label} unavailable</span>
       <button
         type="button"
         onClick={onRetry}
         disabled={isRetrying}
         aria-label={`Retry ${label}`}
-        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-control border border-border text-muted-foreground hover:text-foreground disabled:opacity-50"
+        className="inline-flex h-7 items-center gap-1.5 rounded-control border border-border-strong bg-surface-2 px-2 text-xs text-foreground-2 hover:text-foreground disabled:opacity-50"
       >
         <RefreshCw className={`w-3 h-3 ${isRetrying ? "animate-spin" : ""}`} />
         {isRetrying ? "retrying…" : "retry"}

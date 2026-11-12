@@ -123,8 +123,8 @@ export default function EmptyState({
               color: "var(--foreground)",
             }
           : {
-              background: "var(--primary)",
-              color: "var(--primary-foreground)",
+              background: "var(--act)",
+              color: "var(--act-foreground)",
             }
       }
     >

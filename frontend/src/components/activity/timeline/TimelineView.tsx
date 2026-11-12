@@ -4,9 +4,10 @@
  * Absolute HH:MM gutter, severity dots (green open / red closed-in-trouble /
  * else none), sentence + RelativeTime, sticky day rules, page size 25 stories.
  * Always-collapsed; group-of-one is a plain row. Filters: free-text + activity
- * dropdown only (band owns needs-attention).
+ * segmented kind filter (band owns needs-attention).
  */
 
+import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import EmptyState from "@/components/ui/EmptyState";
@@ -30,16 +31,26 @@ import type { Story } from "./types";
 
 const STORY_PAGE_SIZE = 25;
 
-const ACTIVITIES = [
-  "all",
-  "search",
-  "grab",
-  "download",
-  "import",
-  "refresh",
-  "add",
-  "tag",
+/** The segmented filter: what kind of thing happened, not which producer. */
+const FILTERS = [
+  { key: "all", label: "All", activities: null },
+  { key: "failures", label: "Failures", activities: null },
+  {
+    key: "downloads",
+    label: "Downloads",
+    activities: ["search", "grab", "download"],
+  },
+  {
+    key: "library",
+    label: "Library",
+    activities: ["import", "refresh", "add", "tag"],
+  },
 ] as const;
+
+type FilterKey = (typeof FILTERS)[number]["key"];
+
+const ROW_COLS =
+  "grid-cols-[44px_minmax(0,1fr)_auto] md:grid-cols-[48px_minmax(0,1.3fr)_minmax(0,1fr)_72px]";
 
 function SeverityDot({ open, trouble }: { open: boolean; trouble: boolean }) {
   if (open) {
@@ -109,25 +120,17 @@ function DetailLine({ story }: { story: Story }) {
   const line = reasonDetailLine(closer.reason_code, closer.reason_detail);
   if (!line.phrase && !line.detail) return null;
   return (
-    <div className="text-[12px] text-muted-foreground">
+    <div className="truncate text-[12px] text-foreground-2">
       {line.phrase}
-      {line.rawCode && (
-        <span className="ml-2 font-mono text-[10px] opacity-70">
-          {line.rawCode}
-        </span>
-      )}
-      {line.detail && (
-        <span className="ml-2 font-mono text-[10px] opacity-70">
-          {line.detail}
-        </span>
-      )}
+      {line.rawCode && <span className="mono-meta ml-2">{line.rawCode}</span>}
+      {line.detail && <span className="mono-meta ml-2">{line.detail}</span>}
     </div>
   );
 }
 
 function FirstRunEmpty({ scoped }: { scoped: boolean }) {
   return (
-    <div className="px-5 py-10">
+    <div className="px-8 py-10">
       <EmptyState
         variant="custom"
         eyebrow={
@@ -159,7 +162,7 @@ export function TimelineView({
   scope_id?: string | null;
 }) {
   const [query, setQuery] = useState("");
-  const [activity, setActivity] = useState<string>("all");
+  const [activity, setActivity] = useState<FilterKey>("all");
   const [page, setPage] = useState(0);
 
   const timeline = useActivityTimeline({ scope_type, scope_id });
@@ -176,8 +179,11 @@ export function TimelineView({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return nodes.filter((story) => {
-      if (activity !== "all") {
-        if (!story.events.some((e) => e.activity === activity)) return false;
+      if (activity === "failures" && !storyHasTrouble(story)) return false;
+      const wanted = FILTERS.find((f) => f.key === activity)?.activities;
+      if (wanted) {
+        const kinds: readonly string[] = wanted;
+        if (!story.events.some((e) => kinds.includes(e.activity))) return false;
       }
       if (!q) return true;
       return (
@@ -201,7 +207,7 @@ export function TimelineView({
 
   if (isInitialLoading) {
     return (
-      <div className="space-y-2 px-5 py-4">
+      <div className="space-y-2 px-8 py-4">
         {[0, 1, 2, 3].map((i) => (
           <Skeleton key={i} className="h-11" />
         ))}
@@ -211,7 +217,7 @@ export function TimelineView({
 
   if (hardError) {
     return (
-      <div className="px-5 py-4">
+      <div className="px-8 py-4">
         <ErrorDisplay
           error={hardError}
           title="Unable to load activity timeline"
@@ -228,7 +234,7 @@ export function TimelineView({
     return (
       <>
         {scoped && (
-          <div className="border-b border-border px-5 py-2 mono-meta">
+          <div className="px-8 py-2 mono-meta">
             Scoped to {scope_type}:{scope_id}
           </div>
         )}
@@ -249,7 +255,7 @@ export function TimelineView({
       />
 
       {scoped && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-2 mono-meta">
+        <div className="flex shrink-0 items-center gap-2 px-8 py-2 mono-meta">
           <span>
             Scoped to {scope_type}:{scope_id}
           </span>
@@ -259,7 +265,27 @@ export function TimelineView({
         </div>
       )}
 
-      <div className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-2.5">
+      <div className="flex shrink-0 flex-wrap items-center gap-3 px-8 pt-1 pb-3">
+        <div
+          role="group"
+          aria-label="Filter by activity"
+          className={SEGMENTED_GROUP}
+        >
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              aria-pressed={activity === f.key}
+              onClick={() => {
+                setActivity(f.key);
+                setPage(0);
+              }}
+              className={SEGMENTED_ITEM}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
         <div className="max-w-sm flex-1">
           <FilterField
             placeholder="Filter timeline…"
@@ -272,22 +298,6 @@ export function TimelineView({
             shortcut="/"
           />
         </div>
-        <select
-          aria-label="Filter by activity"
-          value={activity}
-          onChange={(e) => {
-            setActivity(e.target.value);
-            setPage(0);
-          }}
-          className="rounded-control border bg-transparent px-2 py-1.5 mono-meta"
-          style={{ borderColor: "var(--border)" }}
-        >
-          {ACTIVITIES.map((a) => (
-            <option key={a} value={a}>
-              {a === "all" ? "all activities" : a}
-            </option>
-          ))}
-        </select>
       </div>
 
       <div
@@ -295,6 +305,17 @@ export function TimelineView({
         aria-label="Activity timeline"
         className="flex-1 min-h-0 overflow-auto"
       >
+        {pageNodes.length > 0 && (
+          <div
+            className={`sticky top-0 z-20 mx-8 grid ${ROW_COLS} h-8 items-center gap-x-3 border-b border-border-subtle bg-background px-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground`}
+            aria-hidden="true"
+          >
+            <span>Time</span>
+            <span>Event</span>
+            <span className="max-md:hidden">Detail</span>
+            <span className="max-md:hidden" />
+          </div>
+        )}
         {pageNodes.map((story, index) => {
           const prev = pageNodes[index - 1];
           const showDay =
@@ -306,25 +327,21 @@ export function TimelineView({
           return (
             <Fragment key={story.key}>
               {showDay && (
-                <div
-                  className="sticky top-0 z-10 border-b border-border px-5 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground"
-                  style={{ background: "var(--background)" }}
-                >
+                <div className="sticky top-8 z-10 mx-8 border-b border-border-subtle bg-surface-1 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
                   {dayLabel(story.opened_at)}
                 </div>
               )}
 
               <div
-                className="flex items-start gap-3 border-b px-5 py-2 hover:bg-[var(--secondary)]"
-                style={{ borderColor: "var(--border-soft, var(--border))" }}
+                className={`mx-8 grid ${ROW_COLS} min-h-9 items-center gap-x-3 border-b border-border-subtle px-2 py-1.5 hover:bg-surface-1`}
               >
-                <span className="mt-[2px] w-10 shrink-0 mono-meta tabular-nums">
+                <span className="font-mono text-[12px] tabular-nums text-muted-foreground">
                   {clockOf(story.opened_at)}
                 </span>
-                <SeverityDot open={open} trouble={trouble} />
 
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13px] leading-snug">
+                <div className="flex min-w-0 items-start gap-2">
+                  <SeverityDot open={open} trouble={trouble} />
+                  <div className="min-w-0 text-[13px] leading-snug">
                     <Headline story={story} />
                     {runProgress(story) && (
                       <span className="ml-2 mono-meta">
@@ -333,24 +350,32 @@ export function TimelineView({
                     )}
                     {multi && (
                       <span
-                        className="ml-2 font-mono text-[10px] text-muted-foreground"
+                        className="mono-meta ml-2"
                         title={`${story.events.length} events in this story`}
                       >
-                        · {story.events.length}
+                        ×{story.events.length}
                       </span>
                     )}
+                    <div className="md:hidden">
+                      <DetailLine story={story} />
+                    </div>
                   </div>
+                </div>
+
+                <div className="min-w-0 max-md:hidden">
                   <DetailLine story={story} />
                 </div>
 
-                <RelativeTime value={story.opened_at} />
+                <span className="text-right">
+                  <RelativeTime value={story.opened_at} compact />
+                </span>
               </div>
             </Fragment>
           );
         })}
 
         {pageNodes.length === 0 && (
-          <div className="px-5 py-8">
+          <div className="px-8 py-8">
             <EmptyState
               variant="custom"
               eyebrow={
@@ -363,7 +388,7 @@ export function TimelineView({
               }
               description={
                 nodes.length === 0
-                  ? "Items that need attention stay in the band above until you act on them."
+                  ? "Items that need you stay above until you act on them."
                   : "Try a different filter."
               }
             />
@@ -372,8 +397,8 @@ export function TimelineView({
       </div>
 
       {(filtered.length > 0 || hasMoreEvents) && (
-        <div className="flex shrink-0 items-center gap-3 border-t border-border px-5 py-2.5">
-          <span className="font-mono text-[10px] text-muted-foreground">
+        <div className="flex shrink-0 items-center gap-3 border-t border-border-subtle px-8 py-2.5">
+          <span className="mono-meta">
             {filtered.length === 0
               ? "0 stories"
               : `${start + 1}–${Math.min(start + STORY_PAGE_SIZE, filtered.length)} of ${filtered.length}${hasMoreEvents ? "+" : ""} stories`}
@@ -383,10 +408,9 @@ export function TimelineView({
               type="button"
               disabled={page === 0}
               onClick={() => setPage((p) => p - 1)}
-              className="rounded-md border px-2 py-1 font-mono text-[10px] text-muted-foreground disabled:opacity-40"
-              style={{ borderColor: "var(--border)" }}
+              className="h-7 rounded-md border border-border-strong px-2.5 text-[13px] text-foreground-2 hover:bg-surface-2 disabled:opacity-40"
             >
-              prev
+              Previous
             </button>
             <button
               type="button"
@@ -403,20 +427,19 @@ export function TimelineView({
                   void timeline.fetchNextPage();
                 }
               }}
-              className="rounded-md border px-2 py-1 font-mono text-[10px] text-muted-foreground disabled:opacity-40"
-              style={{ borderColor: "var(--border)" }}
+              className="h-7 rounded-md border border-border-strong px-2.5 text-[13px] text-foreground-2 hover:bg-surface-2 disabled:opacity-40"
             >
               {timeline.isFetchingNextPage
-                ? "loading…"
+                ? "Loading…"
                 : hasMoreStories
-                  ? "next"
-                  : "older"}
+                  ? "Next"
+                  : "Older"}
             </button>
           </div>
         </div>
       )}
-      <p className="shrink-0 px-5 pb-4 font-mono text-[10px] text-muted-foreground">
-        older than 90 days is deleted · see download history for the full ledger
+      <p className="mono-meta shrink-0 px-8 pb-4">
+        older than 90 days is deleted · History keeps the full ledger
       </p>
     </div>
   );

@@ -1,7 +1,5 @@
 import { useState, type SyntheticEvent } from "react";
-import { BookOpen, ImageOff } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import StatusBadge from "@/components/StatusBadge";
+import { ImageOff } from "lucide-react";
 import { getProgressPercentage, seriesCoverSrc } from "@/lib/series-utils";
 import type { Comic } from "@/types";
 
@@ -10,6 +8,10 @@ interface SeriesCardProps {
   onClick?: () => void;
 }
 
+/**
+ * v2 library card: the cover carries the card. A hairline progress bar sits
+ * on the cover's bottom edge; title, held count and year sit underneath.
+ */
 export default function SeriesCard({ comic, onClick }: SeriesCardProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -18,7 +20,7 @@ export default function SeriesCard({ comic, onClick }: SeriesCardProps) {
   const percentage = getProgressPercentage(comic);
   const have = parseInt(String(comic.Have)) || 0;
   const total = parseInt(String(comic.Total)) || 0;
-  const isManga = comic.ContentType?.toLowerCase() === "manga";
+  const isPaused = comic.Status?.toLowerCase() === "paused";
 
   return (
     <div
@@ -33,15 +35,14 @@ export default function SeriesCard({ comic, onClick }: SeriesCardProps) {
         },
       })}
       onClick={onClick}
-      className={`bg-card hover:shadow-lg hover:border-primary/30 transition-all duration-200 group rounded-lg border overflow-hidden flex flex-col h-full ${onClick ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background" : ""}`}
+      className={`group flex h-full min-w-0 flex-col rounded-md ${onClick ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background" : ""}`}
     >
-      {/* Cover Image */}
-      <div className="aspect-[2/3] bg-muted relative overflow-hidden flex-shrink-0">
+      <div className="relative aspect-[2/3] flex-shrink-0 overflow-hidden rounded-md bg-surface-2">
         {!imageError && src ? (
           <img
             src={src}
             alt={comic.ComicName}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
             loading="lazy"
             onError={(e: SyntheticEvent<HTMLImageElement>) => {
               setImageError(true);
@@ -49,61 +50,46 @@ export default function SeriesCard({ comic, onClick }: SeriesCardProps) {
             }}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground/50">
-            <ImageOff className="w-8 h-8" />
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+            <ImageOff className="h-7 w-7" />
           </div>
         )}
 
-        {/* Status Badge Overlay */}
-        <div className="absolute top-2 right-2">
-          <StatusBadge status={comic.Status} />
+        {isPaused && (
+          <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-md bg-background/85 px-1.5 py-0.5 text-[11px] text-foreground backdrop-blur-sm">
+            <span
+              className="size-1.5 rounded-full"
+              style={{ background: "var(--status-paused)" }}
+              aria-hidden="true"
+            />
+            Paused
+          </span>
+        )}
+
+        {/* Held share, on the cover's bottom edge. */}
+        <div
+          className="absolute inset-x-0 bottom-0 h-[3px] bg-black/40"
+          aria-hidden="true"
+        >
+          <div
+            className="h-full"
+            style={{
+              width: `${percentage}%`,
+              background: "var(--status-downloaded)",
+            }}
+          />
         </div>
-
-        {/* Manga Badge Overlay */}
-        {isManga && (
-          <div className="absolute top-2 left-2">
-            <Badge variant="secondary" className="text-xs px-1.5 py-0">
-              <BookOpen className="w-3 h-3 mr-1" />
-              Manga
-            </Badge>
-          </div>
-        )}
       </div>
 
-      {/* Info Section */}
-      <div className="p-3 flex flex-col flex-grow">
-        <div className="flex-grow">
-          <h3 className="font-semibold text-sm line-clamp-2 leading-tight">
-            {comic.ComicName}
-          </h3>
-          {comic.ComicYear && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              ({comic.ComicYear})
-            </p>
-          )}
-          {comic.ComicPublisher && (
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">
-              {comic.ComicPublisher}
-            </p>
-          )}
-        </div>
-
-        {/* Progress */}
-        <div className="mt-2 space-y-1">
-          <div className="w-full bg-border rounded-full h-1.5 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all bg-gradient-to-r from-[#FF5C00] to-[#FF8A4C]"
-              style={{ width: `${percentage}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground font-mono">
-              {have} / {total}
-            </span>
-            <span className="text-xs text-muted-foreground font-mono">
-              {percentage}%
-            </span>
-          </div>
+      <div className="mt-2 min-w-0">
+        <h3 className="truncate text-[13px] font-medium leading-tight text-foreground">
+          {comic.ComicName}
+        </h3>
+        <div className="mono-meta mt-1 flex items-center justify-between">
+          <span>
+            {have} / {total}
+          </span>
+          {comic.ComicYear && <span>{comic.ComicYear}</span>}
         </div>
       </div>
     </div>

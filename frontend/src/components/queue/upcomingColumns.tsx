@@ -56,8 +56,12 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
       columnHelper.display({
         id: "cover",
         header: "",
-        cell: ({ row }) => <CoverCell comicId={row.original.ComicID} />,
-        size: 60,
+        cell: ({ row }) => (
+          <div className="[&>div]:h-9 [&>div]:w-[26px] [&>div]:rounded-[3px]">
+            <CoverCell comicId={row.original.ComicID} />
+          </div>
+        ),
+        size: 44,
         enableSorting: false,
       }),
       columnHelper.accessor("ComicName", {
@@ -65,12 +69,14 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
           <DataTableSortHeader column={column} title="Series" />
         ),
         cell: ({ row }) => (
-          <div>
-            <div className="font-medium">{row.original.ComicName}</div>
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span className="truncate text-sm font-medium text-foreground">
+              {row.original.ComicName}
+            </span>
             {row.original.ComicYear && (
-              <div className="text-sm text-muted-foreground">
-                ({row.original.ComicYear})
-              </div>
+              <span className="mono-meta shrink-0">
+                {row.original.ComicYear}
+              </span>
             )}
           </div>
         ),
@@ -78,31 +84,34 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
       columnHelper.accessor("IssueNumber", {
         header: "#",
         cell: ({ getValue }) => (
-          <span className="font-mono text-sm">{getValue() || "N/A"}</span>
+          <span className="font-mono text-[13px] text-foreground-2">
+            {getValue() || "N/A"}
+          </span>
         ),
         enableSorting: false,
       }),
       columnHelper.accessor("IssueName", {
-        header: "Issue Name",
+        header: "Issue",
         cell: ({ getValue }) => {
           const name = getValue();
           return name ? (
-            <span className="text-sm text-foreground">{name}</span>
+            <span className="text-sm text-foreground-2">{name}</span>
           ) : (
-            <span className="text-sm text-muted-foreground/70">N/A</span>
+            <span className="text-sm text-muted-foreground">N/A</span>
           );
         },
         enableSorting: false,
       }),
       columnHelper.accessor("IssueDate", {
         header: ({ column }) => (
-          <DataTableSortHeader column={column} title="Release Date" />
+          <DataTableSortHeader column={column} title="Released" />
         ),
         cell: ({ getValue }) => {
           const date = getValue();
-          if (!date)
-            return <span className="text-muted-foreground/70">N/A</span>;
-          return <span className="text-sm">{date}</span>;
+          if (!date) return <span className="text-muted-foreground">N/A</span>;
+          return (
+            <span className="font-mono text-xs text-foreground-2">{date}</span>
+          );
         },
       }),
       columnHelper.accessor((row) => row.Status ?? "", {
@@ -113,24 +122,24 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
       }),
       columnHelper.display({
         id: "actions",
-        header: "Actions",
+        header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => {
           const status = row.original.Status?.toLowerCase();
           const issueId = row.original.IssueID;
 
           return (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-end gap-1 opacity-70 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
               {status === "wanted" && onReview ? (
                 <Button
-                  size="sm"
-                  variant="outline"
+                  size="compact"
+                  variant="ghost"
                   onClick={(event) => {
                     event.stopPropagation();
                     onReview(row.original);
                   }}
-                  className="text-xs"
+                  className="text-foreground-2"
                 >
-                  <CircleDot className="mr-1 size-3" />
+                  <CircleDot />
                   Review releases
                 </Button>
               ) : null}
@@ -138,8 +147,8 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
                 <>
                   {status === "wanted" && (
                     <Button
-                      size="sm"
-                      variant="outline"
+                      size="compact"
+                      variant="ghost"
                       onClick={(e) => {
                         e.stopPropagation();
                         unqueueIssueMutation.mutate(issueId, {
@@ -152,16 +161,16 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
                         });
                       }}
                       disabled={unqueueIssueMutation.isPending}
-                      className="text-xs"
+                      className="text-foreground-2"
                     >
-                      <X className="w-3 h-3 mr-1" />
+                      <X />
                       Skip
                     </Button>
                   )}
                   {status === "skipped" && (
                     <Button
-                      size="sm"
-                      variant="outline"
+                      size="compact"
+                      variant="ghost"
                       onClick={(e) => {
                         e.stopPropagation();
                         queueIssueMutation.mutate(issueId, {
@@ -174,17 +183,17 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
                         });
                       }}
                       disabled={queueIssueMutation.isPending}
-                      className="text-xs"
+                      className="text-foreground-2"
                     >
-                      <Download className="w-3 h-3 mr-1" />
+                      <Download />
                       Want
                     </Button>
                   )}
                 </>
               ) : status !== "downloaded" && status !== "snatched" ? (
                 <Button
-                  size="sm"
-                  variant="outline"
+                  size="compact"
+                  variant="ghost"
                   onClick={(e) => {
                     e.stopPropagation();
                     queueIssueMutation.mutate(issueId, {
@@ -197,9 +206,9 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
                     });
                   }}
                   disabled={queueIssueMutation.isPending}
-                  className="text-xs"
+                  className="text-foreground-2"
                 >
-                  <Download className="w-3 h-3 mr-1" />
+                  <Download />
                   Want
                 </Button>
               ) : null}

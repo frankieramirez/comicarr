@@ -1,3 +1,4 @@
+import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search, RefreshCw } from "lucide-react";
@@ -13,7 +14,7 @@ import { useRetrySearchRun } from "@/hooks/useSeries";
 import { useQueryClient } from "@tanstack/react-query";
 import PageHeader, { Tab, TabRow } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { ToggleChip } from "@/components/ui/toggle-chip";
+import WeekStrip from "@/components/releases/WeekStrip";
 import { useToast } from "@/components/ui/toast";
 import { useScheduledJobs, useWeeklyRefresh } from "@/hooks/useWeekly";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -117,8 +118,8 @@ export default function ReleasesPage() {
         title="Releases"
         meta={
           currentView === "mine"
-            ? "this week · your library"
-            : "week by week · industry-wide"
+            ? "New issues and chapters from series you follow, this week"
+            : "Everything publishers release, week by week"
         }
         actions={
           <Button
@@ -154,7 +155,7 @@ export default function ReleasesPage() {
         <div
           role={weeklyStatus === "error" ? "alert" : "status"}
           aria-live={weeklyStatus === "error" ? "assertive" : "polite"}
-          className="shrink-0 px-5 py-2 border-b border-border font-mono text-[11px]"
+          className="shrink-0 px-8 pb-2 text-[13px]"
           style={{
             color:
               weeklyStatus === "error"
@@ -294,47 +295,58 @@ function MyReleasesView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Full-width filter bar */}
-      <div className="shrink-0 px-5 py-2.5 border-b border-border flex items-center gap-2 flex-wrap">
-        <div className="font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground/70 pr-1">
-          Filter
+      {!isLoading && !error && (
+        <div className="shrink-0 px-8 pt-4">
+          <WeekStrip issues={issues} />
         </div>
-        <ToggleChip
-          pressed={!includeDownloaded}
-          onPressedChange={() => setIncludeDownloaded(false)}
+      )}
+
+      {/* Filter bar */}
+      <div className="shrink-0 px-8 py-3 flex items-center gap-2 flex-wrap">
+        <div
+          role="group"
+          aria-label="Which releases"
+          className={SEGMENTED_GROUP}
         >
-          wanted only
-        </ToggleChip>
-        <ToggleChip
-          pressed={includeDownloaded}
-          onPressedChange={() => setIncludeDownloaded(true)}
-        >
-          include downloaded
-        </ToggleChip>
+          {(
+            [
+              [false, "Wanted only"],
+              [true, "Include downloaded"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={label}
+              type="button"
+              aria-pressed={includeDownloaded === value}
+              onClick={() => setIncludeDownloaded(value)}
+              className={SEGMENTED_ITEM}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         <div className="ml-auto flex items-center gap-2">
           <div className="mono-meta">
             {issues.length} issue{issues.length !== 1 ? "s" : ""}
           </div>
 
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-control border text-[11px] font-mono"
-            style={{
-              borderColor: "var(--border)",
-              color: "var(--muted-foreground)",
-            }}
+            aria-label="Reload this list"
+            title="Reload this list"
           >
-            <RefreshCw
-              className={`w-3 h-3 ${isFetching ? "animate-spin" : ""}`}
-            />
-            refresh
-          </button>
+            <RefreshCw className={isFetching ? "animate-spin" : ""} />
+          </Button>
           {forceRunId && (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="toolbar"
               onClick={async () => {
                 try {
                   const result =
@@ -351,31 +363,24 @@ function MyReleasesView() {
                 }
               }}
               disabled={retrySearchMutation.isPending}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-control border text-[11px] font-mono disabled:opacity-60"
-              style={{
-                borderColor: "var(--border)",
-                color: "var(--muted-foreground)",
-              }}
             >
               {retrySearchMutation.isPending
-                ? "retrying…"
-                : "retry queue handoff"}
-            </button>
+                ? "Retrying…"
+                : "Retry queue handoff"}
+            </Button>
           )}
 
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="toolbar"
+            className="bg-surface-2"
             onClick={handleForceSearch}
             disabled={forceSearchMutation.isPending}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-control text-[12px] font-semibold disabled:opacity-60"
-            style={{
-              background: "var(--primary)",
-              color: "var(--primary-foreground)",
-            }}
           >
-            <Search className="w-3.5 h-3.5" />
+            <Search />
             Force search
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -383,7 +388,7 @@ function MyReleasesView() {
           below stay put. */}
       <div className="flex-1 min-h-0 overflow-auto">
         {isLoading && (
-          <div className="px-5 py-4 space-y-2">
+          <div className="px-8 py-4 space-y-2">
             <Skeleton className="h-14" />
             <Skeleton className="h-14" />
             <Skeleton className="h-14" />
@@ -391,7 +396,7 @@ function MyReleasesView() {
         )}
 
         {error && (
-          <div className="px-5 py-4">
+          <div className="px-8 py-4">
             <ErrorDisplay
               error={error}
               title="Unable to load your releases"

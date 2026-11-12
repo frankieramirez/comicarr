@@ -151,7 +151,11 @@ function StatusShell({
 }
 
 function Sep() {
-  return <span aria-hidden="true">·</span>;
+  return (
+    <span aria-hidden="true" className="text-[var(--text-muted)]">
+      ·
+    </span>
+  );
 }
 
 function LibrarySegment({
@@ -164,8 +168,8 @@ function LibrarySegment({
   const display =
     text ?? (seriesCount === 1 ? "1 series" : `${seriesCount ?? 0} series`);
   return (
-    <span title="Active series in your library">
-      library: <span className="text-foreground">{display}</span>
+    <span title="Active series in your library" className="text-foreground">
+      {display}
     </span>
   );
 }
@@ -173,9 +177,16 @@ function LibrarySegment({
 function ApiSegment({ api }: { api: ActivityApiState }) {
   const display = api === "checking" ? "checking…" : api;
   return (
-    <span title="Connection to the Comicarr API">
-      api:{" "}
-      <span className="text-foreground" style={{ color: apiColor(api) }}>
+    <span
+      title="Connection to the Comicarr API"
+      className="inline-flex items-center gap-1.5"
+    >
+      <span
+        aria-hidden="true"
+        className="size-1.5 rounded-full"
+        style={{ backgroundColor: apiColor(api) ?? "var(--text-muted)" }}
+      />
+      <span className={api === "offline" ? "text-foreground" : undefined}>
         {display}
       </span>
     </span>
@@ -196,8 +207,8 @@ function SegmentView({
   if (segment.role === "library") {
     const value = segment.text.replace(/^library:\s*/, "");
     return (
-      <span title="Active series in your library">
-        library: <span className="text-foreground">{value}</span>
+      <span title="Active series in your library" className="text-foreground">
+        {value}
       </span>
     );
   }
@@ -205,9 +216,16 @@ function SegmentView({
   if (segment.role === "api") {
     const value = segment.text.replace(/^api:\s*/, "");
     return (
-      <span title="Connection to the Comicarr API">
-        api:{" "}
-        <span className="text-foreground" style={{ color: apiColor(api) }}>
+      <span
+        title="Connection to the Comicarr API"
+        className="inline-flex items-center gap-1.5"
+      >
+        <span
+          aria-hidden="true"
+          className="size-1.5 rounded-full"
+          style={{ backgroundColor: apiColor(api) ?? "var(--text-muted)" }}
+        />
+        <span className={api === "offline" ? "text-foreground" : undefined}>
           {value}
         </span>
       </span>
@@ -218,11 +236,12 @@ function SegmentView({
     return (
       <Link
         to={segment.href ?? "/activity/attention"}
-        className="font-semibold hover:underline"
-        style={{ color: "var(--status-error)" }}
-        title="Needs attention → work through them"
+        className="text-[var(--status-error)] hover:underline"
+        title="Needs you: open the list"
       >
-        {segment.text}
+        {segment.text
+          .replace(/^⚠\s*/, "")
+          .replace("need attention", "need you")}
       </Link>
     );
   }

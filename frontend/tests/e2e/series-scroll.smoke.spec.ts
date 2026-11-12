@@ -112,9 +112,12 @@ test("series hero stays put while the issue list scrolls (desktop)", async ({
   });
 });
 
+// The v2 header is bounded (clamped description, providers in Settings), so
+// "tall" now means a viewport short enough that header + tabs leave under
+// 400px for the issue list.
 for (const viewport of [
-  { width: 1280, height: 1024 },
-  { width: 1024, height: 900 },
+  { width: 1280, height: 780 },
+  { width: 1024, height: 760 },
 ]) {
   test(`tall series header lets the page scroll the issues into view (${viewport.width}x${viewport.height})`, async ({
     page,
@@ -156,7 +159,7 @@ test("series layout rechecks available issue space after viewport resize", async
   await expect
     .poll(() => body.evaluate((node) => getComputedStyle(node).overflowY))
     .toBe("hidden");
-  await page.setViewportSize({ width: 1280, height: 1024 });
+  await page.setViewportSize({ width: 1280, height: 760 });
   await expect
     .poll(() => body.evaluate((node) => getComputedStyle(node).overflowY))
     .toBe("auto");

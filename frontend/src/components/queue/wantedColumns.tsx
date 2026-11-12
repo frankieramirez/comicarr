@@ -54,8 +54,12 @@ export function useWantedColumns() {
         columnHelper.display({
           id: "cover",
           header: "",
-          cell: ({ row }) => <CoverCell comicId={row.original.ComicID} />,
-          size: 60,
+          cell: ({ row }) => (
+            <div className="[&>div]:h-9 [&>div]:w-[26px] [&>div]:rounded-[3px]">
+              <CoverCell comicId={row.original.ComicID} />
+            </div>
+          ),
+          size: 44,
           enableSorting: false,
         }),
         columnHelper.accessor("ComicName", {
@@ -65,14 +69,16 @@ export function useWantedColumns() {
           cell: ({ row }) => (
             <Link
               to={`/library/${row.original.ComicID}`}
-              className="block min-w-0 hover:underline"
+              className="flex min-w-0 items-baseline gap-2 underline-offset-2 hover:underline"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="font-medium">{row.original.ComicName}</div>
+              <span className="truncate text-sm font-medium text-foreground">
+                {row.original.ComicName}
+              </span>
               {row.original.ComicYear && (
-                <div className="text-sm text-muted-foreground">
-                  ({row.original.ComicYear})
-                </div>
+                <span className="mono-meta shrink-0">
+                  {row.original.ComicYear}
+                </span>
               )}
             </Link>
           ),
@@ -80,42 +86,52 @@ export function useWantedColumns() {
         columnHelper.accessor("Issue_Number", {
           header: "#",
           cell: ({ getValue }) => (
-            <span className="font-mono text-sm">{getValue() || "N/A"}</span>
+            <span className="font-mono text-[13px] text-foreground-2">
+              {getValue() || "N/A"}
+            </span>
           ),
           enableSorting: false,
         }),
         columnHelper.accessor("IssueName", {
-          header: "Issue Name",
+          header: "Issue",
           cell: ({ getValue }) => {
             const name = getValue();
             return name ? (
-              <span className="text-sm text-foreground">{name}</span>
+              <span className="text-sm text-foreground-2">{name}</span>
             ) : (
-              <span className="text-sm text-muted-foreground/70">N/A</span>
+              <span className="text-sm text-muted-foreground">N/A</span>
             );
           },
           enableSorting: false,
         }),
         columnHelper.accessor("DateAdded", {
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Date Added" />
+            <DataTableSortHeader column={column} title="Added" />
           ),
           cell: ({ getValue }) => {
             const date = getValue();
             if (!date)
-              return <span className="text-muted-foreground/70">N/A</span>;
-            return <span className="text-sm">{date}</span>;
+              return <span className="text-muted-foreground">N/A</span>;
+            return (
+              <span className="font-mono text-xs text-foreground-2">
+                {date}
+              </span>
+            );
           },
         }),
         columnHelper.accessor("IssueDate", {
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Release Date" />
+            <DataTableSortHeader column={column} title="Released" />
           ),
           cell: ({ getValue }) => {
             const date = getValue();
             if (!date)
-              return <span className="text-muted-foreground/70">N/A</span>;
-            return <span className="text-sm">{date}</span>;
+              return <span className="text-muted-foreground">N/A</span>;
+            return (
+              <span className="font-mono text-xs text-foreground-2">
+                {date}
+              </span>
+            );
           },
         }),
         columnHelper.display({
@@ -135,16 +151,29 @@ export function useWantedColumns() {
               state === "quarantined";
             return (
               <span
-                className={
-                  isLive
-                    ? "text-sm text-foreground"
-                    : isTrouble
-                      ? "text-sm text-muted-foreground"
-                      : "text-sm text-muted-foreground/70"
-                }
+                className="inline-flex items-center gap-1.5 text-[13px]"
                 data-acquisition-state={state ?? "never"}
               >
-                {label}
+                <span
+                  aria-hidden="true"
+                  className="size-1.5 shrink-0 rounded-full"
+                  style={{
+                    background: isLive
+                      ? "var(--in-flight)"
+                      : isTrouble
+                        ? "var(--status-paused)"
+                        : "var(--text-muted)",
+                  }}
+                />
+                <span
+                  className={
+                    isLive || isTrouble
+                      ? "text-foreground"
+                      : "text-foreground-2"
+                  }
+                >
+                  {label}
+                </span>
               </span>
             );
           },
@@ -152,11 +181,11 @@ export function useWantedColumns() {
         }),
         columnHelper.display({
           id: "actions",
-          header: "Actions",
+          header: () => <span className="sr-only">Actions</span>,
           cell: ({ row }) => (
             <Button
-              size="sm"
-              variant="outline"
+              size="compact"
+              variant="ghost"
               onClick={(e) => {
                 e.stopPropagation();
                 unqueueIssueMutation.mutate(row.original.IssueID, {
@@ -169,9 +198,9 @@ export function useWantedColumns() {
                 });
               }}
               disabled={unqueueIssueMutation.isPending}
-              className="text-xs"
+              className="text-foreground-2 opacity-60 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100"
             >
-              <X className="w-3 h-3 mr-1" />
+              <X />
               Skip
             </Button>
           ),

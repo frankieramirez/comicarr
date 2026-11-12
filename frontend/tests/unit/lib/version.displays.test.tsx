@@ -45,9 +45,7 @@ describe("version display consumers", () => {
         HttpResponse.json({ threads: [], next_cursor: null }),
       ),
     );
-    render(
-      createElement(SidebarProvider, null, createElement(AppSidebar)),
-    );
+    render(createElement(SidebarProvider, null, createElement(AppSidebar)));
     expect(await screen.findByText(formatAppVersion(false))).toBeTruthy();
   });
 
@@ -66,7 +64,7 @@ describe("version display consumers", () => {
     render(createElement(SettingsPage));
 
     expect(
-      await screen.findByText(`comicarr ${formatAppVersion()}`, {
+      await screen.findByText(`${formatAppVersion()} · /config/config.ini`, {
         exact: false,
       }),
     ).toBeTruthy();

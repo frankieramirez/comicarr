@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
 import { useActivityStatus } from "@/hooks/useActivityStatus";
 import { inFlightView } from "@/lib/inFlight";
-import { PanelUnavailable } from "@/components/dashboard/DashboardPanel";
+import {
+  PanelUnavailable,
+  SectionHeader,
+} from "@/components/dashboard/DashboardPanel";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -16,24 +19,33 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export default function InFlightLine() {
   const status = useActivityStatus();
+  const header = (
+    <SectionHeader
+      variant="rail"
+      title="Downloads"
+      action={{ label: "Activity", to: "/activity" }}
+    />
+  );
 
   if (status.isPending) {
     return (
-      <div className="px-5 py-2.5">
-        <Skeleton aria-hidden="true" className="h-2.5 w-40 rounded-sm" />
-      </div>
+      <section>
+        {header}
+        <Skeleton aria-hidden="true" className="my-1.5 h-2.5 w-40 rounded-sm" />
+      </section>
     );
   }
 
   if (status.isError) {
     return (
-      <div className="px-5">
+      <section>
+        {header}
         <PanelUnavailable
           label="In flight"
           onRetry={() => void status.refetch()}
           isRetrying={status.isFetching}
         />
-      </div>
+      </section>
     );
   }
 
@@ -43,17 +55,24 @@ export default function InFlightLine() {
   });
 
   return (
-    <div className="px-5 py-2.5">
+    <section>
+      {header}
       <Link
         to="/activity"
         aria-label="In flight"
-        className="font-mono text-[11px] hover:text-foreground"
-        style={{
-          color: view.busy ? "var(--status-active)" : "var(--muted-foreground)",
-        }}
+        className="flex items-center gap-2 py-1 text-[13px] hover:text-foreground"
       >
-        {view.text}
+        <span
+          className="size-1.5 shrink-0 rounded-full"
+          style={{
+            background: view.busy ? "var(--in-flight)" : "var(--text-muted)",
+          }}
+          aria-hidden="true"
+        />
+        <span className={view.busy ? "text-foreground" : "text-foreground-2"}>
+          {view.text}
+        </span>
       </Link>
-    </div>
+    </section>
   );
 }

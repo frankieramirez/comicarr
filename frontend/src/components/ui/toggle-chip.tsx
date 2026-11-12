@@ -17,8 +17,7 @@ export interface ToggleChipProps extends Omit<
 }
 
 /**
- * Pressed filter/section chip. Active tint lives in classes so both themes
- * resolve `--primary`; `aria-pressed` is always set.
+ * Pressed filter/section chip. Pressed state is a neutral raised surface (v2: orange is accents only); `aria-pressed` is always set.
  */
 const ToggleChip = React.forwardRef<HTMLButtonElement, ToggleChipProps>(
   (
@@ -40,9 +39,9 @@ const ToggleChip = React.forwardRef<HTMLButtonElement, ToggleChipProps>(
         aria-pressed={pressed}
         onClick={() => onPressedChange(!pressed)}
         className={cn(
-          "inline-flex shrink-0 items-center gap-1.5 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          "inline-flex shrink-0 items-center gap-1.5 rounded-control border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
           pressed
-            ? "border-primary bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] text-foreground"
+            ? "border-border-emphasis bg-surface-3 text-foreground"
             : "border-border bg-transparent text-muted-foreground hover:text-foreground",
           sizeClass[size],
           className,

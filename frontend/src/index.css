@@ -21,57 +21,74 @@
   --radius: 0.375rem;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: #e04a0a;
+  --background: #ffffff;
+  --foreground: #12151c;
+  --card: #f6f7f9;
+  --card-foreground: #12151c;
+  --popover: #ffffff;
+  --popover-foreground: #12151c;
+  --primary: #d4520e;
   --primary-foreground: #ffffff;
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
+  --secondary: #f0f2f5;
+  --secondary-foreground: #4a5262;
+  --muted: #f0f2f5;
+  --muted-foreground: #646c7e;
   /* Dimmer than --muted-foreground: separators and 10px micro-labels only.
      Real words use --muted-foreground. Tuned to the same 2.95:1 contrast the
      dark theme gives this token, so "muted" reads the same in both. */
   --text-muted: oklch(0.675 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
+  --accent: #f0f2f5;
+  --accent-foreground: #12151c;
   --destructive: oklch(0.577 0.245 27.325);
   /* White on this red is ~4.8:1. Dark uses a dark foreground because the
      salmon `--destructive` there cannot carry white at AA. */
   --destructive-foreground: #ffffff;
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
+  --border: #e2e5ea;
+  --input: #d4d8df;
+  --ring: #d4520e;
   --chart-1: oklch(0.88 0.15 92);
   --chart-2: oklch(0.77 0.16 70);
   --chart-3: oklch(0.67 0.16 58);
   --chart-4: oklch(0.56 0.15 49);
   --chart-5: oklch(0.47 0.12 46);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.67 0.16 58);
+  --sidebar: #f6f7f9;
+  --sidebar-foreground: #12151c;
+  --sidebar-primary: #d4520e;
   --sidebar-primary-foreground: oklch(0.99 0.02 95);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.705 0.015 286.067);
+  --sidebar-accent: #f0f2f5;
+  --sidebar-accent-foreground: #12151c;
+  --sidebar-border: #e2e5ea;
+  --sidebar-ring: #d4520e;
+
+  /* v2 surfaces and text (DESIGN.md → v2 tokens). */
+  --surface-1: #f6f7f9;
+  --surface-2: #f0f2f5;
+  --surface-3: #e5e8ed;
+  --border-subtle: #eceef2;
+  --border-strong: #d4d8df;
+  --border-emphasis: #7d8494;
+  --foreground-2: #4a5262;
+  --selection: #e9ebef;
+  --hairline: #0000001a;
+  /* Neutral primary action. Orange is reserved for accents. */
+  --act: #12151c;
+  --act-foreground: #ffffff;
+  --act-hover: #2a2f3a;
+  /* Work that is moving right now (searching, downloading). */
+  --in-flight: #2f6fdb;
 
   /* Status Badges */
-  --status-active: oklch(0.65 0.2 145);
+  --status-active: #1f9d55;
   --status-active-bg: oklch(0.95 0.08 145);
-  --status-wanted: oklch(0.6 0.22 265);
+  --status-wanted: #2f6fdb;
   --status-wanted-bg: oklch(0.95 0.1 265);
-  --status-downloaded: oklch(0.65 0.2 145);
+  --status-downloaded: #1f9d55;
   --status-downloaded-bg: oklch(0.95 0.08 145);
-  --status-paused: oklch(0.75 0.18 85);
+  --status-paused: #b7791f;
   --status-paused-bg: oklch(0.97 0.08 85);
   --status-ended: oklch(0.5 0.05 280);
   --status-ended-bg: oklch(0.94 0.02 280);
-  --status-error: oklch(0.65 0.24 25);
+  --status-error: #d93a3a;
   --status-error-bg: oklch(0.96 0.1 25);
   --status-skipped: oklch(0.6 0.05 280);
   --status-skipped-bg: oklch(0.94 0.02 280);
@@ -132,54 +149,81 @@ body {
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-border-emphasis: var(--border-emphasis);
+  --color-foreground-2: var(--foreground-2);
+  --color-selection: var(--selection);
+  --color-hairline: var(--hairline);
+  --color-act: var(--act);
+  --color-act-foreground: var(--act-foreground);
+  --color-act-hover: var(--act-hover);
+  --color-in-flight: var(--in-flight);
   --font-mono: var(--font-mono);
 }
 
 .dark {
   --background: #0b0d12;
-  --foreground: #e8eaf0;
-  --card: #12151c;
-  --card-foreground: #e8eaf0;
-  --popover: #12151c;
-  --popover-foreground: #e8eaf0;
+  --foreground: #eceef2;
+  --card: #11141b;
+  --card-foreground: #eceef2;
+  --popover: #1a1f2a;
+  --popover-foreground: #eceef2;
   --primary: #ff6a1f;
   --primary-foreground: #ffffff;
-  --secondary: #181c25;
-  --secondary-foreground: #8a92a5;
-  --muted: #181c25;
+  --secondary: #171b24;
+  --secondary-foreground: #a3abba;
+  --muted: #171b24;
   --muted-foreground: #8a92a5;
-  --accent: #181c25;
-  --accent-foreground: #e8eaf0;
+  --accent: #171b24;
+  --accent-foreground: #eceef2;
   --destructive: #ff6b6b;
   --destructive-foreground: #0b0d12;
   --border: #232834;
-  --input: #181c25;
+  --input: #2a3040;
   --ring: #ff6a1f;
   --chart-1: #ff8a4c;
   --chart-2: #ff6a1f;
   --chart-3: #53d37d;
   --chart-4: #6ea8ff;
   --chart-5: #565d6f;
-  --sidebar: #12151c;
-  --sidebar-foreground: #e8eaf0;
+  --sidebar: #11141b;
+  --sidebar-foreground: #eceef2;
   --sidebar-primary: #ff6a1f;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #181c25;
-  --sidebar-accent-foreground: #e8eaf0;
+  --sidebar-accent: #171b24;
+  --sidebar-accent-foreground: #eceef2;
   --sidebar-border: #232834;
   --sidebar-ring: #ff6a1f;
 
   --text-muted: #565d6f;
 
+  --surface-1: #11141b;
+  --surface-2: #171b24;
+  --surface-3: #1f2430;
+  --border-subtle: #1a1e28;
+  --border-strong: #2a3040;
+  --border-emphasis: #5f677a;
+  --foreground-2: #a3abba;
+  --selection: #1d212a;
+  --hairline: #ffffff14;
+  --act: #eceef2;
+  --act-foreground: #0b0d12;
+  --act-hover: #ffffff;
+  --in-flight: #6ca8ff;
+
   /* Status Badges - Dark Mode */
   --status-active: #53d37d;
   --status-active-bg: #53d37d18;
-  --status-wanted: #ff6a1f;
-  --status-wanted-bg: #ff6a1f1f;
+  --status-wanted: #6ca8ff;
+  --status-wanted-bg: #6ca8ff1f;
   --status-downloaded: #53d37d;
   --status-downloaded-bg: #53d37d18;
-  --status-paused: #ffb547;
-  --status-paused-bg: #ffb54718;
+  --status-paused: #e8b33a;
+  --status-paused-bg: #e8b33a18;
   --status-ended: #8a92a5;
   --status-ended-bg: #565d6f18;
   --status-error: #ff6b6b;
@@ -211,7 +255,7 @@ body {
   }
 
   h1 {
-    @apply text-3xl font-bold;
+    @apply text-2xl font-semibold;
   }
   h2 {
     @apply text-2xl font-semibold;

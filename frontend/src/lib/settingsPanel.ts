@@ -20,7 +20,7 @@ export type SectionId =
 
 /** Logs use the full content pane; other tabs stay a readable centered column. */
 export function settingsPanelClassName(section: SectionId): string {
-  const padding = "px-4 py-5 md:px-6 md:py-6 mx-auto pb-24";
+  const padding = "px-4 pt-2 pb-10 md:pl-4 md:pr-8";
   return section === "logs"
     ? `${padding} w-full max-w-none`
     : `${padding} max-w-4xl`;

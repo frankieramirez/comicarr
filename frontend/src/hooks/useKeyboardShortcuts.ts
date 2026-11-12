@@ -1,3 +1,4 @@
+import { openCommandPalette } from "@/lib/commandPalette";
 import { useEffect } from "react";
 
 /**
@@ -65,15 +66,13 @@ export function useKeyboardShortcuts(): void {
         return;
       }
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "k"
+      ) {
         e.preventDefault();
-        const globalSearch = document.querySelector<HTMLInputElement>(
-          'input[data-global-search="true"]',
-        );
-        if (globalSearch) {
-          globalSearch.focus();
-          globalSearch.select();
-        }
+        openCommandPalette();
         return;
       }
     };

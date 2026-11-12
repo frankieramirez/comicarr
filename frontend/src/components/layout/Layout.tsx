@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import CommandPalette from "@/components/layout/CommandPalette";
 import AppSidebar from "@/components/layout/AppSidebar";
 import AppStatusBar from "@/components/layout/AppStatusBar";
 import { useAiStatus } from "@/hooks/useAiStatus";
@@ -130,13 +131,16 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <SidebarProvider className="h-svh overflow-hidden">
       <AppSidebar />
+      <CommandPalette />
       {/* No height of its own: as a flex item it stretches to the shell's
           height, so the column below is bounded by the viewport. */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Mobile header with trigger - only visible on mobile */}
         <header className="z-10 flex h-16 shrink-0 items-center gap-4 border-b bg-background px-4 md:hidden">
           <SidebarTrigger />
-          <span className="text-lg font-bold gradient-brand">Comicarr</span>
+          <span className="text-lg font-semibold text-foreground">
+            Comicarr<span className="text-primary">.</span>
+          </span>
           {showAiBell && (
             <div className="ml-auto flex items-center gap-1">
               <button
@@ -151,7 +155,7 @@ export default function Layout({ children }: LayoutProps) {
         </header>
 
         {/* Desktop omni status bar */}
-        <div className="hidden md:flex h-12 shrink-0 items-center gap-3 border-b-[0.5px] border-border bg-card px-4 mono-meta">
+        <div className="hidden md:flex h-10 shrink-0 items-center gap-3 border-b border-border-subtle bg-background px-4 mono-meta">
           <SidebarTrigger />
           <AppStatusBar />
           <div className="ml-auto flex items-center gap-3">

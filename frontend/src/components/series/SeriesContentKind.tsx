@@ -34,22 +34,18 @@ export function SeriesContentKind({
 }: SeriesContentKindProps) {
   return (
     <section
-      className="mb-3.5 max-w-[640px] rounded-lg border p-3"
-      style={{
-        borderColor: "var(--border)",
-        background: "color-mix(in oklab, var(--primary) 4%, var(--background))",
-      }}
+      className="rounded-lg border border-border-subtle bg-surface-1 px-4 py-3"
       aria-labelledby="content-kind-title"
     >
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-center">
         <div>
-          <div id="content-kind-title" className="text-[12px] font-semibold">
+          <div id="content-kind-title" className="text-[13px] font-semibold">
             Catalog this as
           </div>
-          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+          <p className="mt-1 text-[13px] leading-relaxed text-foreground-2">
             {KIND_COPY[value].description} Metadata still comes from {provider}.
           </p>
-          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             Future labels and matching follow this choice. Existing files and
             issue history stay unchanged. Switching to manga or magazine also
             stores the series under that destination so downloads import there,
@@ -60,7 +56,7 @@ export function SeriesContentKind({
           role="radiogroup"
           aria-label="Content kind"
           aria-busy={pending}
-          className="relative grid grid-cols-3 rounded-control border border-border bg-background p-0.5"
+          className="relative grid grid-cols-3 rounded-md border border-border-subtle bg-background p-0.5"
         >
           {KINDS.map((kind, index) => {
             const active = value === kind;
@@ -79,10 +75,10 @@ export function SeriesContentKind({
                   const step = event.key === "ArrowRight" ? 1 : -1;
                   onChange(KINDS[(index + step + KINDS.length) % KINDS.length]);
                 }}
-                className={`rounded-[3px] px-3 py-2 font-mono text-[12px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70 ${
+                className={`rounded-control px-3 py-1.5 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70 ${
                   active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground"
+                    ? "bg-surface-3 text-foreground"
+                    : "text-foreground-2 hover:text-foreground"
                 }`}
               >
                 {KIND_COPY[kind].label}

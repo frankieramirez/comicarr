@@ -601,7 +601,11 @@ describe("SeriesTable", () => {
     expect(screen.getByText("Batman")).toBeTruthy();
     expect(screen.getByText("Untyped")).toBeTruthy();
     expect(screen.queryByText("Nintendo Power")).toBeNull();
-    expect(screen.getByText("type:")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: /^Comics/ })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
     unmount();
 
     window.history.pushState({}, "", "/library?type=magazine");
