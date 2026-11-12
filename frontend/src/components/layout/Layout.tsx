@@ -4,6 +4,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import CommandPalette from "@/components/layout/CommandPalette";
 import AppSidebar from "@/components/layout/AppSidebar";
 import AppStatusBar from "@/components/layout/AppStatusBar";
+import MobileTabBar from "@/components/layout/MobileTabBar";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import { useLazyModule } from "@/hooks/useLazyModule";
 import { useVersionInfo } from "@/hooks/useVersion";
@@ -135,25 +136,6 @@ export default function Layout({ children }: LayoutProps) {
       {/* No height of its own: as a flex item it stretches to the shell's
           height, so the column below is bounded by the viewport. */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Mobile header with trigger - only visible on mobile */}
-        <header className="z-10 flex h-16 shrink-0 items-center gap-4 border-b bg-background px-4 md:hidden">
-          <SidebarTrigger />
-          <span className="text-lg font-semibold text-foreground">
-            Comicarr<span className="text-primary">.</span>
-          </span>
-          {showAiBell && (
-            <div className="ml-auto flex items-center gap-1">
-              <button
-                onClick={() => setActivityOpen(true)}
-                className="rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                aria-label="AI Activity"
-              >
-                <Bell className="h-5 w-5" />
-              </button>
-            </div>
-          )}
-        </header>
-
         {/* Desktop omni status bar */}
         <div className="hidden md:flex h-10 shrink-0 items-center gap-3 border-b border-border-subtle bg-background px-4 mono-meta">
           <SidebarTrigger />
@@ -198,6 +180,7 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           )}
         </div>
+        <MobileTabBar />
       </main>
 
       <ActivityFeedDrawerSlot
