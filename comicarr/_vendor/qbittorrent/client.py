@@ -114,9 +114,14 @@ class Client(object):
                                   data={'username': username,
                                         'password': password},
                                   timeout=DEFAULT_TIMEOUT)
-        if login.text == 'Ok.':
+        # qBittorrent before 5.2 answers a good login with 200 "Ok."; 5.2+
+        # answers 204 No Content with an empty body. Anything else ("Fails.",
+        # 403 after too many attempts) leaves the session unauthenticated.
+        body = (login.text or '').strip()
+        if 200 <= login.status_code < 300 and body in ('Ok.', ''):
             self._is_authenticated = True
         else:
+            self._is_authenticated = False
             return login.text
 
     def logout(self):

@@ -167,9 +167,10 @@ VENDOR_PROVENANCE = {
         "local_modifications": (
             "Bundled Web API client; exact upstream revision unidentified. "
             "Comicarr adds a DEFAULT_TIMEOUT to every WebUI request so a hung "
-            "client cannot block the single-threaded torrent monitor."
+            "client cannot block the single-threaded torrent monitor. "
+            "login() also accepts qBittorrent 5.2's 204 No Content reply (#1159)."
         ),
-        "packaged_snapshot_sha256": "b0251f4e6dd857e0f0a1107e30e851f8c524b15dd7b294bedbd2390d964f2b4f",
+        "packaged_snapshot_sha256": "375a141301177ad6e14214966ddb40ae8e938b64e38f9de37104e9a3a4513b73",
     },
     "rtorrent": {
         "integration_owner": "Comicarr",

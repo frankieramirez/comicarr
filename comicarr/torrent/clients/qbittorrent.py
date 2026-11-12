@@ -31,6 +31,9 @@ class TorrentClient(object):
             except Exception as e:
                 logger.error("Could not connect to qBittorrent: %s" % host)
                 return connection_failure(e)
+            if self.client._is_authenticated is not True:
+                logger.error("qBittorrent rejected the login for %s. Check the username and password." % host)
+                return connection_failure("qBittorrent login failed. Check the username and password.")
             else:
                 self.conn = self.client
                 if test is True:
@@ -66,72 +69,78 @@ class TorrentClient(object):
         if not filepath.startswith("magnet"):
             logger.info("filepath to torrent file set to : %s" % filepath)
 
-        if self.client._is_authenticated is True:
-            logger.info("Checking if Torrent Exists!")
+        if self.client._is_authenticated is not True:
+            logger.warning("Torrent was not added: not logged in to qBittorrent")
+            return {"status": False, "error": "Not logged in to qBittorrent"}
+
+        logger.info("Checking if Torrent Exists!")
+
+        if filepath.startswith("magnet"):
+            torrent_hash = re.findall(r"urn:btih:([\w]{32,40})", filepath)[0]
+            if len(torrent_hash) == 32:
+                torrent_hash = b16encode(b32decode(torrent_hash)).lower()
+            hash = torrent_hash.upper()
+            logger.debug("Magnet (load_torrent) initiating")
+        else:
+            hash = self.get_the_hash(filepath)
+            logger.debug("FileName (load_torrent): %s" % os.path.basename(filepath))
+
+        logger.debug('Torrent Hash (load_torrent): "%s"' % hash)
+
+        if self.find_torrent(hash):
+            logger.info("load_torrent: Torrent already exists!")
+            return {"status": False, "error": "Torrent already exists"}
+        else:
+            logger.info("Torrent not added yet, trying to add it now!")
+
+            addargs = {}
+            if destination.category is not None:
+                addargs.update({"category": destination.category})
+                logger.info("Setting download label to: %s" % destination.category)
+            if destination.savepath is not None:
+                addargs.update({"savepath": destination.savepath})
+                logger.info("Forcing download location to: %s" % destination.savepath)
+            if comicarr.CONFIG.QBITTORRENT_LOADACTION == "pause":
+                addargs.update({"paused": "true"})
+                logger.info("Attempting to add torrent in paused state")
 
             if filepath.startswith("magnet"):
-                torrent_hash = re.findall(r"urn:btih:([\w]{32,40})", filepath)[0]
-                if len(torrent_hash) == 32:
-                    torrent_hash = b16encode(b32decode(torrent_hash)).lower()
-                hash = torrent_hash.upper()
-                logger.debug("Magnet (load_torrent) initiating")
-            else:
-                hash = self.get_the_hash(filepath)
-                logger.debug("FileName (load_torrent): %s" % os.path.basename(filepath))
-
-            logger.debug('Torrent Hash (load_torrent): "%s"' % hash)
-
-            if self.find_torrent(hash):
-                logger.info("load_torrent: Torrent already exists!")
-                return {"status": False, "error": "Torrent already exists"}
-            else:
-                logger.info("Torrent not added yet, trying to add it now!")
-
-                addargs = {}
-                if destination.category is not None:
-                    addargs.update({"category": destination.category})
-                    logger.info("Setting download label to: %s" % destination.category)
-                if destination.savepath is not None:
-                    addargs.update({"savepath": destination.savepath})
-                    logger.info("Forcing download location to: %s" % destination.savepath)
-                if comicarr.CONFIG.QBITTORRENT_LOADACTION == "pause":
-                    addargs.update({"paused": "true"})
-                    logger.info("Attempting to add torrent in paused state")
-
-                if filepath.startswith("magnet"):
-                    try:
-                        self.client.download_from_link(filepath, **addargs)
-                    except Exception as e:
-                        logger.error("Torrent not added - %s" % e)
-                        return {"status": False, "error": e}
-                    else:
-                        logger.debug("Successfully submitted for add as a magnet. Verifying item is now on client.")
-                else:
-                    try:
-                        torrent_content = open(filepath, "rb")
-                        self.client.download_from_file(torrent_content, **addargs)
-                    except Exception as e:
-                        logger.error("Torrent not added - %s" % e)
-                        return {"status": False, "error": e}
-                    else:
-                        logger.debug("Successfully submitted for add via file. Verifying item is now on client.")
-
-            if comicarr.CONFIG.QBITTORRENT_LOADACTION == "force_start":
-                logger.info("Attempting to force start torrent")
                 try:
-                    startit = self.client.force_start(hash)
-                    logger.info("startit returned: %s" % startit)
+                    self.client.download_from_link(filepath, **addargs)
                 except Exception as e:
-                    logger.warning("Unable to force start torrent: %s", e)
+                    logger.error("Torrent not added - %s" % e)
+                    return {"status": False, "error": e}
+                else:
+                    logger.debug("Successfully submitted for add as a magnet. Verifying item is now on client.")
             else:
-                logger.info("Client default add action selected. Doing nothing.")
+                try:
+                    torrent_content = open(filepath, "rb")
+                    self.client.download_from_file(torrent_content, **addargs)
+                except Exception as e:
+                    logger.error("Torrent not added - %s" % e)
+                    return {"status": False, "error": e}
+                else:
+                    logger.debug("Successfully submitted for add via file. Verifying item is now on client.")
+
+        if comicarr.CONFIG.QBITTORRENT_LOADACTION == "force_start":
+            logger.info("Attempting to force start torrent")
+            try:
+                startit = self.client.force_start(hash)
+                logger.info("startit returned: %s" % startit)
+            except Exception as e:
+                logger.warning("Unable to force start torrent: %s", e)
+        else:
+            logger.info("Client default add action selected. Doing nothing.")
 
         try:
             time.sleep(5)
             tinfo = self.get_torrent(hash)
         except Exception as e:
-            logger.warn("Torrent was not added! Please check logs")
+            logger.warning("Torrent was not added! Please check logs")
             return {"status": False, "error": e}
+        if not tinfo:
+            logger.warning("Torrent was not added: qBittorrent does not list it after submission")
+            return {"status": False, "error": "Torrent not found on qBittorrent after adding it"}
         else:
             logger.info("Torrent successfully added!")
             filelist = self.client.get_torrent_files(hash)
