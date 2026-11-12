@@ -14,7 +14,7 @@ test("unauthenticated users are redirected to login", async ({ browser }) => {
   await page.goto("/settings");
 
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByText("Sign in")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 
   await context.close();
 });
@@ -48,13 +48,13 @@ test("logout clears the protected session", async ({ page }) => {
   await page.getByRole("menuitem", { name: "Log out", exact: true }).click();
 
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByText("Sign in")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 
   // Logout rotates the server-side JWT key, so refresh the shared storage
   // state before the next smoke test creates its browser context.
-  await page.getByPlaceholder("username").fill(ADMIN_USERNAME);
-  await page.getByPlaceholder("password").fill(ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByLabel("Username", { exact: true }).fill(ADMIN_USERNAME);
+  await page.getByLabel("Password", { exact: true }).fill(ADMIN_PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Dashboard").first()).toBeVisible();
   await page.context().storageState({ path: authFile });
 });

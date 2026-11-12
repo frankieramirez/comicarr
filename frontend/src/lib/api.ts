@@ -164,6 +164,7 @@ export function isNotFoundError(error: unknown): boolean {
 export async function login(
   username: string,
   password: string,
+  remember = true,
 ): Promise<LoginResponse> {
   if (isMockEnabled()) {
     const mocked = mockApiResponse("POST", `${AUTH_BASE}/login`);
@@ -178,7 +179,7 @@ export async function login(
         ...COMMON_HEADERS,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, remember }),
       credentials: "include", // Receive JWT cookie
     });
 

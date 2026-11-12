@@ -38,6 +38,9 @@ from comicarr.app.system.log_files import LogFileError
 
 router = APIRouter(prefix="/api", tags=["system"])
 
+#: Longest session when "Keep me signed in" is unticked (12 hours).
+SHORT_SESSION_MINUTES = 12 * 60
+
 
 @router.post("/auth/login")
 async def login(request: Request, ctx: AppContext = Depends(get_context)):
@@ -63,6 +66,12 @@ async def login(request: Request, ctx: AppContext = Depends(get_context)):
         )
 
     login_timeout = getattr(ctx.config, "LOGIN_TIMEOUT", 43800) if ctx.config else 43800
+    # "Keep me signed in" (the default) keeps the session for LOGIN_TIMEOUT
+    # minutes across browser restarts. Unticked, the cookie ends with the
+    # browser session and the token is capped at SHORT_SESSION_MINUTES.
+    remember = body.get("remember", True) is not False
+    if not remember:
+        login_timeout = min(login_timeout, SHORT_SESSION_MINUTES)
     with ctx.runtime_lock:
         token = create_session_token(username, ctx.jwt_secret_key, ctx.jwt_generation, login_timeout)
 
@@ -74,7 +83,7 @@ async def login(request: Request, ctx: AppContext = Depends(get_context)):
         httponly=True,
         secure=enable_https,
         samesite="strict",
-        max_age=2_628_000,
+        max_age=max(login_timeout, 1) * 60 if remember else None,
     )
     return response
 

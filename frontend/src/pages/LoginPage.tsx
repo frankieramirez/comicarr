@@ -1,13 +1,6 @@
 import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Loader2,
-  AlertCircle,
-  User,
-  Lock,
-  ShieldCheck,
-  ArrowRight,
-} from "lucide-react";
+import { Loader2, AlertCircle, User, Lock, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkHealth, checkSetup, setupCredentials } from "@/lib/api";
 import { Kbd } from "@/components/ui/kbd";
@@ -259,11 +252,48 @@ function SetupForm() {
   );
 }
 
+/** The sign-in card's field: plain label, quiet border, orange on focus. */
+function SignInField({
+  id,
+  label,
+  focused,
+  children,
+}: {
+  id: string;
+  label: string;
+  focused: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-[13px] font-medium text-foreground-2"
+      >
+        {label}
+      </label>
+      <div
+        className="flex h-9 items-center gap-2 rounded-md border bg-background px-3 transition-all"
+        style={{
+          borderColor: focused ? "var(--primary)" : "var(--border)",
+          boxShadow: focused
+            ? "0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent)"
+            : undefined,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function LoginForm() {
   const usernameId = useId();
   const passwordId = useId();
+  const rememberId = useId();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [focus, setFocus] = useState<string | null>(null);
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
@@ -277,7 +307,7 @@ function LoginForm() {
       setError("Please enter both username and password");
       return;
     }
-    const result = await login(username, password);
+    const result = await login(username, password, remember);
     if (result.success) {
       navigate("/");
     } else {
@@ -287,50 +317,57 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <MonoLabel htmlFor={usernameId}>Username</MonoLabel>
-        <FieldShell icon={User} focused={focus === "u"}>
-          <input
-            id={usernameId}
-            type="text"
-            placeholder="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            onFocus={() => setFocus("u")}
-            onBlur={() => setFocus(null)}
-            disabled={isVerifying}
-            autoComplete="username"
-            className="flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
-          />
-        </FieldShell>
-      </div>
+      <SignInField id={usernameId} label="Username" focused={focus === "u"}>
+        <input
+          id={usernameId}
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          onFocus={() => setFocus("u")}
+          onBlur={() => setFocus(null)}
+          disabled={isVerifying}
+          autoComplete="username"
+          className="flex-1 bg-transparent text-[13px] text-foreground outline-none"
+        />
+      </SignInField>
 
-      <div>
-        <MonoLabel htmlFor={passwordId}>Password</MonoLabel>
-        <FieldShell icon={Lock} focused={focus === "p"}>
-          <input
-            id={passwordId}
-            type={showPw ? "text" : "password"}
-            placeholder="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onFocus={() => setFocus("p")}
-            onBlur={() => setFocus(null)}
-            disabled={isVerifying}
-            autoComplete="current-password"
-            className="flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground tracking-[0.15em]"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPw((s) => !s)}
-            className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
-            aria-pressed={showPw}
-            aria-label={showPw ? "Hide password" : "Show password"}
-          >
-            {showPw ? "hide" : "show"}
-          </button>
-        </FieldShell>
-      </div>
+      <SignInField id={passwordId} label="Password" focused={focus === "p"}>
+        <input
+          id={passwordId}
+          type={showPw ? "text" : "password"}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onFocus={() => setFocus("p")}
+          onBlur={() => setFocus(null)}
+          disabled={isVerifying}
+          autoComplete="current-password"
+          className="flex-1 bg-transparent text-[13px] text-foreground outline-none"
+        />
+        <button
+          type="button"
+          onClick={() => setShowPw((s) => !s)}
+          className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
+          aria-pressed={showPw}
+          aria-label={showPw ? "Hide password" : "Show password"}
+        >
+          {showPw ? "hide" : "show"}
+        </button>
+      </SignInField>
+
+      <label
+        htmlFor={rememberId}
+        className="flex items-center gap-2 text-[13px] text-foreground-2"
+      >
+        <input
+          id={rememberId}
+          type="checkbox"
+          checked={remember}
+          onChange={(e) => setRemember(e.target.checked)}
+          disabled={isVerifying}
+          className="size-3.5 rounded-sm accent-[var(--foreground)]"
+        />
+        Keep me signed in
+      </label>
 
       {error && (
         <Callout
@@ -345,7 +382,7 @@ function LoginForm() {
       <button
         type="submit"
         disabled={isVerifying}
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-[13px] font-semibold disabled:opacity-60"
+        className="flex h-9 w-full items-center justify-center gap-2 rounded-md text-[13px] font-semibold disabled:opacity-60"
         style={{
           background: "var(--act)",
           color: "var(--act-foreground)",
@@ -357,29 +394,9 @@ function LoginForm() {
             Signing in…
           </>
         ) : (
-          <>
-            <span>Continue</span>
-            <Kbd className="bg-black/10! border-black/20! text-black/70!">
-              ↵
-            </Kbd>
-          </>
+          "Sign in"
         )}
       </button>
-
-      <div className="flex items-center justify-between font-mono text-[10px] text-muted-foreground pt-1">
-        <button
-          type="button"
-          className="hover:text-foreground"
-          tabIndex={-1}
-          onClick={(e) => e.preventDefault()}
-        >
-          forgot password
-        </button>
-        <span className="inline-flex items-center gap-1.5">
-          <ArrowRight className="w-3 h-3" />
-          <span>sso</span>
-        </span>
-      </div>
     </form>
   );
 }
@@ -397,24 +414,28 @@ export default function LoginPage() {
 
       {/* Card */}
       <div
-        className="relative z-10 w-full max-w-[380px] p-6 rounded-xl border bg-card"
+        className="relative z-10 w-full max-w-[400px] p-8 rounded-xl border bg-card"
         style={{
           borderColor: "var(--border)",
           boxShadow: "0 30px 80px rgba(0,0,0,0.4)",
         }}
       >
         {/* Brand row */}
-        <div className="flex items-center gap-2 mb-6">
-          <Logo className="h-4 w-auto text-foreground" />
+        <div className="mb-5 flex items-center gap-2">
+          <Logo className="h-6 w-auto text-foreground" />
         </div>
 
-        <h1 className="mb-1 text-lg font-semibold tracking-tight">
+        <h1
+          className={
+            needsSetup ? "mb-1 text-lg font-semibold tracking-tight" : "sr-only"
+          }
+        >
           {needsSetup ? "Create admin" : "Sign in"}
         </h1>
-        <div className="text-[12px] text-muted-foreground mb-4">
+        <div className="mb-5 text-[13px] text-foreground-2">
           {needsSetup
             ? "Set up your first account to unlock the library."
-            : "Access your home server library."}
+            : `Sign in to your library on ${window.location.hostname}`}
         </div>
 
         {needsSetup ? <SetupForm /> : <LoginForm />}
