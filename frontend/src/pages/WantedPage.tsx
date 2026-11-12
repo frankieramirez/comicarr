@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { RefreshCw, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,11 +20,26 @@ import FilterField from "@/components/ui/FilterField";
 import { useServerPage } from "@/components/data-table/useServerPage";
 import { useTableState } from "@/components/data-table/useTableState";
 import { useDebounce } from "@/hooks/use-debounce";
+import WantedBySeries from "@/components/queue/WantedBySeries";
+import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 
 export default function WantedPage() {
   const { limit, offset, nextPage, prevPage, resetPage } = useServerPage(50);
   const [searchQuery, setSearchQueryState] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 400);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // v2: by series is the default; ?view=issue keeps the flat table.
+  const view = searchParams.get("view") === "issue" ? "issue" : "series";
+  const setView = (next: "series" | "issue") => {
+    const params = new URLSearchParams(searchParams);
+    if (next === "series") params.delete("view");
+    else params.set("view", next);
+    setSearchParams(params, { replace: true });
+  };
+  const [seriesTotals, setSeriesTotals] = useState<{
+    issues: number;
+    series: number;
+  } | null>(null);
 
   const setSearchQuery = useCallback(
     (value: string) => {
@@ -38,6 +53,7 @@ export default function WantedPage() {
     limit,
     offset,
     debouncedSearch,
+    { enabled: view === "issue" },
   );
   const issues = data?.issues || [];
   const pagination = data?.pagination;
@@ -170,9 +186,13 @@ export default function WantedPage() {
       <PageHeader
         title="Wanted"
         meta={
-          isLoading
-            ? "loading…"
-            : `${total.toLocaleString()} missing issue${total === 1 ? "" : "s"}`
+          view === "series"
+            ? seriesTotals
+              ? `${seriesTotals.issues.toLocaleString()} missing in ${seriesTotals.series.toLocaleString()} series`
+              : "loading…"
+            : isLoading
+              ? "loading…"
+              : `${total.toLocaleString()} missing issue${total === 1 ? "" : "s"}`
         }
         actions={
           <>
@@ -190,7 +210,7 @@ export default function WantedPage() {
             <Button variant="ghost" size="toolbar" asChild>
               <Link to="/settings?section=search">
                 <SlidersHorizontal />
-                Search settings
+                <span className="max-md:sr-only">Search settings</span>
               </Link>
             </Button>
             <Button
@@ -202,65 +222,97 @@ export default function WantedPage() {
               disabled={forceSearch.isPending}
             >
               <Search />
-              Force search
+              <span className="max-md:sr-only">Force search</span>
             </Button>
           </>
         }
       />
 
-      <div className="shrink-0 px-8 pb-3 flex items-center gap-3">
+      <div className="shrink-0 px-4 pb-3 flex items-center gap-3 md:px-8">
         <div className="flex-1 max-w-md">
           <FilterField
-            placeholder="Filter wanted issues…"
+            placeholder={
+              view === "series"
+                ? "Filter series or issue…"
+                : "Filter wanted issues…"
+            }
             aria-label="Filter wanted issues"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             shortcut="/"
           />
         </div>
-        {matchCount !== null && (
+        {view === "issue" && matchCount !== null && (
           <div className="mono-meta">
             {matchCount} match
             {matchCount === 1 ? "" : "es"}
           </div>
         )}
+        <div
+          role="group"
+          aria-label="Group Wanted"
+          className={`${SEGMENTED_GROUP} ml-auto max-md:hidden`}
+        >
+          <button
+            type="button"
+            aria-pressed={view === "series"}
+            className={SEGMENTED_ITEM}
+            onClick={() => setView("series")}
+          >
+            By series
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === "issue"}
+            className={SEGMENTED_ITEM}
+            onClick={() => setView("issue")}
+          >
+            By issue
+          </button>
+        </div>
       </div>
+
+      {view === "series" && (
+        <WantedBySeries search={debouncedSearch} onTotals={setSeriesTotals} />
+      )}
 
       {/* Body column — the table owns the scrolling inside it. */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        {isLoading && (
-          <div className="px-8 py-4 space-y-2">
-            <Skeleton className="h-14" />
-            <Skeleton className="h-14" />
-            <Skeleton className="h-14" />
-          </div>
-        )}
+      {view === "issue" && (
+        <div className="flex-1 min-h-0 flex flex-col">
+          {isLoading && (
+            <div className="px-8 py-4 space-y-2">
+              <Skeleton className="h-14" />
+              <Skeleton className="h-14" />
+              <Skeleton className="h-14" />
+            </div>
+          )}
 
-        {error && (
-          <div className="px-8 py-4">
-            <ErrorDisplay
-              error={error}
-              title="Unable to load wanted issues"
-              onRetry={() => refetch()}
+          {error && (
+            <div className="px-8 py-4">
+              <ErrorDisplay
+                error={error}
+                title="Unable to load wanted issues"
+                onRetry={() => refetch()}
+              />
+            </div>
+          )}
+
+          {!isLoading && !error && (
+            <WantedTable
+              table={table}
+              pagination={pagination}
+              onNextPage={() => {
+                nextPage();
+                clearSelection();
+              }}
+              onPrevPage={() => {
+                prevPage();
+                clearSelection();
+              }}
             />
-          </div>
-        )}
-
-        {!isLoading && !error && (
-          <WantedTable
-            table={table}
-            pagination={pagination}
-            onNextPage={() => {
-              nextPage();
-              clearSelection();
-            }}
-            onPrevPage={() => {
-              prevPage();
-              clearSelection();
-            }}
-          />
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       <BulkActionBar
         selectedCount={selectedIds.length}

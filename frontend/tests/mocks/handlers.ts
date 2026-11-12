@@ -320,6 +320,14 @@ export const handlers = [
     });
   }),
 
+  http.get("/api/wanted/series", () =>
+    HttpResponse.json({
+      series: [],
+      counts: { all: 0, not_found: 0, searching: 0, queued: 0 },
+      pagination: { total: 0, limit: 50, offset: 0, has_more: false },
+    }),
+  ),
+
   http.get("/api/wanted", () =>
     HttpResponse.json({
       issues: [],

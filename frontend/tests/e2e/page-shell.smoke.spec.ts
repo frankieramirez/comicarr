@@ -101,6 +101,28 @@ async function mockTallPages(page: Page) {
       await route.fallback();
       return;
     }
+    if (new URL(route.request().url()).pathname === "/api/wanted/series") {
+      const series = Array.from({ length: TALL }, (_, i) => ({
+        comicid: `comic-${i + 1}`,
+        comic_name: `Wanted series ${i + 1}`,
+        kind: "comic",
+        missing: 1,
+        which: `#${i + 1}`,
+        why: "queued",
+        buckets: { not_found: 0, searching: 0, queued: 1 },
+        max_attempts: 0,
+        last_searched_at: null,
+      }));
+      await route.fulfill({
+        contentType: "application/json",
+        json: {
+          series,
+          counts: { all: TALL, not_found: 0, searching: 0, queued: TALL },
+          pagination: { total: TALL, limit: 50, offset: 0, has_more: false },
+        },
+      });
+      return;
+    }
     const issues = Array.from({ length: TALL }, (_, i) => wantedIssue(i + 1));
     await route.fulfill({
       contentType: "application/json",

@@ -12,6 +12,8 @@ import type {
   UpcomingIssue,
   PaginationMeta,
   SearchMissingResult,
+  WantedBucket,
+  WantedSeriesResponse,
 } from "@/types";
 
 interface WantedResponse {
@@ -99,6 +101,7 @@ export function useWanted(
   limit = 50,
   offset = 0,
   q = "",
+  options: { comicId?: string; enabled?: boolean } = {},
 ): UseQueryResult<WantedResponse> {
   const params = new URLSearchParams({
     limit: String(limit),
@@ -106,11 +109,49 @@ export function useWanted(
   });
   const search = q.trim();
   if (search) params.set("q", search);
+  if (options.comicId) params.set("comic_id", options.comicId);
   return useQuery({
-    queryKey: ["wanted", limit, offset, search],
+    queryKey: ["wanted", limit, offset, search, options.comicId ?? null],
     queryFn: () =>
       apiRequest<WantedResponse>("GET", `/api/wanted?${params.toString()}`),
     staleTime: 2 * 60 * 1000,
+    enabled: options.enabled ?? true,
+  });
+}
+
+export interface WantedSeriesParams {
+  limit: number;
+  offset: number;
+  q: string;
+  state: "all" | WantedBucket;
+  kind: "all" | "comic" | "manga";
+  sort: "problems" | "missing" | "name";
+}
+
+/** Wanted folded by series (v2 Wanted page's default view). */
+export function useWantedSeries(
+  params: WantedSeriesParams,
+  enabled = true,
+): UseQueryResult<WantedSeriesResponse> {
+  const search = new URLSearchParams({
+    limit: String(params.limit),
+    offset: String(params.offset),
+    state: params.state,
+    kind: params.kind,
+    sort: params.sort,
+  });
+  const q = params.q.trim();
+  if (q) search.set("q", q);
+  return useQuery({
+    // Shares the "wanted" prefix so search and skip invalidate it too.
+    queryKey: ["wanted", "series", { ...params, q }],
+    queryFn: () =>
+      apiRequest<WantedSeriesResponse>(
+        "GET",
+        `/api/wanted/series?${search.toString()}`,
+      ),
+    staleTime: 2 * 60 * 1000,
+    enabled,
   });
 }
 

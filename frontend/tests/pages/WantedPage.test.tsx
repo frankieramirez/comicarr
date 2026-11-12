@@ -193,7 +193,10 @@ describe("WantedPage", () => {
       ),
     );
 
-    render(<WantedPage />);
+    render(<WantedPage />, {
+      useMemoryRouter: true,
+      route: "/wanted?view=issue",
+    });
 
     expect(await screen.findByText("never searched")).toBeTruthy();
     expect(screen.getByText("searching…")).toBeTruthy();
@@ -249,7 +252,10 @@ describe("WantedPage", () => {
     );
 
     const user = userEvent.setup();
-    render(<WantedPage />);
+    render(<WantedPage />, {
+      useMemoryRouter: true,
+      route: "/wanted?view=issue",
+    });
 
     expect(await screen.findByText("53 missing issues")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Next page" }));
@@ -299,7 +305,10 @@ describe("WantedPage", () => {
     );
 
     const user = userEvent.setup();
-    render(<WantedPage />);
+    render(<WantedPage />, {
+      useMemoryRouter: true,
+      route: "/wanted?view=issue",
+    });
     await screen.findByText("90 missing issues");
 
     await user.click(screen.getByRole("button", { name: "Next page" }));
@@ -331,7 +340,10 @@ describe("WantedPage", () => {
       ),
     );
     const user = userEvent.setup();
-    render(<WantedPage />);
+    render(<WantedPage />, {
+      useMemoryRouter: true,
+      route: "/wanted?view=issue",
+    });
     await user.click(await screen.findByRole("button", { name: "Skip" }));
     expect(await screen.findByRole("alert")).toBeTruthy();
   });

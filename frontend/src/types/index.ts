@@ -64,6 +64,9 @@ export type {
   ResolvedArcSeries,
   StoryArcDetail,
   ArcSearchResult,
+  WantedBucket,
+  WantedSeries,
+  WantedSeriesResponse,
 } from "./entities";
 
 export type { User, AuthContextValue } from "./auth";

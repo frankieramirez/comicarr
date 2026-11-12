@@ -1,3 +1,4 @@
+import type { WantedSeries } from "@/types";
 /**
  * Operator-language labels for Wanted row live-sticky acquisition annotations.
  *
@@ -77,4 +78,16 @@ export function formatWantedAcquisitionAnnotation(
   }
 
   return state.replace(/_/g, " ");
+}
+
+/** "Not found 3×", "Searching", "Queued". */
+export function wantedSeriesWhy(
+  series: Pick<WantedSeries, "why" | "max_attempts">,
+): string {
+  if (series.why === "not_found") {
+    return series.max_attempts > 1
+      ? `Not found ${series.max_attempts}×`
+      : "Not found";
+  }
+  return series.why === "searching" ? "Searching" : "Queued";
 }

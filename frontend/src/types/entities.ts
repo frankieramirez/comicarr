@@ -349,6 +349,39 @@ export interface WantedIssue extends Issue {
   acquisition?: WantedAcquisitionAnnotation | null;
 }
 
+/** Why a Wanted issue is still missing, from its latest search. */
+export type WantedBucket = "not_found" | "searching" | "queued";
+
+/** One series row of GET /api/wanted/series. */
+export interface WantedSeries {
+  comicid: string;
+  comic_name: string;
+  comic_year?: string | null;
+  publisher?: string | null;
+  kind: "comic" | "manga";
+  missing: number;
+  /** Compressed issue numbers, e.g. "#1-249, #301-310, +12". */
+  which: string;
+  /** The row's most urgent reason. */
+  why: WantedBucket;
+  buckets: Record<WantedBucket, number>;
+  /** Most search attempts among its not-found issues. */
+  max_attempts: number;
+  last_searched_at: string | null;
+}
+
+export interface WantedSeriesResponse {
+  series: WantedSeries[];
+  /** Issue counts per reason across the whole filtered set. */
+  counts: Record<"all" | WantedBucket, number>;
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  };
+}
+
 /** Upcoming issue */
 export interface UpcomingIssue extends Omit<Issue, "Status"> {
   ReleaseComicID?: string;

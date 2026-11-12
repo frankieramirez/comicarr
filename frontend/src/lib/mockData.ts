@@ -849,19 +849,88 @@ function upcomingReleases() {
 
 function wantedIssues(): WantedIssue[] {
   const out: WantedIssue[] = [];
-  for (const c of COVERS) {
+  COVERS.forEach((c, seriesIndex) => {
     const issues = ISSUES_BY_COMIC.get(c.id) || [];
-    for (const i of issues.filter((x) => x.Status === "Wanted")) {
-      out.push({
-        ...i,
-        ComicName: c.title,
-        ComicYear: String(c.year),
-        ComicPublisher: c.publisher,
-        ComicImage: coverSvgDataUri(c, 80, 120),
-      } as WantedIssue);
-    }
-  }
+    issues
+      .filter((x) => x.Status === "Wanted")
+      .forEach((i, issueIndex) => {
+        // A spread of search states so the by-series tabs have something
+        // in each: the first series' first issues were not found, every
+        // fourth series is being searched, the rest are queued.
+        const acquisition =
+          seriesIndex % 5 === 1 && issueIndex < 2
+            ? {
+                state: "no_match",
+                attempt_count: 3 - issueIndex,
+                updated_at: new Date(Date.now() - 6 * 3600e3).toISOString(),
+              }
+            : seriesIndex % 4 === 3 && issueIndex === 0
+              ? {
+                  state: "running",
+                  attempt_count: 1,
+                  updated_at: new Date().toISOString(),
+                }
+              : null;
+        out.push({
+          ...i,
+          ComicName: c.title,
+          ComicYear: String(c.year),
+          ComicPublisher: c.publisher,
+          ComicImage: coverSvgDataUri(c, 80, 120),
+          acquisition,
+        } as WantedIssue);
+      });
+  });
   return out;
+}
+
+interface WantedSeriesMock {
+  comicid: string;
+  comic_name: string;
+  comic_year: string | null;
+  publisher: string | null;
+  kind: "comic" | "manga";
+  missing: number;
+  which: string;
+  why: "not_found" | "searching" | "queued";
+  buckets: { not_found: number; searching: number; queued: number };
+  max_attempts: number;
+  last_searched_at: string | null;
+  numbers: string[];
+}
+
+function mockWhich(numbers: string[]): string {
+  const ints = numbers
+    .map((n) => Number(n))
+    .filter((n) => Number.isInteger(n))
+    .sort((a, b) => a - b);
+  const segs: string[] = [];
+  let start: number | null = null;
+  let prev: number | null = null;
+  for (const n of ints) {
+    if (prev !== null && n === prev + 1) {
+      prev = n;
+      continue;
+    }
+    if (start !== null)
+      segs.push(start === prev ? `#${start}` : `#${start}-${prev}`);
+    start = prev = n;
+  }
+  if (start !== null)
+    segs.push(start === prev ? `#${start}` : `#${start}-${prev}`);
+  return segs.length > 3
+    ? `${segs.slice(0, 3).join(", ")}, +${segs.length - 3}`
+    : segs.join(", ");
+}
+
+function wantedBucket(
+  issue: WantedIssue,
+): "not_found" | "searching" | "queued" {
+  const state = issue.acquisition?.state;
+  if (state === "running" || state === "accepted") return "searching";
+  if (state === "no_match" || state === "failed" || state === "blocked")
+    return "not_found";
+  return "queued";
 }
 
 function dashboardLibraryPayload() {
@@ -1449,9 +1518,96 @@ export function mockApiResponse(
   if (m === "GET" && url === "/api/series") {
     return LIBRARY;
   }
+  if (m === "GET" && url === "/api/wanted/series") {
+    const q = (parsed.searchParams.get("q") ?? "").trim().toLowerCase();
+    const state = parsed.searchParams.get("state") ?? "all";
+    const kind = parsed.searchParams.get("kind") ?? "all";
+    const sort = parsed.searchParams.get("sort") ?? "problems";
+    const counts = { all: 0, not_found: 0, searching: 0, queued: 0 };
+    const groups = new Map<string, WantedSeriesMock>();
+    for (const issue of wantedIssues()) {
+      const issueKind = String(issue.ComicID).startsWith("md-")
+        ? "manga"
+        : "comic";
+      if (kind !== "all" && kind !== issueKind) continue;
+      if (
+        q &&
+        !issue.ComicName?.toLowerCase().includes(q) &&
+        !issue.Issue_Number?.toLowerCase().includes(q)
+      )
+        continue;
+      const bucket = wantedBucket(issue);
+      counts.all += 1;
+      counts[bucket] += 1;
+      if (state !== "all" && state !== bucket) continue;
+      let g = groups.get(issue.ComicID);
+      if (!g) {
+        g = {
+          comicid: issue.ComicID,
+          comic_name: issue.ComicName ?? "",
+          comic_year: issue.ComicYear ?? null,
+          publisher:
+            (issue as { ComicPublisher?: string }).ComicPublisher ?? null,
+          kind: issueKind,
+          missing: 0,
+          which: "",
+          why: "queued",
+          buckets: { not_found: 0, searching: 0, queued: 0 },
+          max_attempts: 0,
+          last_searched_at: null,
+          numbers: [],
+        };
+        groups.set(issue.ComicID, g);
+      }
+      g.missing += 1;
+      g.buckets[bucket] += 1;
+      g.numbers.push(String(issue.Issue_Number));
+      if (bucket === "not_found")
+        g.max_attempts = Math.max(
+          g.max_attempts,
+          issue.acquisition?.attempt_count ?? 0,
+        );
+      if (issue.acquisition?.updated_at)
+        g.last_searched_at = issue.acquisition.updated_at;
+    }
+    const series = [...groups.values()].map(({ numbers, ...g }) => ({
+      ...g,
+      which: mockWhich(numbers),
+      why: g.buckets.not_found
+        ? "not_found"
+        : g.buckets.searching
+          ? "searching"
+          : "queued",
+    }));
+    if (sort === "name")
+      series.sort((a, b) => a.comic_name.localeCompare(b.comic_name));
+    else if (sort === "missing") series.sort((a, b) => b.missing - a.missing);
+    else
+      series.sort(
+        (a, b) =>
+          b.buckets.not_found - a.buckets.not_found ||
+          b.buckets.searching - a.buckets.searching ||
+          b.missing - a.missing,
+      );
+    const limit = Number(parsed.searchParams.get("limit") ?? 50);
+    const offset = Number(parsed.searchParams.get("offset") ?? 0);
+    const page = series.slice(offset, offset + limit);
+    return {
+      series: page,
+      counts,
+      pagination: {
+        total: series.length,
+        limit,
+        offset,
+        has_more: offset + page.length < series.length,
+      },
+    };
+  }
   if (m === "GET" && url === "/api/wanted") {
     const q = (parsed.searchParams.get("q") ?? "").trim().toLowerCase();
+    const comicId = parsed.searchParams.get("comic_id");
     const all = wantedIssues().filter((issue) => {
+      if (comicId && issue.ComicID !== comicId) return false;
       if (!q) return true;
       return (
         issue.ComicName?.toLowerCase().includes(q) ||
