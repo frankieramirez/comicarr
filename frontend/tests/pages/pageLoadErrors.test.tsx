@@ -76,7 +76,9 @@ describe("page load ErrorDisplay retry", () => {
       await screen.findByRole("button", { name: "Try Again" }),
     ).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Try Again" }));
-    expect(await screen.findByText("Absolute Batman")).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Absolute Batman" }),
+    ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Try Again" })).toBeNull();
   });
 
