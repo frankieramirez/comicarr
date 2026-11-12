@@ -290,7 +290,8 @@ describe("ReleasesPage", () => {
       screen.getAllByTestId("weekly-publisher-group").map((g) => g.textContent),
     ).toEqual(["Aftershock1", "Dynamite1", "Marvel1"]);
 
-    await user.click(screen.getByRole("button", { name: "Title" }));
+    await user.click(screen.getByRole("combobox", { name: "Sort" }));
+    await user.click(await screen.findByRole("option", { name: "Title" }));
     expect(titles()[0]).toContain("Amazing Spider-Man");
     expect(screen.queryByTestId("weekly-publisher-group")).toBeNull();
 
@@ -426,18 +427,13 @@ describe("ReleasesPage", () => {
     ).toBeTruthy();
   });
 
-  it("skips a mine-row, toasts, and drops it from the wanted-only list", async () => {
+  it("skips a mine-row, toasts, and drops it from the week", async () => {
     const store = { ...upcomingIssue };
     server.use(
-      http.get("/api/upcoming", ({ request }) => {
-        const url = new URL(request.url);
-        const includeDownloaded =
-          url.searchParams.get("include_downloaded_issues") === "true";
-        if (store.Status !== "Wanted" && !includeDownloaded) {
-          return HttpResponse.json([]);
-        }
-        return HttpResponse.json([{ ...store }]);
-      }),
+      // Like the backend, Skipped issues leave the week's list.
+      http.get("/api/upcoming", () =>
+        HttpResponse.json(store.Status === "Skipped" ? [] : [{ ...store }]),
+      ),
       http.put("/api/series/issues/:issueId/unqueue", ({ params }) => {
         expect(params.issueId).toBe(store.IssueID);
         store.Status = "Skipped";

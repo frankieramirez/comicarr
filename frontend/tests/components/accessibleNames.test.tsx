@@ -8,7 +8,7 @@ import {
 import LibraryScanResults from "@/components/import/LibraryScanResults";
 import MatchModal from "@/components/import/MatchModal";
 import WantedTable from "@/components/queue/WantedTable";
-import UpcomingTable from "@/components/queue/UpcomingTable";
+import { DataTable } from "@/components/data-table/DataTable";
 import { useWantedColumns } from "@/components/queue/wantedColumns";
 import { useUpcomingColumns } from "@/components/queue/upcomingColumns";
 import { useTableState } from "@/components/data-table/useTableState";
@@ -120,7 +120,7 @@ function UpcomingHarness({ rows }: { rows: Issue[] }) {
     selection: { scope: "filtered" },
     initialSorting: [{ id: "IssueDate", desc: false }],
   });
-  return <UpcomingTable table={table} />;
+  return <DataTable table={table} />;
 }
 
 const scanResults: ScanResult[] = [
@@ -167,7 +167,7 @@ describe("accessible names for unlabeled controls", () => {
     assertEveryHasAccessibleName("button");
   });
 
-  it("names UpcomingTable checkboxes and buttons", () => {
+  it("names upcoming release checkboxes and buttons", () => {
     render(<UpcomingHarness rows={issues(1)} />);
     assertEveryHasAccessibleName("checkbox");
     assertEveryHasAccessibleName("button");

@@ -313,6 +313,8 @@ def get_upcoming(week, year, include_downloaded=False):
             t_weekly.c.SHIPDATE.label("IssueDate"),
             issue_status.label("Status"),
             t_comics.c.ComicName.label("DisplayComicName"),
+            func.coalesce(t_weekly.c.PUBLISHER, t_comics.c.ComicPublisher).label("Publisher"),
+            t_comics.c.ContentType,
         )
         .select_from(
             t_weekly.join(t_comics, t_weekly.c.ComicID == t_comics.c.ComicID)

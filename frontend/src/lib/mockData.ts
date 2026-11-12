@@ -847,6 +847,48 @@ function upcomingReleases() {
   ];
 }
 
+/** This Sunday-based week's releases, spread over the days like a real week. */
+function mockWeekDay(n: number): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - d.getDay() + n);
+  const pad = (v: number) => String(v).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function weekReleases() {
+  const day = mockWeekDay;
+  const row = (
+    ComicID: string,
+    IssueNumber: string,
+    offset: number,
+    Status: string,
+    attention: string | null = null,
+  ) => {
+    const cover = COVERS.find((c) => c.id === ComicID);
+    return {
+      ComicID,
+      ComicName: cover?.title ?? ComicID,
+      IssueNumber,
+      IssueDate: day(offset),
+      Status,
+      Publisher: cover?.publisher ?? null,
+      ContentType: cover?.kind ?? "comic",
+      attention,
+    };
+  };
+  return [
+    row("chainsaw", "213", 2, "Downloaded"),
+    row("ultimate-wolverine", "16", 3, "Wanted", "Import failed"),
+    row("absolute-flash", "12", 3, "Snatched"),
+    row("tmnt", "9", 3, "Wanted"),
+    row("absolute-batman", "23", 3, "Downloaded"),
+    row("transformers", "11", 3, "Downloaded"),
+    row("ark-m", "3", 5, "Wanted"),
+    row("monster", "214", 6, "Wanted"),
+  ];
+}
+
 function wantedIssues(): WantedIssue[] {
   const out: WantedIssue[] = [];
   COVERS.forEach((c, seriesIndex) => {
@@ -1631,13 +1673,13 @@ export function mockApiResponse(
     return {
       week: "41",
       year: "2026",
-      start: "2026-10-11",
-      end: "2026-10-17",
+      start: mockWeekDay(0),
+      end: mockWeekDay(6),
       offset: 0,
       prev: { week: "40", year: "2026" },
       next: { week: "42", year: "2026" },
       source: "stored",
-      rows: upcomingReleases().map((u, index) => ({
+      rows: weekReleases().map((u, index) => ({
         COMIC: u.ComicName,
         ISSUE: u.IssueNumber,
         PUBLISHER: u.Publisher,
@@ -1653,15 +1695,11 @@ export function mockApiResponse(
     };
   }
   if (m === "GET" && url === "/api/upcoming") {
-    return upcomingReleases().map((u) => ({
+    return weekReleases().map((u) => ({
+      ...u,
       IssueID: `${u.ComicID}-upcoming-${u.IssueNumber}`,
-      ComicID: u.ComicID,
-      ComicName: u.ComicName,
       Issue_Number: u.IssueNumber,
-      IssueNumber: u.IssueNumber,
       IssueName: null,
-      IssueDate: u.IssueDate,
-      Status: u.Status,
       ComicImage: null,
     }));
   }

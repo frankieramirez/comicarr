@@ -391,6 +391,11 @@ export interface UpcomingIssue extends Omit<Issue, "Status"> {
   Status?: IssueStatus;
   CV_ReleaseDate?: string;
   Store_Date?: string;
+  /** Pull-list publisher, or the series' own when the pull list has none. */
+  Publisher?: string | null;
+  ContentType?: string | null;
+  /** The open Needs attention reason for this issue, if any. */
+  attention?: string | null;
 }
 
 /** One missing issue a series-scoped release candidate would satisfy. */

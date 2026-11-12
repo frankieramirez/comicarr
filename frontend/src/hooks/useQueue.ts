@@ -85,13 +85,26 @@ export async function applySequentially(
 
 export function useUpcoming(
   includeDownloaded = false,
+  week: { week: string; year: string } | null = null,
 ): UseQueryResult<UpcomingIssue[]> {
+  const params = new URLSearchParams();
+  if (includeDownloaded) params.set("include_downloaded_issues", "true");
+  if (week) {
+    params.set("week", week.week);
+    params.set("year", week.year);
+  }
+  const query = params.toString();
   return useQuery({
-    queryKey: ["upcoming", includeDownloaded],
+    queryKey: [
+      "upcoming",
+      includeDownloaded,
+      week?.year ?? "current",
+      week?.week ?? "current",
+    ],
     queryFn: () =>
       apiRequest<UpcomingIssue[]>(
         "GET",
-        `/api/upcoming${includeDownloaded ? "?include_downloaded_issues=true" : ""}`,
+        `/api/upcoming${query ? `?${query}` : ""}`,
       ),
     staleTime: 2 * 60 * 1000, // 2 minutes (more frequent than series)
   });

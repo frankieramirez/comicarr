@@ -1,33 +1,26 @@
-import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search, RefreshCw } from "lucide-react";
-import {
-  useUpcoming,
-  useForceSearch,
-  useBulkQueueIssues,
-  useBulkUnqueueIssues,
-  describeBulkResult,
-  type BulkIssueResult,
-} from "@/hooks/useQueue";
-import { useRetrySearchRun } from "@/hooks/useSeries";
+import { RefreshCw } from "lucide-react";
+import { useUpcoming } from "@/hooks/useQueue";
 import { useQueryClient } from "@tanstack/react-query";
 import PageHeader, { Tab, TabRow } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import WeekStrip from "@/components/releases/WeekStrip";
 import { useToast } from "@/components/ui/toast";
-import { useScheduledJobs, useWeeklyRefresh } from "@/hooks/useWeekly";
-import { Skeleton } from "@/components/ui/skeleton";
-import UpcomingTable from "@/components/queue/UpcomingTable";
-import { useUpcomingColumns } from "@/components/queue/upcomingColumns";
-import BulkActionBar from "@/components/queue/BulkActionBar";
-import { useTableState } from "@/components/data-table/useTableState";
-import ErrorDisplay from "@/components/ui/ErrorDisplay";
-import EmptyState from "@/components/ui/EmptyState";
-import { ReleaseReviewSheet } from "@/components/releases/ReleaseReviewSheet";
-import { useInteractiveReview } from "@/hooks/useInteractiveSearch";
-import type { UpcomingIssue } from "@/types";
+import {
+  useScheduledJobs,
+  useWeeklyPullList,
+  useWeeklyRefresh,
+} from "@/hooks/useWeekly";
 import IndustryReleasesView from "@/components/releases/IndustryReleasesView";
+import MyReleasesView from "@/components/releases/MyReleasesView";
+import WeekBar from "@/components/releases/WeekBar";
+import type { WeekRef } from "@/pages/weeklyReleaseRowKey";
+
+function readWeek(params: URLSearchParams): WeekRef | null {
+  const week = params.get("week");
+  const year = params.get("year");
+  return week && year ? { week, year } : null;
+}
 
 type ReleasesView = "mine" | "all";
 
@@ -35,6 +28,9 @@ export default function ReleasesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const viewParam = searchParams.get("view");
   const currentView: ReleasesView = viewParam === "all" ? "all" : "mine";
+  const selectedWeek = readWeek(searchParams);
+  const { data: week } = useWeeklyPullList(selectedWeek);
+  const mine = useUpcoming(true, selectedWeek);
   const weeklyRefresh = useWeeklyRefresh();
   const queryClient = useQueryClient();
   const [refreshRequested, setRefreshRequested] = useState(false);
@@ -75,7 +71,21 @@ export default function ReleasesPage() {
   }, [queryClient, refreshObservedActive, refreshRequested, weeklyStatus]);
 
   const setView = (view: ReleasesView) => {
-    setSearchParams({ view });
+    const next = new URLSearchParams(searchParams);
+    next.set("view", view);
+    setSearchParams(next);
+  };
+
+  const goToWeek = (target: WeekRef | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (target) {
+      next.set("week", target.week);
+      next.set("year", target.year);
+    } else {
+      next.delete("week");
+      next.delete("year");
+    }
+    setSearchParams(next);
   };
 
   const handleWeeklyRefresh = async () => {
@@ -118,36 +128,41 @@ export default function ReleasesPage() {
         title="Releases"
         meta={
           currentView === "mine"
-            ? "New issues and chapters from series you follow, this week"
-            : "Everything publishers release, week by week"
+            ? "New issues and chapters from series you follow, week by week"
+            : "Everything out across publishers, from your weekly pull source"
         }
         actions={
-          <Button
-            type="button"
-            variant="outline"
-            size="toolbar"
-            onClick={() => void handleWeeklyRefresh()}
-            disabled={
-              weeklyRefresh.isPending ||
-              weeklyStatus === "running" ||
-              weeklyStatus === "queued"
-            }
-          >
-            <RefreshCw
-              className={
+          <div className="flex items-center gap-2">
+            <WeekBar week={week} onNavigate={goToWeek} />
+            <Button
+              type="button"
+              variant="outline"
+              size="toolbar"
+              onClick={() => void handleWeeklyRefresh()}
+              disabled={
                 weeklyRefresh.isPending ||
                 weeklyStatus === "running" ||
                 weeklyStatus === "queued"
-                  ? "animate-spin"
-                  : ""
               }
-            />
-            {weeklyStatus === "running"
-              ? "Refreshing…"
-              : weeklyStatus === "queued"
-                ? "Queued…"
-                : "Refresh releases"}
-          </Button>
+            >
+              <RefreshCw
+                className={
+                  weeklyRefresh.isPending ||
+                  weeklyStatus === "running" ||
+                  weeklyStatus === "queued"
+                    ? "animate-spin"
+                    : ""
+                }
+              />
+              <span className="max-md:sr-only">
+                {weeklyStatus === "running"
+                  ? "Refreshing…"
+                  : weeklyStatus === "queued"
+                    ? "Queued…"
+                    : "Refresh releases"}
+              </span>
+            </Button>
+          </div>
         }
       />
 
@@ -178,250 +193,31 @@ export default function ReleasesPage() {
         <Tab
           active={currentView === "mine"}
           label="Mine"
+          meta={mine.data?.length}
           onClick={() => setView("mine")}
         />
         <Tab
           active={currentView === "all"}
           label="Industry"
+          meta={week?.rows.length}
           onClick={() => setView("all")}
         />
       </TabRow>
 
       <div className="flex-1 min-h-0 flex flex-col">
-        {currentView === "mine" ? <MyReleasesView /> : <IndustryReleasesView />}
-      </div>
-    </div>
-  );
-}
-
-function MyReleasesView() {
-  const [includeDownloaded, setIncludeDownloaded] = useState(false);
-  const {
-    data: issues = [],
-    isLoading,
-    isFetching,
-    error,
-    refetch,
-  } = useUpcoming(includeDownloaded);
-  const forceSearchMutation = useForceSearch();
-  const retrySearchMutation = useRetrySearchRun();
-  const [forceRunId, setForceRunId] = useState<string | null>(null);
-  const bulkQueueMutation = useBulkQueueIssues();
-  const bulkUnqueueMutation = useBulkUnqueueIssues();
-  const { addToast } = useToast();
-  const { startReview, reviewSheetProps } = useInteractiveReview();
-
-  const startIssueReview = (issue: UpcomingIssue) =>
-    startReview(issue, {
-      entityType: issue.annual ? "annual" : "issue",
-      entityId: issue.IssueID,
-    });
-
-  const columns = useUpcomingColumns((issue) => void startIssueReview(issue));
-  const { table, selectedIds, clearSelection } = useTableState({
-    data: issues,
-    columns,
-    getRowId: (row) => row.IssueID,
-    selection: { scope: "filtered" },
-    initialSorting: [{ id: "IssueDate", desc: false }],
-  });
-
-  const reportBulkResult = (
-    result: BulkIssueResult,
-    verb: "queued" | "skipped",
-    failureVerb: "queue" | "skip",
-  ) => {
-    const { type, message, keep } = describeBulkResult(
-      result,
-      verb,
-      failureVerb,
-    );
-    addToast({ type, message });
-    table.setRowSelection(Object.fromEntries(keep.map((id) => [id, true])));
-  };
-
-  const handleBulkQueue = async () => {
-    try {
-      reportBulkResult(
-        await bulkQueueMutation.mutateAsync(selectedIds),
-        "queued",
-        "queue",
-      );
-    } catch (err) {
-      addToast({
-        type: "error",
-        message: `Failed to queue issues: ${err instanceof Error ? err.message : "Unknown error"}`,
-      });
-    }
-  };
-
-  const handleBulkUnqueue = async () => {
-    try {
-      reportBulkResult(
-        await bulkUnqueueMutation.mutateAsync(selectedIds),
-        "skipped",
-        "skip",
-      );
-    } catch (err) {
-      addToast({
-        type: "error",
-        message: `Failed to skip issues: ${err instanceof Error ? err.message : "Unknown error"}`,
-      });
-    }
-  };
-
-  const handleForceSearch = async () => {
-    if (window.confirm("Manual search may take several minutes. Continue?")) {
-      try {
-        const result = await forceSearchMutation.mutateAsync();
-        setForceRunId(
-          result.status === "partial" ? (result.run_id ?? null) : null,
-        );
-        addToast({
-          type: result.success ? "info" : "error",
-          message:
-            result.message ||
-            result.error ||
-            "Search did not start for the wanted issues",
-        });
-      } catch (err) {
-        addToast({
-          type: "error",
-          message: `Failed to start search: ${err instanceof Error ? err.message : "Unknown error"}`,
-        });
-      }
-    }
-  };
-
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      {!isLoading && !error && (
-        <div className="shrink-0 px-8 pt-4">
-          <WeekStrip issues={issues} />
-        </div>
-      )}
-
-      {/* Filter bar */}
-      <div className="shrink-0 px-8 py-3 flex items-center gap-2 flex-wrap">
-        <div
-          role="group"
-          aria-label="Which releases"
-          className={SEGMENTED_GROUP}
-        >
-          {(
-            [
-              [false, "Wanted only"],
-              [true, "Include downloaded"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={label}
-              type="button"
-              aria-pressed={includeDownloaded === value}
-              onClick={() => setIncludeDownloaded(value)}
-              className={SEGMENTED_ITEM}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="ml-auto flex items-center gap-2">
-          <div className="mono-meta">
-            {issues.length} issue{issues.length !== 1 ? "s" : ""}
-          </div>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            aria-label="Reload this list"
-            title="Reload this list"
-          >
-            <RefreshCw className={isFetching ? "animate-spin" : ""} />
-          </Button>
-          {forceRunId && (
-            <Button
-              type="button"
-              variant="outline"
-              size="toolbar"
-              onClick={async () => {
-                try {
-                  const result =
-                    await retrySearchMutation.mutateAsync(forceRunId);
-                  addToast({
-                    type: result.success ? "info" : "error",
-                    message: result.message || "Queue handoff retry completed",
-                  });
-                } catch (err) {
-                  addToast({
-                    type: "error",
-                    message: `Retry failed: ${err instanceof Error ? err.message : "Unknown error"}`,
-                  });
-                }
-              }}
-              disabled={retrySearchMutation.isPending}
-            >
-              {retrySearchMutation.isPending
-                ? "Retrying…"
-                : "Retry queue handoff"}
-            </Button>
-          )}
-
-          <Button
-            type="button"
-            variant="outline"
-            size="toolbar"
-            className="bg-surface-2"
-            onClick={handleForceSearch}
-            disabled={forceSearchMutation.isPending}
-          >
-            <Search />
-            Force search
-          </Button>
-        </div>
-      </div>
-
-      {/* Only the release rows scroll; the filter bar above and the bulk bar
-          below stay put. */}
-      <div className="flex-1 min-h-0 overflow-auto">
-        {isLoading && (
-          <div className="px-8 py-4 space-y-2">
-            <Skeleton className="h-14" />
-            <Skeleton className="h-14" />
-            <Skeleton className="h-14" />
-          </div>
-        )}
-
-        {error && (
-          <div className="px-8 py-4">
-            <ErrorDisplay
-              error={error}
-              title="Unable to load your releases"
-              onRetry={() => refetch()}
-            />
-          </div>
-        )}
-
-        {!isLoading && !error && issues.length === 0 && (
-          <EmptyState variant="upcoming" />
-        )}
-
-        {!isLoading && !error && issues.length > 0 && (
-          <UpcomingTable table={table} />
+        {currentView === "mine" ? (
+          <MyReleasesView
+            issues={mine.data ?? []}
+            isLoading={mine.isLoading}
+            isFetching={mine.isFetching}
+            error={mine.error}
+            refetch={mine.refetch}
+            start={week?.start}
+          />
+        ) : (
+          <IndustryReleasesView selectedWeek={selectedWeek} />
         )}
       </div>
-
-      <BulkActionBar
-        selectedCount={selectedIds.length}
-        onMarkWanted={handleBulkQueue}
-        onSkip={handleBulkUnqueue}
-        onClear={clearSelection}
-        isLoading={bulkQueueMutation.isPending || bulkUnqueueMutation.isPending}
-      />
-      <ReleaseReviewSheet {...reviewSheetProps} />
     </div>
   );
 }
