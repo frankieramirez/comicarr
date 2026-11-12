@@ -92,7 +92,7 @@ def _seed(engine):
 
 def _view(*members):
     groups = tuple(
-        SimpleNamespace(reason_phrase=phrase, members=(SimpleNamespace(issue_id=issue_id),))
+        SimpleNamespace(reason_phrase=phrase, base_reason="postprocess_failed", members=(SimpleNamespace(issue_id=issue_id),))
         for issue_id, phrase in members
     )
     return SimpleNamespace(groups=groups)
@@ -109,6 +109,7 @@ def test_rows_carry_publisher_kind_and_attention(upcoming_db, monkeypatch):
     assert rows["i-dc"]["Publisher"] == "DC Comics"
     assert rows["i-dc"]["ContentType"] == "comic"
     assert rows["i-dc"]["attention"] == "Import failed"
+    assert rows["i-dc"]["attention_reason"] == "postprocess_failed"
     # No pull-list publisher falls back to the series' own publisher.
     assert rows["i-manga"]["Publisher"] == "Shueisha"
     assert rows["i-manga"]["ContentType"] == "manga"

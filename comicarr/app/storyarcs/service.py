@@ -947,8 +947,51 @@ def get_upcoming(include_downloaded=False, week=None, year=None):
     rows = [dict(row) for row in arc_queries.get_upcoming(week, year, include_downloaded=include_downloaded)]
     reasons = _attention_reasons() if rows else {}
     for row in rows:
-        row["attention"] = reasons.get(str(row.get("IssueID") or ""))
+        reason = reasons.get(str(row.get("IssueID") or ""))
+        row["attention"] = reason[0] if reason else None
+        row["attention_reason"] = reason[1] if reason else None
+    _attach_progress(rows)
     return rows
+
+
+def _attach_progress(rows):
+    """Stamp in-flight rows with download progress and finished rows with when.
+
+    ``download`` is ``{phase, percent, time_left}`` for a release with an open
+    download (``percent`` is None when its client can't say), and
+    ``downloaded_at`` is the newest successful import or download event.
+    """
+    from comicarr.app.downloads.progress import progress_by_issue
+
+    in_flight = [row.get("IssueID") for row in rows if str(row.get("Status") or "").lower() == "snatched"]
+    progress = progress_by_issue(in_flight) if in_flight else {}
+    done = [
+        str(row.get("IssueID")) for row in rows if str(row.get("Status") or "").lower() in ("downloaded", "archived")
+    ]
+    finished = _finished_at(done) if done else {}
+    for row in rows:
+        issue_id = str(row.get("IssueID") or "")
+        row["download"] = progress.get(issue_id)
+        row["downloaded_at"] = finished.get(issue_id)
+
+
+def _finished_at(issue_ids):
+    from sqlalchemy import func, select
+
+    from comicarr.tables import activity_events
+
+    try:
+        found = db.select_all(
+            select(activity_events.c.subject_id, func.max(activity_events.c.created_at).label("at"))
+            .where(activity_events.c.subject_id.in_(issue_ids))
+            .where(activity_events.c.activity.in_(("import", "download")))
+            .where(activity_events.c.status == "succeeded")
+            .group_by(activity_events.c.subject_id)
+        )
+    except Exception as e:
+        logger.fdebug("[UPCOMING] Download times unavailable: %s" % e)
+        return {}
+    return {str(row["subject_id"]): row["at"] for row in found or []}
 
 
 def _attention_reasons():
@@ -964,7 +1007,7 @@ def _attention_reasons():
     for group in view.groups:
         for member in group.members:
             if member.issue_id and member.issue_id not in reasons:
-                reasons[member.issue_id] = group.reason_phrase
+                reasons[member.issue_id] = (group.reason_phrase, group.base_reason)
     return reasons
 
 

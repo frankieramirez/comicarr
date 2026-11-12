@@ -418,6 +418,16 @@ export interface UpcomingIssue extends Omit<Issue, "Status"> {
   ContentType?: string | null;
   /** The open Needs attention reason for this issue, if any. */
   attention?: string | null;
+  /** Its base reason code, to find the cause's one-click fix. */
+  attention_reason?: string | null;
+  /** An open download: how far along, when its client can say. */
+  download?: {
+    phase: "downloading" | "importing";
+    percent: number | null;
+    time_left: string | null;
+  } | null;
+  /** When the newest import or download of this issue succeeded. */
+  downloaded_at?: string | null;
 }
 
 /** One missing issue a series-scoped release candidate would satisfy. */

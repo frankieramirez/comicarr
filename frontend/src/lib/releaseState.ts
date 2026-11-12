@@ -14,9 +14,37 @@ export interface ReleaseState {
   label: string;
   detail?: string;
   tone: string;
+  /** Download percent, when the client reports one. */
+  progress?: number | null;
 }
 
 const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "long" });
+const DAY_AND_TIME = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+/** "12m ago", "2h ago", "yesterday", "Tue 21:40" for when a download landed. */
+export function landedLabel(
+  iso: string | null | undefined,
+  now: Date = new Date(),
+): string | undefined {
+  if (!iso) return undefined;
+  const at = new Date(iso.includes("T") ? iso : iso.replace(" ", "T"));
+  if (Number.isNaN(at.getTime())) return undefined;
+  const minutes = Math.max(
+    0,
+    Math.round((now.getTime() - at.getTime()) / 60_000),
+  );
+  if (minutes < 60) return minutes < 1 ? "just now" : `${minutes}m ago`;
+  if (minutes < 12 * 60) return `${Math.round(minutes / 60)}h ago`;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (at.toDateString() === yesterday.toDateString()) return "yesterday";
+  return DAY_AND_TIME.format(at).replace(",", "");
+}
 
 export function releaseDay(issue: UpcomingIssue): string {
   return String(issue.IssueDate || issue.ReleaseDate || "").slice(0, 10);
@@ -25,6 +53,7 @@ export function releaseDay(issue: UpcomingIssue): string {
 export function releaseState(
   issue: UpcomingIssue,
   today: string,
+  now: Date = new Date(),
 ): ReleaseState {
   const status = (issue.Status || "").toLowerCase();
   const day = releaseDay(issue);
@@ -39,14 +68,23 @@ export function releaseState(
     return {
       bucket: "downloaded",
       label: "Downloaded",
+      detail: landedLabel(issue.downloaded_at, now),
       tone: "var(--status-downloaded)",
     };
   }
   if (status === "snatched") {
+    if (issue.download?.phase === "importing") {
+      return {
+        bucket: "in_progress",
+        label: "Importing",
+        tone: "var(--in-flight)",
+      };
+    }
     return {
       bucket: "in_progress",
       label: "Downloading",
       tone: "var(--in-flight)",
+      progress: issue.download?.percent ?? null,
     };
   }
   if (status === "wanted") {

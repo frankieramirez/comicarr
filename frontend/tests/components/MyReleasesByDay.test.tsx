@@ -4,7 +4,7 @@ import { http, HttpResponse } from "msw";
 import { server } from "../mocks/server";
 import { render, screen, within } from "../test-utils";
 import ReleasesPage from "@/pages/ReleasesPage";
-import { releaseNumber, releaseState } from "@/lib/releaseState";
+import { landedLabel, releaseNumber, releaseState } from "@/lib/releaseState";
 import type { UpcomingIssue } from "@/types";
 
 const issue = (overrides: Partial<UpcomingIssue>): UpcomingIssue =>
@@ -152,5 +152,91 @@ describe("releaseState", () => {
       releaseNumber(issue({ ContentType: "manga", IssueNumber: "5" })),
     ).toBe("Ch. 5");
     expect(releaseNumber(issue({}))).toBe("#23");
+  });
+
+  it("says how far a download is and when a finished one landed", () => {
+    const now = new Date("2026-10-14T15:00:00");
+    const downloading = releaseState(
+      issue({
+        Status: "Snatched",
+        download: { phase: "downloading", percent: 64, time_left: null },
+      }),
+      "2026-10-14",
+    );
+    expect(downloading).toMatchObject({ label: "Downloading", progress: 64 });
+    expect(
+      releaseState(
+        issue({
+          Status: "Snatched",
+          download: { phase: "importing", percent: null, time_left: null },
+        }),
+        "2026-10-14",
+      ).label,
+    ).toBe("Importing");
+    expect(landedLabel("2026-10-14T13:00:00", now)).toBe("2h ago");
+    expect(landedLabel("2026-10-13T09:00:00", now)).toBe("yesterday");
+    expect(landedLabel("2026-10-11T21:40:00", now)).toBe("Sun 21:40");
+    expect(landedLabel(null, now)).toBeUndefined();
+  });
+
+  it("shows download progress and the cause's fix on its row", async () => {
+    serveWeek([
+      issue({
+        IssueID: "snatch",
+        ComicName: "Absolute Flash",
+        Status: "Snatched",
+        download: { phase: "downloading", percent: 64, time_left: null },
+      }),
+      issue({
+        IssueID: "fail",
+        ComicName: "Absolute Wonder Woman",
+        attention: "Import failed",
+        attention_reason: "invalid_postprocess_command",
+      }),
+    ]);
+    server.use(
+      http.get("/api/attention", () =>
+        HttpResponse.json({
+          results: [],
+          causes: [
+            {
+              cause_key: "invalid_postprocess_command|failed",
+              base_reason: "invalid_postprocess_command",
+              reason_phrase: "post-processing command is invalid",
+              headline: "Post-processing is misconfigured",
+              hint: null,
+              icon: "settings",
+              fix: {
+                label: "Open post-processing",
+                href: "/settings?section=media",
+              },
+              stage: "failed",
+              available_actions: ["retry"],
+              series_count: 1,
+              member_count: 1,
+              newest_updated_at: "2026-10-14 09:00:00",
+              series: [],
+              release_keys: ["rk"],
+            },
+          ],
+          total: 1,
+          member_total: 1,
+          preview_cap: 5,
+        }),
+      ),
+    );
+    render(<ReleasesPage />, { useMemoryRouter: true, route: "/releases" });
+
+    const bar = await screen.findByRole("progressbar", {
+      name: "Downloading 64%",
+    });
+    expect(bar.getAttribute("aria-valuenow")).toBe("64");
+    const fix = await screen.findByRole("link", {
+      name: "Open post-processing",
+    });
+    expect(fix.getAttribute("href")).toBe("/settings?section=media");
+    expect(
+      screen.getByRole("link", { name: "· see why" }).getAttribute("href"),
+    ).toBe("/library/c-1/issue/fail");
   });
 });
