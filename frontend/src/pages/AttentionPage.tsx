@@ -10,6 +10,7 @@
  * ledger of every outcome and carries no band actions — audit vs work queue.
  */
 
+import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import PageHeader from "@/components/layout/PageHeader";
@@ -271,7 +272,7 @@ export default function AttentionPage() {
             <div
               role="group"
               aria-label="Filter by stage"
-              className="inline-flex rounded-md border border-border-subtle bg-surface-1 p-0.5"
+              className={SEGMENTED_GROUP}
             >
               {(
                 [
@@ -285,7 +286,7 @@ export default function AttentionPage() {
                   type="button"
                   aria-pressed={stage === id}
                   onClick={() => setStage(id)}
-                  className="h-7 rounded-control px-2.5 text-[13px] text-foreground-2 aria-pressed:bg-surface-3 aria-pressed:font-medium aria-pressed:text-foreground"
+                  className={SEGMENTED_ITEM}
                 >
                   {label}
                 </button>

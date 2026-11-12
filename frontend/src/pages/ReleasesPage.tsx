@@ -1,3 +1,4 @@
+import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search, RefreshCw } from "lucide-react";
@@ -305,7 +306,7 @@ function MyReleasesView() {
         <div
           role="group"
           aria-label="Which releases"
-          className="inline-flex items-center rounded-md border border-border-subtle bg-surface-1 p-0.5"
+          className={SEGMENTED_GROUP}
         >
           {(
             [
@@ -318,11 +319,7 @@ function MyReleasesView() {
               type="button"
               aria-pressed={includeDownloaded === value}
               onClick={() => setIncludeDownloaded(value)}
-              className={`inline-flex h-7 items-center rounded-control px-2.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
-                includeDownloaded === value
-                  ? "bg-surface-3 font-medium text-foreground"
-                  : "text-foreground-2 hover:text-foreground"
-              }`}
+              className={SEGMENTED_ITEM}
             >
               {label}
             </button>

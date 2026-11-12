@@ -1,3 +1,4 @@
+import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import {
   Select,
   SelectContent,
@@ -89,7 +90,7 @@ export default function SeriesFilters({
         <div
           role="group"
           aria-label="Kind"
-          className="order-1 inline-flex items-center rounded-md border border-border-subtle bg-surface-1 p-0.5"
+          className={`order-1 ${SEGMENTED_GROUP}`}
         >
           {(
             [
@@ -104,11 +105,7 @@ export default function SeriesFilters({
               type="button"
               aria-pressed={typeFilter === value}
               onClick={() => onTypeChange(value)}
-              className={`inline-flex h-7 items-center gap-1.5 rounded-control px-2.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
-                typeFilter === value
-                  ? "bg-surface-3 font-medium text-foreground"
-                  : "text-foreground-2 hover:text-foreground"
-              }`}
+              className={SEGMENTED_ITEM}
             >
               {label}
               {typeCounts?.[value] != null && (

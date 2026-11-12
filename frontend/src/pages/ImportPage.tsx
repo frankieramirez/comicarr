@@ -1,3 +1,4 @@
+import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { useMemo, useState } from "react";
 import { Inbox, RefreshCw } from "lucide-react";
 import {
@@ -320,7 +321,7 @@ export default function ImportPage() {
             <div
               role="group"
               aria-label="Ignored files"
-              className="inline-flex rounded-md border border-border-subtle bg-surface-1 p-0.5"
+              className={SEGMENTED_GROUP}
             >
               {(
                 [
@@ -337,7 +338,7 @@ export default function ImportPage() {
                     resetPage();
                     clearSelection();
                   }}
-                  className="h-7 rounded-control px-2.5 text-[13px] text-foreground-2 aria-pressed:bg-surface-3 aria-pressed:font-medium aria-pressed:text-foreground"
+                  className={SEGMENTED_ITEM}
                 >
                   {label}
                 </button>

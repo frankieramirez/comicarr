@@ -1,3 +1,4 @@
+import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { Fragment, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -62,9 +63,6 @@ const SORT_LABELS: Record<SortKey, string> = {
   publisher: "Publisher",
   issue: "Issue",
 };
-
-const SEGMENT =
-  "h-7 rounded-control px-2.5 text-[13px] text-foreground-2 aria-pressed:bg-surface-3 aria-pressed:font-medium aria-pressed:text-foreground";
 
 function rowState(issue: WeeklyIssue): WeeklyLibraryState {
   return issue.state ?? "not_in_library";
@@ -178,7 +176,7 @@ export default function IndustryReleasesView() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 px-8 pt-4 pb-3 flex items-center gap-2 flex-wrap">
         <div
-          className="inline-flex rounded-md border border-border-subtle bg-surface-1 p-0.5"
+          className={SEGMENTED_GROUP}
           role="group"
           aria-label="Following"
           data-testid="weekly-legend"
@@ -189,7 +187,7 @@ export default function IndustryReleasesView() {
               type="button"
               aria-pressed={follow === key}
               onClick={() => setFollow(key)}
-              className={SEGMENT}
+              className={SEGMENTED_ITEM}
             >
               {label} <span className="mono-meta">{counts[key]}</span>
             </button>
@@ -203,11 +201,7 @@ export default function IndustryReleasesView() {
           widthCap="sm"
         />
         <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <div
-            className="inline-flex items-center rounded-md border border-border-subtle bg-surface-1 p-0.5"
-            role="group"
-            aria-label="Sort"
-          >
+          <div className={SEGMENTED_GROUP} role="group" aria-label="Sort">
             <span className="px-2 text-[13px] text-muted-foreground">Sort</span>
             {(["title", "publisher", "issue"] as const).map((key) => (
               <button
@@ -215,7 +209,7 @@ export default function IndustryReleasesView() {
                 type="button"
                 aria-pressed={sortKey === key}
                 onClick={() => setSortKey(key)}
-                className={SEGMENT}
+                className={SEGMENTED_ITEM}
               >
                 {SORT_LABELS[key]}
               </button>

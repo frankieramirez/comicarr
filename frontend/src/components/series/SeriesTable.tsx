@@ -1,3 +1,4 @@
+import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -345,7 +346,7 @@ export default function SeriesTable({
         <div
           role="group"
           aria-label="View"
-          className="order-4 inline-flex shrink-0 items-center rounded-md border border-border-subtle bg-surface-1 p-0.5"
+          className={`order-4 shrink-0 ${SEGMENTED_GROUP}`}
         >
           {(
             [
@@ -367,11 +368,7 @@ export default function SeriesTable({
                   setParams({ view: value === "grid" ? "grid" : null });
                   clearSelection();
                 }}
-                className={`inline-flex h-7 items-center gap-1.5 rounded-control px-2.5 text-[13px] transition-colors ${
-                  pressed
-                    ? "bg-surface-3 font-medium text-foreground"
-                    : "text-foreground-2 hover:text-foreground"
-                }`}
+                className={SEGMENTED_ITEM}
                 aria-label={`${label} view`}
                 aria-pressed={pressed}
               >

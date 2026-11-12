@@ -28,8 +28,9 @@ only. Do not add a `theme.extend` block there; tokens are CSS-first via
 - **shadcn/ui**, `new-york` style, `neutral` base, `cssVariables: true`.
 - **Base UI** (`@base-ui/react`) for headless primitives. This is the standard.
 - **lucide-react** for icons.
-- **Non-Radix helpers kept deliberately**: `vaul` (drawer), `cmdk` (command),
-  `sonner` (toast), `react-day-picker` (calendar).
+- **Non-Radix helpers kept deliberately**: `vaul` (drawer), `sonner` (toast),
+  `react-day-picker` (calendar). The command palette is a Base UI dialog, not
+  `cmdk`.
 
 ### Primitives: Base UI, not Radix
 
@@ -54,17 +55,20 @@ The app's dense control is a Button size, not a copied class string.
 | `toolbar` | `h-8 px-3 rounded-control text-[12px]` — page-header and form actions; icons 14px |
 | `mono` | uppercase mono label on either size |
 
-`outline` on `compact`/`toolbar` keeps the old dense look: transparent fill,
-`--border` (not `--input`), no shadow, `hover:bg-secondary/50`. Default-size
-`outline` stays the shadcn filled chip (`bg-background shadow-sm border-input`).
-Do not size icons on callers; the size variant wins over the base 16px svg rule.
+The `default` variant is the neutral **act** button (`bg-act`, near-black in
+light, near-white in dark), not orange. Use it for the one primary action on a
+screen. `outline` is `border-border-strong bg-surface-2`; on `compact`/`toolbar`
+it drops to a transparent fill, `--border`, no shadow. `ghost` is for quiet row
+actions and header links. Do not size icons on callers; the size variant wins
+over the base 16px svg rule.
 
-Pressed filter chips are `components/ui/toggle-chip.tsx` (`ToggleChip`): `aria-pressed`,
-the shared focus ring, and the 12% primary tint in classes — not a per-page
-`style={{}}`. Size `xs` is 10px mono (series ledger); `sm` is 11px mono
-(Releases, Import, Attention); `md` is 12px (Settings mobile sections).
-Pressed text is `text-foreground` so light theme stays AA. Inactive chips use
-`hover:text-foreground`. Status banners are `components/ui/callout.tsx`
+Filters and view switches are the **segmented control**: `SEGMENTED_GROUP` on
+the track and `SEGMENTED_ITEM` on each button, from `lib/segmented.ts`. Each
+button sets `aria-pressed`, and the pressed look keys off that attribute, so
+callers never choose classes by state. Use it for two to five mutually
+exclusive options; use `TabRow` for page-level views.
+`components/ui/toggle-chip.tsx` (`ToggleChip`) is the older mono chip and now
+survives only in Settings' mobile section row; do not add new uses. Status banners are `components/ui/callout.tsx`
 (`Callout`) with `tone` `error` | `warning` | `success` | `info` — `--status-*`
 fill, a 30% `color-mix` border, and a tone-coloured icon. Body copy stays
 `text-foreground`. Error and warning use `role="alert"`.
@@ -84,15 +88,58 @@ is a component that cannot be themed, and Comicarr ships both themes.
 
 | Token | Light | Dark |
 |-------|-------|------|
-| `--primary` | `#e04a0a` | `#ff6a1f` |
+| `--primary` | `#d4520e` | `#ff6a1f` |
 | `--primary-foreground` | `#ffffff` | `#ffffff` |
 | `--destructive-foreground` | `#ffffff` | `#0b0d12` |
 | `--gradient-brand` | 135° orange ramp | 135° orange ramp |
 
-Orange is the brand. Note that `--ring` tracks `--primary` in dark but is a
-neutral grey in light — the two themes focus differently. Nothing in the repo
-records whether that was a decision or a drift; treat it as unsettled rather than
-as a pattern to copy.
+Orange is the brand, and v2 spends it sparingly: the logo dot, the active tab
+underline, the active nav marker, and the focus ring (`--ring` tracks
+`--primary` in both themes). Buttons, links and selection are neutral.
+
+### v2 surfaces, borders and text
+
+The v2 facelift (PR #1162) adds a small neutral ladder. Reach for these before
+`--card`, `--secondary` or `--muted`, which remain for shadcn-era surfaces.
+
+| Token | Use |
+|-------|-----|
+| `--surface-1` / `-2` / `-3` | Raised panels, inputs and pressed segments, in that order |
+| `--border-subtle` / `-strong` / `-emphasis` | Row rules and panel edges, control edges, focus-within |
+| `--foreground` / `--foreground-2` / `--muted-foreground` | Primary text, secondary text, metadata |
+| `--text-muted` | Separators and decorative marks only (2.95:1) |
+| `--act` / `--act-foreground` / `--act-hover` | The neutral primary button |
+| `--in-flight` | Something moving right now: a download, a running search |
+| `--selection` | Selected table rows |
+
+Each is defined in `:root` and `.dark` and registered as `--color-*`, so
+`bg-surface-1`, `border-border-subtle` and `text-foreground-2` work as classes.
+
+### v2 layout
+
+- **Gutter.** Page content sits on a 32px gutter (`px-8`). `PageHeader` is
+  `px-8 pt-6 pb-4`; `TabRow` is `mx-8`.
+- **Tables.** `DataTable` wraps itself in `px-8`, with cells `px-3 py-1.5
+  first:pl-2 last:pr-2` and `group/row` on each row. Hand-built grid rows use
+  `mx-8 px-2` so their text lines up with a DataTable on the same page.
+  Headers are 11px uppercase sans, `tracking-[0.04em]`, muted.
+- **Section headers.** `SectionHeader` from `components/dashboard/DashboardPanel`
+  (`variant="main"` 15px semibold, `variant="rail"` 11px uppercase) with an
+  optional mono meta and a `label ›` link.
+- **Status.** A 6px dot plus plain text (`StatusBadge variant="dot"`), not a
+  glowing pill, in dense rows.
+- **Row actions.** `ghost` `compact` buttons at reduced opacity that brighten on
+  `group-hover/row` and on focus. One `default` button per screen at most.
+- **Kind badges.** `rounded-md border border-border-strong px-1.5 py-0.5
+  text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground`.
+  Neutral; never colored by kind.
+- **Command palette.** ⌘K opens `components/layout/CommandPalette`
+  (`openCommandPalette()` from `lib/commandPalette`). New global actions belong
+  there, not in a new header button.
+
+The Pen mockups for every screen live in the project's `ux-redesign/` export
+folders; a screen change is checked side by side against the newest round
+before it merges.
 
 ### Status
 
@@ -158,7 +205,7 @@ utility must do the same.
   `border-yellow-500`. They are fixed sRGB values that ignore `.dark` entirely, so
   a component using them is legible in one theme and wrong in the other. Use a
   `--status-*` token, or `--destructive` / `--muted-foreground` for the generic
-  cases. 42 such usages predate the gate; `scripts/check_palette_classes.py` holds
+  cases. 42 such usages predated the gate (30 remain); `scripts/check_palette_classes.py` holds
   a per-file baseline that only ever shrinks, so new ones fail CI and fixes must
   lower the number.
 
@@ -190,12 +237,12 @@ utility must do the same.
   dark-only-token bug got in and stayed in: they bypass Tailwind, so nothing at
   build time can tell you the property doesn't resolve. Prefer a utility class;
   where a token isn't yet Tailwind-registered, `text-[var(--token)]` at least keeps
-  the value in the class layer. 251 inline `style={{` attributes across the
-  frontend (down from 288 after Callout absorbed the status banners).
+  the value in the class layer. 190 inline `style={{` attributes across the
+  frontend (down from 251 after the v2 facelift).
 
-- **Do NOT add arbitrary font sizes.** `text-[10px]`, `text-[11px]`, `text-[12px]`,
-  and `text-[13px]` account for 369 of the 432 arbitrary sizes in the codebase —
-  four values doing the work of a scale that was never written down. Half-pixel
+- **Do NOT add arbitrary font sizes outside the v2 steps.** v2 text is 11px
+  (labels, metadata), 13px (rows, controls), 15px (section titles) and the
+  Tailwind `text-sm`/`text-xs` steps. `text-[10px]` is for kind badges only. Half-pixel
   sizes (`text-[12.5px]`, `text-[11.5px]`, `text-[10.5px]`, 30 usages) are
   rounding noise, not design. Use the Tailwind scale or `.mono-label` / `.mono-meta`.
 
@@ -222,9 +269,9 @@ target state — the rules above are the target state.
 
 | Drift | Extent | Impact |
 |-------|--------|--------|
-| Arbitrary `text-[Npx]` | 432 usages, 63 files | No typographic scale |
-| Inline `style={{ }}` | 251 attributes, 49 files | Tokens bypass the class layer |
-| Raw Tailwind palette classes | 42 usages, 7 files | Colors don't respond to theme — **gated, shrink-only** |
+| Arbitrary `text-[Npx]` | 367 usages, 75 files | No typographic scale; v2 settled on 11/13/15px |
+| Inline `style={{ }}` | 190 attributes, 49 files | Tokens bypass the class layer |
+| Raw Tailwind palette classes | 30 usages, 6 files | Colors don't respond to theme — **gated, shrink-only** |
 | Radix holdouts | `avatar.tsx`, `bubble.tsx`, `marker.tsx` + 3 deps | Two primitive libraries in one app |
 | Dead `components/custom/` | 6 files, 0 importers | Unlinted, unreachable code |
 | Dead `frontend/src/App.css` | 42 lines, imported nowhere | Vite scaffold leftover |
@@ -266,8 +313,8 @@ python3 scripts/check_mono_utilities.py   # no exact .mono-label / .mono-meta du
 ```
 
 The remaining rows have no gate. Arbitrary font sizes are the obvious next
-candidate, but a baseline of 432 across 63 files is worth less than agreeing the
-scale first — gating a number nobody has decided how to reduce just freezes it.
+candidate now that v2 has named its steps (11/13/15px); the baseline is 367
+across 75 files.
 
 ```bash
 cd frontend

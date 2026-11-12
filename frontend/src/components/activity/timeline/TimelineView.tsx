@@ -7,6 +7,7 @@
  * segmented kind filter (band owns needs-attention).
  */
 
+import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import EmptyState from "@/components/ui/EmptyState";
@@ -268,7 +269,7 @@ export function TimelineView({
         <div
           role="group"
           aria-label="Filter by activity"
-          className="inline-flex rounded-md border border-border-subtle bg-surface-1 p-0.5"
+          className={SEGMENTED_GROUP}
         >
           {FILTERS.map((f) => (
             <button
@@ -279,7 +280,7 @@ export function TimelineView({
                 setActivity(f.key);
                 setPage(0);
               }}
-              className="h-7 rounded-control px-2.5 text-[13px] text-foreground-2 aria-pressed:bg-surface-3 aria-pressed:font-medium aria-pressed:text-foreground"
+              className={SEGMENTED_ITEM}
             >
               {f.label}
             </button>

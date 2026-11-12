@@ -1,3 +1,4 @@
+import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { useCallback, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -1054,7 +1055,7 @@ export default function SeriesDetailPage() {
               <div
                 role="group"
                 aria-label="Filter issues"
-                className="inline-flex items-center rounded-md border border-border-subtle bg-surface-1 p-0.5"
+                className={SEGMENTED_GROUP}
               >
                 {(
                   [
@@ -1070,11 +1071,7 @@ export default function SeriesDetailPage() {
                     aria-pressed={filter === key}
                     aria-label={`${label} ${count}`}
                     onClick={() => setFilter(key)}
-                    className={`inline-flex h-7 items-center gap-1.5 rounded-control px-2.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
-                      filter === key
-                        ? "bg-surface-3 font-medium text-foreground"
-                        : "text-foreground-2 hover:text-foreground"
-                    }`}
+                    className={SEGMENTED_ITEM}
                   >
                     {label}
                     <span className="mono-meta">{count}</span>
