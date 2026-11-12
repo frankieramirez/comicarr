@@ -317,6 +317,8 @@ export interface SearchResult {
   count_of_issues?: number;
   issues?: number;
   in_library?: boolean;
+  /** Library match from the backend: "No", or the matching library row. */
+  haveit?: "No" | { comicid?: string; status?: string } | null;
   deck?: string | null;
   metadata_source?: string;
   url?: string | null;

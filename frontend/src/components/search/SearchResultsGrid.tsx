@@ -23,7 +23,7 @@ export default function SearchResultsGrid({
   contentType,
 }: SearchResultsGridProps) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 px-5 py-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 px-8 py-4">
       {results.map((comic, idx) => (
         <SearchResultCard
           key={comic.comicid ?? comic.id ?? idx}

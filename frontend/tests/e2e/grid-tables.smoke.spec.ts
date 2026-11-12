@@ -103,11 +103,14 @@ test("search list and weekly pull keep the title readable on a phone", async ({
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/search?q=spider&type=comic&view=list");
+  // v2 Add a series keeps publisher and year in one meta line at every width.
   const desktopSearch = page
     .getByTestId("search-result-row")
-    .locator(".max-md\\:hidden");
-  await expect(desktopSearch.filter({ hasText: /^Marvel$/ })).toBeVisible();
-  await expect(desktopSearch.filter({ hasText: /^2022$/ })).toBeVisible();
+    .first()
+    .getByTestId("phone-row-id");
+  await expect(desktopSearch).toBeVisible();
+  await expect(desktopSearch).toContainText("Marvel");
+  await expect(desktopSearch).toContainText("2022");
   await page.goto("/releases?view=all");
   const desktopWeekly = page
     .getByTestId("weekly-release-row")

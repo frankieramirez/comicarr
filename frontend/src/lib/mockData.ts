@@ -719,6 +719,8 @@ function searchResults(query: string, kind: "comic" | "manga") {
       metadata_source: source,
       url: `https://example.invalid/${c.id}`,
       in_library: i % 7 === 0,
+      // Open goes to the mock library's own series page.
+      haveit: i % 7 === 0 ? { comicid: c.id, status: "Active" } : "No",
     };
   }).filter((r) => !q || r.name.toLowerCase().includes(q));
   return all;

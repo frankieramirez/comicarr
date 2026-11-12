@@ -38,7 +38,7 @@ const listPages: Array<{ name: string; ui: ReactElement }> = [
   { name: "Import", ui: <ImportPage /> },
   { name: "Sign in", ui: <LoginPage /> },
   { name: "Releases", ui: <ReleasesPage /> },
-  { name: "Search", ui: <SearchPage /> },
+  { name: "Add a series", ui: <SearchPage /> },
   {
     name: "Library",
     ui: (

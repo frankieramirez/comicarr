@@ -1,13 +1,13 @@
-import { useState, useCallback, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useRef } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
+  ChevronRight,
   LayoutGrid,
   LayoutList,
   Search as SearchIcon,
   Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import FilterField from "@/components/ui/FilterField";
 import {
   Select,
   SelectContent,
@@ -21,7 +21,7 @@ import SearchResultsTable from "@/components/search/SearchResultsTable";
 import SearchResultsGrid from "@/components/search/SearchResultsGrid";
 import { Skeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/ui/EmptyState";
-import PageHeader, { Tab, TabRow } from "@/components/layout/PageHeader";
+import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { DataTableFooter } from "@/components/data-table/DataTableFooter";
 import type { ContentType } from "@/types/entities";
 
@@ -115,13 +115,7 @@ export default function SearchPage() {
 
   const [searchQuery, setSearchQuery] = useState(urlQuery);
   const resultsRef = useRef<HTMLDivElement>(null);
-  const [columnToggleEl, setColumnToggleEl] = useState<HTMLDivElement | null>(
-    null,
-  );
-  const columnToggleCallback = useCallback(
-    (node: HTMLDivElement | null) => setColumnToggleEl(node),
-    [],
-  );
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const comicApiSort = comicSortMapping[urlSort] ?? urlSort;
   const mangaApiSort = mangaSortMapping[urlSort] || "relevance";
@@ -203,113 +197,138 @@ export default function SearchPage() {
 
   const showBothTabs = comicsEnabled && mangaEnabled;
 
+  const resultCount = pagination?.total ?? 0;
+  const modeLabel = searchMode === "manga" ? "manga" : "comics";
+  const providerNote =
+    searchMode === "manga"
+      ? "Searched MangaDex"
+      : "Searched ComicVine and Metron";
+
   return (
     <div className="page-transition flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-      <PageHeader
-        title="Search"
-        meta={
-          urlQuery
+      <div data-testid="page-header" className="shrink-0 px-8 pt-5">
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-5 flex items-center gap-2 text-[13px] text-foreground-2"
+        >
+          <Link to="/library" className="hover:text-foreground">
+            Library
+          </Link>
+          <span className="text-muted-foreground">/</span>
+          <span className="text-foreground">Add a series</span>
+        </nav>
+        <h1 className="text-2xl font-semibold leading-tight tracking-tight">
+          Add a series
+        </h1>
+        <p data-testid="page-header-meta" className="sr-only">
+          {urlQuery
             ? isLoading
               ? `searching "${urlQuery}"…`
-              : `${pagination?.total ?? 0} results for "${urlQuery}"`
-            : "find comics and manga to add"
-        }
-      />
+              : `${resultCount} results for "${urlQuery}"`
+            : "find comics and manga to add"}
+        </p>
 
-      {showBothTabs && (
-        <TabRow>
-          <Tab
-            active={searchMode === "comic"}
-            label="Comics"
-            onClick={() => handleSearchModeChange("comic")}
-          />
-          <Tab
-            active={searchMode === "manga"}
-            label="Manga"
-            onClick={() => handleSearchModeChange("manga")}
-          />
-        </TabRow>
-      )}
-
-      {/* Compact search form + sort controls */}
-      <div
-        className="shrink-0 px-5 py-2.5 border-b flex items-center gap-3 flex-wrap"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <form
-          onSubmit={handleSearch}
-          className="flex items-center gap-2 flex-1 min-w-[260px] max-w-[560px]"
-        >
-          <FilterField
-            aria-label={`Search ${searchMode === "manga" ? "manga" : "comics"}`}
-            placeholder={`Search ${searchMode === "manga" ? "manga" : "comics"}…`}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            shortcut="↵"
-            widthCap="full"
-          />
-          <Button
-            type="submit"
-            size="toolbar"
-            disabled={searchQuery.trim().length < 3}
-            className="font-semibold"
-          >
-            Search
-          </Button>
+        <form onSubmit={handleSearch} className="mt-5">
+          <label className="flex h-10 items-center gap-3 rounded-lg border border-border-strong bg-surface-1 px-3.5 transition-[border-color,box-shadow] focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/25">
+            <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
+            <input
+              ref={inputRef}
+              autoFocus={!urlQuery}
+              aria-label={`Search ${modeLabel}`}
+              placeholder={`Search ${modeLabel} by title, or paste a ComicVine or MangaDex link`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
+            />
+            {urlQuery && !isLoading && pagination && (
+              <span className="mono-meta shrink-0">{resultCount} results</span>
+            )}
+            <Button
+              type="submit"
+              size="sm"
+              variant="outline"
+              disabled={searchQuery.trim().length < 3}
+              className="sr-only focus-visible:not-sr-only"
+            >
+              Search
+            </Button>
+          </label>
         </form>
-        {urlQuery && pagination && !isLoading && (
-          <div className="mono-meta">
-            {startIndex}–{endIndex} of {pagination.total}
-          </div>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          <div className="inline-flex shrink-0 rounded-md border border-border overflow-hidden">
-            <button
-              type="button"
-              onClick={() => handleViewChange("list")}
-              aria-pressed={!isGridView}
-              className={`px-2 py-1.5 transition-colors ${
-                !isGridView
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              aria-label="List view"
+
+        <div className="flex flex-wrap items-center gap-3 border-b border-border-subtle py-4">
+          {showBothTabs && (
+            <div
+              role="group"
+              aria-label="Content kind"
+              className={SEGMENTED_GROUP}
             >
-              <LayoutList className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleViewChange("grid")}
-              aria-pressed={isGridView}
-              className={`px-2 py-1.5 border-l border-border transition-colors ${
-                isGridView
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              aria-label="Grid view"
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <span className="font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground">
-            sort
-          </span>
-          <Select value={urlSort} onValueChange={handleSortChange}>
-            <SelectTrigger
-              aria-label="Sort results"
-              className="h-8 text-[11px] w-[150px]"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
+              {(["comic", "manga"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={searchMode === mode}
+                  onClick={() => handleSearchModeChange(mode)}
+                  className={SEGMENTED_ITEM}
+                >
+                  {mode === "manga" ? "Manga" : "Comics"}
+                  {searchMode === mode && urlQuery && pagination && (
+                    <span className="mono-meta">{resultCount}</span>
+                  )}
+                </button>
               ))}
-            </SelectContent>
-          </Select>
-          <div ref={columnToggleCallback} />
+            </div>
+          )}
+          {urlQuery && pagination && !isLoading && (
+            <span className="mono-meta">
+              {startIndex}–{endIndex} of {pagination.total}
+            </span>
+          )}
+          <div className="ml-auto flex items-center gap-3">
+            {urlQuery && (
+              <span className="hidden text-[13px] text-foreground-2 md:inline">
+                {providerNote}
+              </span>
+            )}
+            <Select value={urlSort} onValueChange={handleSortChange}>
+              <SelectTrigger
+                aria-label="Sort results"
+                className="h-8 w-[150px] text-[13px]"
+              >
+                <SelectValue>
+                  {(value: string) =>
+                    sortOptions.find((o) => o.value === value)?.label ?? value
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div role="group" aria-label="View" className={SEGMENTED_GROUP}>
+              <button
+                type="button"
+                onClick={() => handleViewChange("list")}
+                aria-pressed={!isGridView}
+                aria-label="List view"
+                className={SEGMENTED_ITEM}
+              >
+                <LayoutList className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleViewChange("grid")}
+                aria-pressed={isGridView}
+                aria-label="Grid view"
+                className={SEGMENTED_ITEM}
+              >
+                <LayoutGrid className="size-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -317,7 +336,7 @@ export default function SearchPage() {
       <div ref={resultsRef} className="flex-1 min-h-0 overflow-auto">
         {isLoading &&
           (isGridView ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 px-5 py-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 px-8 py-4">
               {[...Array(12)].map((_, i) => (
                 <div key={i} className="space-y-2">
                   <Skeleton className="aspect-[2/3] w-full rounded-lg" />
@@ -327,7 +346,7 @@ export default function SearchPage() {
               ))}
             </div>
           ) : (
-            <div className="p-5 space-y-2">
+            <div className="px-8 py-4 space-y-2">
               {[0, 1, 2, 3, 4].map((i) => (
                 <Skeleton key={i} className="h-14" />
               ))}
@@ -335,7 +354,7 @@ export default function SearchPage() {
           ))}
 
         {error && (
-          <div className="p-5">
+          <div className="px-8 py-6">
             {searchMode === "comic" && !comicsConfigured ? (
               <EmptyState
                 variant="custom"
@@ -357,7 +376,7 @@ export default function SearchPage() {
         )}
 
         {!isLoading && !error && urlQuery && searchResults.length === 0 && (
-          <div className="p-5">
+          <div className="px-8 py-6">
             <EmptyState
               variant="search"
               eyebrow="SEARCH · NO MATCH"
@@ -373,15 +392,29 @@ export default function SearchPage() {
         {!isLoading && !error && searchResults.length > 0 && !isGridView && (
           <SearchResultsTable
             results={searchResults}
-            currentSort={urlSort}
-            onSortChange={handleSortChange}
             contentType={searchMode}
-            columnToggleContainer={columnToggleEl}
           />
         )}
 
+        {!isLoading && !error && searchResults.length > 0 && (
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 px-8 py-6 text-[13px] text-muted-foreground">
+            Not finding it? Search by ComicVine or MangaDex ID, or paste a link.
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                inputRef.current?.focus();
+              }}
+              className="inline-flex items-center gap-0.5 font-medium text-foreground hover:text-foreground-2"
+            >
+              Search by ID
+              <ChevronRight className="size-3.5 text-muted-foreground" />
+            </button>
+          </p>
+        )}
+
         {!urlQuery && (
-          <div className="p-5">
+          <div className="px-8 py-6">
             <EmptyState
               variant="custom"
               icon={SearchIcon}
