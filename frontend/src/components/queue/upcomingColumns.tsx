@@ -28,6 +28,8 @@ const columnHelper = createColumnHelper<ComicarrTableFeatures, UpcomingIssue>();
 export function useUpcomingColumns(
   onReview?: (issue: UpcomingIssue) => void,
   today: string = isoDay(new Date()),
+  /** Needs attention base reason to the one place that fixes it. */
+  fixes?: ReadonlyMap<string, { label: string; href: string }>,
 ) {
   const queueIssueMutation = useQueueIssue();
   const unqueueIssueMutation = useUnqueueIssue();
@@ -128,9 +130,32 @@ export function useUpcomingColumns(
               <span className="text-foreground max-md:sr-only">
                 {state.label}
               </span>
+              {state.progress != null && (
+                <span
+                  role="progressbar"
+                  aria-label={`${state.label} ${state.progress}%`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={state.progress}
+                  className="inline-flex items-center gap-2 max-md:hidden"
+                >
+                  <span className="h-1 w-14 overflow-hidden rounded-full bg-surface-3">
+                    <span
+                      className="block h-full rounded-full"
+                      style={{
+                        width: `${Math.max(2, state.progress)}%`,
+                        background: "var(--in-flight)",
+                      }}
+                    />
+                  </span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {state.progress}%
+                  </span>
+                </span>
+              )}
               {state.bucket === "needs_you" ? (
                 <Link
-                  to={`/library/${row.original.ComicID}`}
+                  to={`/library/${row.original.ComicID}/issue/${row.original.IssueID}`}
                   className="text-muted-foreground hover:text-foreground hover:underline underline-offset-2 max-md:hidden"
                   onClick={(event) => event.stopPropagation()}
                 >
@@ -151,9 +176,28 @@ export function useUpcomingColumns(
         cell: ({ row }) => {
           const status = row.original.Status?.toLowerCase();
           const issueId = row.original.IssueID;
+          const fix =
+            row.original.attention && row.original.attention_reason
+              ? fixes?.get(row.original.attention_reason)
+              : undefined;
 
           return (
             <div className="flex items-center justify-end gap-1 opacity-70 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
+              {fix && (
+                <Button
+                  size="compact"
+                  variant="outline"
+                  asChild
+                  className="opacity-100"
+                >
+                  <Link
+                    to={fix.href}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {fix.label}
+                  </Link>
+                </Button>
+              )}
               {status === "wanted" && onReview ? (
                 <Button
                   size="compact"
@@ -242,5 +286,12 @@ export function useUpcomingColumns(
         },
       }),
     ]);
-  }, [addToast, onReview, queueIssueMutation, today, unqueueIssueMutation]);
+  }, [
+    addToast,
+    fixes,
+    onReview,
+    queueIssueMutation,
+    today,
+    unqueueIssueMutation,
+  ]);
 }

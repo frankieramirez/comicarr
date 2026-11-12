@@ -30,6 +30,7 @@ import {
 } from "@/lib/releaseState";
 import { dayHeading, isoDay, weekStart } from "@/lib/releaseWeek";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useActivityBand } from "@/hooks/useActivity";
 import type { UpcomingIssue } from "@/types";
 
 type StateTab = "all" | Exclude<ReleaseBucket, "other">;
@@ -140,9 +141,20 @@ export default function MyReleasesView({
     return tally;
   }, [rows]);
 
+  // Needs you causes carry the one place that clears them ("Fix command").
+  const band = useActivityBand();
+  const fixes = useMemo(() => {
+    const map = new Map<string, { label: string; href: string }>();
+    for (const cause of band.data?.causes ?? []) {
+      if (cause.base_reason && cause.fix && !map.has(cause.base_reason))
+        map.set(cause.base_reason, cause.fix);
+    }
+    return map;
+  }, [band.data]);
   const columns = useUpcomingColumns(
     (issue) => void startIssueReview(issue),
     today,
+    fixes,
   );
   const { table, selectedIds, clearSelection } = useTableState({
     data: rows,

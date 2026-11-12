@@ -864,9 +864,11 @@ function weekReleases() {
     offset: number,
     Status: string,
     attention: string | null = null,
+    extra: Record<string, unknown> = {},
   ) => {
     const cover = COVERS.find((c) => c.id === ComicID);
     return {
+      IssueID: `${ComicID}-${IssueNumber}`,
       ComicID,
       ComicName: cover?.title ?? ComicID,
       IssueNumber,
@@ -875,15 +877,26 @@ function weekReleases() {
       Publisher: cover?.publisher ?? null,
       ContentType: cover?.kind ?? "comic",
       attention,
+      ...extra,
     };
   };
+  const ago = (hours: number) =>
+    new Date(Date.now() - hours * 3_600_000).toISOString();
   return [
-    row("chainsaw", "213", 2, "Downloaded"),
-    row("ultimate-wolverine", "16", 3, "Wanted", "Import failed"),
-    row("absolute-flash", "12", 3, "Snatched"),
+    row("chainsaw", "213", 2, "Downloaded", null, { downloaded_at: ago(40) }),
+    row("ultimate-wolverine", "16", 3, "Wanted", "Import failed", {
+      attention_reason: "invalid_postprocess_command",
+    }),
+    row("absolute-flash", "12", 3, "Snatched", null, {
+      download: { phase: "downloading", percent: 64, time_left: "0:03:10" },
+    }),
     row("tmnt", "9", 3, "Wanted"),
-    row("absolute-batman", "23", 3, "Downloaded"),
-    row("transformers", "11", 3, "Downloaded"),
+    row("absolute-batman", "23", 3, "Downloaded", null, {
+      downloaded_at: ago(2),
+    }),
+    row("transformers", "11", 3, "Downloaded", null, {
+      downloaded_at: ago(26),
+    }),
     row("ark-m", "3", 5, "Wanted"),
     row("monster", "214", 6, "Wanted"),
   ];
