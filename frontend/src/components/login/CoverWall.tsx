@@ -17,7 +17,7 @@ export default function CoverWall({ tiles }: { tiles: number }) {
             src={`/api/auth/cover-wall/${slot}`}
             alt=""
             loading="lazy"
-            className="aspect-[2/3] w-full rounded-md object-cover"
+            className="aspect-[2/3] w-full rounded-md object-cover saturate-[0.8]"
             onError={(event) => {
               event.currentTarget.style.visibility = "hidden";
             }}
@@ -28,7 +28,7 @@ export default function CoverWall({ tiles }: { tiles: number }) {
       <div
         className="absolute inset-0"
         style={{
-          background: "color-mix(in srgb, var(--background) 84%, transparent)",
+          background: "color-mix(in srgb, var(--background) 92%, transparent)",
         }}
       />
     </div>
