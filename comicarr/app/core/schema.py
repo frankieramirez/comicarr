@@ -67,6 +67,7 @@ _REVISION_INTRODUCED_TABLES = {
     "0013_series_provider_override": frozenset(),
     "0014_import_issue_readiness": frozenset(),
     "0015_issue_search_history": frozenset({"issue_search_history"}),
+    "0016_import_folder_choices": frozenset({"import_folder_choices"}),
 }
 _READINGLIST_TO_STORYARCS_COLUMNS = (
     "StoryArcID",

@@ -799,6 +799,16 @@ issue_search_history = Table(
     Column("summary_json", Text, nullable=False),
 )
 
+import_folder_choices = Table(
+    "import_folder_choices",
+    metadata,
+    Column("folder_key", String(255), primary_key=True, unique=True),
+    Column("folder_name", Text),
+    Column("comic_id", String(255), nullable=False),
+    Column("comic_name", Text),
+    Column("chosen_at", String(40), nullable=False),
+)
+
 search_backlog_state = Table(
     "search_backlog_state",
     metadata,
@@ -1160,6 +1170,7 @@ TABLE_MAP = {
     "interactive_search_sessions": interactive_search_sessions,
     "interactive_search_candidates": interactive_search_candidates,
     "issue_search_history": issue_search_history,
+    "import_folder_choices": import_folder_choices,
     "search_backlog_state": search_backlog_state,
     "rss_search_seen": rss_search_seen,
     "acquisition_reconciliation": acquisition_reconciliation,

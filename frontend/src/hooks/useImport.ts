@@ -8,8 +8,11 @@ import {
 } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import type {
+  ImportBucket,
   ImportGroup,
   ImportPendingSummary,
+  ImportPickPanel,
+  ImportRemoteCandidates,
   PaginationMeta,
   ScanProgress,
 } from "@/types";
@@ -51,16 +54,80 @@ interface RefreshImportResponse {
 export function useImportPending(
   limit = 50,
   offset = 0,
-  includeIgnored = false,
+  bucket: ImportBucket = "needs_pick",
+  search = "",
 ): UseQueryResult<ImportPendingResponse> {
+  const q = search.trim();
   return useQuery({
-    queryKey: ["importPending", limit, offset, includeIgnored],
+    queryKey: ["importPending", limit, offset, bucket, q],
     queryFn: () =>
       apiRequest<ImportPendingResponse>(
         "GET",
-        `/api/import?limit=${limit}&offset=${offset}&include_ignored=${includeIgnored}`,
+        `/api/import?limit=${limit}&offset=${offset}&bucket=${bucket}${
+          q ? `&q=${encodeURIComponent(q)}` : ""
+        }`,
       ),
     staleTime: 30 * 1000, // 30 seconds - imports may change frequently
+  });
+}
+
+/** The pick panel for one review group, keyed by its files. */
+export function useImportCandidates(
+  impIds: string[],
+): UseQueryResult<ImportPickPanel> {
+  return useQuery({
+    queryKey: ["importCandidates", impIds],
+    queryFn: () =>
+      apiRequest<ImportPickPanel>("POST", "/api/import/candidates", {
+        imp_ids: impIds,
+      }),
+    enabled: impIds.length > 0,
+    staleTime: 30 * 1000,
+  });
+}
+
+/** Series not in the library yet; costs a provider search, so it is cached long. */
+export function useImportRemoteCandidates(
+  impIds: string[],
+  contentType: "comic" | "manga",
+  enabled = true,
+): UseQueryResult<ImportRemoteCandidates> {
+  return useQuery({
+    queryKey: ["importRemoteCandidates", impIds, contentType],
+    queryFn: () =>
+      apiRequest<ImportRemoteCandidates>(
+        "POST",
+        "/api/import/candidates/remote",
+        {
+          imp_ids: impIds,
+          content_type: contentType === "manga" ? "manga" : undefined,
+        },
+      ),
+    enabled: enabled && impIds.length > 0,
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+  });
+}
+
+interface ImportConfidentResponse {
+  groups: number;
+  imported: number;
+  failed: Array<{ name: string; error: string }>;
+}
+
+export function useImportConfident(): UseMutationResult<
+  ImportConfidentResponse,
+  Error,
+  void
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiRequest<ImportConfidentResponse>("POST", "/api/import/confident"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["importPending"] });
+      queryClient.invalidateQueries({ queryKey: ["importCandidates"] });
+    },
   });
 }
 
@@ -87,6 +154,7 @@ export function useMatchImport(): UseMutationResult<
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["importPending"] });
+      queryClient.invalidateQueries({ queryKey: ["importCandidates"] });
     },
   });
 }
@@ -105,6 +173,7 @@ export function useIgnoreImport(): UseMutationResult<
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["importPending"] });
+      queryClient.invalidateQueries({ queryKey: ["importCandidates"] });
     },
   });
 }
@@ -122,6 +191,7 @@ export function useDeleteImport(): UseMutationResult<
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["importPending"] });
+      queryClient.invalidateQueries({ queryKey: ["importCandidates"] });
     },
   });
 }
@@ -143,6 +213,7 @@ export function useUpdateImportMetadata(): UseMutationResult<
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["importPending"] });
+      queryClient.invalidateQueries({ queryKey: ["importCandidates"] });
     },
   });
 }

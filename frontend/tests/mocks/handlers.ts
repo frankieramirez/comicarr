@@ -533,6 +533,36 @@ export const handlers = [
     }),
   ),
 
+  http.post("/api/import/candidates", async ({ request }) => {
+    const body = (await request.json()) as { imp_ids?: string[] };
+    return HttpResponse.json({
+      group_name: "Group",
+      match_name: "Group",
+      years: [],
+      source: "inbox",
+      folder: "inbox/",
+      found_at: null,
+      total_bytes: null,
+      files: (body.imp_ids ?? []).map((impID) => ({
+        impID,
+        filename: `${impID}.cbz`,
+        bytes: null,
+        issue_number: null,
+      })),
+      confidence_bar: 80,
+      reason: "no_match",
+      tied: 0,
+      remembers: false,
+      remembered: null,
+      pick: null,
+      candidates: [],
+    });
+  }),
+
+  http.post("/api/import/candidates/remote", () =>
+    HttpResponse.json({ candidates: [], query: "" }),
+  ),
+
   http.get("/api/import/comic/progress", () =>
     HttpResponse.json({
       status: null,

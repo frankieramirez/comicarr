@@ -24,8 +24,9 @@ def test_get_import_pending_returns_group_and_file_summary_counts():
     conn = MagicMock()
     engine.connect.return_value.__enter__.return_value = conn
     conn.execute.side_effect = [
-        MagicMock(scalar=MagicMock(return_value=2)),
-        MagicMock(scalar=MagicMock(return_value=4)),
+        MagicMock(one=MagicMock(return_value=(2, 4))),
+        MagicMock(one=MagicMock(return_value=(2, 0))),
+        MagicMock(scalar=MagicMock(return_value=0)),
     ]
     group_rows = [
         {
@@ -78,7 +79,11 @@ def test_get_import_pending_returns_group_and_file_summary_counts():
         result = queries.get_import_pending(limit=50, offset=0)
 
     assert result["pagination"]["total"] == 2
-    assert result["summary"] == {"group_count": 2, "file_count": 4}
+    assert result["summary"] == {
+        "group_count": 2,
+        "file_count": 4,
+        "buckets": {"needs_pick": 2, "confident": 0, "ignored": 0},
+    }
     assert [group["DynamicName"] for group in result["imports"]] == ["folder:manga-a", "file:root-a"]
 
 
@@ -129,7 +134,11 @@ def test_import_page_filters_files_before_batching(import_engine, include_ignore
         conn.execute(importresults.insert(), rows)
 
     page = queries.get_import_pending(limit=1, include_ignored=include_ignored)
-    assert page["summary"] == {"group_count": 3, "file_count": 5 if include_ignored else 4}
+    assert page["summary"] == {
+        "group_count": 3,
+        "file_count": 5 if include_ignored else 4,
+        "buckets": {"needs_pick": 3, "confident": 0, "ignored": 1},
+    }
     assert page["pagination"] == {"total": 3, "limit": 1, "offset": 0, "has_more": True}
     group = page["imports"][0]
     assert [row["impID"] for row in group["files"]] == (["a", "ignored", "z"] if include_ignored else ["a", "z"])
@@ -167,7 +176,7 @@ def test_import_group_fallbacks_and_legacy_null_volumes(import_engine):
     assert [f["impID"] for f in groups[(None, "1")]["files"]] == [None]
 
 
-@pytest.mark.parametrize(("limit", "expected_queries"), [(50, 4), (450, 8)])
+@pytest.mark.parametrize(("limit", "expected_queries"), [(50, 5), (450, 9)])
 def test_import_queries_are_bounded_by_batches_not_groups(import_engine, limit, expected_queries):
     with import_engine.begin() as conn:
         conn.execute(
@@ -188,9 +197,45 @@ def test_import_empty_page_does_not_read_files(import_engine):
     event.listen(import_engine, "before_cursor_execute", lambda *args: statements.append(args[2]))
     result = queries.get_import_pending(limit=50, offset=10)
     assert result["imports"] == []
-    assert result["summary"] == {"group_count": 0, "file_count": 0}
+    assert result["summary"] == {
+        "group_count": 0,
+        "file_count": 0,
+        "buckets": {"needs_pick": 0, "confident": 0, "ignored": 0},
+    }
     assert result["pagination"]["has_more"] is False
-    assert len(statements) == 3
+    assert len(statements) == 4
+
+
+def _bucket_rows():
+    return [
+        _import_row("sure-1", ComicName="Sure", DynamicName="sure", SuggestedComicID="9", MatchConfidence=90),
+        _import_row("sure-2", ComicName="Sure", DynamicName="sure", SuggestedComicID="9", MatchConfidence=84),
+        _import_row("shaky", ComicName="Shaky", DynamicName="shaky", SuggestedComicID="7", MatchConfidence=72),
+        _import_row("none", ComicName="Scan_100%", DynamicName="none", MatchConfidence=0),
+        _import_row("hidden", ComicName="Hidden", DynamicName="hidden", IgnoreFile=1, SuggestedComicID="5"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("bucket", "names"),
+    [("needs_pick", ["Scan_100%", "Shaky"]), ("confident", ["Sure"]), ("ignored", ["Hidden"])],
+)
+def test_import_buckets_split_on_the_auto_import_bar(import_engine, bucket, names):
+    with import_engine.begin() as conn:
+        conn.execute(importresults.insert(), _bucket_rows())
+    page = queries.get_import_pending(bucket=bucket, threshold=80)
+    assert [group["ComicName"] for group in page["imports"]] == names
+    assert page["pagination"]["total"] == len(names)
+    assert page["summary"]["buckets"] == {"needs_pick": 2, "confident": 1, "ignored": 1}
+
+
+def test_import_search_matches_names_literally(import_engine):
+    with import_engine.begin() as conn:
+        conn.execute(importresults.insert(), _bucket_rows())
+    assert [g["ComicName"] for g in queries.get_import_pending(search="100%")["imports"]] == ["Scan_100%"]
+    assert [g["ComicName"] for g in queries.get_import_pending(search="shak")["imports"]] == ["Shaky"]
+    assert queries.get_import_pending(search="_1")["imports"][0]["ComicName"] == "Scan_100%"
+    assert queries.get_import_pending(search="e_")["imports"] == []
 
 
 @pytest.fixture

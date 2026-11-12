@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { waitFor } from "@testing-library/react";
+import { waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { server } from "../mocks/server";
@@ -320,7 +320,7 @@ describe("ImportPage", () => {
     render(<ImportPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Manga A")).toBeTruthy();
+      expect(screen.getAllByText("Manga A").length).toBeGreaterThan(0);
     });
 
     expect(
@@ -410,11 +410,15 @@ describe("ImportPage", () => {
     const user = userEvent.setup();
     render(<ImportPage />);
 
-    const matchButtons = await screen.findAllByRole("button", {
-      name: "Match import",
+    await user.click(await screen.findByText("Manga B"));
+    const panel = await screen.findByRole("complementary", {
+      name: "Pick a series for Manga B",
     });
-    expect(matchButtons).toHaveLength(2);
-    await user.click(matchButtons[1]);
+    await user.click(
+      await within(panel).findByRole("button", {
+        name: "Search for a different series",
+      }),
+    );
 
     const dialog = await screen.findByRole("dialog", { name: "Match Import" });
     for (let i = 0; i < 20; i += 1) {
@@ -428,7 +432,7 @@ describe("ImportPage", () => {
     });
     await waitFor(() => {
       expect(document.activeElement).toBe(
-        screen.getAllByRole("button", { name: "Match import" })[1],
+        screen.getByRole("button", { name: "Search for a different series" }),
       );
     });
   });

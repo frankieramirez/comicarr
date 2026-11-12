@@ -1181,9 +1181,28 @@ def get_wanted_by_series(ctx, limit=50, offset=0, search=None, state="all", kind
     }
 
 
-def get_import_pending(ctx, limit=50, offset=0, include_ignored=False):
+def import_confidence_bar(ctx=None):
+    """The auto-import confidence bar; the Import page's Confident tab uses the same one."""
+    config = getattr(ctx, "config", None) or comicarr.CONFIG
+    try:
+        return int(getattr(config, "AUTO_IMPORT_CONFIDENCE", 80) or 80)
+    except (TypeError, ValueError):
+        return 80
+
+
+def get_import_pending(ctx, limit=50, offset=0, include_ignored=False, bucket=None, search=None):
     """Get pending import files grouped by DynamicName/Volume."""
-    return series_queries.get_import_pending(limit=limit, offset=offset, include_ignored=include_ignored)
+    threshold = import_confidence_bar(ctx)
+    result = series_queries.get_import_pending(
+        limit=limit,
+        offset=offset,
+        include_ignored=include_ignored,
+        bucket=bucket,
+        threshold=threshold,
+        search=search,
+    )
+    result.setdefault("summary", {})["confidence_bar"] = threshold
+    return result
 
 
 def update_import_metadata(ctx, imp_id, issue_number):

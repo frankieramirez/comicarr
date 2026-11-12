@@ -4,6 +4,8 @@ import { waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { screen, renderMinimal } from "../test-utils";
 import ImportTable from "@/components/import/ImportTable";
+import ImportFileRow from "@/components/import/ImportFileRow";
+import { getImportIssueLabel } from "@/lib/importUtils";
 import {
   getImportGroupRowId,
   getSelectedImportFileIds,
@@ -35,14 +37,12 @@ function Harness({
     issueNumber: string,
   ) => Promise<void>;
 }) {
-  const columns = useImportColumns({});
+  const columns = useImportColumns();
   const { table, selectedRows } = useTableState({
     data: imports,
     columns,
     getRowId: getImportGroupRowId,
     selection: { scope: "filtered" },
-    getRowCanExpand: (row) =>
-      !!(row.original.files && row.original.files.length > 0),
   });
 
   const fileIds = useMemo(
@@ -54,8 +54,22 @@ function Harness({
     if (fileIds.length > 0) onSelectionChange?.(fileIds, groupCount);
   }, [fileIds, groupCount, onSelectionChange]);
 
+  // The pick panel edits numbers with the same row; the first group stands in
+  // for the one it has open.
+  const open = imports[0];
   return (
-    <ImportTable table={table} onIssueNumberChange={onIssueNumberChange} />
+    <>
+      <ImportTable table={table} />
+      {onIssueNumberChange &&
+        open?.files.map((file) => (
+          <ImportFileRow
+            key={`${file.impID}-${file.IssueNumber ?? ""}`}
+            file={file}
+            label={getImportIssueLabel(open)}
+            onIssueNumberChange={onIssueNumberChange}
+          />
+        ))}
+    </>
   );
 }
 
@@ -135,11 +149,7 @@ describe("ImportTable", () => {
 
     expect(screen.getByText("Manga A")).toBeTruthy();
     expect(screen.getByText("Manga B")).toBeTruthy();
-    expect(screen.getAllByText("Folder group")).toHaveLength(2);
-
-    await userEvent.click(
-      screen.getAllByRole("button", { name: "Expand import files" })[0],
-    );
+    expect(screen.getAllByTitle("Folder group")).toHaveLength(2);
 
     expect(
       screen.getByRole("textbox", { name: "Chapter for chapter 1.cbz" }),
@@ -183,7 +193,7 @@ describe("ImportTable", () => {
 
     expect(screen.getByText("Root Manga A")).toBeTruthy();
     expect(screen.getByText("Root Manga B")).toBeTruthy();
-    expect(screen.getAllByText("Single file")).toHaveLength(2);
+    expect(screen.getAllByTitle("Single file")).toHaveLength(2);
   });
 
   it("shows no suggestion instead of a misleading zero confidence", () => {
@@ -203,50 +213,7 @@ describe("ImportTable", () => {
     expect(screen.queryByText("0%")).toBeNull();
   });
 
-  it("labels empty-file groups as Ignore, not Unignore", () => {
-    renderMinimal(
-      <Harness
-        imports={[
-          makeGroup({
-            DynamicName: "folder:empty",
-            ComicName: "Empty Group",
-            FileCount: 0,
-            files: [],
-          }),
-        ]}
-      />,
-    );
-
-    expect(screen.getByRole("button", { name: "Ignore import" })).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Unignore import" }),
-    ).toBeNull();
-  });
-
-  it("labels fully ignored groups as Unignore", () => {
-    renderMinimal(
-      <Harness
-        imports={[
-          makeGroup({
-            files: [
-              makeFile({ impID: "1", IgnoreFile: 1 }),
-              makeFile({
-                impID: "2",
-                IgnoreFile: 1,
-                ComicFilename: "chapter 2.cbz",
-              }),
-            ],
-          }),
-        ]}
-      />,
-    );
-
-    expect(
-      screen.getByRole("button", { name: "Unignore import" }),
-    ).toBeTruthy();
-  });
-
-  it("saves edited chapter values from expanded file rows", async () => {
+  it("saves edited chapter values from file rows", async () => {
     const file = makeFile();
     const onIssueNumberChange = vi.fn().mockResolvedValue(undefined);
 
@@ -255,10 +222,6 @@ describe("ImportTable", () => {
         imports={[makeGroup({ files: [file] })]}
         onIssueNumberChange={onIssueNumberChange}
       />,
-    );
-
-    await userEvent.click(
-      screen.getByRole("button", { name: "Expand import files" }),
     );
 
     const input = screen.getByRole("textbox", {
@@ -282,10 +245,6 @@ describe("ImportTable", () => {
         imports={[makeGroup({ files: [file] })]}
         onIssueNumberChange={onIssueNumberChange}
       />,
-    );
-
-    await userEvent.click(
-      screen.getByRole("button", { name: "Expand import files" }),
     );
 
     const input = screen.getByRole("textbox", {
@@ -328,10 +287,6 @@ describe("ImportTable", () => {
       />,
     );
 
-    await userEvent.click(
-      screen.getByRole("button", { name: "Expand import files" }),
-    );
-
     const input = screen.getByRole("textbox", {
       name: "Chapter for chapter 1.cbz",
     });
@@ -358,10 +313,6 @@ describe("ImportTable", () => {
       />,
     );
 
-    await userEvent.click(
-      screen.getByRole("button", { name: "Expand import files" }),
-    );
-
     const input = screen.getByRole("textbox", {
       name: "Chapter for chapter 1.cbz",
     });
@@ -381,10 +332,6 @@ describe("ImportTable", () => {
         imports={[makeGroup()]}
         onIssueNumberChange={onIssueNumberChange}
       />,
-    );
-
-    await userEvent.click(
-      screen.getByRole("button", { name: "Expand import files" }),
     );
 
     const input = screen.getByRole("textbox", {

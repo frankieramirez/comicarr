@@ -733,30 +733,104 @@ def _database_resolved_page_group(group_key_expr, batch_keys, volume_conditions)
     )
 
 
-def get_import_pending(limit=50, offset=0, include_ignored=False):
-    """Get pending import files grouped by DynamicName/Volume with pagination."""
+IMPORT_BUCKETS = ("needs_pick", "confident", "ignored")
+
+
+def _like_escape(text):
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _import_bucket_having(ir, bucket, threshold):
+    """Group-level split of the review queue: a confident group has a suggestion at or above the bar."""
+    confident = and_(
+        func.min(ir.c.SuggestedComicID).is_not(None),
+        func.coalesce(func.avg(ir.c.MatchConfidence), 0) >= threshold,
+    )
+    if bucket == "confident":
+        return confident
+    if bucket == "needs_pick":
+        return ~confident
+    return None
+
+
+def get_import_pending(limit=50, offset=0, include_ignored=False, bucket=None, threshold=80, search=None):
+    """Get pending import files grouped by DynamicName/Volume with pagination.
+
+    ``bucket`` narrows the page to one tab of the review queue: ``needs_pick``
+    and ``confident`` split the groups that are not ignored by whether their
+    suggestion clears ``threshold`` (the auto-import bar), and ``ignored`` lists
+    ignored files. ``summary.buckets`` always carries all three counts.
+    """
     ir = t_importresults
     group_key_expr = func.coalesce(
         func.nullif(ir.c.DynamicName, ""),
         func.nullif(ir.c.ComicName, ""),
         ir.c.impID,
     )
+    if bucket not in IMPORT_BUCKETS:
+        bucket = None
+    is_ignored = ir.c.IgnoreFile == 1
+    not_ignored = (ir.c.IgnoreFile.is_(None)) | (ir.c.IgnoreFile == 0)
 
-    base_conds = [
+    pending_conds = [
         (ir.c.WatchMatch.is_(None)) | (ir.c.WatchMatch.like("C%")),
         ir.c.Status != "Imported",
     ]
-    if not include_ignored:
-        base_conds.append((ir.c.IgnoreFile.is_(None)) | (ir.c.IgnoreFile == 0))
+    text = (search or "").strip()
+    if text:
+        pattern = "%" + _like_escape(text) + "%"
+        pending_conds.append(
+            or_(
+                ir.c.ComicName.ilike(pattern, escape="\\"),
+                ir.c.ComicFilename.ilike(pattern, escape="\\"),
+                ir.c.SuggestedComicName.ilike(pattern, escape="\\"),
+            )
+        )
+    base_conds = list(pending_conds)
+    if bucket == "ignored":
+        base_conds.append(is_ignored)
+    elif bucket is not None or not include_ignored:
+        base_conds.append(not_ignored)
+    having = _import_bucket_having(ir, bucket, threshold)
 
     group_count_subq = (
-        select(group_key_expr.label("GroupKey"), ir.c.Volume).where(*base_conds).group_by(group_key_expr, ir.c.Volume)
+        select(group_key_expr.label("GroupKey"), ir.c.Volume, func.count().label("FileCount"))
+        .where(*base_conds)
+        .group_by(group_key_expr, ir.c.Volume)
     )
-    count_stmt = select(func.count()).select_from(group_count_subq.subquery())
-    file_count_stmt = select(func.count()).select_from(ir).where(*base_conds)
+    if having is not None:
+        group_count_subq = group_count_subq.having(having)
+    group_count_subq = group_count_subq.subquery()
+    count_stmt = select(func.count(), func.coalesce(func.sum(group_count_subq.c.FileCount), 0)).select_from(
+        group_count_subq
+    )
+
+    confident_flag = case((_import_bucket_having(ir, "confident", threshold), 1), else_=0)
+    bucket_subq = (
+        select(confident_flag.label("Confident"))
+        .where(*pending_conds, not_ignored)
+        .group_by(group_key_expr, ir.c.Volume)
+        .subquery()
+    )
+    bucket_stmt = select(
+        func.count(),
+        func.coalesce(func.sum(bucket_subq.c.Confident), 0),
+    ).select_from(bucket_subq)
+    ignored_subq = (
+        select(group_key_expr.label("GroupKey")).where(*pending_conds, is_ignored).group_by(group_key_expr, ir.c.Volume)
+    ).subquery()
+    ignored_stmt = select(func.count()).select_from(ignored_subq)
     with db.get_engine().connect() as conn:
-        total = conn.execute(count_stmt).scalar() or 0
-        file_total = conn.execute(file_count_stmt).scalar() or 0
+        total, file_total = conn.execute(count_stmt).one()
+        open_groups, confident_groups = conn.execute(bucket_stmt).one()
+        ignored_groups = conn.execute(ignored_stmt).scalar() or 0
+    total = int(total or 0)
+    file_total = int(file_total or 0)
+    buckets = {
+        "needs_pick": int(open_groups or 0) - int(confident_groups or 0),
+        "confident": int(confident_groups or 0),
+        "ignored": int(ignored_groups),
+    }
 
     group_stmt = (
         select(
@@ -773,10 +847,10 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
         )
         .where(*base_conds)
         .group_by(group_key_expr, ir.c.Volume)
-        .order_by(func.min(ir.c.ComicName))
-        .limit(limit)
-        .offset(offset)
     )
+    if having is not None:
+        group_stmt = group_stmt.having(having)
+    group_stmt = group_stmt.order_by(func.min(ir.c.ComicName)).limit(limit).offset(offset)
     results = db.select_all(group_stmt)
 
     files_by_group = {}
@@ -882,6 +956,7 @@ def get_import_pending(limit=50, offset=0, include_ignored=False):
         "summary": {
             "group_count": total,
             "file_count": file_total,
+            "buckets": buckets,
         },
     }
 

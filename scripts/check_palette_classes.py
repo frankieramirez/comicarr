@@ -72,7 +72,6 @@ PALETTE_RE = re.compile(rf"\b(?:{_UTILITIES})-(?:{_PALETTES})-(?:50|[1-9]00|950)
 # Paths are relative to frontend/src. This list only ever shrinks.
 BASELINE: dict[str, int] = {
     "components/ai/ActivityFeedEntry.tsx": 13,
-    "components/import/ImportTable.tsx": 3,
     "components/import/MatchModal.tsx": 3,
     "components/queue/BulkActionBar.tsx": 2,
     "components/settings/AiTab.tsx": 2,
