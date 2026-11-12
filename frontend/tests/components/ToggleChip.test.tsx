@@ -91,7 +91,7 @@ describe("ToggleChip", () => {
       </ToggleChip>,
     );
     expect(screen.getByRole("button").className).toContain(
-      "focus-visible:ring-1",
+      "focus-visible:ring-2",
     );
     rerender(
       <ToggleChip pressed size="md" onPressedChange={() => undefined}>

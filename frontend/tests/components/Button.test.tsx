@@ -6,7 +6,7 @@ describe("buttonVariants", () => {
   it("keeps the shared focus ring and disabled pointer-events on compact and toolbar", () => {
     for (const size of ["compact", "toolbar"] as const) {
       const classes = buttonVariants({ size });
-      expect(classes).toContain("focus-visible:ring-1");
+      expect(classes).toContain("focus-visible:ring-2");
       expect(classes).toContain("focus-visible:ring-ring");
       expect(classes).toContain("disabled:pointer-events-none");
       expect(classes).toContain("disabled:opacity-50");
@@ -58,7 +58,7 @@ describe("buttonVariants", () => {
     const classes = buttonVariants({ size: "compact", mono: true });
     expect(classes).toContain("font-mono");
     expect(classes).toContain("uppercase");
-    expect(classes).toContain("focus-visible:ring-1");
+    expect(classes).toContain("focus-visible:ring-2");
     expect(classes).toContain("disabled:pointer-events-none");
   });
 });
