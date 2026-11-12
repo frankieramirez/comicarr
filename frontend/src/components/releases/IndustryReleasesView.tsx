@@ -1,11 +1,10 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, ExternalLink, Plus } from "lucide-react";
 import { AiSuggestions } from "@/components/weekly/AiSuggestions";
 import { Button } from "@/components/ui/button";
 import FilterField from "@/components/ui/FilterField";
-import { ToggleChip } from "@/components/ui/toggle-chip";
 import StatusBadge from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
@@ -50,15 +49,29 @@ const STATE_BADGE: Record<
   not_in_library: { status: "Not in library", label: "Not in library" },
 };
 
-const LEGEND_ORDER: WeeklyLibraryState[] = [
-  "wanted",
-  "downloaded",
-  "in_library",
-  "not_in_library",
+type FollowFilter = "all" | "following" | "not_following";
+
+const FOLLOW_FILTERS: { key: FollowFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "following", label: "Following" },
+  { key: "not_following", label: "Not following" },
 ];
+
+const SORT_LABELS: Record<SortKey, string> = {
+  title: "Title",
+  publisher: "Publisher",
+  issue: "Issue",
+};
+
+const SEGMENT =
+  "h-7 rounded-[5px] px-2.5 text-[13px] text-foreground-2 aria-pressed:bg-surface-3 aria-pressed:font-medium aria-pressed:text-foreground";
 
 function rowState(issue: WeeklyIssue): WeeklyLibraryState {
   return issue.state ?? "not_in_library";
+}
+
+function isFollowing(issue: WeeklyIssue): boolean {
+  return rowState(issue) !== "not_in_library";
 }
 
 function issueNumber(value: string): number {
@@ -114,7 +127,8 @@ export default function IndustryReleasesView() {
   const { data, isLoading, error, refetch } = useWeeklyPullList(selectedWeek);
   const { data: aiStatus } = useAiStatus();
   const [filter, setFilter] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("title");
+  const [sortKey, setSortKey] = useState<SortKey>("publisher");
+  const [follow, setFollow] = useState<FollowFilter>("all");
 
   const goToWeek = (week: WeekRef | null) => {
     const next = new URLSearchParams(searchParams);
@@ -132,22 +146,22 @@ export default function IndustryReleasesView() {
     const needle = filter.trim().toLowerCase();
     const matching = (data?.rows ?? []).filter(
       (row) =>
-        !needle ||
-        row.COMIC.toLowerCase().includes(needle) ||
-        (row.PUBLISHER || "").toLowerCase().includes(needle),
+        (follow === "all" || (follow === "following") === isFollowing(row)) &&
+        (!needle ||
+          row.COMIC.toLowerCase().includes(needle) ||
+          (row.PUBLISHER || "").toLowerCase().includes(needle)),
     );
     return [...matching].sort(SORTERS[sortKey]);
-  }, [data, filter, sortKey]);
+  }, [data, filter, follow, sortKey]);
 
   const counts = useMemo(() => {
-    const tally: Record<WeeklyLibraryState, number> = {
-      wanted: 0,
-      downloaded: 0,
-      in_library: 0,
-      not_in_library: 0,
-    };
-    for (const row of data?.rows ?? []) tally[rowState(row)] += 1;
-    return tally;
+    const all = data?.rows ?? [];
+    const following = all.filter(isFollowing).length;
+    return {
+      all: all.length,
+      following,
+      not_following: all.length - following,
+    } satisfies Record<FollowFilter, number>;
   }, [data]);
 
   if (error) {
@@ -162,9 +176,28 @@ export default function IndustryReleasesView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <WeekBar week={data} onNavigate={goToWeek} />
-
-      <div className="shrink-0 px-5 py-2.5 border-b border-border flex items-center gap-2 flex-wrap">
+      <div className="shrink-0 px-8 pt-4 pb-3 flex items-center gap-2 flex-wrap">
+        <div
+          className="inline-flex rounded-md border border-border-subtle bg-surface-1 p-0.5"
+          role="group"
+          aria-label="Following"
+          data-testid="weekly-legend"
+        >
+          {FOLLOW_FILTERS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={follow === key}
+              onClick={() => setFollow(key)}
+              className={SEGMENT}
+            >
+              {label}{" "}
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {counts[key]}
+              </span>
+            </button>
+          ))}
+        </div>
         <FilterField
           aria-label="Filter releases"
           placeholder="Filter by title or publisher"
@@ -172,40 +205,38 @@ export default function IndustryReleasesView() {
           onChange={(event) => setFilter(event.target.value)}
           widthCap="sm"
         />
-        <div className="mono-label pl-1">Sort</div>
-        {(["title", "publisher", "issue"] as const).map((key) => (
-          <ToggleChip
-            key={key}
-            pressed={sortKey === key}
-            onPressedChange={() => setSortKey(key)}
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
+          <div
+            className="inline-flex items-center rounded-md border border-border-subtle bg-surface-1 p-0.5"
+            role="group"
+            aria-label="Sort"
           >
-            {key}
-          </ToggleChip>
-        ))}
-        <div
-          className="ml-auto flex items-center gap-3 flex-wrap"
-          data-testid="weekly-legend"
-        >
-          {LEGEND_ORDER.map((state) => (
-            <StatusBadge
-              key={state}
-              variant="dot"
-              status={STATE_BADGE[state].status}
-              label={`${STATE_BADGE[state].label} ${counts[state]}`}
-            />
-          ))}
+            <span className="px-2 text-[13px] text-muted-foreground">Sort</span>
+            {(["title", "publisher", "issue"] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={sortKey === key}
+                onClick={() => setSortKey(key)}
+                className={SEGMENT}
+              >
+                {SORT_LABELS[key]}
+              </button>
+            ))}
+          </div>
+          <WeekBar week={data} onNavigate={goToWeek} />
         </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
         {aiStatus?.configured && data?.offset === 0 && (
-          <div className="px-5 py-4">
+          <div className="px-8 py-4">
             <AiSuggestions />
           </div>
         )}
 
         {isLoading ? (
-          <div className="px-5 py-4 space-y-2">
+          <div className="px-8 py-4 space-y-2">
             {Array.from({ length: 10 }).map((_, i) => (
               <Skeleton key={i} className="h-10 w-full" />
             ))}
@@ -229,7 +260,7 @@ export default function IndustryReleasesView() {
             description="Clear the filter to see the whole week."
           />
         ) : (
-          <WeeklyTable rows={rows} />
+          <WeeklyTable rows={rows} grouped={sortKey === "publisher"} />
         )}
       </div>
     </div>
@@ -244,37 +275,7 @@ function WeekBar({
   onNavigate: (week: WeekRef | null) => void;
 }) {
   return (
-    <div className="shrink-0 px-5 py-2 border-b border-border flex items-center gap-2">
-      <Button
-        type="button"
-        variant="outline"
-        size="icon-sm"
-        aria-label="Previous week"
-        disabled={!week?.prev}
-        onClick={() => week?.prev && onNavigate(week.prev)}
-      >
-        <ChevronLeft />
-      </Button>
-      <div className="min-w-0 flex items-baseline gap-2" aria-live="polite">
-        <span className="text-[13px] font-semibold">
-          {week ? weekLabel(week.offset) : "Loading week…"}
-        </span>
-        {week && (
-          <span className="mono-meta truncate">
-            {formatDay(week.start, false)} – {formatDay(week.end, true)}
-          </span>
-        )}
-      </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon-sm"
-        aria-label="Next week"
-        disabled={!week?.next}
-        onClick={() => week?.next && onNavigate(week.next)}
-      >
-        <ChevronRight />
-      </Button>
+    <div className="flex items-center gap-2">
       {week && week.offset !== 0 && (
         <Button
           type="button"
@@ -285,16 +286,63 @@ function WeekBar({
           This week
         </Button>
       )}
+      <div className="inline-flex h-8 items-stretch overflow-hidden rounded-md border border-border-strong">
+        <button
+          type="button"
+          aria-label="Previous week"
+          disabled={!week?.prev}
+          onClick={() => week?.prev && onNavigate(week.prev)}
+          className="flex w-8 items-center justify-center text-foreground-2 hover:bg-surface-2 disabled:opacity-40"
+        >
+          <ChevronLeft className="size-3.5" />
+        </button>
+        <div
+          className="flex min-w-0 items-baseline gap-2 self-center border-x border-border-strong px-3 leading-8"
+          aria-live="polite"
+        >
+          <span className="text-[13px] font-medium">
+            {week ? weekLabel(week.offset) : "Loading week…"}
+          </span>
+          {week && (
+            <span className="truncate font-mono text-[11px] text-muted-foreground">
+              {formatDay(week.start, false)} – {formatDay(week.end, true)}
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          aria-label="Next week"
+          disabled={!week?.next}
+          onClick={() => week?.next && onNavigate(week.next)}
+          className="flex w-8 items-center justify-center text-foreground-2 hover:bg-surface-2 disabled:opacity-40"
+        >
+          <ChevronRight className="size-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
 
-function WeeklyTable({ rows }: { rows: WeeklyIssue[] }) {
+function WeeklyTable({
+  rows,
+  grouped,
+}: {
+  rows: WeeklyIssue[];
+  grouped: boolean;
+}) {
   const [adding, setAdding] = useState<Set<number>>(() => new Set());
   const addFromWeek = useAddFromWeek();
   const queueIssue = useQueueIssue();
   const queryClient = useQueryClient();
   const { addToast } = useToast();
+  const groupCounts = useMemo(() => {
+    const tally = new Map<string, number>();
+    for (const row of rows) {
+      const key = row.PUBLISHER || "Unknown publisher";
+      tally.set(key, (tally.get(key) ?? 0) + 1);
+    }
+    return tally;
+  }, [rows]);
 
   const add = async (issue: WeeklyIssue, want: boolean) => {
     if (issue.rowid == null) return;
@@ -331,13 +379,15 @@ function WeeklyTable({ rows }: { rows: WeeklyIssue[] }) {
   return (
     <div data-testid="weekly-releases-table">
       <div
-        className={`sticky top-0 z-10 grid ${WEEKLY_ROW_COLS} gap-x-2 md:gap-x-3 mono-label px-5 py-2 border-b bg-background`}
-        style={{ borderColor: "var(--border)" }}
+        className={`sticky top-0 z-10 grid ${WEEKLY_ROW_COLS} gap-x-2 md:gap-x-3 mx-8 px-2 h-8 items-center border-b border-border-subtle bg-background text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground`}
       >
         <div>title</div>
         <div className={DESKTOP_COL}>issue</div>
         <div className={DESKTOP_COL}>publisher</div>
-        <div>status</div>
+        <div>
+          <span className="max-md:hidden">in your library</span>
+          <span className="md:hidden">status</span>
+        </div>
         <div className="text-right">
           <span className="sr-only">actions</span>
         </div>
@@ -346,90 +396,121 @@ function WeeklyTable({ rows }: { rows: WeeklyIssue[] }) {
         const state = rowState(issue);
         const badge = STATE_BADGE[state];
         const isAdding = issue.rowid != null && adding.has(issue.rowid);
+        const publisher = issue.PUBLISHER || "Unknown publisher";
+        const startsGroup =
+          grouped &&
+          (index === 0 ||
+            (rows[index - 1].PUBLISHER || "Unknown publisher") !== publisher);
         return (
-          <div
-            key={weeklyReleaseRowKey(issue, index)}
-            data-testid="weekly-release-row"
-            className={`grid ${WEEKLY_ROW_COLS} gap-x-2 md:gap-x-3 items-center px-5 py-2 text-[12px] border-b border-border/50`}
-          >
-            <div className="font-medium truncate" data-grid-title="">
-              <ReleaseTitle issue={issue} />
-              {issue.ISSUE ? (
-                <span
-                  data-testid="phone-row-id"
-                  className="hidden max-md:inline font-mono text-[11px]"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
-                  {" "}
-                  #{issue.ISSUE}
+          <Fragment key={weeklyReleaseRowKey(issue, index)}>
+            {startsGroup && (
+              <div
+                className="mx-8 flex h-9 items-center gap-2 border-b border-border-subtle px-2 pt-2 text-[13px] font-semibold"
+                data-testid="weekly-publisher-group"
+              >
+                {publisher}
+                <span className="font-mono text-[11px] font-normal text-muted-foreground">
+                  {groupCounts.get(publisher)}
                 </span>
-              ) : null}
-            </div>
-            <div className={`${DESKTOP_COL} mono-meta`}>#{issue.ISSUE}</div>
-            <div className={`${DESKTOP_COL} text-muted-foreground truncate`}>
-              {issue.PUBLISHER}
-            </div>
-            <div>
-              {/* Phones keep only the dot so the title holds half the row. */}
-              <span
-                role="img"
-                aria-label={badge.label}
-                title={badge.label}
-                className="md:hidden inline-block h-2 w-2 rounded-full"
-                style={{ backgroundColor: statusTone(badge.status)?.token }}
-              />
-              <span className={DESKTOP_COL}>
-                <StatusBadge
-                  variant="dot"
-                  status={badge.status}
-                  label={badge.label}
-                />
-              </span>
-            </div>
-            <div className="flex justify-end">
-              {isAdding ? (
-                <span className="mono-meta">adding…</span>
-              ) : state === "not_in_library" &&
-                issue.ComicID &&
-                issue.rowid != null ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="compact"
-                        aria-label={`Add ${issue.COMIC}`}
-                        disabled={addFromWeek.isPending}
-                      />
-                    }
+              </div>
+            )}
+            <div
+              data-testid="weekly-release-row"
+              className={`group/row grid ${WEEKLY_ROW_COLS} gap-x-2 md:gap-x-3 items-center mx-8 px-2 py-1.5 min-h-9 text-[13px] border-b border-border-subtle hover:bg-surface-1`}
+            >
+              <div className="font-medium truncate" data-grid-title="">
+                <ReleaseTitle issue={issue} />
+                {issue.ISSUE ? (
+                  <span
+                    data-testid="phone-row-id"
+                    className="hidden max-md:inline font-mono text-[11px]"
+                    style={{ color: "var(--muted-foreground)" }}
                   >
-                    <Plus />
-                    Add
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" sideOffset={4}>
-                    <DropdownMenuItem onClick={() => void add(issue, false)}>
-                      Add series
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => void add(issue, true)}>
-                      Add series and want #{issue.ISSUE}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : state === "in_library" && issue.library_issue_id ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="compact"
-                  aria-label={`Want ${issue.COMIC} #${issue.ISSUE}`}
-                  disabled={queueIssue.isPending}
-                  onClick={() => void want(issue)}
-                >
-                  Want
-                </Button>
-              ) : null}
+                    {" "}
+                    #{issue.ISSUE}
+                  </span>
+                ) : null}
+              </div>
+              <div
+                className={`${DESKTOP_COL} font-mono text-[13px] text-foreground-2`}
+              >
+                #{issue.ISSUE}
+              </div>
+              <div className={`${DESKTOP_COL} text-foreground-2 truncate`}>
+                {issue.PUBLISHER}
+              </div>
+              <div>
+                {/* Phones keep only the dot so the title holds half the row. */}
+                <span
+                  role="img"
+                  aria-label={badge.label}
+                  title={badge.label}
+                  className="md:hidden inline-block h-2 w-2 rounded-full"
+                  style={{ backgroundColor: statusTone(badge.status)?.token }}
+                />
+                <span className={DESKTOP_COL}>
+                  {state === "not_in_library" ? (
+                    <span
+                      className="text-muted-foreground"
+                      aria-label={badge.label}
+                      title={badge.label}
+                    >
+                      —
+                    </span>
+                  ) : (
+                    <StatusBadge
+                      variant="dot"
+                      status={badge.status}
+                      label={badge.label}
+                    />
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-end">
+                {isAdding ? (
+                  <span className="mono-meta">adding…</span>
+                ) : state === "not_in_library" &&
+                  issue.ComicID &&
+                  issue.rowid != null ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="compact"
+                          aria-label={`Add ${issue.COMIC}`}
+                          disabled={addFromWeek.isPending}
+                        />
+                      }
+                    >
+                      <Plus />
+                      Add
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" sideOffset={4}>
+                      <DropdownMenuItem onClick={() => void add(issue, false)}>
+                        Add series
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => void add(issue, true)}>
+                        Add series and want #{issue.ISSUE}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : state === "in_library" && issue.library_issue_id ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="compact"
+                    aria-label={`Want ${issue.COMIC} #${issue.ISSUE}`}
+                    disabled={queueIssue.isPending}
+                    onClick={() => void want(issue)}
+                  >
+                    Want
+                  </Button>
+                ) : null}
+              </div>
             </div>
-          </div>
+          </Fragment>
         );
       })}
     </div>

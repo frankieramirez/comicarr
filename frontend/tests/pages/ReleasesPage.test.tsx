@@ -251,7 +251,7 @@ describe("ReleasesPage", () => {
     expect(screen.getByText("In 4 weeks")).toBeTruthy();
   });
 
-  it("filters and sorts the week, and counts each library state", async () => {
+  it("filters and sorts the week, and counts who you follow", async () => {
     server.use(
       http.get("/api/weekly", () =>
         HttpResponse.json(
@@ -284,19 +284,28 @@ describe("ReleasesPage", () => {
       screen
         .getAllByTestId("weekly-release-row")
         .map((row) => row.querySelector("[data-grid-title]")?.textContent);
-    expect(titles()[0]).toContain("Amazing Spider-Man");
-
-    await user.click(screen.getByRole("button", { name: "publisher" }));
+    // Publisher is the default sort, grouped under each publisher.
     expect(titles()[0]).toContain("Batman");
+    expect(
+      screen.getAllByTestId("weekly-publisher-group").map((g) => g.textContent),
+    ).toEqual(["Aftershock1", "Dynamite1", "Marvel1"]);
+
+    await user.click(screen.getByRole("button", { name: "Title" }));
+    expect(titles()[0]).toContain("Amazing Spider-Man");
+    expect(screen.queryByTestId("weekly-publisher-group")).toBeNull();
 
     await user.type(screen.getByLabelText("Filter releases"), "marvel");
     expect(titles()).toHaveLength(1);
     expect(titles()[0]).toContain("Amazing Spider-Man");
 
     const legend = screen.getByTestId("weekly-legend");
-    expect(legend.textContent).toContain("Wanted 1");
-    expect(legend.textContent).toContain("Downloaded 1");
-    expect(legend.textContent).toContain("Not in library 1");
+    expect(legend.textContent).toContain("All 3");
+    expect(legend.textContent).toContain("Following 2");
+    expect(legend.textContent).toContain("Not following 1");
+
+    await user.clear(screen.getByLabelText("Filter releases"));
+    await user.click(screen.getByRole("button", { name: /^Following/ }));
+    expect(titles()).toHaveLength(2);
   });
 
   it("adds a series from the pull list and wants that issue", async () => {

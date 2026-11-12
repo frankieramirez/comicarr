@@ -73,11 +73,7 @@ describe("ToggleChip", () => {
 
   it("sizes xs ledger chips at 10px", () => {
     render(
-      <ToggleChip
-        size="xs"
-        pressed={false}
-        onPressedChange={() => undefined}
-      >
+      <ToggleChip size="xs" pressed={false} onPressedChange={() => undefined}>
         All 12
       </ToggleChip>,
     );
@@ -104,18 +100,18 @@ describe("ToggleChip", () => {
   });
 });
 
-describe("Releases filter chips", () => {
+describe("Releases filter toggle", () => {
   it("presses exactly one of wanted-only / include-downloaded", async () => {
     const user = userEvent.setup();
     render(<ReleasesPage />);
-    await screen.findByRole("button", { name: "wanted only" });
-    expect(pressedName("wanted only")).toBe("true");
-    expect(pressedName("include downloaded")).toBe("false");
+    await screen.findByRole("button", { name: "Wanted only" });
+    expect(pressedName("Wanted only")).toBe("true");
+    expect(pressedName("Include downloaded")).toBe("false");
     await user.click(
-      screen.getByRole("button", { name: "include downloaded" }),
+      screen.getByRole("button", { name: "Include downloaded" }),
     );
-    expect(pressedName("wanted only")).toBe("false");
-    expect(pressedName("include downloaded")).toBe("true");
+    expect(pressedName("Wanted only")).toBe("false");
+    expect(pressedName("Include downloaded")).toBe("true");
   });
 });
 

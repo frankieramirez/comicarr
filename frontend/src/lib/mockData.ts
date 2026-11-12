@@ -830,6 +830,7 @@ export function mockApiResponse(
       ComicID: u.ComicID,
       ComicName: u.ComicName,
       Issue_Number: u.IssueNumber,
+      IssueNumber: u.IssueNumber,
       IssueName: null,
       IssueDate: u.IssueDate,
       Status: u.Status,
