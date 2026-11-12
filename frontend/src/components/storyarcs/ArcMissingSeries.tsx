@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BookPlus, Loader2 } from "lucide-react";
+import { SectionHeader } from "@/components/dashboard/DashboardPanel";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -66,34 +67,49 @@ export default function ArcMissingSeries({
   };
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BookPlus className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-medium text-foreground">
-            Missing from your library
-          </h3>
-        </div>
-        <Button size="sm" onClick={() => setConfirming(true)}>
+    <section aria-label="Missing from your library" className="mt-6 px-8">
+      <SectionHeader
+        title="Missing from your library"
+        meta={`${missing.length} series · ${totalIssues} ${totalIssues === 1 ? "issue" : "issues"}`}
+      />
+      <div className="flex flex-col gap-3 rounded-md border border-border-subtle bg-surface-1 px-3 py-2 sm:flex-row sm:items-center">
+        <p className="flex-1 text-[13px] text-foreground-2">
+          This arc reads through series you don't track yet. Add them and
+          Comicarr marks just the issues the arc needs as Wanted.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="toolbar"
+          className="shrink-0 bg-surface-2"
+          onClick={() => setConfirming(true)}
+        >
+          <BookPlus />
           Add what's missing
         </Button>
       </div>
-
-      <div className="divide-y divide-border rounded-md border border-border">
+      <div className="mt-1">
         {missing.map((series) => (
           <div
             key={series.comic_id || series.series_name}
-            className="flex items-center justify-between px-3 py-2 text-sm"
+            className="flex items-center justify-between gap-3 border-b border-border-subtle px-2 py-2 text-[13px]"
           >
-            <span className="font-medium text-foreground truncate">
-              {series.series_name}
+            <span className="min-w-0 truncate">
+              <span className="font-medium text-foreground">
+                {series.series_name}
+              </span>
               {series.series_year && (
-                <span className="text-muted-foreground ml-1">
-                  ({series.series_year})
+                <span className="ml-1.5 text-foreground-2">
+                  {series.series_year}
+                </span>
+              )}
+              {series.issue_numbers.length > 0 && (
+                <span className="mono-meta ml-2">
+                  #{series.issue_numbers.join(", #")}
                 </span>
               )}
             </span>
-            <span className="text-muted-foreground shrink-0 ml-3">
+            <span className="shrink-0 text-foreground-2">
               needs {series.issue_count}{" "}
               {series.issue_count === 1 ? "issue" : "issues"}
             </span>
@@ -196,6 +212,6 @@ export default function ArcMissingSeries({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </section>
   );
 }
