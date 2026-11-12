@@ -106,6 +106,8 @@ test("series hero stays put while the issue list scrolls (desktop)", async ({
 
   await expect(lastIssue).toBeInViewport();
   await expect(heading).toBeInViewport();
+  // The hero never leaves the split layout, so no compact bar appears.
+  await expect(page.getByTestId("series-compact-bar")).toHaveCount(0);
   await testInfo.attach("short-header-split", {
     body: await page.screenshot(),
     contentType: "image/png",
@@ -146,6 +148,8 @@ for (const viewport of [
     await expect(
       page.getByText(`Scroll issue ${ISSUE_COUNT}`, { exact: true }),
     ).toBeInViewport();
+    // With the hero scrolled away, the compact bar keeps the series in view.
+    await expect(page.getByTestId("series-compact-bar")).toBeVisible();
     await expect.poll(() => list.evaluate((node) => node.scrollTop)).toBe(0);
   });
 }

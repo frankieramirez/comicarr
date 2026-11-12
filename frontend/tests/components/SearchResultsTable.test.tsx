@@ -1,5 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
-import userEvent from "@testing-library/user-event";
+import { describe, expect, it } from "vitest";
 import { render, screen } from "../test-utils";
 import SearchResultsTable from "@/components/search/SearchResultsTable";
 import type { SearchResult } from "@/types";
@@ -42,90 +41,51 @@ const results = [
 ] as SearchResult[];
 
 describe("SearchResultsTable", () => {
-  it("uses a phone grid that keeps title and the add action", () => {
-    const { container } = render(
-      <SearchResultsTable
-        results={[spider2022]}
-        currentSort="relevance"
-        onSortChange={() => undefined}
-        contentType="comic"
-      />,
-    );
+  it("keeps the title and the add action in one row", () => {
+    render(<SearchResultsTable results={[spider2022]} contentType="comic" />);
 
     const row = screen.getByTestId("search-result-row");
-    expect(row.className).toMatch(/grid-cols-\[40px_minmax\(0,1fr\)_auto\]/);
-    expect(row.className).toMatch(/md:grid-cols-\[40px_56px_minmax\(0,1fr\)_/);
+    expect(row.className).toMatch(/grid-cols-\[36px_minmax\(0,1fr\)_auto\]/);
     expect(
-      container.querySelectorAll(".max-md\\:hidden").length,
-    ).toBeGreaterThan(0);
+      screen.getByRole("button", { name: "Add Amazing Spider-Man" }),
+    ).toBeTruthy();
   });
 
-  it("keeps year and publisher in the phone title so volumes stay distinct", () => {
+  it("keeps year and publisher in the meta line so volumes stay distinct", () => {
     render(
       <SearchResultsTable
         results={[spider2022, spider2016]}
-        currentSort="relevance"
-        onSortChange={() => undefined}
         contentType="comic"
       />,
     );
 
     const ids = screen.getAllByTestId("phone-row-id");
     expect(ids).toHaveLength(2);
-    expect(ids[0].textContent).toContain("2022");
-    expect(ids[0].textContent).toContain("Marvel");
-    expect(ids[1].textContent).toContain("2016");
-    expect(ids[1].className).toMatch(/hidden/);
-    expect(ids[1].className).toMatch(/max-md:inline/);
+    expect(ids[0].textContent).toBe("Marvel · 2022 · 75 issues");
+    expect(ids[1].textContent).toBe("Marvel · 2016 · 32 issues");
   });
 
-  it("announces list sort direction on the sort button", async () => {
-    const user = userEvent.setup();
-    const onSortChange = vi.fn();
-
-    const { rerender } = render(
+  it("links a series already in the library instead of offering Add", () => {
+    render(
       <SearchResultsTable
-        results={results}
-        currentSort="relevance"
-        onSortChange={onSortChange}
-        contentType="comic"
+        results={[
+          {
+            ...results[0],
+            in_library: true,
+            haveit: { comicid: "md-abc", status: "Active" },
+          },
+        ]}
+        contentType="manga"
       />,
     );
 
-    expect(screen.queryByRole("columnheader")).toBeNull();
-
-    await user.click(screen.getByRole("button", { name: /^series$/i }));
-    expect(onSortChange).toHaveBeenCalledWith("name_desc");
-
-    rerender(
-      <SearchResultsTable
-        results={results}
-        currentSort="name_desc"
-        onSortChange={onSortChange}
-        contentType="comic"
-      />,
-    );
-
+    expect(screen.getByText("In library")).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: /series.*sorted descending/i }),
-    ).toBeTruthy();
-
-    await user.click(
-      screen.getByRole("button", { name: /series.*sorted descending/i }),
+      screen.getByRole("link", { name: "Open Alpha" }).getAttribute("href"),
+    ).toBe("/library/md-abc");
+    expect(screen.queryByRole("button", { name: "Add Alpha" })).toBeNull();
+    expect(screen.getByTestId("phone-row-id").textContent).toBe(
+      "Pub · 2020 · 12 chapters",
     );
-    expect(onSortChange).toHaveBeenCalledWith("name_asc");
-
-    rerender(
-      <SearchResultsTable
-        results={results}
-        currentSort="name_asc"
-        onSortChange={onSortChange}
-        contentType="comic"
-      />,
-    );
-
-    expect(
-      screen.getByRole("button", { name: /series.*sorted ascending/i }),
-    ).toBeTruthy();
   });
 });

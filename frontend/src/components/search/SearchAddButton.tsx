@@ -135,7 +135,7 @@ export default function SearchAddButton({
     }
   };
 
-  const base = `inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-control border font-mono text-[11px] transition-colors ${className}`;
+  const base = `inline-flex h-8 items-center justify-center gap-1.5 rounded-control border border-border-strong bg-surface-1 px-3 text-[13px] font-medium transition-colors ${className}`;
 
   if (isAdded) {
     return (
@@ -143,14 +143,10 @@ export default function SearchAddButton({
         type="button"
         disabled
         aria-label={`${comic.name} added`}
-        className={base}
-        style={{
-          borderColor: "var(--border)",
-          color: "var(--status-active)",
-        }}
+        className={`${base} text-foreground-2`}
       >
-        <Check className="w-3 h-3" />
-        added
+        <Check className="size-3.5 text-[var(--status-active)]" />
+        Added
       </button>
     );
   }
@@ -161,14 +157,10 @@ export default function SearchAddButton({
         type="button"
         disabled
         aria-label={`Adding ${comic.name}`}
-        className={base}
-        style={{
-          borderColor: "var(--border)",
-          color: "var(--muted-foreground)",
-        }}
+        className={`${base} text-muted-foreground`}
       >
-        <Loader2 className="w-3 h-3 animate-spin" />
-        adding…
+        <Loader2 className="size-3.5 animate-spin" />
+        Adding…
       </button>
     );
   }
@@ -184,14 +176,10 @@ export default function SearchAddButton({
         onClick={handleAdd}
         disabled={isPending}
         aria-label={`Add ${comic.name}`}
-        className={`${base} flex-1 hover:bg-[color-mix(in_oklab,var(--primary)_14%,transparent)]`}
-        style={{
-          borderColor: "var(--primary)",
-          color: "var(--primary)",
-        }}
+        className={`${base} flex-1 text-foreground hover:border-border-emphasis hover:bg-surface-2`}
       >
-        <Plus className="w-3 h-3" />
-        {isPending ? "adding…" : "add"}
+        <Plus className="size-3.5" />
+        {isPending ? "Adding…" : "Add"}
       </button>
       <button
         type="button"
@@ -203,9 +191,9 @@ export default function SearchAddButton({
         disabled={isPending}
         aria-label={`Add ${comic.name} to a chosen folder`}
         title="Add to a chosen folder"
-        className="inline-flex items-center justify-center rounded-control border border-border px-1.5 text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-control border border-border-subtle text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
       >
-        <FolderPlus className="w-3 h-3" aria-hidden="true" />
+        <FolderPlus className="size-3.5" aria-hidden="true" />
       </button>
 
       <Dialog open={folderOpen} onOpenChange={setFolderOpen}>
