@@ -88,7 +88,7 @@ describe("IssueDetailPage", () => {
     );
 
     expect((await screen.findByTestId("issue-detail-title")).textContent).toBe(
-      "Issue 23",
+      "Absolute Batman #23",
     );
     expect(screen.getByTestId("issue-detail-ids").textContent).toBe(
       "series:series-9 · issue:issue-23",
@@ -186,7 +186,7 @@ describe("IssueDetailPage", () => {
 
     await screen.findByTestId("issue-detail-title");
     await user.click(
-      screen.getByRole("button", { name: "Change status for Issue 23" }),
+      screen.getByRole("button", { name: "Change status for Absolute Batman #23" }),
     );
     await user.click(await screen.findByRole("menuitem", { name: "Skipped" }));
 
@@ -278,7 +278,7 @@ describe("series issue link routing", () => {
     });
     expect(screen.queryByText("Dashboard")).toBeNull();
     expect((await screen.findByTestId("issue-detail-title")).textContent).toBe(
-      "Issue 23",
+      "Absolute Batman #23",
     );
   });
 });

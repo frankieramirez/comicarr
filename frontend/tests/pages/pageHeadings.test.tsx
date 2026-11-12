@@ -183,7 +183,7 @@ describe("page headings", () => {
       </Routes>,
       { route: "/library/1/issue/issue-1", useMemoryRouter: true },
     );
-    await expectOneH1("Issue 1");
+    await expectOneH1("Spider-Man #1");
     view.unmount();
   });
 
