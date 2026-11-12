@@ -139,6 +139,71 @@ describe("ReleaseReviewSheet", () => {
     expect(onGrabbed).toHaveBeenCalledOnce();
   });
 
+  it("shows one card for providers that fail the same way", async () => {
+    const refused =
+      "Couldn't connect to prowlarr:9696: nothing accepted the connection.";
+    server.use(
+      http.get("/api/search/interactive/session-refused", () =>
+        HttpResponse.json({
+          session_id: "session-refused",
+          entity_type: "issue",
+          entity_id: "issue-1",
+          state: "complete",
+          candidate_count: 0,
+          progress: {
+            provider_total: 3,
+            provider_completed: 3,
+            current_provider: null,
+          },
+          provider_failures: [
+            {
+              provider: "Nyaa.si (Prowlarr)",
+              code: "connection_error",
+              detail: refused,
+            },
+            {
+              provider: "Nyaa.si (Prowlarr)",
+              code: "connection_error",
+              detail: refused,
+            },
+            {
+              provider: "LimeTorrents (Prowlarr)",
+              code: "connection_error",
+              detail: refused,
+            },
+            {
+              provider: "NzbPlanet (Prowlarr)",
+              code: "connection_error",
+              detail: refused,
+            },
+          ],
+          created_at: "2026-08-12T04:00:00Z",
+          expires_at: "2026-08-12T04:10:00Z",
+          candidates: [],
+        }),
+      ),
+    );
+    render(
+      <ReleaseReviewSheet
+        issue={issue}
+        sessionId="session-refused"
+        startPending={false}
+        startError={null}
+        onRetry={vi.fn()}
+        onClose={vi.fn()}
+        onGrabbed={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findAllByText(refused)).toHaveLength(1);
+    expect(
+      screen.getByText(
+        "Nyaa.si (Prowlarr), LimeTorrents (Prowlarr), NzbPlanet (Prowlarr)",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(/Couldn't connect · 3 providers/)).toBeTruthy();
+  });
+
   it("shows which missing issues a pack would satisfy", async () => {
     server.use(
       http.get("/api/search/interactive/session-series", () =>
@@ -315,9 +380,7 @@ describe("ReleaseReviewSheet", () => {
     );
     await user.click(screen.getByRole("button", { name: "Confirm grab" }));
 
-    expect(
-      await screen.findByText(/can no longer be grabbed/i),
-    ).toBeTruthy();
+    expect(await screen.findByText(/can no longer be grabbed/i)).toBeTruthy();
     expect(onGrabbed).not.toHaveBeenCalled();
   });
 

@@ -163,3 +163,17 @@ def test_search_delay_noop_outside_backoff_window(monkeypatch):
     search._honour_search_delay("nyaa", 30, time.time() - 3600)
 
     assert slept == []
+
+
+def test_failed_provider_skips_its_remaining_name_variants(search_env, monkeypatch):
+    calls = []
+
+    def failing_matrix(scarios):
+        calls.append(scarios["ComicName"])
+        return {"status": False, "lastrun": 0, "provider_failed": True}
+
+    monkeypatch.setattr(search, "search_the_matrix", failing_matrix)
+    with _noop_collection():
+        _run_search_init(alternate_search="Alias One##Alias Two", review=True)
+
+    assert calls == ["Example Series"]

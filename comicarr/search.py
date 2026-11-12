@@ -67,6 +67,7 @@ from comicarr.app.common.remote_artifacts import (
 )
 from comicarr.app.core.workers import submit_background_future
 from comicarr.app.downloads import handoff
+from comicarr.app.search import failures as search_failures
 from comicarr.app.search import progress, prowlarr
 from comicarr.app.search.backlog import (
     PASS_RSS_WANTED,
@@ -813,8 +814,16 @@ def search_init(
                         if findit["status"] is True:
                             logger.fdebug("findit = found!")
                             break
+                        if findit.get("provider_failed"):
+                            # The provider could not be reached or errored. Every
+                            # remaining name variant would hit the same wall, so
+                            # stop here and report it once.
+                            break
 
                 if findit["status"] is True:
+                    break
+                if findit.get("provider_failed"):
+                    findit.pop("provider_failed", None)
                     break
 
                 if all(
@@ -1236,6 +1245,14 @@ def NZB_SEARCH(
             indexer_key = ("newznab", host_newznab.rstrip("/"))
         if indexer_key is not None and _indexer_cooling_down(indexer_key, tmpprov):
             return foundc
+        if indexer_key is not None:
+            remembered = search_failures.unreachable(indexer_key[1])
+            if remembered is not None:
+                code, message = remembered
+                logger.fdebug("[NZB-SEARCH] Skipping %s: its host failed moments ago (%s)" % (tmpprov, message))
+                progress.report_provider_failure(nzbprov, code, message)
+                foundc["provider_failed"] = True
+                return foundc
 
     # Set only when this pass is searching a manga volume term. Carries the
     # real series name, because the term itself ("<series> v01") is a query
@@ -1503,25 +1520,23 @@ def NZB_SEARCH(
                             % (nzbprov, redact_sensitive_text(e, secrets=(apikey,)))
                         )
                         is_info["foundc"]["status"] = False
-                        progress.report_provider_failure(
-                            nzbprov,
-                            "timeout",
-                            redact_sensitive_text(e, secrets=(apikey,)),
-                        )
+                        is_info["foundc"]["provider_failed"] = True
+                        message = search_failures.describe(e, findurl, timeout=30)
+                        progress.report_provider_failure(nzbprov, "timeout", message)
                         break
                     except requests.exceptions.ConnectionError as e:
                         logger.warn(
                             "[NZB-SEARCH] Connection error trying to retrieve data from %s: %s"
                             % (nzbprov, redact_sensitive_text(e, secrets=(apikey,)))
                         )
-                        if helpers.provider_unreachable(e):
+                        unreachable = helpers.provider_unreachable(e)
+                        if unreachable:
                             helpers.disable_provider(tmpprov, "Connection Refused.")
                         is_info["foundc"]["status"] = False
-                        progress.report_provider_failure(
-                            nzbprov,
-                            "connection_error",
-                            redact_sensitive_text(e, secrets=(apikey,)),
-                        )
+                        is_info["foundc"]["provider_failed"] = True
+                        message = search_failures.describe(e, findurl)
+                        search_failures.mark_unreachable(findurl, "connection_error", message)
+                        progress.report_provider_failure(nzbprov, "connection_error", message)
                         break
                     except requests.exceptions.RequestException as e:
                         logger.warn(
@@ -1537,10 +1552,11 @@ def NZB_SEARCH(
                                 "but leaving it enabled." % nzbprov
                             )
                         is_info["foundc"]["status"] = False
+                        is_info["foundc"]["provider_failed"] = True
                         progress.report_provider_failure(
                             nzbprov,
                             "request_error",
-                            redact_sensitive_text(e, secrets=(apikey,)),
+                            search_failures.describe(e, findurl),
                         )
                         break
                     is_info["foundc"]["lastrun"] = time.time()

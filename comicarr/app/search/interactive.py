@@ -333,6 +333,19 @@ def _order_series_evaluations(collected):
     return evaluations
 
 
+def _record_failure(failures, provider, code, detail):
+    """Add a provider failure once; a repeat for the same provider and code is dropped.
+
+    A search sends one request per query variant, so an unreachable provider
+    would otherwise report the same failure for every variant it tried.
+    """
+    key = (str(provider).casefold(), str(code))
+    if any((str(item.get("provider")).casefold(), str(item.get("code"))) == key for item in failures):
+        return False
+    failures.append({"provider": provider, "code": code, "detail": redact_sensitive_text(detail)})
+    return True
+
+
 def _collect(*, session_id, entity, initial_failures, provider_total):
     if entity.get("entity_type") == "series":
         _collect_series(
@@ -362,14 +375,8 @@ def _collect(*, session_id, entity, initial_failures, provider_total):
         publish_progress(provider)
 
     def on_failure(provider, code, detail):
-        failures.append(
-            {
-                "provider": provider,
-                "code": code,
-                "detail": redact_sensitive_text(detail),
-            }
-        )
-        publish_progress(provider)
+        if _record_failure(failures, provider, code, detail):
+            publish_progress(provider)
 
     publish_progress()
     try:
@@ -452,14 +459,8 @@ def _collect_series(*, session_id, entity, initial_failures, provider_total):
         evaluator = EvaluationSession(review=True, searched_item=target, eligible=eligible)
 
         def on_failure(provider, code, detail):
-            failures.append(
-                {
-                    "provider": provider,
-                    "code": code,
-                    "detail": redact_sensitive_text(detail),
-                }
-            )
-            publish_progress(provider)
+            if _record_failure(failures, provider, code, detail):
+                publish_progress(provider)
 
         on_complete = _bind_progress()
 

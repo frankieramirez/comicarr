@@ -35,6 +35,7 @@ import {
 import { getErrorMessage } from "@/lib/api";
 import type {
   InteractiveGrabResult,
+  InteractiveProviderFailure,
   InteractiveReleaseCandidate,
   InteractiveSatisfiedIssue,
   ReleaseReviewIssue,
@@ -48,6 +49,50 @@ interface ReleaseReviewSheetProps {
   onRetry: () => void;
   onClose: () => void;
   onGrabbed: (result: InteractiveGrabResult) => void;
+}
+
+const FAILURE_LABELS: Record<string, string> = {
+  connection_error: "Couldn't connect",
+  timeout: "Timed out",
+  request_error: "Provider error",
+  temporarily_blocked: "Paused after recent failures",
+  unsupported_provider: "Not supported here",
+  search_busy: "Another search is running",
+  collection_failed: "Search failed",
+};
+
+interface ProviderFailureGroup {
+  code: string;
+  detail: string;
+  providers: string[];
+}
+
+/**
+ * One card per distinct problem, not per request. Providers that fail the
+ * same way (every indexer behind one unreachable Prowlarr) share a card.
+ */
+function groupProviderFailures(
+  failures: InteractiveProviderFailure[],
+): ProviderFailureGroup[] {
+  const groups = new Map<string, ProviderFailureGroup>();
+  for (const failure of failures) {
+    const key = `${failure.code}\u0000${failure.detail}`;
+    const group = groups.get(key) ?? {
+      code: failure.code,
+      detail: failure.detail,
+      providers: [],
+    };
+    if (!group.providers.includes(failure.provider)) {
+      group.providers.push(failure.provider);
+    }
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
+function providerList(providers: string[]) {
+  if (providers.length <= 3) return providers.join(", ");
+  return `${providers.slice(0, 2).join(", ")} and ${providers.length - 2} more`;
 }
 
 function verdictLabel(candidate: InteractiveReleaseCandidate) {
@@ -536,26 +581,33 @@ export function ReleaseReviewSheet({
                   Provider failures
                 </h3>
                 <div className="mt-2 space-y-2">
-                  {data.provider_failures.map((failure, index) => (
-                    <div
-                      key={`${failure.provider}-${failure.code}-${index}`}
-                      className="rounded-md border border-border p-3 text-xs"
-                    >
-                      <div className="flex items-center gap-2 font-medium">
-                        <XCircle
-                          className="size-3 text-[var(--status-error)]"
-                          aria-hidden="true"
-                        />
-                        {failure.provider}
+                  {groupProviderFailures(data.provider_failures).map(
+                    (group) => (
+                      <div
+                        key={`${group.code}-${group.detail}`}
+                        className="rounded-md border border-border p-3 text-xs"
+                      >
+                        <div className="flex items-center gap-2 font-medium">
+                          <XCircle
+                            className="size-3 shrink-0 text-[var(--status-error)]"
+                            aria-hidden="true"
+                          />
+                          <span title={group.providers.join(", ")}>
+                            {providerList(group.providers)}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-muted-foreground">
+                          {group.detail}
+                        </div>
+                        <div className="mt-1 font-mono text-[10px] text-muted-foreground">
+                          {FAILURE_LABELS[group.code] ?? group.code}
+                          {group.providers.length > 1
+                            ? ` · ${group.providers.length} providers`
+                            : null}
+                        </div>
                       </div>
-                      <div className="mt-1 text-muted-foreground">
-                        {failure.detail}
-                      </div>
-                      <div className="mt-1 font-mono text-[10px] text-muted-foreground">
-                        {failure.code}
-                      </div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               </section>
             ) : null}
