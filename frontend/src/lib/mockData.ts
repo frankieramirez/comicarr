@@ -1610,9 +1610,11 @@ export function mockApiResponse(
       ranAgo: number,
       nextIn: number,
       failed = false,
+      result: string | null = null,
     ) => ({
       id,
       name,
+      result,
       next_run_time: at(nextIn),
       trigger: "interval",
       status: failed ? "Error" : "Waiting",
@@ -1629,14 +1631,108 @@ export function mockApiResponse(
     });
     return {
       jobs: [
-        job("search", "Auto-Search", 6 * 3600, 18 * 3600),
-        job("rss", "RSS Feeds", 12 * 60, 8 * 60),
+        job(
+          "search",
+          "Auto-Search",
+          6 * 3600,
+          18 * 3600,
+          false,
+          "1 grabbed of 40 searched",
+        ),
+        job("rss", "RSS Feeds", 12 * 60, 8 * 60, false, "No new matches"),
         job("monitor", "Folder Monitor", 60, 4 * 60, true),
-        job("weekly", "Weekly Pullist", 2 * 86400, 5 * 86400),
-        job("dbupdater", "DB Updater", 9 * 3600, 15 * 3600),
-        job("version", "Check Version", 3 * 3600, 3 * 3600),
+        job(
+          "weekly",
+          "Weekly Pullist",
+          2 * 86400,
+          5 * 86400,
+          false,
+          "No new issues for your series",
+        ),
+        job(
+          "dbupdater",
+          "DB Updater",
+          9 * 3600,
+          15 * 3600,
+          false,
+          "202 series up to date",
+        ),
+        job(
+          "version",
+          "Check Version",
+          3 * 3600,
+          3 * 3600,
+          false,
+          "Up to date",
+        ),
+        job(
+          "connection_check",
+          "Connection Check",
+          60,
+          59 * 60,
+          false,
+          "1 of 6 not responding",
+        ),
       ],
     };
+  }
+  if (
+    url === "/api/system/connections" ||
+    url.startsWith("/api/system/connections/")
+  ) {
+    const now = Math.floor(Date.now() / 1000);
+    const check = (
+      key: string,
+      label: string,
+      kind: "client" | "indexers" | "metadata",
+      route: "nzb" | "torrent" | "ddl" | null,
+      latency: number | null,
+      extra: Record<string, unknown> = {},
+    ) => ({
+      key,
+      label,
+      kind,
+      route,
+      checked_at: m === "POST" ? now : now - 60,
+      ok: true,
+      result: "Reachable",
+      latency_ms: latency,
+      latency_label: null,
+      version: null,
+      active: null,
+      responding: null,
+      ...extra,
+    });
+    const connections = [
+      check("sabnzbd", "SABnzbd", "client", "nzb", 42, {
+        version: "4.3.2",
+        active: 0,
+      }),
+      check("qbittorrent", "qBittorrent", "client", "torrent", 61, {
+        version: "v5.0.2",
+      }),
+      check("ddl", "Direct download", "client", "ddl", null, {
+        result: "Ready",
+        latency_label: "local",
+      }),
+      check("indexers", "Indexers", "indexers", null, 118, {
+        result: "All responding",
+        latency_label: "median",
+        count: 13,
+        responding: 13,
+      }),
+      check("comicvine", "ComicVine", "metadata", null, 210),
+      check("mangadex", "MangaDex", "metadata", null, 180, {
+        checked_at: now - 7 * 3600,
+        ok: false,
+        result: "Rate limited by MangaDex",
+      }),
+    ];
+    const one = url.match(/^\/api\/system\/connections\/([^/]+)\/test$/);
+    if (m === "POST" && one) {
+      return connections.find((c) => c.key === one[1]) ?? connections[0];
+    }
+    return { connections };
   }
   const runJob = url.match(/^\/api\/system\/jobs\/([^/]+)\/run$/);
   if (m === "POST" && runJob) {

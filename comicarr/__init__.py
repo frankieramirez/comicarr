@@ -1068,6 +1068,16 @@ def start(ctx):
                 trigger=IntervalTrigger(hours=24, minutes=0, timezone="UTC"),
             )
 
+            from comicarr.app.system import connections as connection_checks
+
+            _add_recurring_job(
+                func=connection_checks.run,
+                id=connection_checks.JOB_ID,
+                name=connection_checks.JOB_NAME,
+                next_run_time=datetime.datetime.utcnow() + datetime.timedelta(minutes=2),
+                trigger=IntervalTrigger(minutes=connection_checks.CHECK_INTERVAL_MINUTES, timezone="UTC"),
+            )
+
             try:
                 from comicarr.app.acquisition.maintenance import refresh_runtime_state
 

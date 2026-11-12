@@ -122,6 +122,25 @@ export interface ScheduledJobHealth {
   last_success_timestamp?: number | string | null;
   last_failure_timestamp?: number | string | null;
   last_error?: string | null;
+  /** One-line summary of what the last run did ("1 grabbed of 40 searched"). */
+  result?: string | null;
+}
+
+/** One configured connection and the answer it gave its last check. */
+export interface ConnectionCheck {
+  key: string;
+  label: string;
+  kind: "client" | "indexers" | "metadata";
+  route: "nzb" | "torrent" | "ddl" | null;
+  checked_at: number | null;
+  ok: boolean | null;
+  result: string | null;
+  latency_ms: number | null;
+  latency_label: "median" | "local" | null;
+  version: string | null;
+  active: number | null;
+  responding?: number | null;
+  count?: number;
 }
 
 export interface SystemJobsResponse {
@@ -456,6 +475,59 @@ export function useRunJob() {
       ),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["system", "jobs"] });
+    },
+  });
+}
+
+const CONNECTIONS_KEY = ["system", "connections"] as const;
+
+/** Every configured connection with its last check (Activity > Health, Settings). */
+export function useConnections() {
+  return useQuery<{ connections: ConnectionCheck[] }>({
+    queryKey: CONNECTIONS_KEY,
+    queryFn: () =>
+      apiRequest<{ connections: ConnectionCheck[] }>(
+        "GET",
+        "/api/system/connections",
+      ),
+    staleTime: 10_000,
+    refetchInterval: HEALTH_POLL_MS * 2,
+  });
+}
+
+/** Check one connection now ("indexers" checks every indexer), or all of them. */
+export function useTestConnection() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    ConnectionCheck | { connections: ConnectionCheck[] },
+    Error,
+    string | null
+  >({
+    mutationFn: (key: string | null) =>
+      key
+        ? apiRequest<ConnectionCheck>(
+            "POST",
+            `/api/system/connections/${encodeURIComponent(key)}/test`,
+          )
+        : apiRequest<{ connections: ConnectionCheck[] }>(
+            "POST",
+            "/api/system/connections/test",
+          ),
+    onSuccess: (data) => {
+      queryClient.setQueryData<{ connections: ConnectionCheck[] }>(
+        CONNECTIONS_KEY,
+        (current) => {
+          const fresh: ConnectionCheck[] =
+            "connections" in data ? data.connections : [data];
+          const rows = current?.connections ?? [];
+          const merged = rows.map(
+            (row) => fresh.find((next) => next.key === row.key) ?? row,
+          );
+          for (const next of fresh)
+            if (!merged.some((row) => row.key === next.key)) merged.push(next);
+          return { connections: merged };
+        },
+      );
     },
   });
 }

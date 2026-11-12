@@ -1,5 +1,6 @@
 import type {
   AcquisitionHealthResponse,
+  ConnectionCheck,
   ScheduledJobHealth,
 } from "@/hooks/useAcquisitionHealth";
 
@@ -41,6 +42,7 @@ const JOB_LABELS: Record<string, string> = {
   activity_retention: "Activity cleanup",
   interactive_search_retention: "Release search cleanup",
   ddl_health: "Direct download check",
+  connection_check: "Connection check",
 };
 
 const JOB_ORDER = Object.keys(JOB_LABELS);
@@ -153,7 +155,7 @@ export function jobRows(jobs: ScheduledJobHealth[]): JobRow[] {
               : paused
                 ? "Paused"
                 : lastRun
-                  ? "Finished without errors"
+                  ? job.result || "Finished without errors"
                   : "Hasn't run yet",
         failing,
         busy,
@@ -177,9 +179,13 @@ export interface ConnectionRow {
   key: string;
   label: string;
   tone: HealthTone;
+  /** "42 ms", "118 ms median", "local", or "—" before the first check. */
+  response: string;
   lastChecked: Date | null;
   result: string;
   settings: string;
+  /** Key for POST /api/system/connections/{key}/test; null when untestable. */
+  testKey: string | null;
 }
 
 function humanize(reason: string | null | undefined): string {
@@ -188,50 +194,138 @@ function humanize(reason: string | null | undefined): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+export function responseLabel(
+  check: Pick<ConnectionCheck, "latency_ms" | "latency_label"> | undefined,
+): string {
+  if (!check) return "—";
+  if (check.latency_ms == null)
+    return check.latency_label === "local" ? "local" : "—";
+  const ms = Math.round(check.latency_ms);
+  return check.latency_label === "median" ? `${ms} ms median` : `${ms} ms`;
+}
+
+function checkTone(ok: boolean | null | undefined, result: string | null) {
+  if (ok === true) return "ok" as HealthTone;
+  if (ok === false) return /rate limited/i.test(result ?? "") ? "warn" : "fail";
+  return "idle" as HealthTone;
+}
+
+const SETTINGS_FOR: Record<string, string> = {
+  client: "/settings?section=clients",
+  indexers: "/settings?section=search",
+  metadata: "/settings?section=api",
+};
+
 export function connectionRows(
   health: AcquisitionHealthResponse | undefined,
+  checks: ConnectionCheck[] = [],
 ): ConnectionRow[] {
   const routes = health?.routes ?? {};
   const rows: ConnectionRow[] = [];
   const providers: { name: string; blocked: boolean }[] = [];
   let lastIndexerCheck: Date | null = null;
+  const byKey = new Map(checks.map((check) => [check.key, check]));
+  const byRoute = new Map(
+    checks.filter((check) => check.route).map((check) => [check.route, check]),
+  );
 
   for (const route of ["nzb", "torrent", "ddl"]) {
     const info = routes[route];
-    if (!info || info.configured === false) continue;
-    for (const provider of info.providers ?? []) {
+    for (const provider of info?.providers ?? []) {
       providers.push(provider);
       const checked = toDate(provider.last_attempt);
       if (checked && (!lastIndexerCheck || checked > lastIndexerCheck))
         lastIndexerCheck = checked;
     }
+    const check = byRoute.get(route as ConnectionCheck["route"]);
+    if (check && check.checked_at != null) {
+      rows.push({
+        key: check.key,
+        label: check.label,
+        tone: checkTone(check.ok, check.result),
+        response: responseLabel(check),
+        lastChecked: toDate(check.checked_at),
+        result: check.result ?? "Not checked yet",
+        settings: SETTINGS_FOR.client,
+        testKey: check.key,
+      });
+      continue;
+    }
+    if (!info || info.configured === false) {
+      if (check) {
+        rows.push({
+          key: check.key,
+          label: check.label,
+          tone: "idle",
+          response: "—",
+          lastChecked: null,
+          result: "Not checked yet",
+          settings: SETTINGS_FOR.client,
+          testKey: check.key,
+        });
+      }
+      continue;
+    }
     const client = (info.downstream || "").toLowerCase();
     const failing = Boolean(info.last_error) && !info.ready;
     rows.push({
-      key: route,
-      label: CLIENT_LABELS[client] ?? ROUTE_LABELS[route] ?? route,
+      key: check?.key ?? route,
+      label:
+        check?.label ?? CLIENT_LABELS[client] ?? ROUTE_LABELS[route] ?? route,
       tone: info.ready ? "ok" : failing ? "fail" : "warn",
+      response: "—",
       lastChecked: toDate(info.last_attempt ?? null),
       result: info.ready
         ? info.blocked_provider_count
           ? `Ready, ${info.blocked_provider_count} indexer${info.blocked_provider_count === 1 ? "" : "s"} paused`
           : "Ready"
         : info.last_error || humanize(info.reason),
-      settings: "/settings?section=clients",
+      settings: SETTINGS_FOR.client,
+      testKey: check?.key ?? null,
     });
   }
 
-  if (providers.length > 0) {
+  const indexers = byKey.get("indexers");
+  if (indexers && indexers.checked_at != null) {
+    const total = indexers.count ?? providers.length;
+    const responding = indexers.responding ?? (indexers.ok ? total : 0);
+    rows.push({
+      key: "indexers",
+      label: `Indexers, ${responding} of ${total}`,
+      tone: indexers.ok ? "ok" : responding > 0 ? "warn" : "fail",
+      response: responseLabel(indexers),
+      lastChecked: toDate(indexers.checked_at),
+      result: indexers.result ?? "",
+      settings: SETTINGS_FOR.indexers,
+      testKey: "indexers",
+    });
+  } else if (providers.length > 0) {
     const blocked = providers.filter((p) => p.blocked).length;
     const live = providers.length - blocked;
     rows.push({
       key: "indexers",
       label: `Indexers, ${live} of ${providers.length}`,
       tone: blocked === 0 ? "ok" : live === 0 ? "fail" : "warn",
+      response: "—",
       lastChecked: lastIndexerCheck,
       result:
         blocked === 0 ? "All responding" : `${blocked} paused after errors`,
-      settings: "/settings?section=search",
+      settings: SETTINGS_FOR.indexers,
+      testKey: indexers ? "indexers" : null,
+    });
+  }
+
+  for (const check of checks) {
+    if (check.kind !== "metadata") continue;
+    rows.push({
+      key: check.key,
+      label: check.label,
+      tone: checkTone(check.ok, check.result),
+      response: responseLabel(check),
+      lastChecked: toDate(check.checked_at),
+      result: check.result ?? "Not checked yet",
+      settings: SETTINGS_FOR.metadata,
+      testKey: check.key,
     });
   }
   return rows;

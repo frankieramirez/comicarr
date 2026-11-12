@@ -4,9 +4,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import { useToast } from "@/components/ui/toast";
 import {
+  useConnections,
   useJobsHealth,
   useRunJob,
   useSearchHealth,
+  useTestConnection,
 } from "@/hooks/useAcquisitionHealth";
 import { getErrorMessage } from "@/lib/api";
 import {
@@ -15,6 +17,7 @@ import {
   connectionRows,
   jobRows,
   until,
+  type ConnectionRow,
   type HealthTone,
   type JobRow,
 } from "@/lib/healthRows";
@@ -23,7 +26,7 @@ import { cn } from "@/lib/utils";
 const JOB_COLS =
   "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(160px,1.2fr)_110px_110px_minmax(0,2fr)_96px]";
 const CONNECTION_COLS =
-  "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(160px,1.2fr)_110px_minmax(0,2.4fr)_96px]";
+  "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(160px,1.2fr)_110px_110px_minmax(0,2fr)_96px]";
 
 function Dot({ tone }: { tone: HealthTone }) {
   return (
@@ -129,6 +132,69 @@ function JobLine({ job }: { job: JobRow }) {
   );
 }
 
+function ConnectionLine({ row }: { row: ConnectionRow }) {
+  const test = useTestConnection();
+  const { addToast } = useToast();
+  const many = row.key === "indexers";
+  const start = async () => {
+    try {
+      const result = await test.mutateAsync(row.testKey);
+      if ("connections" in result) return;
+      if (result.ok === false)
+        addToast({
+          type: "error",
+          message: `${result.label}: ${result.result ?? "check failed"}`,
+        });
+    } catch (err) {
+      addToast({ type: "error", message: getErrorMessage(err) });
+    }
+  };
+  return (
+    <div
+      data-testid="health-connection"
+      className={`grid ${CONNECTION_COLS} min-h-10 items-center gap-x-3 border-b border-border-subtle px-4 py-1.5 text-[13px]`}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <Dot tone={row.tone} />
+        <span className="truncate text-foreground">{row.label}</span>
+      </span>
+      <span className="font-mono text-xs text-foreground-2 max-md:hidden">
+        {test.isPending ? "…" : row.response}
+      </span>
+      <span className="font-mono text-xs text-foreground-2 max-md:hidden">
+        {ago(row.lastChecked)}
+      </span>
+      <span
+        className="truncate text-foreground-2 max-md:col-span-2 max-md:row-start-2 max-md:pl-3.5"
+        title={row.result}
+      >
+        {test.isPending ? "Checking…" : row.result}
+      </span>
+      <span className="flex justify-end max-md:col-start-2 max-md:row-start-1">
+        {row.testKey ? (
+          <Button
+            type="button"
+            size="compact"
+            variant="ghost"
+            aria-label={many ? "Test all indexers" : `Test ${row.label}`}
+            disabled={test.isPending}
+            onClick={() => void start()}
+          >
+            {many ? "Test all" : "Test"}
+          </Button>
+        ) : (
+          <Link
+            to={row.settings}
+            className="px-2 text-[13px] text-foreground-2 hover:text-foreground"
+          >
+            Settings
+          </Link>
+        )}
+      </span>
+    </div>
+  );
+}
+
 /**
  * Activity > Health (v2 design 08): background jobs and the connections
  * downloads depend on, each with a plain answer to "is it working?".
@@ -138,7 +204,11 @@ export default function HealthView() {
   const health = useSearchHealth();
   const rows = jobRows(jobs.data?.jobs ?? []);
   const failing = rows.filter((row) => row.failing).length;
-  const connections = connectionRows(health.data);
+  const checks = useConnections();
+  const connections = connectionRows(
+    health.data,
+    checks.data?.connections ?? [],
+  );
   const reachable = connections.filter((row) => row.tone === "ok").length;
 
   return (
@@ -190,7 +260,9 @@ export default function HealthView() {
           <SectionHeading
             title="Connections"
             meta={
-              health.data ? `${reachable} of ${connections.length} ready` : ""
+              health.data
+                ? `${reachable} of ${connections.length} reachable`
+                : ""
             }
           />
         </div>
@@ -220,36 +292,16 @@ export default function HealthView() {
           <div>
             <ColumnHeads
               cols={CONNECTION_COLS}
-              heads={["Connection", "Last checked", "Result", "Actions"]}
+              heads={[
+                "Connection",
+                "Response",
+                "Last checked",
+                "Result",
+                "Actions",
+              ]}
             />
             {connections.map((row) => (
-              <div
-                key={row.key}
-                data-testid="health-connection"
-                className={`grid ${CONNECTION_COLS} min-h-10 items-center gap-x-3 border-b border-border-subtle px-4 py-1.5 text-[13px]`}
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <Dot tone={row.tone} />
-                  <span className="truncate text-foreground">{row.label}</span>
-                </span>
-                <span className="font-mono text-xs text-foreground-2 max-md:hidden">
-                  {ago(row.lastChecked)}
-                </span>
-                <span
-                  className="truncate text-foreground-2 max-md:col-span-2 max-md:row-start-2 max-md:pl-3.5"
-                  title={row.result}
-                >
-                  {row.result}
-                </span>
-                <span className="flex justify-end max-md:col-start-2 max-md:row-start-1">
-                  <Link
-                    to={row.settings}
-                    className="px-2 text-[13px] text-foreground-2 hover:text-foreground"
-                  >
-                    Settings
-                  </Link>
-                </span>
-              </div>
+              <ConnectionLine key={row.key} row={row} />
             ))}
           </div>
         )}
