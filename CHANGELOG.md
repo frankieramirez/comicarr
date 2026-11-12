@@ -1,5 +1,67 @@
 # Changelog
 
+## 0.51.0
+
+### Minor Changes
+
+- d789af4: Activity has a new Health tab. It lists every background job with when it last ran, when it runs next, and whether its last run worked, with a Run now button for the jobs that can be started early. Below that, Connections shows whether your download clients and indexers are ready. The tab shows how many jobs are failing so a broken job is visible from anywhere in Activity. On phones, page tabs now scroll sideways instead of wrapping.
+- 7d8fb4c: The dashboard now groups what needs you by cause, and splits downloads into moving and stuck.
+  
+  - Each row under Needs you is one problem, with every series it affects. For example, "Post-processing is misconfigured" lists all 23 affected issues once, with a button that opens the setting that fixes them. "Retry all 12" retries every issue with that cause in one go. Causes past the first three fold into one line that says how many series and issues remain.
+  - The Downloads panel shows how many downloads are moving now and how many haven't changed in over 7 days, with a bar that shows the split.
+- 4b7d4d3: Settings → Download clients now shows one card for each kind of client Comicarr sends releases to: your usenet client, your torrent client and direct downloads. Each card shows the client, its server, and whether Comicarr last reached it, with a switch to stop sending that kind of release without losing its settings. Expand a card to change the client or edit its connection, then **Test connection** after saving. NZBGet, qBittorrent, Deluge and Transmission can now be set up here instead of in `config.ini`, including qBittorrent's per-library category and save-path routes. **Add client** turns on a kind you don't use yet. When you change a client's server address, Comicarr asks for its password again, so a saved password is never sent to a new server.
+- f37acd5: Activity > Health now answers "is it working?" in more detail.
+  
+  - Each background job says what its last run did, such as "1 grabbed of 40 searched", "Nothing to import" or "202 series up to date", instead of only "Finished without errors".
+  - Connections lists each download client, your indexers as one row, and ComicVine, Metron and MangaDex. Each one shows how long it took to answer and when it was last checked.
+  - A Test button checks one connection on the spot, and Test all checks every indexer. A new Connection check job also checks everything once an hour. A check only asks a question, so a failed check never pauses an indexer.
+- f0629a2: Import now splits the review queue into **Needs a pick**, **Confident** and **Ignored** tabs, each with its count, and has a filter box. Clicking a group opens a pick panel beside the table. It lists the series the files could be, each scored the same way the inbox scan scores it and marked as in your library or not. When your library has no close match, it also searches ComicVine or MangaDex. The panel says why the group stopped for you: two series share the title, the best guess fell under your auto-import bar, or the files name more than one year. It also shows each file's size and when the files were found, and lets you edit issue numbers in place. **Import as …** settles the group; for a series that isn't in your library yet, it adds the series first.
+  
+  When you match an inbox folder, Comicarr remembers the series you picked, and new files that later land in that same folder import as that series. Groups that clear your auto-import bar but didn't import on their own wait under Confident, and **Import N confident matches** in the header imports all of them at once. This release adds a database migration for the remembered folder picks.
+- a995a4c: The issue page now shows what its last search actually saw. "What happened" says how many results came back, how many were rejected and why (wrong issue, wrong series, too small and so on), and the Details panel lists the acceptable candidates with the one Comicarr chose, the rejected ones on request, how many times each step ran, and the log lines that mention the issue with a link to the full log. When a finished download couldn't be found, **Import manually** on the issue page and in Needs you lets you point Comicarr at the folder and file so it can import it. The search history is kept per issue and replaced by each new search; it starts filling in after you upgrade.
+- be119cc: An issue's page now tells its story. "What happened" lists every search, grab, download and import for that issue, oldest first, in plain sentences. When the issue is in Needs you, the page names the likely cause, links to the setting that usually fixes it, and puts Retry and Search again next to the title. The title now reads as the series and number, such as "Absolute Flash #18", with the issue's own name underneath.
+- f051867: Releases now groups your week by release day. Mine shows each issue or chapter under its day with its publisher, comic or manga label, and where it stands, and tabs for Needs you, In progress, Downloaded, and Coming up. Issues with an open Needs attention problem say so in the row. The week picker in the header now steps both Mine and Industry through past and future weeks, and Industry gains a Publisher filter.
+- 373e8a5: Releases now shows where each of this week's downloads stands. A release that's downloading shows a progress bar and its percentage when the client is SABnzbd, NZBGet or qBittorrent. Other clients still show "Downloading" without a percentage. Once the file is with Comicarr, the row says "Importing". Downloaded releases say when they landed, for example "2h ago", "yesterday" or "Tue 21:40". When a release needs you and its cause has a one-click fix, such as **Open post-processing**, the button sits on the row. "See why" now opens the issue's own page instead of the series.
+- db926d0: The sign-in page can show a wall of your own covers behind the sign-in card. Turn it on in Settings > Interface with "Cover wall on sign-in". It is off by default because anyone who can reach the sign-in page sees the covers. Series rated Mature, Adult or explicit are never shown, and the wall mixes comics and manga.
+  
+  The sign-in card is simpler and no longer shows the Comicarr version. It has a "Keep me signed in" box, ticked by default. Ticked, you stay signed in for your login timeout, as before. Unticked, the sign-in ends when you close the browser and lasts at most 12 hours. The "forgot password" and "sso" links, which did nothing, are gone.
+- fd0e69c: Comicarr has a new look. Every main screen was redesigned around a calmer, denser layout that works the same in light and dark mode.
+  
+  - The Dashboard now leads with what needs you, with system health, downloads, this week's releases and recent activity in a side column. Recently added series and your most-wanted series sit below.
+  - Series pages have one header with the cover, progress and a single "Search N missing" button. Everything else moved into a menu, and folder, provider and matching options moved to a Settings tab.
+  - Library is a two-tab page for Series and Story arcs, with a cover-first grid and a list view.
+  - Releases shows the week as a strip of days. The Industry view groups releases by publisher and can filter to series you follow.
+  - Activity is one page with tabs for Timeline, In flight, Direct downloads, History and Needs you. The timeline filters by Failures, Downloads or Library.
+  - Import shows where it looks (inbox and library folders) at the top, and each file group shows its best guess with a match meter.
+  - Settings groups its sections under Library, Getting files, Metadata, You and System, and the save bar no longer covers the sidebar.
+  - Press ⌘K (Ctrl+K) anywhere to open a command palette that finds a series, adds a new one, or jumps to any page.
+- e69f75a: The Wanted page now shows one row per series instead of one row per issue.
+  
+  - Each row says how many issues the series is missing, which ones (for example "#1-249"), why they're still missing (not found, searching or queued) and when the series was last searched. Open a row to see its issues, each with Search and Skip.
+  - Tabs at the top filter by why issues are missing, and each tab shows its issue count. You can also pick comics or manga and sort with problems first, by most missing, or by name.
+  - The old one-row-per-issue table is still there under "By issue".
+  - On a phone, each row puts which issues and why on their own lines under the series name.
+- f655d74: Wanted now shows how auto-search is pacing itself. A banner above the series list shows how many issues an hour the backlog check gets through, measured from recent runs. It also shows how long until every Wanted issue has been checked once, with a progress bar, and when the next batch runs. It explains that issues added in the last couple of weeks also get a full search on your indexers. Each queued series shows roughly when its turn comes, for example "Queued · ~2 days". If RSS is off, the banner says that only recent issues are searched automatically and links to Search settings. **Search now** moves from the page header into the banner.
+
+### Patch Changes
+
+- fca0ea2: Add a series now matches the rest of the new look. Results show each series' cover, publisher or author, year, issue count and source on one line. A series you already have says "In library" and opens it, instead of offering Add. On a short screen, a series page now keeps a compact bar with the title, progress and Search missing at the top once you scroll past the header.
+- 76b455b: The redesign's typefaces, Inter Tight and JetBrains Mono, now ship with Comicarr and load on every install. Before, they came from Google Fonts, which Comicarr's own security policy blocked, so most browsers fell back to system fonts. The script that sets light or dark mode before the page draws had the same problem and could flash the wrong theme; it now loads as its own file.
+  
+  The Import pick panel now offers a library series even when the files name a different year than the one the series started in, since files usually carry the issue's cover year. Such a series scores lower than a full match and the panel says why, so it is never auto-imported on that guess alone.
+- 61eae20: When **Import N confident matches** can't import a group, the message now says which step failed, such as "the files could not be moved", instead of showing the raw error. The full error is still written to the log.
+- 1e6b582: On a phone, Comicarr now has a tab bar at the bottom of the screen with Home, Library, Wanted, Activity and More. Activity shows how many things need you, and More opens the full menu.
+  
+  - The top bar on phones is gone, so each page starts with its own title.
+  - On a phone, each Needs you row on the dashboard shows the whole problem and puts its button underneath.
+  - On a phone, a series page shows the cover next to the title, with a Library back link above.
+- 6306970: The account menu is simpler and opens upward over the button you clicked, at the same width, instead of off to the side. It no longer repeats your name or says which theme is on. Theme is now one row with Light, Dark and System, and System follows your device's setting as it changes. Settings shows its G S shortcut.
+- ec7ea3a: The last three screens now match the new look.
+  
+  - Issue pages have the same header as series pages, with the cover, the issue's status (click it to change it) and an Activity button. Release date, file size, story arc and file path are listed below.
+  - Story arc pages have the same header, with a progress bar and Want all, Refresh and Delete buttons. Series the arc needs but you don't track sit in their own section, and the reading order uses the same table as the rest of the app. Each issue in it links to its issue page.
+  - Chat uses the new colors and controls, and its "Connect an AI provider" screen matches the rest of the app.
+
 ## 0.50.7
 
 ### Patch Changes
