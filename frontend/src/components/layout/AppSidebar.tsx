@@ -81,7 +81,7 @@ export default function AppSidebar() {
   const { addToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isMobile, setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile, state: sidebarState } = useSidebar();
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { data: aiStatus } = useAiStatus();
@@ -366,9 +366,15 @@ export default function AppSidebar() {
                 <ChevronsUpDown className="ml-auto size-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className="w-(--anchor-width) min-w-56 rounded-lg"
-                side={isMobile ? "bottom" : "right"}
-                align="end"
+                className={`rounded-lg ${!isMobile && sidebarState === "collapsed" ? "min-w-56" : "w-(--anchor-width)"}`}
+                // Open upward over the trigger, at its width. Only the
+                // collapsed icon rail has no room above, so it opens right.
+                side={
+                  !isMobile && sidebarState === "collapsed" ? "right" : "top"
+                }
+                align={
+                  !isMobile && sidebarState === "collapsed" ? "end" : "start"
+                }
                 sideOffset={4}
               >
                 <div className="flex items-center gap-2 px-2 py-1.5 text-[13px]">
