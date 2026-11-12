@@ -12,11 +12,9 @@ export function SettingGroup({
   return (
     <section className="mb-8">
       <div className="mb-4">
-        <div className="text-base font-medium tracking-wide text-foreground">
-          {title}
-        </div>
+        <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
         {description && (
-          <div className="text-base text-muted-foreground leading-relaxed">
+          <div className="mt-0.5 text-[13px] leading-relaxed text-foreground-2">
             {description}
           </div>
         )}

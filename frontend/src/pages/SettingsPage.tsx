@@ -29,19 +29,46 @@ import type {
   WritableConfig,
 } from "@/types/config.generated";
 
-const SECTIONS: { id: SectionId; label: string }[] = [
-  { id: "general", label: "General" },
-  { id: "interface", label: "Interface" },
-  { id: "api", label: "API & providers" },
-  { id: "search", label: "Search" },
-  { id: "acquisition", label: "Acquisition" },
-  { id: "media", label: "Media" },
-  { id: "notifications", label: "Notifications" },
-  { id: "clients", label: "Download clients" },
-  { id: "ai", label: "AI" },
-  { id: "logs", label: "Logs" },
-  { id: "about", label: "About" },
+/** The sub-nav, grouped by what the operator is trying to do. */
+const SECTION_GROUPS: {
+  label: string;
+  sections: { id: SectionId; label: string }[];
+}[] = [
+  {
+    label: "Library",
+    sections: [{ id: "media", label: "Folders and naming" }],
+  },
+  {
+    label: "Getting files",
+    sections: [
+      { id: "search", label: "Indexers and search" },
+      { id: "clients", label: "Download clients" },
+      { id: "acquisition", label: "Acquisition health" },
+    ],
+  },
+  {
+    label: "Metadata",
+    sections: [{ id: "api", label: "Sources and keys" }],
+  },
+  {
+    label: "You",
+    sections: [
+      { id: "notifications", label: "Notifications" },
+      { id: "interface", label: "Interface" },
+      { id: "ai", label: "AI" },
+    ],
+  },
+  {
+    label: "System",
+    sections: [
+      { id: "general", label: "General" },
+      { id: "logs", label: "Logs" },
+      { id: "about", label: "About" },
+    ],
+  },
 ];
+
+const SECTIONS = SECTION_GROUPS.flatMap((group) => group.sections);
 
 const SECTION_IDS = new Set(SECTIONS.map((s) => s.id));
 
@@ -280,7 +307,7 @@ export default function SettingsPage() {
   }
 
   const configPath = config?.config_path || "/config/config.ini";
-  const version = `comicarr ${formatAppVersion()}`;
+  const version = formatAppVersion();
 
   const configData: Config = config ?? {};
   const tabProps = {
@@ -301,17 +328,21 @@ export default function SettingsPage() {
 
   return (
     <div className="h-full flex flex-col page-transition">
-      <PageHeader title="Settings" meta={`${version} · config ${configPath}`} />
+      <PageHeader
+        title="Settings"
+        meta={
+          <span className="font-mono text-xs">
+            {version} · {configPath}
+          </span>
+        }
+      />
 
       {/* Mobile section chips — horizontal scroll */}
-      <div
-        className="md:hidden border-b overflow-x-auto"
-        style={{ borderColor: "var(--border)" }}
-      >
+      <div className="md:hidden border-b border-border-subtle overflow-x-auto">
         <div
           role="group"
           aria-label="Settings sections"
-          className="flex items-center gap-1.5 px-4 py-2 whitespace-nowrap"
+          className="flex items-center gap-1.5 px-4 pb-2 whitespace-nowrap"
         >
           {SECTIONS.map((s) => (
             <ToggleChip
@@ -326,32 +357,38 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="grid flex-1 min-h-0 grid-cols-1 md:[grid-template-columns:220px_1fr]">
+      <div className="grid flex-1 min-h-0 grid-cols-1 md:[grid-template-columns:240px_1fr]">
         {/* Desktop left rail */}
-        <aside
-          className="hidden md:block border-r py-3 px-2 overflow-auto"
-          style={{ borderColor: "var(--border)" }}
+        <nav
+          aria-label="Settings sections"
+          className="hidden md:block overflow-auto pb-8 pl-8 pr-4"
         >
-          {SECTIONS.map((s) => {
-            const active = section === s.id;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setSection(s.id)}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-control text-[13px] text-left"
-                style={{
-                  color: active
-                    ? "var(--foreground)"
-                    : "var(--muted-foreground)",
-                  background: active ? "var(--secondary)" : "transparent",
-                }}
-              >
-                <span className="flex-1 truncate">{s.label}</span>
-              </button>
-            );
-          })}
-        </aside>
+          {SECTION_GROUPS.map((group) => (
+            <div key={group.label} className="mb-4">
+              <div className="px-2.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                {group.label}
+              </div>
+              {group.sections.map((s) => {
+                const active = section === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => setSection(s.id)}
+                    className={`flex h-8 w-full items-center rounded-control px-2.5 text-left text-[13px] ${
+                      active
+                        ? "bg-surface-2 font-medium text-foreground"
+                        : "text-foreground-2 hover:bg-surface-1 hover:text-foreground"
+                    }`}
+                  >
+                    <span className="flex-1 truncate">{s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
 
         {/* Content panel */}
         <div className="overflow-auto min-w-0">

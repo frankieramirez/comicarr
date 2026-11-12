@@ -158,7 +158,9 @@ describe("settings configuration", () => {
 
     render(createElement(SettingsPage));
     await screen.findByText("Settings");
-    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    await user.click(
+      screen.getAllByRole("button", { name: "Indexers and search" })[0],
+    );
 
     const name = await screen.findByLabelText("Indexer name");
     expect(
@@ -214,7 +216,9 @@ describe("settings configuration", () => {
 
     render(createElement(SettingsPage));
     await screen.findByText("Settings");
-    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    await user.click(
+      screen.getAllByRole("button", { name: "Indexers and search" })[0],
+    );
     await screen.findByLabelText("Indexer name");
     await user.click(screen.getByRole("button", { name: "Add indexer" }));
 
@@ -267,7 +271,9 @@ describe("settings configuration", () => {
 
     render(createElement(SettingsPage));
     await screen.findByText("Settings");
-    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    await user.click(
+      screen.getAllByRole("button", { name: "Indexers and search" })[0],
+    );
 
     const categories = await screen.findByLabelText("Categories");
     expect((categories as HTMLInputElement).value).toBe("7030");
@@ -318,7 +324,9 @@ describe("settings configuration", () => {
 
     render(createElement(SettingsPage));
     await screen.findByText("Settings");
-    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    await user.click(
+      screen.getAllByRole("button", { name: "Indexers and search" })[0],
+    );
     const host = await screen.findByLabelText("Indexer URL");
     await user.clear(host);
     await user.type(host, "https://other.test/api");
@@ -345,7 +353,9 @@ describe("settings configuration", () => {
 
     render(createElement(SettingsPage));
     await screen.findByText("Settings");
-    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    await user.click(
+      screen.getAllByRole("button", { name: "Indexers and search" })[0],
+    );
     await screen.findByRole("button", { name: "Add Torznab indexer" });
     await user.click(
       screen.getByRole("button", { name: "Add Torznab indexer" }),
@@ -387,7 +397,9 @@ describe("settings configuration", () => {
 
     render(createElement(SettingsPage));
     await screen.findByText("Settings");
-    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    await user.click(
+      screen.getAllByRole("button", { name: "Indexers and search" })[0],
+    );
 
     const name = await screen.findByLabelText("Torznab indexer name");
     expect(screen.queryByLabelText("RSS user ID")).toBeNull();
@@ -452,7 +464,9 @@ describe("settings configuration", () => {
 
     render(createElement(SettingsPage));
     await screen.findByText("Settings");
-    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    await user.click(
+      screen.getAllByRole("button", { name: "Indexers and search" })[0],
+    );
     const host = await screen.findByLabelText("Torznab indexer URL");
     await user.clear(host);
     await user.type(host, "https://other.test/1/api");
@@ -507,7 +521,9 @@ describe("settings configuration", () => {
 
     render(createElement(SettingsPage));
     await screen.findByText("Settings");
-    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    await user.click(
+      screen.getAllByRole("button", { name: "Indexers and search" })[0],
+    );
     await screen.findByLabelText("Indexer name");
 
     const newznabName = screen.getByLabelText("Indexer name");
@@ -545,7 +561,9 @@ describe("settings configuration", () => {
 
     render(createElement(SettingsPage));
     await screen.findByText("Settings");
-    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    await user.click(
+      screen.getAllByRole("button", { name: "Indexers and search" })[0],
+    );
     const name = await screen.findByLabelText("Torznab indexer name");
     await user.type(name, " changed");
     await user.click(screen.getAllByRole("button", { name: "General" })[0]);
@@ -606,10 +624,11 @@ describe("SettingsPage", () => {
     render(createElement(SettingsPage));
 
     expect(await screen.findByText("Settings")).toBeTruthy();
-    await user.click(screen.getAllByRole("button", { name: "Acquisition" })[0]);
+    await user.click(
+      screen.getAllByRole("button", { name: "Acquisition health" })[0],
+    );
 
-    expect(await screen.findByText("Acquisition health")).toBeTruthy();
-    expect(screen.getByText("Evidence-driven repair")).toBeTruthy();
+    expect(await screen.findByText("Evidence-driven repair")).toBeTruthy();
   });
 
   it("blocks dirty indexer edits on internal SPA links when confirmation is declined", async () => {
@@ -646,7 +665,9 @@ describe("SettingsPage", () => {
       ),
     );
     await screen.findByText("Settings");
-    await user.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    await user.click(
+      screen.getAllByRole("button", { name: "Indexers and search" })[0],
+    );
     const name = await screen.findByLabelText("Indexer name");
     await user.type(name, " changed");
     await user.click(
@@ -674,7 +695,7 @@ describe("SettingsPage", () => {
     render(createElement(SettingsPage));
 
     expect(
-      await screen.findByText(`comicarr ${formatAppVersion()}`, {
+      await screen.findByText(`${formatAppVersion()} · /config/config.ini`, {
         exact: false,
       }),
     ).toBeTruthy();
