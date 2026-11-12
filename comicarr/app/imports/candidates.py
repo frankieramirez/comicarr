@@ -32,6 +32,10 @@ from comicarr.tables import comics, importresults
 LIBRARY_LIMIT = 3
 REMOTE_LIMIT = 3
 MIN_SCORE = 0.4
+# A series whose start year is not the year the files name is still offered,
+# scored down so it never reads as confident: files usually carry the issue's
+# cover year, not the year the series began.
+OTHER_YEAR_FACTOR = 0.7
 
 # What the page says when a confident group fails; the full error goes to the log.
 _FAILURE_PHASES = {
@@ -93,6 +97,35 @@ def _source(rows, config):
     return ("inbox" if inbox else "library"), folder
 
 
+def _year(value):
+    try:
+        return int(str(value or "").strip())
+    except ValueError:
+        return None
+
+
+def _panel_score(importinbox, match_name, years, series):
+    """``score_series`` for the pick panel, which keeps other-year series in play.
+
+    Auto-import keeps the strict rule. Here a series that began on or before
+    the files' year scores ``OTHER_YEAR_FACTOR`` of its title match; one that
+    began after it cannot hold those files and still scores zero.
+    """
+    strict = importinbox.score_series(match_name, years, series)
+    if strict > 0 or not years:
+        return strict
+    loose = importinbox.score_series(match_name, set(), series)
+    start = _year(series.get("ComicYear"))
+    file_years = [y for y in (_year(v) for v in years) if y is not None]
+    if loose <= 0 or start is None or not file_years or start > max(file_years):
+        return 0.0
+    return loose * OTHER_YEAR_FACTOR
+
+
+def _other_year(candidate, years):
+    return bool(years) and bool(candidate.get("year")) and candidate["year"] not in years
+
+
 def _library_series():
     return [
         dict(row)
@@ -135,6 +168,8 @@ def _reason(*, remembered, best, tied, years, bar, candidates):
         return "tied"
     if len(years) > 1:
         return "mixed_years"
+    if _other_year(candidates[0], years):
+        return "other_year"
     if best < bar:
         return "below_bar"
     return "confident"
@@ -156,7 +191,7 @@ def group_candidates(ctx, imp_ids):
 
     scored = []
     for series in _library_series():
-        score = importinbox.score_series(match_name, years, series)
+        score = _panel_score(importinbox, match_name, years, series)
         if score > 0:
             scored.append((score, series))
     scored.sort(key=lambda pair: (-pair[0], str(pair[1].get("ComicName") or "")))
@@ -262,7 +297,7 @@ def remote_candidates(ctx, imp_ids, content_type=None):
         if not (result.get("comicid") or result.get("id")):
             continue
         series = {"ComicName": result.get("name") or result.get("comicname"), "ComicYear": result.get("comicyear")}
-        score = importinbox.score_series(match_name, years, series)
+        score = _panel_score(importinbox, match_name, years, series)
         if score >= MIN_SCORE:
             scored.append(_remote_candidate(result, score))
     scored.sort(key=lambda c: -c["score"])

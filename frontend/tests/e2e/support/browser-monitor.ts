@@ -21,6 +21,14 @@ export function monitorBrowser(page: Page, baseURL?: string) {
     );
   };
 
+  // The served Content-Security-Policy blocks inline scripts and off-origin
+  // fonts silently; the browser only says so in the console.
+  page.on("console", (message) => {
+    if (message.text().includes("Content Security Policy")) {
+      issues.push(`csp: ${message.text()}`);
+    }
+  });
+
   page.on("pageerror", (error) => {
     issues.push(`pageerror: ${error.message}`);
   });

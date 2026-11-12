@@ -61,10 +61,17 @@ test("pending upgrade still loads and dismisses What's New", async ({
 }) => {
   let pending = true;
   await page.route("**/api/system/version", async (route) => {
-    const response = await route.fetch();
+    let version: Record<string, unknown>;
+    try {
+      version = await (await route.fetch()).json();
+    } catch {
+      // The page dropped this request (a refetch replaced it) while it was
+      // in flight; the replacement goes through this handler too.
+      return;
+    }
     await route.fulfill({
       json: {
-        ...(await response.json()),
+        ...version,
         pending_whats_new: pending ? { from: "0.38.6", to: "0.38.7" } : null,
       },
     });
