@@ -18,6 +18,15 @@ interface DataTableProps<TData extends RowData> {
   table: ComicarrTable<TData>;
   onRowClick?: (row: TData) => void;
   renderSubRow?: (row: ComicarrRow<TData>, colSpan: number) => ReactNode;
+  /**
+   * Rendered above a row, for tables that group rows (Releases by day).
+   * Return null for rows that do not open a group.
+   */
+  renderGroupHeader?: (
+    row: ComicarrRow<TData>,
+    index: number,
+    colSpan: number,
+  ) => ReactNode;
   className?: string;
 }
 
@@ -25,6 +34,7 @@ export function DataTable<TData extends RowData>({
   table,
   onRowClick,
   renderSubRow,
+  renderGroupHeader,
   className,
 }: DataTableProps<TData>) {
   return (
@@ -68,10 +78,11 @@ export function DataTable<TData extends RowData>({
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.length ? (
-            table.getRowModel().rows.map((row) => {
+            table.getRowModel().rows.map((row, index) => {
               const colSpan = table.getAllColumns().length;
               return (
                 <Fragment key={row.id}>
+                  {renderGroupHeader?.(row, index, colSpan)}
                   <TableRow
                     data-state={row.getIsSelected() && "selected"}
                     className={cn(

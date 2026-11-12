@@ -5,13 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import RelativeTime from "@/components/ui/RelativeTime";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import FilterSelect from "@/components/ui/FilterSelect";
 import { CoverCell } from "@/components/data-table/cells/CoverCell";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -214,39 +208,6 @@ function SeriesRow({ series }: { series: WantedSeries }) {
       </div>
       {open && <SeriesIssues series={series} />}
     </li>
-  );
-}
-
-function FilterSelect<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (value: T) => void;
-}) {
-  return (
-    <Select value={value} onValueChange={(v) => onChange(v as T)}>
-      <SelectTrigger
-        aria-label={label}
-        className="h-8 w-auto gap-1.5 text-[13px]"
-      >
-        <span className="text-muted-foreground">{label}</span>
-        <SelectValue>
-          {(v: string) => options.find((o) => o.value === v)?.label ?? v}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   );
 }
 

@@ -3,8 +3,7 @@ import { createColumnHelper } from "@tanstack/react-table";
 import { CircleDot, Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import StatusBadge from "@/components/StatusBadge";
-import { DataTableSortHeader } from "@/components/data-table/DataTableSortHeader";
+import { Link } from "react-router-dom";
 import { CoverCell } from "@/components/data-table/cells/CoverCell";
 import {
   type ComicarrTableFeatures,
@@ -14,6 +13,8 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { useQueueIssue, useUnqueueIssue } from "@/hooks/useSeries";
 import { getErrorMessage } from "@/lib/api";
+import { releaseNumber, releaseState } from "@/lib/releaseState";
+import { isoDay } from "@/lib/releaseWeek";
 import type { UpcomingIssue } from "@/types";
 
 const columnHelper = createColumnHelper<ComicarrTableFeatures, UpcomingIssue>();
@@ -24,7 +25,10 @@ const columnHelper = createColumnHelper<ComicarrTableFeatures, UpcomingIssue>();
  * `BulkActionBar` as a sibling; the columns live here so the page and the
  * selection tests drive the same select column (#395).
  */
-export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
+export function useUpcomingColumns(
+  onReview?: (issue: UpcomingIssue) => void,
+  today: string = isoDay(new Date()),
+) {
   const queueIssueMutation = useQueueIssue();
   const unqueueIssueMutation = useUnqueueIssue();
   const { addToast } = useToast();
@@ -58,67 +62,88 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
         header: "",
         cell: ({ row }) => (
           <div className="[&>div]:h-9 [&>div]:w-[26px] [&>div]:rounded-[3px]">
-            <CoverCell comicId={row.original.ComicID} />
+            <CoverCell
+              comicId={row.original.ComicID}
+              isManga={row.original.ContentType === "manga"}
+            />
           </div>
         ),
         size: 44,
         enableSorting: false,
       }),
       columnHelper.accessor("ComicName", {
-        header: ({ column }) => (
-          <DataTableSortHeader column={column} title="Series" />
-        ),
+        header: "Series",
         cell: ({ row }) => (
-          <div className="flex min-w-0 items-baseline gap-2">
-            <span className="truncate text-sm font-medium text-foreground">
+          <div className="flex min-w-0 items-center gap-2">
+            <Link
+              to={`/library/${row.original.ComicID}`}
+              className="truncate text-sm font-medium text-foreground hover:underline underline-offset-2"
+              onClick={(event) => event.stopPropagation()}
+            >
               {row.original.ComicName}
-            </span>
-            {row.original.ComicYear && (
-              <span className="mono-meta shrink-0">
-                {row.original.ComicYear}
+            </Link>
+            {row.original.ContentType && (
+              <span className="shrink-0 rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground max-md:hidden">
+                {row.original.ContentType === "manga" ? "Manga" : "Comic"}
               </span>
             )}
           </div>
         ),
+        enableSorting: false,
       }),
-      columnHelper.accessor("IssueNumber", {
-        header: "#",
+      columnHelper.display({
+        id: "IssueNumber",
+        header: "Issue",
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap font-mono text-[13px] text-foreground">
+            {releaseNumber(row.original)}
+          </span>
+        ),
+        size: 90,
+      }),
+      columnHelper.accessor((row) => row.Publisher ?? "", {
+        id: "Publisher",
+        header: "Publisher",
         cell: ({ getValue }) => (
-          <span className="font-mono text-[13px] text-foreground-2">
-            {getValue() || "N/A"}
+          <span className="block max-w-[180px] truncate text-[13px] text-foreground-2">
+            {getValue() || "—"}
           </span>
         ),
         enableSorting: false,
       }),
-      columnHelper.accessor("IssueName", {
-        header: "Issue",
-        cell: ({ getValue }) => {
-          const name = getValue();
-          return name ? (
-            <span className="text-sm text-foreground-2">{name}</span>
-          ) : (
-            <span className="text-sm text-muted-foreground">N/A</span>
-          );
-        },
-        enableSorting: false,
-      }),
-      columnHelper.accessor("IssueDate", {
-        header: ({ column }) => (
-          <DataTableSortHeader column={column} title="Released" />
-        ),
-        cell: ({ getValue }) => {
-          const date = getValue();
-          if (!date) return <span className="text-muted-foreground">N/A</span>;
-          return (
-            <span className="font-mono text-xs text-foreground-2">{date}</span>
-          );
-        },
-      }),
-      columnHelper.accessor((row) => row.Status ?? "", {
+      columnHelper.display({
         id: "Status",
-        header: "Status",
-        cell: ({ getValue }) => <StatusBadge status={getValue()} />,
-        enableSorting: false,
+        header: () => <span className="max-md:sr-only">Status</span>,
+        cell: ({ row }) => {
+          const state = releaseState(row.original, today);
+          return (
+            <span className="inline-flex min-w-0 items-center gap-2 whitespace-nowrap text-[13px]">
+              <span
+                data-testid="status-dot"
+                aria-hidden="true"
+                className="size-1.5 shrink-0 rounded-full"
+                style={{ background: state.tone }}
+              />
+              {/* Phones keep only the dot; the label stays for screen readers. */}
+              <span className="text-foreground max-md:sr-only">
+                {state.label}
+              </span>
+              {state.bucket === "needs_you" ? (
+                <Link
+                  to={`/library/${row.original.ComicID}`}
+                  className="text-muted-foreground hover:text-foreground hover:underline underline-offset-2 max-md:hidden"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  · see why
+                </Link>
+              ) : state.detail ? (
+                <span className="font-mono text-xs text-muted-foreground max-md:hidden">
+                  {state.detail}
+                </span>
+              ) : null}
+            </span>
+          );
+        },
       }),
       columnHelper.display({
         id: "actions",
@@ -217,5 +242,5 @@ export function useUpcomingColumns(onReview?: (issue: UpcomingIssue) => void) {
         },
       }),
     ]);
-  }, [addToast, onReview, queueIssueMutation, unqueueIssueMutation]);
+  }, [addToast, onReview, queueIssueMutation, today, unqueueIssueMutation]);
 }

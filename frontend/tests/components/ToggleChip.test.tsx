@@ -100,18 +100,18 @@ describe("ToggleChip", () => {
   });
 });
 
-describe("Releases filter toggle", () => {
-  it("presses exactly one of wanted-only / include-downloaded", async () => {
+describe("Releases state tabs", () => {
+  it("presses exactly one of the where-it-stands tabs", async () => {
     const user = userEvent.setup();
     render(<ReleasesPage />);
-    await screen.findByRole("button", { name: "Wanted only" });
-    expect(pressedName("Wanted only")).toBe("true");
-    expect(pressedName("Include downloaded")).toBe("false");
-    await user.click(
-      screen.getByRole("button", { name: "Include downloaded" }),
-    );
-    expect(pressedName("Wanted only")).toBe("false");
-    expect(pressedName("Include downloaded")).toBe("true");
+    const group = await screen.findByRole("group", { name: "Where it stands" });
+    const pressed = () =>
+      [...group.querySelectorAll("button")]
+        .filter((el) => el.getAttribute("aria-pressed") === "true")
+        .map((el) => el.textContent);
+    expect(pressed()).toEqual(["All0"]);
+    await user.click(screen.getByRole("button", { name: /^Downloaded/ }));
+    expect(pressed()).toEqual(["Downloaded0"]);
   });
 });
 

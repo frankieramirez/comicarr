@@ -1,11 +1,12 @@
 import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { Fragment, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, ExternalLink, Plus } from "lucide-react";
+import { ExternalLink, Plus } from "lucide-react";
 import { AiSuggestions } from "@/components/weekly/AiSuggestions";
 import { Button } from "@/components/ui/button";
 import FilterField from "@/components/ui/FilterField";
+import FilterSelect from "@/components/ui/FilterSelect";
 import StatusBadge from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
@@ -28,7 +29,6 @@ import {
   type WeekRef,
   type WeeklyIssue,
   type WeeklyLibraryState,
-  type WeeklyPullWeek,
 } from "@/pages/weeklyReleaseRowKey";
 
 const WEEKLY_ROW_COLS =
@@ -58,11 +58,13 @@ const FOLLOW_FILTERS: { key: FollowFilter; label: string }[] = [
   { key: "not_following", label: "Not following" },
 ];
 
-const SORT_LABELS: Record<SortKey, string> = {
-  title: "Title",
-  publisher: "Publisher",
-  issue: "Issue",
-};
+const SORTS: { value: SortKey; label: string }[] = [
+  { value: "publisher", label: "Publisher" },
+  { value: "title", label: "Title" },
+  { value: "issue", label: "Issue" },
+];
+
+const ALL_PUBLISHERS = "__all__";
 
 function rowState(issue: WeeklyIssue): WeeklyLibraryState {
   return issue.state ?? "not_in_library";
@@ -90,22 +92,6 @@ const SORTERS: Record<SortKey, (a: WeeklyIssue, b: WeeklyIssue) => number> = {
   issue: (a, b) => issueNumber(a.ISSUE) - issueNumber(b.ISSUE) || byTitle(a, b),
 };
 
-function formatDay(iso: string, withYear: boolean): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: withYear ? "numeric" : undefined,
-    timeZone: "UTC",
-  });
-}
-
-function weekLabel(offset: number): string {
-  if (offset === 0) return "This week";
-  if (offset === 1) return "Next week";
-  if (offset === -1) return "Last week";
-  return offset > 1 ? `In ${offset} weeks` : `${-offset} weeks ago`;
-}
-
 function comicVineUrl(comicId: string | null): string | null {
   const id = comicId?.replace(/^4050-/, "");
   return id && /^\d+$/.test(id)
@@ -113,44 +99,39 @@ function comicVineUrl(comicId: string | null): string | null {
     : null;
 }
 
-function readWeek(params: URLSearchParams): WeekRef | null {
-  const week = params.get("week");
-  const year = params.get("year");
-  return week && year ? { week, year } : null;
-}
-
-export default function IndustryReleasesView() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const selectedWeek = readWeek(searchParams);
+export default function IndustryReleasesView({
+  selectedWeek,
+}: {
+  selectedWeek: WeekRef | null;
+}) {
   const { data, isLoading, error, refetch } = useWeeklyPullList(selectedWeek);
   const { data: aiStatus } = useAiStatus();
   const [filter, setFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("publisher");
   const [follow, setFollow] = useState<FollowFilter>("all");
 
-  const goToWeek = (week: WeekRef | null) => {
-    const next = new URLSearchParams(searchParams);
-    if (week) {
-      next.set("week", week.week);
-      next.set("year", week.year);
-    } else {
-      next.delete("week");
-      next.delete("year");
-    }
-    setSearchParams(next);
-  };
+  const [publisher, setPublisher] = useState<string>(ALL_PUBLISHERS);
+
+  const publishers = useMemo(
+    () =>
+      [...new Set((data?.rows ?? []).map((row) => row.PUBLISHER || ""))]
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })),
+    [data],
+  );
 
   const rows = useMemo(() => {
     const needle = filter.trim().toLowerCase();
     const matching = (data?.rows ?? []).filter(
       (row) =>
         (follow === "all" || (follow === "following") === isFollowing(row)) &&
+        (publisher === ALL_PUBLISHERS || row.PUBLISHER === publisher) &&
         (!needle ||
           row.COMIC.toLowerCase().includes(needle) ||
           (row.PUBLISHER || "").toLowerCase().includes(needle)),
     );
     return [...matching].sort(SORTERS[sortKey]);
-  }, [data, filter, follow, sortKey]);
+  }, [data, filter, follow, publisher, sortKey]);
 
   const counts = useMemo(() => {
     const all = data?.rows ?? [];
@@ -200,22 +181,24 @@ export default function IndustryReleasesView() {
           onChange={(event) => setFilter(event.target.value)}
           widthCap="sm"
         />
-        <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <div className={SEGMENTED_GROUP} role="group" aria-label="Sort">
-            <span className="px-2 text-[13px] text-muted-foreground">Sort</span>
-            {(["title", "publisher", "issue"] as const).map((key) => (
-              <button
-                key={key}
-                type="button"
-                aria-pressed={sortKey === key}
-                onClick={() => setSortKey(key)}
-                className={SEGMENTED_ITEM}
-              >
-                {SORT_LABELS[key]}
-              </button>
-            ))}
-          </div>
-          <WeekBar week={data} onNavigate={goToWeek} />
+        <div className="max-md:hidden">
+          <FilterSelect
+            label="Publisher"
+            value={publisher}
+            options={[
+              { value: ALL_PUBLISHERS, label: "All" },
+              ...publishers.map((name) => ({ value: name, label: name })),
+            ]}
+            onChange={setPublisher}
+          />
+        </div>
+        <div className="ml-auto">
+          <FilterSelect
+            label="Sort"
+            value={sortKey}
+            options={SORTS}
+            onChange={setSortKey}
+          />
         </div>
       </div>
 
@@ -253,62 +236,6 @@ export default function IndustryReleasesView() {
         ) : (
           <WeeklyTable rows={rows} grouped={sortKey === "publisher"} />
         )}
-      </div>
-    </div>
-  );
-}
-
-function WeekBar({
-  week,
-  onNavigate,
-}: {
-  week: WeeklyPullWeek | undefined;
-  onNavigate: (week: WeekRef | null) => void;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      {week && week.offset !== 0 && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="compact"
-          onClick={() => onNavigate(null)}
-        >
-          This week
-        </Button>
-      )}
-      <div className="inline-flex h-8 items-stretch overflow-hidden rounded-md border border-border-strong">
-        <button
-          type="button"
-          aria-label="Previous week"
-          disabled={!week?.prev}
-          onClick={() => week?.prev && onNavigate(week.prev)}
-          className="flex w-8 items-center justify-center text-foreground-2 hover:bg-surface-2 disabled:opacity-40"
-        >
-          <ChevronLeft className="size-3.5" />
-        </button>
-        <div
-          className="flex min-w-0 items-baseline gap-2 self-center border-x border-border-strong px-3 leading-8"
-          aria-live="polite"
-        >
-          <span className="text-[13px] font-medium">
-            {week ? weekLabel(week.offset) : "Loading week…"}
-          </span>
-          {week && (
-            <span className="mono-meta truncate">
-              {formatDay(week.start, false)} – {formatDay(week.end, true)}
-            </span>
-          )}
-        </div>
-        <button
-          type="button"
-          aria-label="Next week"
-          disabled={!week?.next}
-          onClick={() => week?.next && onNavigate(week.next)}
-          className="flex w-8 items-center justify-center text-foreground-2 hover:bg-surface-2 disabled:opacity-40"
-        >
-          <ChevronRight className="size-3.5" />
-        </button>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { render, screen } from "../test-utils";
 import WantedTable from "@/components/queue/WantedTable";
 import { useWantedColumns } from "@/components/queue/wantedColumns";
-import UpcomingTable from "@/components/queue/UpcomingTable";
+import { DataTable } from "@/components/data-table/DataTable";
 import { useUpcomingColumns } from "@/components/queue/upcomingColumns";
 import { useTableState } from "@/components/data-table/useTableState";
 import type { Issue } from "@/types";
@@ -88,7 +88,7 @@ function UpcomingHarness({
   });
   useReportedSelection(selectedIds, onSelectionChange);
 
-  return <UpcomingTable table={table} />;
+  return <DataTable table={table} />;
 }
 
 function rowCheckboxes(): HTMLElement[] {
@@ -124,7 +124,7 @@ describe("queue table selection", () => {
     ]);
   });
 
-  it("reports the selected UpcomingTable issue by id", async () => {
+  it("reports the selected upcoming issue by id", async () => {
     const user = userEvent.setup();
     const onSelectionChange = vi.fn();
     render(

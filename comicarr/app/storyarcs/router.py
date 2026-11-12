@@ -216,6 +216,22 @@ def clear_read_issues():
 @router.get("/upcoming", dependencies=[Depends(require_session)])
 def get_upcoming(
     include_downloaded: bool = Query(False, alias="include_downloaded_issues"),
+    week: int | None = Query(None),
+    year: int | None = Query(None),
 ):
-    """Get upcoming issues for the current week."""
-    return arc_service.get_upcoming(include_downloaded=include_downloaded)
+    """Get upcoming issues for one Sunday-based week, the current one by default."""
+    from comicarr.app.weekly import service as weekly_service
+
+    if (week is None) != (year is None):
+        return JSONResponse(status_code=400, content={"detail": "Pass both week and year, or neither."})
+    if week is None:
+        return arc_service.get_upcoming(include_downloaded=include_downloaded)
+    try:
+        window = weekly_service.week_window(week, year)
+    except weekly_service.WeekError:
+        return JSONResponse(status_code=400, content={"detail": weekly_service.WEEK_RANGE_MESSAGE})
+    return arc_service.get_upcoming(
+        include_downloaded=include_downloaded,
+        week=str(window["week"]).zfill(2),
+        year=window["year"],
+    )

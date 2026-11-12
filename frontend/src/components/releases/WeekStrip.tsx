@@ -1,52 +1,25 @@
 import type { UpcomingIssue } from "@/types";
+import { releaseDay, releaseState } from "@/lib/releaseState";
+import { isoDay, parseDay, weekDays } from "@/lib/releaseWeek";
 
 /**
- * Seven days of the current week with a count and one dash per release,
+ * Seven days of the shown week with a count and one dash per release,
  * colored by where that release stands. A glance answers "what lands when".
  */
 
-const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MAX_DASHES = 8;
-
-function isoDay(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function weekDays(today: Date): Date[] {
-  const monday = new Date(today);
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-  return Array.from({ length: 7 }, (_, i) => {
-    const day = new Date(monday);
-    day.setDate(monday.getDate() + i);
-    return day;
-  });
-}
-
-function releaseDay(issue: UpcomingIssue): string {
-  return String(issue.IssueDate || issue.ReleaseDate || "").slice(0, 10);
-}
-
-function dashColor(status?: string | null): string {
-  const value = (status || "").toLowerCase();
-  if (value === "downloaded" || value === "archived")
-    return "var(--status-downloaded)";
-  if (value === "snatched") return "var(--in-flight)";
-  if (value === "wanted") return "var(--status-wanted)";
-  return "var(--text-muted)";
-}
+const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "short" });
 
 export default function WeekStrip({
   issues,
+  start,
   today = new Date(),
 }: {
   issues: UpcomingIssue[];
+  /** ISO Sunday that opens the shown week. */
+  start: string;
   today?: Date;
 }) {
-  const days = weekDays(today);
   const todayKey = isoDay(today);
 
   return (
@@ -55,14 +28,14 @@ export default function WeekStrip({
       aria-label="Releases by day this week"
       role="group"
     >
-      {days.map((day, index) => {
-        const key = isoDay(day);
+      {weekDays(start).map((key) => {
+        const date = parseDay(key);
         const landing = issues.filter((issue) => releaseDay(issue) === key);
         const isToday = key === todayKey;
         return (
           <div
             key={key}
-            className={`min-w-0 rounded-md px-3 py-2.5 ${
+            className={`min-w-0 rounded-md px-3 py-2.5 max-sm:px-1.5 ${
               isToday ? "border border-border-strong bg-surface-2" : ""
             }`}
           >
@@ -70,15 +43,17 @@ export default function WeekStrip({
               <span
                 className={isToday ? "text-foreground" : "text-foreground-2"}
               >
-                {DAY_NAMES[index]}{" "}
+                {WEEKDAY.format(date)}{" "}
                 <span className="font-mono text-xs text-muted-foreground">
-                  {day.getDate()}
+                  {date.getDate()}
                 </span>
               </span>
               {isToday ? (
-                <span className="text-[11px] text-foreground-2">Today</span>
+                <span className="text-[11px] text-foreground-2 max-md:hidden">
+                  Today
+                </span>
               ) : landing.length > 0 ? (
-                <span className="font-mono text-xs text-muted-foreground">
+                <span className="font-mono text-xs text-muted-foreground max-md:hidden">
                   {landing.length}
                 </span>
               ) : null}
@@ -88,7 +63,7 @@ export default function WeekStrip({
                 <span
                   key={issue.IssueID}
                   className="h-1 w-3 rounded-full"
-                  style={{ background: dashColor(issue.Status) }}
+                  style={{ background: releaseState(issue, todayKey).tone }}
                 />
               ))}
             </div>

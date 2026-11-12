@@ -934,11 +934,38 @@ def get_current_week(today=None):
     return today.strftime("%U"), today.strftime("%Y")
 
 
-def get_upcoming(include_downloaded=False):
-    """Get upcoming issues for the current week."""
-    week, year = get_current_week()
+def get_upcoming(include_downloaded=False, week=None, year=None):
+    """Get upcoming issues for one Sunday-based week, the current one by default.
 
-    return arc_queries.get_upcoming(week, year, include_downloaded=include_downloaded)
+    Each row carries ``attention``: the Needs attention reason for that issue,
+    or ``None``, so Releases can say which of this week's issues need the
+    operator without a second request.
+    """
+    if week is None or year is None:
+        week, year = get_current_week()
+
+    rows = [dict(row) for row in arc_queries.get_upcoming(week, year, include_downloaded=include_downloaded)]
+    reasons = _attention_reasons() if rows else {}
+    for row in rows:
+        row["attention"] = reasons.get(str(row.get("IssueID") or ""))
+    return rows
+
+
+def _attention_reasons():
+    """Map issue id to its newest Needs attention reason phrase."""
+    from comicarr.app import attention
+
+    try:
+        view = attention.read()
+    except Exception as e:
+        logger.warn("[UPCOMING] Needs attention unavailable for releases: %s" % e)
+        return {}
+    reasons = {}
+    for group in view.groups:
+        for member in group.members:
+            if member.issue_id and member.issue_id not in reasons:
+                reasons[member.issue_id] = group.reason_phrase
+    return reasons
 
 
 def listStoryArcs():
