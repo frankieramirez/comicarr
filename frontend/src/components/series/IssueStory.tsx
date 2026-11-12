@@ -17,6 +17,12 @@ import {
   useBandBatchResolution,
 } from "@/hooks/useActivity";
 import { getErrorMessage } from "@/lib/api";
+import { ImportManuallyDialog } from "@/components/activity/attention/ImportManuallyDialog";
+import { useState } from "react";
+import {
+  rejectionBreakdown,
+  type SearchHistory,
+} from "@/hooks/useIssueStoryDetails";
 
 /** Actions the issue page can take in one click; the rest need a dialog. */
 const ONE_CLICK: BandAction[] = ["retry", "search_again"];
@@ -62,20 +68,47 @@ function StepIcon({ event }: { event: TimelineEvent }) {
   );
 }
 
-export function IssueCauseActions({ cause }: { cause: AttentionCause }) {
+export function IssueCauseActions({
+  cause,
+  label,
+}: {
+  cause: AttentionCause;
+  label?: string;
+}) {
   const resolve = useBandBatchResolution();
   const { addToast } = useToast();
+  const [importing, setImporting] = useState(false);
+  const canImport =
+    cause.available_actions.includes("import") &&
+    cause.release_keys.length === 1;
   const actions = ONE_CLICK.filter((action) =>
     cause.available_actions.includes(action),
   );
   return (
     <>
+      {canImport && (
+        <Button
+          type="button"
+          size="toolbar"
+          variant="default"
+          onClick={() => setImporting(true)}
+        >
+          Import manually
+        </Button>
+      )}
+      {importing && (
+        <ImportManuallyDialog
+          releaseKey={cause.release_keys[0]}
+          label={label}
+          onClose={() => setImporting(false)}
+        />
+      )}
       {actions.map((action, index) => (
         <Button
           key={action}
           type="button"
           size="toolbar"
-          variant={index === 0 ? "default" : "outline"}
+          variant={index === 0 && !canImport ? "default" : "outline"}
           disabled={resolve.isPending}
           onClick={async () => {
             try {
@@ -110,9 +143,11 @@ export function IssueCauseActions({ cause }: { cause: AttentionCause }) {
 export default function IssueStory({
   issueId,
   cause,
+  search,
 }: {
   issueId: string;
   cause: AttentionCause | null;
+  search?: SearchHistory | null;
 }) {
   const timeline = useActivityTimeline({
     scope_type: "issue",
@@ -122,6 +157,11 @@ export default function IssueStory({
     .flatMap((page) => page.results)
     .slice()
     .reverse();
+  const lastSearch = events.reduce<TimelineEvent["event_id"] | null>(
+    (found, event) => (event.activity === "search" ? event.event_id : found),
+    null,
+  );
+  const breakdown = rejectionBreakdown(search);
 
   return (
     <section aria-labelledby="issue-story" className="min-w-0">
@@ -151,8 +191,10 @@ export default function IssueStory({
             // The timeline lexicon is short; the server's attention copy
             // names this issue's own failure better than "something went
             // wrong".
-            const detail =
-              line.rawCode && cause?.base_reason === line.rawCode
+            const summarised = event.event_id === lastSearch && !!search;
+            const detail = summarised
+              ? { ...line, detail: "" }
+              : line.rawCode && cause?.base_reason === line.rawCode
                 ? { ...line, phrase: cause.reason_phrase }
                 : line;
             return (
@@ -173,6 +215,23 @@ export default function IssueStory({
                 >
                   {when(event.created_at)}
                 </time>
+                {summarised && search && (
+                  <span
+                    data-testid="issue-search-summary"
+                    className="col-start-2 col-span-2 text-[13px] text-foreground-2"
+                  >
+                    <span className="block">
+                      {search.total} result{search.total === 1 ? "" : "s"},{" "}
+                      {search.rejected_count} rejected, {search.accepted_count}{" "}
+                      acceptable.
+                    </span>
+                    {breakdown && (
+                      <span className="block font-mono text-xs text-muted-foreground">
+                        {breakdown}
+                      </span>
+                    )}
+                  </span>
+                )}
                 {(detail.phrase || detail.detail) && (
                   <span className="col-start-2 col-span-2 text-[13px] text-foreground-2">
                     {detail.phrase && (

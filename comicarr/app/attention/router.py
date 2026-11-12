@@ -106,6 +106,26 @@ def get_attention(
     return serialize_view(view)
 
 
+@router.get("/import-source", dependencies=[Depends(require_session)])
+def get_import_source(release_key: str = Query(..., min_length=1, max_length=512)):
+    """Where a download waiting for a manual import was expected to be.
+
+    The Import manually dialog starts from these values; the operator may
+    point it somewhere else before ``POST /resolve`` with ``import_source``.
+    """
+    from comicarr.app.downloads import journal
+
+    row = journal.read_one(release_key)
+    if not row or row.get("stage") != journal.MANUAL_REVIEW:
+        return JSONResponse(status_code=404, content={"detail": "Nothing is waiting for a manual import there."})
+    payload = journal.load_payload(row.get("payload_json")) or {}
+    return {
+        "release_key": release_key,
+        "nzb_name": payload.get("nzb_name") or payload.get("nzbname") or row.get("nzbname") or None,
+        "nzb_folder": payload.get("nzb_folder") or None,
+    }
+
+
 @router.post("/resolve")
 def resolve_attention(
     request_body: dict,

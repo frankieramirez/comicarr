@@ -58,6 +58,11 @@ _REASON_DEFINITIONS = {
 }
 
 
+# Verdicts one issue search keeps for its history; a search over many
+# providers can see thousands of entries, and the page shows a handful.
+OBSERVED_LIMIT = 500
+
+
 class _EntryRejected(Exception):
     def __init__(self, reason_code):
         super().__init__(reason_code)
@@ -142,6 +147,7 @@ class EvaluationSession:
         self.evaluations = []
         self._searched_item = searched_item
         self._eligible = eligible
+        self._observed = []
 
     def _reject(self, reason_code, *, cause=None):
         if self._override_reason == reason_code:
@@ -204,7 +210,19 @@ class EvaluationSession:
                 selected = [fallback]
         if self.review and error is None:
             self.evaluations.extend(outcomes)
+        room = OBSERVED_LIMIT - len(self._observed)
+        if room > 0:
+            self._observed.extend(outcomes[:room])
         return EvaluationBatch(tuple(outcomes), tuple(selected), error)
+
+    def take_observed(self):
+        """Every verdict since the last call, for the issue's search history.
+
+        Observation never changes selection; it is a read-only copy of the
+        public projection so the issue page can list what a search saw.
+        """
+        observed, self._observed = self._observed, []
+        return [evaluation.as_dict() for evaluation in observed]
 
     def _satisfies(self, evaluation):
         match_data = evaluation._handoff or {}

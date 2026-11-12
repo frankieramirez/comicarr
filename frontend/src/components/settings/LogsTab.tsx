@@ -107,9 +107,20 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
   const [lineCount, setLineCount] = useState<number>(LOG_LINE_CHOICES[0]);
   const [viewFilter, setViewFilter] = useState<"all" | LogLineSeverity>("all");
   const [selector, setSelector] = useState("current");
-  const [query, setQuery] = useState("");
+  // The issue page links here with ?logq= so the log opens on its lines.
+  const [initialQuery] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("logq") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const [query, setQuery] = useState(initialQuery);
   const [component, setComponent] = useState("");
-  const [submitted, setSubmitted] = useState({ query: "", component: "" });
+  const [submitted, setSubmitted] = useState({
+    query: initialQuery,
+    component: "",
+  });
   const { copy, isCopied } = useCopyToClipboard();
   const { addToast } = useToast();
   const files = useLogFiles();

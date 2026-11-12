@@ -1297,15 +1297,20 @@ export function mockApiResponse(
       member_count: 1,
       newest_updated_at: "2026-10-26 14:09:00",
       oldest_updated_at: "2026-10-26 14:09:00",
-      stage: "failed",
-      available_actions: ["retry", "search_again", "stop_wanting"],
+      stage: "manual_review",
+      available_actions: ["import", "retry", "search_again", "stop_wanting"],
       members: [
         {
           release_key: `${storyIssue}-rk`,
           issue_label: `${COVERS[0].title} #${COVERS[0].total}`,
           issueid: storyIssue,
-          stage: "failed",
-          available_actions: ["retry", "search_again", "stop_wanting"],
+          stage: "manual_review",
+          available_actions: [
+            "import",
+            "retry",
+            "search_again",
+            "stop_wanting",
+          ],
           updated_date: "2026-10-26 14:09:00",
         },
       ],
@@ -1324,7 +1329,7 @@ export function mockApiResponse(
             label: "Open path mappings",
             href: "/settings?section=clients",
           },
-          stage: "failed",
+          stage: "manual_review",
           available_actions: group.available_actions,
           series_count: 1,
           member_count: 1,
@@ -1344,6 +1349,17 @@ export function mockApiResponse(
       total: 1,
       member_total: 1,
       preview_cap: 5,
+    };
+  }
+  const storyMatch = url.match(/^\/api\/series\/issues\/([^/]+)\/story$/);
+  if (m === "GET" && storyMatch) {
+    return mockIssueStoryDetails(storyMatch[1], storyIssue);
+  }
+  if (m === "GET" && url === "/api/attention/import-source") {
+    return {
+      release_key: parsed.searchParams.get("release_key"),
+      nzb_name: "Absolute.Flash.018.2026.Digital",
+      nzb_folder: "/data/usenet/complete/comics",
     };
   }
   if (m === "GET" && url === "/api/activity/timeline") {
@@ -2086,4 +2102,125 @@ export function mockApiResponse(
   }
 
   return undefined;
+}
+
+/** The issue page's details for Absolute Flash's newest issue. */
+function mockIssueStoryDetails(issueId: string, storyIssue: string) {
+  if (issueId !== storyIssue) {
+    return {
+      issue_id: issueId,
+      attempts: { search: 0, grab: 0, download: 0, import: 0 },
+      search: null,
+      chosen: null,
+      log: { query: `IssueID: ${issueId}`, lines: [] },
+    };
+  }
+  const row = (
+    title: string,
+    provider: string,
+    size: number,
+    status: string,
+    reason_code: string,
+    reason: string,
+  ) => ({
+    title,
+    provider,
+    source_kind: "nzb",
+    size_bytes: size,
+    pack: false,
+    status,
+    reason_code,
+    reason,
+  });
+  const chosen = "Absolute.Flash.018.2026.Digital";
+  return {
+    issue_id: issueId,
+    attempts: { search: 1, grab: 1, download: 1, import: 2 },
+    chosen,
+    search: {
+      total: 41,
+      accepted_count: 3,
+      rejected_count: 38,
+      providers: ["DrunkenSlug", "NZBgeek", "Prowlarr"],
+      searched_at: new Date(
+        Date.now() - (17 * 1440 + 9) * 60_000,
+      ).toISOString(),
+      accepted: [
+        {
+          ...row(
+            `${chosen}.cbz`,
+            "NZBgeek",
+            68_000_000,
+            "accepted",
+            "accepted.issue",
+            "Matches issue 18",
+          ),
+          chosen: true,
+        },
+        {
+          ...row(
+            "Absolute.Flash.018.2026.HD-Empire.cbz",
+            "DrunkenSlug",
+            74_000_000,
+            "accepted",
+            "accepted.issue",
+            "Matches issue 18",
+          ),
+          chosen: false,
+        },
+        {
+          ...row(
+            "Absolute Flash 018 (2026) (Webrip)",
+            "Prowlarr",
+            52_000_000,
+            "accepted",
+            "accepted.issue",
+            "Matches issue 18",
+          ),
+          chosen: false,
+        },
+      ],
+      rejected: [
+        row(
+          "Absolute.Flash.017.2026.Digital.cbz",
+          "NZBgeek",
+          66_000_000,
+          "rejected",
+          "rejected.issue_mismatch",
+          "Issue 17, wanted 18",
+        ),
+        row(
+          "Flash.018.2026.cbz",
+          "Prowlarr",
+          61_000_000,
+          "rejected",
+          "rejected.series_mismatch",
+          "Series Flash, wanted Absolute Flash",
+        ),
+        row(
+          "Absolute.Flash.018.Cover.jpg",
+          "DrunkenSlug",
+          900_000,
+          "rejected",
+          "rejected.size_below_min",
+          "Smaller than 5 MB",
+        ),
+      ],
+      reasons: [
+        { code: "rejected.issue_mismatch", label: "wrong issue", count: 21 },
+        { code: "rejected.series_mismatch", label: "wrong series", count: 9 },
+        { code: "rejected.size_below_min", label: "too small", count: 2 },
+        { code: "blocked.duplicate", label: "duplicates", count: 6 },
+      ],
+    },
+    log: {
+      query: chosen,
+      lines: [
+        "26-Oct-2026 14:02:11 - INFO    :: search : Absolute Flash #18 41 results from 3 indexers",
+        "26-Oct-2026 14:02:12 - INFO    :: search : Sending Absolute.Flash.018.2026.Digital to SABnzbd",
+        "26-Oct-2026 14:08:58 - INFO    :: postprocess : SABnzbd finished Absolute.Flash.018.2026.Digital",
+        "26-Oct-2026 14:09:02 - WARNING :: postprocess : Absolute.Flash.018.2026.Digital not found in /downloads/complete/comics",
+      ],
+    },
+  };
 }

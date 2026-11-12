@@ -337,7 +337,37 @@ def _bare_pack_pass_allowed(provider_stat):
     return provider_stat.get("type") == "torznab"
 
 
-def search_init(
+def search_init(*args, **kwargs):
+    """Search one issue and remember what the search saw for its issue page.
+
+    The outermost call owns the history: an AI-expanded retry reuses the
+    caller's session, so it must not clear or write the observations.
+    """
+    if kwargs.get("_ai_expanded"):
+        return _search_init(*args, **kwargs)
+    evaluator = kwargs.get("evaluator") or EvaluationSession()
+    kwargs["evaluator"] = evaluator
+    evaluator.take_observed()
+    try:
+        return _search_init(*args, **kwargs)
+    finally:
+        _record_search_history(args, kwargs, evaluator)
+
+
+def _record_search_history(args, kwargs, evaluator):
+    try:
+        issue_id = kwargs.get("IssueID") if "IssueID" in kwargs else (args[7] if len(args) > 7 else None)
+        observed = evaluator.take_observed()
+        if kwargs.get("rsschecker") and not observed:
+            return
+        from comicarr.app.search import search_history
+
+        search_history.record(issue_id, observed)
+    except Exception as e:
+        logger.fdebug("[SEARCH-HISTORY] Skipped recording search history: %s" % e)
+
+
+def _search_init(
     ComicName,
     IssueNumber,
     ComicYear,

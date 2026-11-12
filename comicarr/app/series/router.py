@@ -399,6 +399,14 @@ def set_issue_status(
     return result
 
 
+@router.get("/series/issues/{issue_id}/story", dependencies=[Depends(require_session)])
+async def get_issue_story_details(issue_id: str, ctx: AppContext = Depends(get_context)):
+    """Attempts, last search's candidates, matching log lines and the manual-import source."""
+    from comicarr.app.series import issue_story
+
+    return await asyncio.to_thread(issue_story.story_details, ctx, issue_id)
+
+
 @router.get("/series/issues/{issue_id}/search-preview", dependencies=[Depends(require_session)])
 def preview_wanted_issue_search(
     issue_id: str,
