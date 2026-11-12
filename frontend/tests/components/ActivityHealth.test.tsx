@@ -4,7 +4,13 @@ import { http, HttpResponse } from "msw";
 import { server } from "../mocks/server";
 import { render, screen } from "../test-utils";
 import ActivityPage from "@/pages/ActivityPage";
-import { ago, connectionRows, jobRows, until } from "@/lib/healthRows";
+import {
+  ago,
+  connectionRows,
+  jobRows,
+  responseLabel,
+  until,
+} from "@/lib/healthRows";
 
 const now = Math.floor(Date.now() / 1000);
 
@@ -122,7 +128,91 @@ describe("Activity > Health", () => {
   });
 });
 
+describe("Activity > Health connections", () => {
+  it("shows response times and tests one connection", async () => {
+    const tested: string[] = [];
+    const check = (key: string, extra: Record<string, unknown> = {}) => ({
+      key,
+      label: key === "sabnzbd" ? "SABnzbd" : "ComicVine",
+      kind: key === "sabnzbd" ? "client" : "metadata",
+      route: key === "sabnzbd" ? "nzb" : null,
+      checked_at: now - 60,
+      ok: true,
+      result: "Reachable",
+      latency_ms: 42.4,
+      latency_label: null,
+      version: null,
+      active: null,
+      ...extra,
+    });
+    server.use(
+      http.get("/api/system/connections", () =>
+        HttpResponse.json({
+          connections: [
+            check("sabnzbd"),
+            check("comicvine", { checked_at: null, ok: null, result: null }),
+          ],
+        }),
+      ),
+      http.post("/api/system/connections/:key/test", ({ params }) => {
+        tested.push(String(params.key));
+        return HttpResponse.json(
+          check(String(params.key), { latency_ms: 210, checked_at: now }),
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    render(<ActivityPage />, {
+      useMemoryRouter: true,
+      route: "/activity?view=health",
+    });
+
+    const rows = await screen.findAllByTestId("health-connection");
+    const cv = () =>
+      screen
+        .getAllByTestId("health-connection")
+        .find((row) => row.textContent?.includes("ComicVine"))!;
+    expect(rows[0].textContent).toContain("42 ms");
+    expect(cv().textContent).toContain("Not checked yet");
+
+    await user.click(screen.getByRole("button", { name: "Test ComicVine" }));
+    expect(tested).toEqual(["comicvine"]);
+    await screen.findByText("210 ms");
+    expect(cv().textContent).toContain("Reachable");
+  });
+
+  it("shows what each job did last time", async () => {
+    server.use(
+      http.get("/api/system/jobs", () =>
+        HttpResponse.json({
+          jobs: [
+            job("search", "Auto-Search", {
+              result: "1 grabbed of 40 searched",
+            }),
+          ],
+        }),
+      ),
+    );
+    render(<ActivityPage />, {
+      useMemoryRouter: true,
+      route: "/activity?view=health",
+    });
+    const [row] = await screen.findAllByTestId("health-job");
+    expect(row.textContent).toContain("1 grabbed of 40 searched");
+  });
+});
+
 describe("healthRows", () => {
+  it("labels latency the way the design does", () => {
+    expect(responseLabel(undefined)).toBe("—");
+    expect(responseLabel({ latency_ms: 118.2, latency_label: "median" })).toBe(
+      "118 ms median",
+    );
+    expect(responseLabel({ latency_ms: null, latency_label: "local" })).toBe(
+      "local",
+    );
+  });
+
   it("treats a failure newer than the last success as failing", () => {
     const [row] = jobRows([failingMonitor]);
     expect(row).toMatchObject({ failing: true, tone: "fail", runnable: true });

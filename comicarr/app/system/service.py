@@ -65,7 +65,7 @@ from comicarr.app.search.provider_config import (
     normalize_category_list,
     providers_from_config,
 )
-from comicarr.app.system import log_files
+from comicarr.app.system import job_results, log_files
 from comicarr.tables import comics, jobhistory
 
 _rate_limiter = LoginRateLimiter()
@@ -86,6 +86,7 @@ SCHEDULER_JOB_NAMES = {
     "activity_retention": "Activity Event Retention",
     "interactive_search_retention": "Interactive Search Retention",
     "manga_sync": "Manga ledger sync",
+    "connection_check": "Connection Check",
 }
 
 SETUP_PERSISTENCE_ERROR = "Failed to persist initial credentials"
@@ -1016,6 +1017,7 @@ def get_job_info(ctx, include_acquisition=True):
                 "last_error": sanitize_job_error(history.get("last_error")) if history.get("last_error") else None,
             },
         }
+        job_info["result"] = job_results.summarize(job.id, history.get("prev_run_timestamp"))
         if job.id == "weekly":
             if not history.get("status"):
                 status = getattr(comicarr, "WEEKLY_STATUS", "Waiting")

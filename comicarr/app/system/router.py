@@ -478,6 +478,33 @@ def run_job(job_id: str, ctx: AppContext = Depends(get_context)):
     return result
 
 
+@router.get("/system/connections", dependencies=[Depends(require_session)])
+def get_connections():
+    """Each configured connection with the answer it gave the last time it was checked."""
+    from comicarr.app.system import connections
+
+    return {"connections": connections.snapshot()}
+
+
+@router.post("/system/connections/test", dependencies=[Depends(require_session)])
+async def test_all_connections():
+    """Check every configured connection now."""
+    from comicarr.app.system import connections
+
+    return {"connections": await asyncio.to_thread(connections.test_all)}
+
+
+@router.post("/system/connections/{key}/test", dependencies=[Depends(require_session)])
+async def test_connection(key: str):
+    """Check one connection now and report how long it took to answer."""
+    from comicarr.app.system import connections
+
+    result = await asyncio.to_thread(connections.test_connection, key)
+    if result is None:
+        return JSONResponse(status_code=404, content={"detail": "No connection with that key is configured."})
+    return result
+
+
 @router.get("/system/diagnostics", dependencies=[Depends(require_session)])
 def get_startup_diagnostics(include_acquisition: bool = True, ctx: AppContext = Depends(get_context)):
     """Return startup diagnostics (db empty, migration dismissed)."""
