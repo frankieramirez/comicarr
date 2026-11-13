@@ -134,7 +134,7 @@ def test_scalar_import_id_is_treated_as_one_identifier(tmp_path):
 
     with (
         _environment([_row("imp-1", source)], target_directory),
-        patch("comicarr.updater.forceRescan"),
+        patch("comicarr.app.series.rescan.rescan_series"),
     ):
         result = finalization.finalize_manual_match(_ctx(), "imp-1", "mal-123")
 
@@ -165,7 +165,9 @@ def test_move_mode_finalizes_through_one_interface(tmp_path):
         patch.object(
             finalization.import_queries, "mark_imported", side_effect=lambda *_args, **_kwargs: events.append("commit")
         ) as mark_imported,
-        patch("comicarr.updater.forceRescan", side_effect=lambda *_args: events.append("rescan")) as force_rescan,
+        patch(
+            "comicarr.app.series.rescan.rescan_series", side_effect=lambda *_args: events.append("rescan")
+        ) as force_rescan,
     ):
         result = finalization.finalize_manual_match(_ctx(move=True), [" imp-1 ", "imp-1"], "mal-123")
 
@@ -205,7 +207,7 @@ def test_missing_manga_is_added_only_after_preflight(tmp_path):
         ) as add,
         patch.object(finalization.import_queries, "get_new_series_issue_id", return_value="mal-123-ch1"),
         patch.object(finalization.import_queries, "require_issue_resolution"),
-        patch("comicarr.updater.forceRescan"),
+        patch("comicarr.app.series.rescan.rescan_series"),
     ):
         result = finalization.finalize_manual_match(_ctx(), ["imp-1"], "mal-123", add_missing=True)
 
@@ -225,7 +227,7 @@ def test_issue_ids_resolve_per_record_with_fallback(tmp_path):
     with (
         _environment(rows, target_directory) as mark_imported,
         patch.object(finalization.import_queries, "get_issue_id", side_effect=["chapter-1", None]),
-        patch("comicarr.updater.forceRescan"),
+        patch("comicarr.app.series.rescan.rescan_series"),
     ):
         finalization.finalize_manual_match(
             _ctx(),
@@ -253,7 +255,7 @@ def test_move_preflight_rejects_existing_destination(tmp_path):
 
     with (
         _environment([_row("imp-1", source)], target_directory) as mark_imported,
-        patch("comicarr.updater.forceRescan") as force_rescan,
+        patch("comicarr.app.series.rescan.rescan_series") as force_rescan,
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="already exists") as exc_info:
             finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "mal-123")
@@ -284,7 +286,7 @@ def test_move_does_not_overwrite_destination_created_at_transfer_boundary(tmp_pa
     with (
         _environment([_row("imp-1", source)], target_directory) as mark_imported,
         patch.object(placement.os, "link", side_effect=link_with_late_destination),
-        patch("comicarr.updater.forceRescan") as force_rescan,
+        patch("comicarr.app.series.rescan.rescan_series") as force_rescan,
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="File exists") as exc_info:
             finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "mal-123")
@@ -387,7 +389,7 @@ def test_rename_failure_keeps_original_filename(tmp_path):
     with (
         _environment([_row("imp-1", source, issue_number="1")], target_directory),
         patch("comicarr.helpers.rename_param", side_effect=ValueError("bad format")),
-        patch("comicarr.updater.forceRescan"),
+        patch("comicarr.app.series.rescan.rescan_series"),
     ):
         finalization.finalize_manual_match(_ctx(move=True, rename=True), ["imp-1"], "mal-123")
 
@@ -430,7 +432,9 @@ def test_rescan_failure_rolls_back_and_reconciles(tmp_path):
 
     with (
         _environment([_row("imp-1", source)], target_directory) as mark_imported,
-        patch("comicarr.updater.forceRescan", side_effect=[RuntimeError("scan failed"), None]) as force_rescan,
+        patch(
+            "comicarr.app.series.rescan.rescan_series", side_effect=[RuntimeError("scan failed"), None]
+        ) as force_rescan,
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="scan failed") as exc_info:
             finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "mal-123")
@@ -451,7 +455,7 @@ def test_database_failure_after_move_restores_files_and_reconciles(tmp_path):
     with (
         _environment([_row("imp-1", source)], target_directory),
         patch.object(finalization.import_queries, "mark_imported", side_effect=RuntimeError("database unavailable")),
-        patch("comicarr.updater.forceRescan") as force_rescan,
+        patch("comicarr.app.series.rescan.rescan_series") as force_rescan,
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="database unavailable") as exc_info:
             finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "mal-123")
@@ -476,7 +480,7 @@ def test_database_failure_surfaces_incomplete_rollback(tmp_path):
         _environment([_row("imp-1", source)], target_directory),
         patch.object(finalization.import_queries, "mark_imported", side_effect=RuntimeError("database unavailable")),
         patch.object(placement, "restore_moved_file", side_effect=fail_reverse_move),
-        patch("comicarr.updater.forceRescan"),
+        patch("comicarr.app.series.rescan.rescan_series"),
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="rollback incomplete") as exc_info:
             finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "mal-123")
@@ -499,7 +503,7 @@ def test_database_failure_does_not_overwrite_recreated_source_during_rollback(tm
     with (
         _environment([_row("imp-1", source)], target_directory),
         patch.object(finalization.import_queries, "mark_imported", side_effect=recreate_source),
-        patch("comicarr.updater.forceRescan"),
+        patch("comicarr.app.series.rescan.rescan_series"),
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="rollback incomplete") as exc_info:
             finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "mal-123")
@@ -522,7 +526,7 @@ def test_database_failure_surfaces_missing_source_and_destination_during_rollbac
     with (
         _environment([_row("imp-1", source)], target_directory),
         patch.object(finalization.import_queries, "mark_imported", side_effect=delete_moved_file),
-        patch("comicarr.updater.forceRescan"),
+        patch("comicarr.app.series.rescan.rescan_series"),
     ):
         with pytest.raises(
             finalization.ImportFinalizationError, match="source and destination are missing"
@@ -546,7 +550,7 @@ def test_archive_mode_deduplicates_directories_and_is_retryable_after_commit_fai
     with (
         _environment(rows, target_directory),
         patch.object(finalization.import_queries, "mark_imported", side_effect=RuntimeError("database unavailable")),
-        patch("comicarr.updater.forceRescan") as force_rescan,
+        patch("comicarr.app.series.rescan.rescan_series") as force_rescan,
     ):
         with pytest.raises(finalization.ImportFinalizationError) as exc_info:
             finalization.finalize_manual_match(_ctx(), ["imp-1", "imp-2"], "mal-123")
@@ -590,7 +594,7 @@ def test_process_lock_prevents_finalizations_from_interleaving(tmp_path):
             "get_comic_for_import",
             return_value={"ComicName": "Berserk", "ComicLocation": str(target_directory)},
         ),
-        patch("comicarr.updater.forceRescan"),
+        patch("comicarr.app.series.rescan.rescan_series"),
     ):
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = [
@@ -751,7 +755,7 @@ class TestFinalizationHonoursFileOpts:
 
         with (
             _environment([_row("imp-1", source)], target_directory) as mark_imported,
-            patch("comicarr.updater.forceRescan"),
+            patch("comicarr.app.series.rescan.rescan_series"),
         ):
             result = finalization.finalize_manual_match(_ctx(move=True, file_opts=file_opts), ["imp-1"], "mal-123")
 
@@ -796,7 +800,7 @@ class TestFinalizationHonoursFileOpts:
 
         with (
             _environment([_row("imp-1", source)], target_directory) as mark_imported,
-            patch("comicarr.updater.forceRescan"),
+            patch("comicarr.app.series.rescan.rescan_series"),
         ):
             with pytest.raises(finalization.ImportFinalizationError, match="already exists"):
                 finalization.finalize_manual_match(_ctx(move=True, file_opts=file_opts), ["imp-1"], "mal-123")
@@ -855,7 +859,7 @@ class TestRollbackUnderSourcePreservingModes:
             patch.object(
                 finalization.import_queries, "mark_imported", side_effect=RuntimeError("database unavailable")
             ),
-            patch("comicarr.updater.forceRescan"),
+            patch("comicarr.app.series.rescan.rescan_series"),
         ):
             with pytest.raises(finalization.ImportFinalizationError, match="database unavailable"):
                 finalization.finalize_manual_match(_ctx(move=True, file_opts=file_opts), ["imp-1"], "mal-123")
@@ -886,7 +890,7 @@ class TestRollbackUnderSourcePreservingModes:
             patch.object(
                 finalization.import_queries, "mark_imported", side_effect=RuntimeError("database unavailable")
             ),
-            patch("comicarr.updater.forceRescan"),
+            patch("comicarr.app.series.rescan.rescan_series"),
         ):
             with pytest.raises(finalization.ImportFinalizationError) as exc_info:
                 finalization.finalize_manual_match(_ctx(move=True, file_opts="hardlink"), ["imp-1"], "mal-123")
@@ -922,7 +926,7 @@ class TestImportFileOptsIndependentOfFileOpts:
 
         with (
             _environment([_row("imp-1", source)], target_directory) as mark_imported,
-            patch("comicarr.updater.forceRescan"),
+            patch("comicarr.app.series.rescan.rescan_series"),
         ):
             result = finalization.finalize_manual_match(
                 _ctx(move=True, file_opts="copy", imp_file_opts="move"),
@@ -947,7 +951,7 @@ class TestImportFileOptsIndependentOfFileOpts:
             patch.object(
                 finalization.import_queries, "mark_imported", side_effect=RuntimeError("database unavailable")
             ),
-            patch("comicarr.updater.forceRescan"),
+            patch("comicarr.app.series.rescan.rescan_series"),
         ):
             with pytest.raises(finalization.ImportFinalizationError, match="database unavailable") as exc_info:
                 finalization.finalize_manual_match(
@@ -969,7 +973,7 @@ class TestImportFileOptsIndependentOfFileOpts:
 
         with (
             _environment([_row("imp-1", source)], target_directory),
-            patch("comicarr.updater.forceRescan"),
+            patch("comicarr.app.series.rescan.rescan_series"),
         ):
             result = finalization.finalize_manual_match(
                 _ctx(move=True, file_opts="move", imp_file_opts="copy"),
@@ -991,7 +995,7 @@ class TestImportFileOptsIndependentOfFileOpts:
 
         with (
             _environment([_row("imp-1", source)], target_directory),
-            patch("comicarr.updater.forceRescan") as force_rescan,
+            patch("comicarr.app.series.rescan.rescan_series") as force_rescan,
         ):
             result = finalization.finalize_manual_match(
                 _ctx(move=False, file_opts="copy", imp_file_opts=imp_file_opts),
@@ -1056,7 +1060,10 @@ class TestWriteMetadataOnImport:
             _environment([_row("imp-1", source, issue_number="1")], target_directory),
             patch.object(finalization.import_queries, "get_issue_id", return_value=issue_id),
             patch.object(finalization.import_queries, "mark_imported", side_effect=mark) as mark_imported,
-            patch("comicarr.updater.forceRescan", side_effect=lambda *_args, **_kwargs: events.append("rescan")),
+            patch(
+                "comicarr.app.series.rescan.rescan_series",
+                side_effect=lambda *_args, **_kwargs: events.append("rescan"),
+            ),
             patch("comicarr.cmtag.run", side_effect=tagger) as mock_cmtag,
         ):
             result = finalization.finalize_manual_match(
@@ -1168,7 +1175,7 @@ class TestWriteMetadataOnImport:
                 side_effect=lambda *_args, **_kwargs: events.append("commit"),
             ),
             patch(
-                "comicarr.updater.forceRescan",
+                "comicarr.app.series.rescan.rescan_series",
                 side_effect=lambda *_args, **_kwargs: events.append("rescan"),
             ) as force_rescan,
             patch("comicarr.cmtag.run", return_value=str(tagged)) as mock_cmtag,
@@ -1266,7 +1273,7 @@ class TestWriteMetadataOnImport:
         with (
             _environment([_row("imp-1", source, issue_number="1")], target_directory),
             patch.object(finalization.import_queries, "get_issue_id", return_value="cv-1"),
-            patch("comicarr.updater.forceRescan") as force_rescan,
+            patch("comicarr.app.series.rescan.rescan_series") as force_rescan,
             patch("comicarr.cmtag.run", return_value=str(tagged)),
         ):
             finalization.finalize_manual_match(
@@ -1296,7 +1303,7 @@ class TestWriteMetadataOnImport:
         with (
             _environment([_row("imp-1", source, issue_number="1")], target_directory),
             patch.object(finalization.import_queries, "get_issue_id", return_value="cv-1"),
-            patch("comicarr.updater.forceRescan"),
+            patch("comicarr.app.series.rescan.rescan_series"),
             patch("comicarr.cmtag.run", return_value=str(tagged)),
         ):
             result = finalization.finalize_manual_match(
@@ -1333,7 +1340,7 @@ def test_auto_import_protects_existing_issue_file(tmp_path, move, absolute):
                 }
             ],
         ),
-        patch("comicarr.updater.forceRescan") as rescan,
+        patch("comicarr.app.series.rescan.rescan_series") as rescan,
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="Possible duplicate") as exc_info:
             finalization.finalize_manual_match(_ctx(move=move), ["imp-1"], "cv-1", match_source="inbox-auto")
@@ -1354,7 +1361,7 @@ def test_unnumbered_auto_import_protects_existing_series_files(tmp_path):
     with (
         _environment([_row("imp-1", source)], library),
         patch.object(finalization.series_queries, "get_issues_full", return_value=[{"Location": existing.name}]),
-        patch("comicarr.updater.forceRescan") as rescan,
+        patch("comicarr.app.series.rescan.rescan_series") as rescan,
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="Possible duplicate"):
             finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "cv-1", match_source="inbox-auto")
@@ -1390,7 +1397,7 @@ def test_auto_duplicate_leaves_database_issue_and_import_unchanged(tmp_path):
         conn.execute(insert(importresults), _row("imp-1", source, issue_number="1"))
     with (
         patch.object(import_queries.db, "get_engine", return_value=engine),
-        patch("comicarr.updater.forceRescan") as rescan,
+        patch("comicarr.app.series.rescan.rescan_series") as rescan,
     ):
         with pytest.raises(finalization.ImportDuplicateError):
             finalization.finalize_manual_match(_ctx(move=True), ["imp-1"], "cv-1", match_source="inbox-auto")
