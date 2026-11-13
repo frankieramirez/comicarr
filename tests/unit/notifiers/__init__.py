@@ -1,1 +1,1 @@
-"""Tests for comicarr.notifiers module."""
+"""Tests for comicarr.app.notifications.service module."""

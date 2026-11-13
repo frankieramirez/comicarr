@@ -115,7 +115,7 @@ def mock_https_connection(mocker):
     mock_conn.getresponse.return_value = mock_response
 
     mock_class = mocker.patch(
-        "comicarr.notifiers.HTTPSConnection", return_value=mock_conn
+        "comicarr.app.notifications.service.HTTPSConnection", return_value=mock_conn
     )
 
     return {"class": mock_class, "connection": mock_conn, "response": mock_response}
@@ -142,8 +142,8 @@ def mock_smtp(mocker):
 
     Returns mocks for both SMTP classes.
     """
-    mock_smtp_class = mocker.patch("comicarr.notifiers.smtplib.SMTP")
-    mock_smtp_ssl_class = mocker.patch("comicarr.notifiers.smtplib.SMTP_SSL")
+    mock_smtp_class = mocker.patch("comicarr.app.notifications.service.smtplib.SMTP")
+    mock_smtp_ssl_class = mocker.patch("comicarr.app.notifications.service.smtplib.SMTP_SSL")
 
     mock_smtp_instance = MagicMock()
     mock_smtp_ssl_instance = MagicMock()
@@ -271,6 +271,6 @@ def notifiers_module(mock_notifier_config):
 
     This ensures comicarr.CONFIG is properly mocked before importing notifiers.
     """
-    from comicarr import notifiers
+    from comicarr.app.notifications import service as notifiers
 
     return notifiers

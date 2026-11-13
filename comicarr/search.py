@@ -52,7 +52,6 @@ from comicarr import (
     getcomics,
     helpers,
     logger,
-    notifiers,
     nzbget,
     rsscheck,
     sabnzbd,
@@ -67,6 +66,7 @@ from comicarr.app.common.remote_artifacts import (
 )
 from comicarr.app.core.workers import submit_background_future
 from comicarr.app.downloads import handoff
+from comicarr.app.notifications import service as notifiers
 from comicarr.app.search import failures as search_failures
 from comicarr.app.search import progress, prowlarr
 from comicarr.app.search.backlog import (
