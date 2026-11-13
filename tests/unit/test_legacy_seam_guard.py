@@ -68,13 +68,9 @@ def test_every_allowlist_entry_gives_a_reason_and_removal_trigger(guard):
             assert reason.strip() and trigger.strip()
 
 
-def test_router_allowlist_holds_todays_crossings(guard):
-    assert set(guard.ROUTER_ALLOWLIST) == {
-        ("comicarr/app/series/router.py", "mangasync"),
-        ("comicarr/app/series/router.py", "comicsync"),
-        ("comicarr/app/opds/router.py", "getimage"),
-        ("comicarr/app/opds/router.py", "readinglist"),
-    }
+def test_router_allowlist_is_empty(guard):
+    # ADR-0005: Foundations closes only with no router reaching a legacy module.
+    assert guard.ROUTER_ALLOWLIST == {}
 
 
 @pytest.mark.parametrize(
