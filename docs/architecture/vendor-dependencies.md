@@ -118,3 +118,45 @@ plan for replacement or removal. That governance decision does not upgrade the
 historical snapshot's redistribution status.
 
 Until then, `unresolved` is the only honest machine and documentation state.
+
+## Selected direction
+
+Decided on the [Foundations map](https://github.com/frankieramirez/comicarr/issues/1197),
+using the project-owner route described above. It is a behavior and
+compatibility plan. It does not change the redistribution status of either
+historical snapshot, which stays `unresolved` until the directory is deleted.
+
+Both integrations stay, and both vendored trees are replaced by first-party
+code under Comicarr's own GPL-3.0 license:
+
+- **uTorrent, first.** A WebUI client in `comicarr/torrent/clients/`, written
+  from the public WebUI API description (token fetch, `list`, and the
+  `action=` calls the adapter uses). The adapter fixtures required by the
+  contract above are captured from the current client before the swap and must
+  pass unchanged after it. Then `comicarr/_vendor/utorrent/` and its provenance
+  entry are deleted.
+- **Mega, second.** A public-link downloader in `comicarr/downloaders/`: read
+  the file key from the link, ask Mega's API for the download URL, decrypt the
+  stream with AES-CTR using a crypto library Comicarr already depends on, and
+  verify the result. Accounts, uploads and folders are out of scope because
+  Comicarr never used them. Then `comicarr/_vendor/mega/` and its provenance
+  entry are deleted.
+
+Rules for both rewrites:
+
+- The new code is written from protocol documentation and observed client
+  behavior. Nothing is copied or adapted from the vendored files, and the pull
+  request says so.
+- Each lands with recorded-response tests. A live check against the real
+  service is run once by hand and noted in the pull request.
+- If a rewrite turns out not to be practical, that integration is removed
+  under the legal exception in [ADR-0006](../adr/0006-deprecation-policy.md),
+  after a notice in at least one prior release. No other fallback is approved.
+
+async-mega.py (Apache-2.0) was considered for Mega and not chosen: its
+relationship to the odwyersoftware code could not be confirmed, and the feature
+is small enough to own. See the
+[research note](../research/2026-11-13-mega-utorrent-replacements.md).
+
+This is an engineering decision, not legal advice.
+
