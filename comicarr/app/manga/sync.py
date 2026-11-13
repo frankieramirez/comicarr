@@ -88,17 +88,14 @@ def empty_ledger_series():
 
 def heal_empty_ledgers():
     """Re-run add for manga series that have no chapter rows. No re-add from search."""
-    from comicarr import importer, series_kind
+    from comicarr.app.series import add as series_add
 
     healed = 0
     for series in empty_ledger_series():
         comic_id = series["ComicID"]
         logger.info("[MANGA-SYNC] Healing empty ledger for %s" % comic_id)
         try:
-            if series_kind.provider_of(comic_id) is series_kind.SeriesProvider.MYANIMELIST:
-                importer.addMangaToDB_MAL(comic_id)
-            else:
-                importer.addMangaToDB(comic_id)
+            series_add.add_manga(comic_id)
             healed += 1
         except Exception as e:
             logger.error("[MANGA-SYNC] Heal failed for %s: %s" % (comic_id, e))

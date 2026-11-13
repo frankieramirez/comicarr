@@ -192,8 +192,8 @@ def add_from_week(ctx, rowid, want=False, folder=None):
     before it marks queued issues Wanted, so the issue exists by the time its
     status is set.
     """
-    from comicarr import importer
     from comicarr.app.search import service as search_service
+    from comicarr.app.series import add as series_add
 
     row = weekly_queries.get_weekly_row(rowid)
     if row is None:
@@ -213,5 +213,5 @@ def add_from_week(ctx, rowid, want=False, folder=None):
         return result
     want_queued = bool(want and row.get("IssueID"))
     if want_queued:
-        importer.issue_watcher_thread([row["IssueID"]])
+        series_add.queue_issue_wants([row["IssueID"]])
     return {**result, "want_queued": want_queued}

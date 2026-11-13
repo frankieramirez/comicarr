@@ -158,8 +158,9 @@ def find_manga(ctx, name, limit=None, offset=None, sort=None):
 
 
 def add_comic(ctx, comic_id, folder=None):
-    """Add a comic to the watchlist via importer."""
-    from comicarr import importer, metron
+    """Add a comic to the watchlist via the Series add seam."""
+    from comicarr import metron
+    from comicarr.app.series import add as series_add
     from comicarr.app.series import location as series_location
 
     try:
@@ -182,7 +183,7 @@ def add_comic(ctx, comic_id, folder=None):
         watch = {"comicid": comic_id, "comicname": None, "seriesyear": None}
         if location:
             watch["location"] = location
-        importer.importer_thread([watch])
+        series_add.queue_series_adds([watch])
     except Exception as e:
         logger.error("[SEARCH] Error adding comic %s: %s" % (comic_id, e))
         return {"success": False, "error": "Could not queue this series. The log has the reason."}
@@ -200,8 +201,9 @@ def add_manga(ctx, manga_id, folder=None):
     if not ctx.config or not (mal_ok or mdex_ok):
         return {"success": False, "error": "Manga integration is not enabled"}
 
-    from comicarr import importer, series_kind
+    from comicarr import series_kind
     from comicarr.app.manga.duplicates import find_existing_manga_series
+    from comicarr.app.series import add as series_add
     from comicarr.app.series import location as series_location
 
     try:
@@ -231,7 +233,7 @@ def add_manga(ctx, manga_id, folder=None):
         watch = {"comicid": comic_id, "comicname": None, "seriesyear": None}
         if location:
             watch["location"] = location
-        importer.importer_thread([watch])
+        series_add.queue_series_adds([watch])
     except Exception as e:
         logger.error("[SEARCH] Error queueing manga %s: %s" % (manga_id, e))
         return {"success": False, "error": "Could not queue this manga. The log has the reason."}
