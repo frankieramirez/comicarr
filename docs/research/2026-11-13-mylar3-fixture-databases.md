@@ -21,16 +21,15 @@ Between v0.6.0 and v0.8.3 the columns added to tables Comicarr migrates are `com
 
 Comicarr's reader is tolerant by design. `comicarr/migration.py` copies the 16 tables in `MIGRATABLE_TABLES`, skips any table missing on either side, and copies only the columns both sides share (via `PRAGMA table_info`). The main risks an upgrade test should catch are therefore a missing `mylar_info`, missing late columns, and data in columns Comicarr does not have.
 
-**Recommended fixture recipe.** Build fixtures from Mylar3's own schema code rather than from anyone's library:
+**Fixture recipe, as run (2026-11-13, #1227).** `tests/fixtures/upgrade_matrix/build.py` builds the three Mylar3 fixtures from Mylar3's own schema code rather than from anyone's library. Mylar3 code is fetched at build time and never committed:
 
-1. Check out a pinned tag in a throwaway Python 3 environment with that tag's `requirements.txt`.
-2. Point Mylar3 at an empty data directory and let `dbcheck()` create the schema by starting `Mylar.py --nolaunch --datadir <dir>` and stopping it after startup. Calling `dbcheck()` directly after setting only `DB_FILE` does not work: `CONFIG` is `None` at import, and `dbcheck()` reads `CONFIG.DYNAMIC_UPDATE`.
-3. Insert a small synthetic library with plain SQL: a few comics, their issues and annuals, a story arc, a snatched row, a failed row and a weekly row, using made-up IDs and names.
-4. Export each database to SQL text (`sqlite3 <name>.db .dump > <name>.sql`) and commit the `.sql` files plus the generator script, so they can be reviewed and rebuilt.
+1. Fetch the pinned tag from `https://github.com/mylar3/mylar3` into a throwaway bare repository and `git archive` it.
+2. Use a Python 3.11 environment with enough of Mylar3's dependencies to import it (`MYLAR_REQUIREMENTS` in the script; set `MYLAR_PYTHON` to reuse one). The tags' own `requirements.txt` cannot be installed as written: v0.4.0 pins `Pillow~=6.2.2`, which no longer builds, and feedparser 5 does not build on 3.11 either. Neither package touches the schema.
+3. Write a seed `config.ini` into an empty data directory, then do what `Mylar.py` does at startup, without the web server: set `PROG_DIR`, `DATA_DIR`, `CONFIG_FILE` and `DB_FILE`, call `mylar.config.Config(...).read(startup=True)`, then `mylar.dbcheck()`. Starting `Mylar.py` and killing it is not needed. Calling `dbcheck()` without first reading the config still fails as predicted, because `CONFIG` is `None`. `read(startup=False)` fails too, on v0.6.9 and v0.8.3, because it calls `provider_sequence()`, which queries `provider_searches` before `dbcheck()` has created it.
+4. Three tag-specific fixes, all outside the schema: put each tag's bundled `lib/` after the standard library on `sys.path` (v0.4.0 ships a `pathlib` that imports `collections.Sequence`); give feedparser 6 an empty `_FeedParserMixin` (v0.4.0 patches feedparser 5's parser class at import, for RSS only); and install `setuptools<81` (v0.6.9 imports `pkg_resources`).
+5. Insert the standard synthetic library with plain SQL, skipping columns the tag lacks, then dump to SQL text with the script's version-stable dumper. `mylar_info` is the only table `dbcheck()` fills (one row, `DatabaseVersion = 0`, from v0.6.4 on). No other generated rows or timestamps needed pinning, and rebuilds reproduce the committed files byte for byte.
 
-Three fixtures cover the range: **v0.4.0** (oldest, no `mylar_info`), **v0.6.9** (mid-range, `mylar_info` present, before the 2022 additions), and **v0.8.3** (current). The generator is headless and needs no network beyond fetching the tag.
-
-Caveat: this note did not run the recipe. Step 2 should be confirmed against v0.4.0, whose startup code is older.
+What it produced: v0.4.0 creates 19 tables and has no `mylar_info`. v0.6.9 and v0.8.3 create 24 tables each. The matrix imports each through `Mylar3Migration.execute()` into a fresh install. Row counts, statuses and file locations survive, the app boots after the operator releases the reconciliation gate, and a second import adds no rows. The config import has two bugs, filed as #1254 (Mylar's `config_version` is copied, so Comicarr's config migrations run again) and #1255 (unset credentials become the literal `"None"`).
 
 ## Sources
 
