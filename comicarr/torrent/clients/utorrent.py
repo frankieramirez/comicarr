@@ -1,6 +1,6 @@
 import os
 
-from comicarr._vendor.utorrent.client import UTorrentClient
+from comicarr.torrent.clients.utorrent_webui import UTorrentClient
 from comicarr.torrent.contracts import connection_failure
 
 
@@ -16,10 +16,7 @@ class TorrentClient(object):
             return connection_failure("No host specified")
 
         try:
-            if username and password:
-                self.conn = UTorrentClient(host, username, password)
-            else:
-                self.conn = UTorrentClient(host)
+            self.conn = UTorrentClient(host, username, password)
         except Exception as e:
             return connection_failure(e)
 

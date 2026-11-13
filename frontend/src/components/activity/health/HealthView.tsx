@@ -5,11 +5,13 @@ import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import { useToast } from "@/components/ui/toast";
 import {
   useConnections,
+  useDeprecations,
   useJobsHealth,
   useRunJob,
   useSearchHealth,
   useTestConnection,
 } from "@/hooks/useAcquisitionHealth";
+import type { DeprecationInUse } from "@/hooks/useAcquisitionHealth";
 import { getErrorMessage } from "@/lib/api";
 import {
   TONE_COLOR,
@@ -25,6 +27,8 @@ import { cn } from "@/lib/utils";
 
 const JOB_COLS =
   "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(160px,1.2fr)_110px_110px_minmax(0,2fr)_96px]";
+const DEPRECATION_COLS =
+  "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(160px,1.2fr)_minmax(0,2fr)_110px_96px]";
 const CONNECTION_COLS =
   "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(160px,1.2fr)_110px_110px_minmax(0,2fr)_96px]";
 
@@ -195,6 +199,61 @@ function ConnectionLine({ row }: { row: ConnectionRow }) {
   );
 }
 
+function DeprecationLine({ entry }: { entry: DeprecationInUse }) {
+  return (
+    <div
+      data-testid="health-deprecation"
+      className={`grid ${DEPRECATION_COLS} min-h-10 items-center gap-x-3 border-b border-border-subtle px-4 py-1.5 text-[13px]`}
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <Dot tone="warn" />
+        <span className="text-foreground">{entry.name}</span>
+      </span>
+      <span className="text-foreground-2 max-md:col-span-2 max-md:row-start-2 max-md:pl-3.5">
+        {entry.replacement}
+      </span>
+      <span className="font-mono text-xs text-foreground-2 max-md:hidden">
+        {entry.removable_from}
+      </span>
+      <span className="flex justify-end max-md:col-start-2 max-md:row-start-1">
+        <a
+          href={entry.docs_url}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Read about ${entry.name}`}
+          className="px-2 text-[13px] text-foreground-2 hover:text-foreground"
+        >
+          Details
+        </a>
+      </span>
+    </div>
+  );
+}
+
+/** Only installs that use a deprecated feature see this section (ADR-0006). */
+function DeprecationsSection() {
+  const { data } = useDeprecations();
+  const entries = data?.deprecations ?? [];
+  if (entries.length === 0) return null;
+  return (
+    <section aria-labelledby="health-deprecations" className="mb-8">
+      <div id="health-deprecations">
+        <SectionHeading
+          title="Deprecated features in use"
+          meta={`${entries.length} still working`}
+        />
+      </div>
+      <ColumnHeads
+        cols={DEPRECATION_COLS}
+        heads={["Feature", "Use instead", "Removable from", "Docs"]}
+      />
+      {entries.map((entry) => (
+        <DeprecationLine key={entry.id} entry={entry} />
+      ))}
+    </section>
+  );
+}
+
 /**
  * Activity > Health (v2 design 08): background jobs and the connections
  * downloads depend on, each with a plain answer to "is it working?".
@@ -213,6 +272,7 @@ export default function HealthView() {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-8 md:px-8">
+      <DeprecationsSection />
       <section aria-labelledby="health-jobs">
         <div id="health-jobs">
           <SectionHeading

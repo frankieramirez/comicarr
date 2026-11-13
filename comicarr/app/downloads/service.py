@@ -30,6 +30,7 @@ from comicarr.app.downloads import postprocessing
 from comicarr.app.downloads import queries as dl_queries
 from comicarr.app.downloads.completed_path import resolve_completed_download_file
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
+from comicarr.app.series import rescan as series_rescan
 from comicarr.downloaders import mediafire, mega, pixeldrain
 from comicarr.tables import annuals, comics, ddl_info, issues, storyarcs, weekly
 
@@ -868,7 +869,7 @@ def duplicate_filecheck(filename, ComicID=None, IssueID=None, StoryArcID=None, r
                         return rtnval
                     else:
                         rtnval = {"action": "dont_dupe"}
-                        comicarr.updater.forceRescan(ComicID)
+                        series_rescan.rescan_series(ComicID)
                         chk1 = duplicate_filecheck(filename, ComicID, IssueID, StoryArcID, rtnval)
                         rtnval = chk1
             else:
