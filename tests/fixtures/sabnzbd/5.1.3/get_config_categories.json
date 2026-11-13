@@ -1,0 +1,24 @@
+{
+  "body": {
+    "config": {
+      "categories": [
+        {
+          "dir": "comics",
+          "name": "comics",
+          "newzbin": "",
+          "order": 0,
+          "pp": "",
+          "priority": -100,
+          "script": "Default"
+        }
+      ]
+    }
+  },
+  "request": {
+    "keyword": "comics",
+    "mode": "get_config",
+    "output": "json",
+    "section": "categories"
+  },
+  "status_code": 200
+}

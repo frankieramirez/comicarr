@@ -10,6 +10,7 @@
 """End-to-end acquisition stage contracts with fake external boundaries."""
 
 import queue
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -24,6 +25,9 @@ from comicarr.app.core.context import AppContext
 from comicarr.app.downloads import handoff, journal, postprocessing, recovery
 from comicarr.app.series import service as series_service
 from comicarr.tables import acquisition_run_items, acquisition_runs, comics, issues, metadata, nzblog, pipeline_journal
+from tests.fakes import pipeline
+from tests.fakes import sabnzbd as sab_fake
+from tests.fakes.sabnzbd import FakeSabnzbd
 
 
 @pytest.fixture(autouse=True)
@@ -334,3 +338,279 @@ def test_duplicate_accepted_handoff_never_resubmits_externally(tmp_path):
         )
     assert calls == ["submitted"]
     assert journal.read_one(release_key)["stage"] == journal.SNATCHED
+
+
+# ---------------------------------------------------------------------------
+# SABnzbd scenarios (docs/testing/first-class-targets.md). Each runs the real
+# handoff, monitor, completed-download handling and post-processing against
+# FakeSabnzbd, which answers with responses recorded from SABnzbd 5.1.3.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def sab(tmp_path, monkeypatch):
+    fake = FakeSabnzbd().install(monkeypatch)
+    local_complete = tmp_path / "sab" / "complete"
+    local_complete.mkdir(parents=True)
+    monkeypatch.setattr(
+        comicarr,
+        "CONFIG",
+        pipeline.default_config(
+            SAB_HOST=fake.host,
+            SAB_APIKEY=fake.apikey,
+            SAB_CATEGORY=fake.category,
+            SAB_VERSION=sab_fake.VERSION,
+            SAB_MOVING_DELAY=0,
+            SAB_CLIENT_POST_PROCESSING=True,
+            SAB_DIRECTORY=str(local_complete),
+            MANUAL_PP_FOLDER=str(tmp_path / "downloads"),
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
+    monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
+    monkeypatch.setattr(comicarr, "NZB_QUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr("comicarr.sabnzbd.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("comicarr.app.downloads.service.time.sleep", lambda _seconds: None)
+    # Post-processing waits for a file renamed in the last ten seconds to
+    # settle. Its clock runs a minute ahead so the wait passes at once.
+    monkeypatch.setattr(
+        "comicarr.postprocessor.time", SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _seconds: None)
+    )
+    series_root = tmp_path / "library" / "Absolute Batman (2024)"
+    series_root.mkdir(parents=True)
+    with db.get_engine().begin() as conn:
+        conn.execute(comics.insert().values(**pipeline.comic_series_row(series_root)))
+        conn.execute(issues.insert().values(**pipeline.comic_issue_row()))
+    fake.local_complete = local_complete
+    fake.series_root = series_root
+    fake.nzb = pipeline.cached_nzb(tmp_path)
+    return fake
+
+
+def _download_lands(sab, nzo_id, folder=None):
+    """SABnzbd finishes the job: the archive is on disk where Comicarr can read it."""
+    return pipeline.write_download((folder or sab.local_complete) / sab.category / pipeline.RELEASE / pipeline.FILENAME)
+
+
+def _assert_in_library(sab):
+    placed = sab.series_root / pipeline.FILENAME
+    assert placed.is_file()
+    issue, summary = pipeline.library_issue()
+    assert issue["fulfillment"] == "downloaded"
+    assert summary["owned"] == 1
+    assert journal.read_one(pipeline.release_key())["stage"] == journal.POST_PROCESSED
+
+
+def test_sab_handoff_is_verified_from_sabs_own_response(sab):
+    response, item = pipeline.send_to_sab(sab.nzb)
+
+    [nzo_id] = sab.jobs
+    assert response["nzo_id"] == nzo_id
+    row = journal.read_one(pipeline.release_key())
+    assert row["stage"] == journal.SNATCHED
+    assert nzo_id in str(row)
+    [upload] = [call for call in sab.calls if call["mode"] == "addfile"]
+    assert upload["method"] == "POST" and "comicarr" not in str(upload).lower()
+
+    sab.complete(nzo_id, str(_download_lands(sab, nzo_id)))
+    assert pipeline.monitor_sab(item)["status"] is True
+    assert pipeline.post_process_next().status == "processed"
+    _assert_in_library(sab)
+
+
+def test_sab_rejected_upload_is_a_named_failure(sab, tmp_path):
+    bad = tmp_path / "cache" / "broken.nzb"
+    bad.write_bytes(b"not an nzb")
+
+    response, item = pipeline.send_to_sab(bad, name="broken")
+
+    assert response == {"status": False}
+    assert item is None
+    row = journal.read_one(pipeline.release_key("broken"))
+    assert row["stage"] == journal.FAILED
+    assert row["fail_reason"] == "submission_rejected"
+    issue, _summary = pipeline.library_issue()
+    assert issue["fulfillment"] != "downloaded"
+
+
+def test_sab_completed_path_with_remote_path_mapping(sab, monkeypatch):
+    """SABnzbd reports its own path; SAB_DIRECTORY maps it to where Comicarr sees the job."""
+    monkeypatch.setattr(comicarr.CONFIG, "SAB_DIRECT_UNPACK", True)
+    _response, item = pipeline.send_to_sab(sab.nzb)
+    [nzo_id] = sab.jobs
+    remote = sab.remote_storage(nzo_id, pipeline.FILENAME)
+    local = pipeline.write_download(sab.local_complete / pipeline.RELEASE / pipeline.FILENAME)
+    sab.complete(nzo_id, remote)
+
+    nzstat = pipeline.monitor_sab(item)
+
+    assert not remote.startswith(str(sab.local_complete))
+    assert nzstat["location"] == str(local.parent)
+    assert pipeline.post_process_next().status == "processed"
+    _assert_in_library(sab)
+
+
+def test_sab_completed_path_without_remote_path_mapping(sab):
+    """SABnzbd and Comicarr share a filesystem: the reported path is opened as-is."""
+    _response, item = pipeline.send_to_sab(sab.nzb)
+    [nzo_id] = sab.jobs
+    archive = _download_lands(sab, nzo_id)
+    sab.complete(nzo_id, str(archive))
+
+    nzstat = pipeline.monitor_sab(item)
+
+    assert nzstat["location"] == str(archive.parent)
+    assert not any(call["mode"] in ("status", "get_config") for call in sab.calls)
+    assert pipeline.post_process_next().status == "processed"
+    _assert_in_library(sab)
+
+
+def test_sab_missing_completed_path_goes_to_manual_review(sab):
+    _response, item = pipeline.send_to_sab(sab.nzb)
+    [nzo_id] = sab.jobs
+    sab.complete(nzo_id, sab.remote_storage(nzo_id, pipeline.FILENAME))
+
+    nzstat = pipeline.monitor_sab(item)
+
+    assert nzstat["status"] == "file not found"
+    assert comicarr.PP_QUEUE.empty()
+    row = journal.read_one(pipeline.release_key())
+    assert row["stage"] == journal.MANUAL_REVIEW
+    assert row["fail_reason"] == "sab_completed_file_not_found"
+    issue, _summary = pipeline.library_issue()
+    assert issue["fulfillment"] != "downloaded"
+
+
+def test_sab_history_removed_before_comicarr_reads_it(sab):
+    _response, item = pipeline.send_to_sab(sab.nzb)
+    [nzo_id] = sab.jobs
+    sab.forget(nzo_id)
+
+    nzstat = pipeline.monitor_sab(item)
+
+    assert nzstat["status"] == "nzb removed"
+    assert comicarr.PP_QUEUE.empty()
+    row = journal.read_one(pipeline.release_key())
+    assert row["stage"] == journal.MANUAL_REVIEW
+    assert row["fail_reason"] == "sab_job_missing_from_client"
+    issue, _summary = pipeline.library_issue()
+    assert issue["fulfillment"] != "downloaded"
+
+
+def test_sab_failed_download_leads_to_a_retry(sab, monkeypatch):
+    monkeypatch.setattr(comicarr.CONFIG, "FAILED_DOWNLOAD_HANDLING", True)
+    monkeypatch.setattr(comicarr.CONFIG, "FAILED_AUTO", True)
+    _response, item = pipeline.send_to_sab(sab.nzb)
+    [nzo_id] = sab.jobs
+    sab.fail(nzo_id)
+
+    nzstat = pipeline.monitor_sab(item)
+
+    assert nzstat["status"] is True and nzstat["failed"] is True
+    result = pipeline.post_process_next()
+    assert result.status == "processed"
+    row = journal.read_one(pipeline.release_key())
+    assert row["stage"] == journal.FAILED
+    issue, _summary = pipeline.library_issue()
+    assert issue["fulfillment"] != "downloaded"
+    retry = comicarr.SEARCH_QUEUE.get_nowait()
+    assert retry["issueid"] == pipeline.ISSUE_ID
+
+
+def test_sab_category_routing(sab, monkeypatch):
+    """The upload names the category; a job moved out of it is still followed."""
+    _response, item = pipeline.send_to_sab(sab.nzb)
+    [upload] = [call for call in sab.calls if call["mode"] == "addfile"]
+    assert upload["cat"] == "comics"
+    [nzo_id] = sab.jobs
+    assert sab.jobs[nzo_id]["category"] == "comics"
+    sab.jobs[nzo_id]["category"] = "sorted-elsewhere"
+    sab.complete(nzo_id, str(_download_lands(sab, nzo_id)))
+
+    pipeline.monitor_sab(item)
+
+    assert pipeline.post_process_next().status == "processed"
+    _assert_in_library(sab)
+
+
+def test_sab_restart_mid_download_resumes_monitoring(sab):
+    _response, item = pipeline.send_to_sab(sab.nzb)
+    [nzo_id] = sab.jobs
+    sab.start(nzo_id)
+
+    restarted = recovery.replay_pipeline()
+
+    assert journal.read_one(pipeline.release_key())["stage"] == journal.SNATCHED
+    rebuilt = comicarr.NZB_QUEUE.get_nowait()
+    assert rebuilt["nzo_id"] == nzo_id
+    assert restarted["open"] == 1
+    sab.complete(nzo_id, str(_download_lands(sab, nzo_id)))
+    pipeline.monitor_sab(rebuilt)
+    assert pipeline.post_process_next().status == "processed"
+    _assert_in_library(sab)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="SABnzbd 5 answers a wrong key with HTTP 403 text, which the probe reads as Reachable: "
+    "https://github.com/frankieramirez/comicarr/issues/1260",
+)
+def test_sab_wrong_api_key_is_a_connection_failure(sab, monkeypatch):
+    from comicarr.app.system import connections
+
+    monkeypatch.setattr(comicarr.CONFIG, "SAB_APIKEY", "a-stale-key")
+
+    response, item = pipeline.send_to_sab(sab.nzb)
+
+    assert response == {"status": False} and item is None
+    assert sab.jobs == {}
+    assert journal.read_one(pipeline.release_key())["fail_reason"] == "submission_rejected"
+    issue, _summary = pipeline.library_issue()
+    assert issue["fulfillment"] != "downloaded"
+    probe = connections._probe_sabnzbd(comicarr.CONFIG)
+    assert probe.ok is False
+    assert "API key" in probe.result
+
+
+def test_sab_unreachable_host_is_a_connection_failure(sab):
+    from comicarr.app.downloads import recovery_classify
+
+    _response, item = pipeline.send_to_sab(sab.nzb)
+    [nzo_id] = sab.jobs
+    sab.reachable = False
+
+    row = journal.read_one(pipeline.release_key())
+    assert recovery_classify.classify(row) == "unknown"
+    restarted = recovery.replay_pipeline()
+    assert journal.read_one(pipeline.release_key())["stage"] == journal.SNATCHED
+    assert restarted["open"] == 1
+
+    sab.reachable = True
+    sab.complete(nzo_id, str(_download_lands(sab, nzo_id)))
+    pipeline.monitor_sab(item)
+    assert pipeline.post_process_next().status == "processed"
+    _assert_in_library(sab)
+
+
+@pytest.fixture
+def current_comicvine_issue_id(monkeypatch):
+    monkeypatch.setattr(pipeline, "ISSUE_ID", "1086215")
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="IssueIDs at or above 900000 key as one-offs, so a restart finds two rows for one grab: "
+    "https://github.com/frankieramirez/comicarr/issues/1261",
+)
+def test_sab_restart_with_a_current_comicvine_issue_id(current_comicvine_issue_id, sab):
+    _response, _item = pipeline.send_to_sab(sab.nzb)
+    [nzo_id] = sab.jobs
+    sab.start(nzo_id)
+
+    restarted = recovery.replay_pipeline()
+
+    assert restarted["open"] == 1
+    with db.get_engine().connect() as conn:
+        assert len(conn.execute(select(pipeline_journal)).all()) == 1
