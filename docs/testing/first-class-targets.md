@@ -18,12 +18,12 @@ change.
 
 | Scenario | Unit test | Pipeline test | Status |
 |---|---|---|---|
-| Bare-number filename, `auto` mode | `tests/unit/test_bare_numbers.py::test_auto_uses_volume_count_when_folder_matches_completed_set`, `tests/unit/test_bare_numbers.py::test_auto_treats_number_beyond_last_volume_as_chapter` | pending | pending #1221 |
-| Bare-number filename, `volumes` mode | `tests/unit/test_bare_numbers.py::test_explicit_volumes_mode_reads_naruto_bare_number_as_volume` | pending | pending #1221 |
-| Bare-number filename, `chapters` mode | `tests/unit/test_bare_numbers.py::test_explicit_chapters_mode_keeps_bare_number_as_chapter` | pending | pending #1221 |
-| `v`-prefixed volume | `tests/unit/test_bare_numbers.py::test_prefixed_volume_is_always_a_volume`, `tests/unit/test_manga_acquisition.py::test_volume_targets_search_v_prefix_not_chapter_tokens` | pending | pending #1221 |
-| A volume covers its chapters without marking them Have | `tests/unit/test_manga_ledger.py::test_covered_fulfillment_is_not_have_and_is_not_searchable`, `tests/unit/test_manga_ledger.py::test_owning_a_volume_covers_only_mapped_chapters` | pending | pending #1221 |
-| Blended-frontier search terms | `tests/unit/test_manga_acquisition.py::test_blended_searches_missing_volumes_and_chapters_beyond`, `tests/unit/test_manga_ledger.py::test_blended_frontier_counts_volumes_then_chapters_beyond` | pending | pending #1221 |
+| Bare-number filename, `auto` mode | `tests/unit/test_bare_numbers.py::test_auto_uses_volume_count_when_folder_matches_completed_set`, `tests/unit/test_bare_numbers.py::test_auto_treats_number_beyond_last_volume_as_chapter` | `tests/integration/test_acquisition_pipeline.py::test_manga_bare_number_auto_mode_reads_a_volume`, `tests/integration/test_acquisition_pipeline.py::test_manga_bare_number_auto_mode_reads_a_number_past_the_volumes_as_a_chapter` | covered |
+| Bare-number filename, `volumes` mode | `tests/unit/test_bare_numbers.py::test_explicit_volumes_mode_reads_naruto_bare_number_as_volume` | `tests/integration/test_acquisition_pipeline.py::test_manga_bare_number_volumes_mode_reads_a_volume` | covered |
+| Bare-number filename, `chapters` mode | `tests/unit/test_bare_numbers.py::test_explicit_chapters_mode_keeps_bare_number_as_chapter` | `tests/integration/test_acquisition_pipeline.py::test_manga_bare_number_chapters_mode_reads_a_chapter` | covered |
+| `v`-prefixed volume | `tests/unit/test_bare_numbers.py::test_prefixed_volume_is_always_a_volume`, `tests/unit/test_manga_acquisition.py::test_volume_targets_search_v_prefix_not_chapter_tokens` | `tests/integration/test_acquisition_pipeline.py::test_manga_v_prefixed_volume_is_a_volume_in_any_mode`, `tests/integration/test_acquisition_pipeline.py::test_manga_volume_grab_is_recorded_as_snatched` | covered; recording the volume grab is an expected failure, #1279 |
+| A volume covers its chapters without marking them Have | `tests/unit/test_manga_ledger.py::test_covered_fulfillment_is_not_have_and_is_not_searchable`, `tests/unit/test_manga_ledger.py::test_owning_a_volume_covers_only_mapped_chapters` | `tests/integration/test_acquisition_pipeline.py::test_manga_volume_covers_its_chapters_without_marking_them_have` | covered; expected failure until #1278 |
+| Blended-frontier search terms | `tests/unit/test_manga_acquisition.py::test_blended_searches_missing_volumes_and_chapters_beyond`, `tests/unit/test_manga_ledger.py::test_blended_frontier_counts_volumes_then_chapters_beyond` | `tests/integration/test_acquisition_pipeline.py::test_manga_blended_frontier_searches_volumes_then_chapters_beyond`, `tests/integration/test_acquisition_pipeline.py::test_manga_downloaded_volume_leaves_the_blended_frontier` | covered; a downloaded volume leaving the frontier is an expected failure, #1278 |
 | MangaDex ledger sync heals an empty ledger | `tests/unit/test_manga_sync.py::test_heal_empty_ledgers_reruns_add_for_md_and_mal` | pending | pending #1222 |
 | MAL-sourced series | `tests/unit/test_mal_prefix_drift.py::TestPostProcessingRoutesBothProviders::test_manga_ids_reach_the_manga_path`, `tests/unit/test_mal_prefix_drift.py::TestChapterPollCoversBothProviders::test_both_providers_are_polled_with_a_mangadex_id` | pending | pending #1222 |
 | Chapter placement in post-processing | `tests/unit/test_manga_postprocessor.py::TestProcessMangaChapterMatch::test_matches_chapter_and_updates_status`, `tests/unit/test_manga_postprocessor.py::TestProcessMangaFileMove::test_moves_files_to_series_folder` | pending | pending #1222 |
@@ -71,6 +71,11 @@ and how to record a fresh set. The fakes refuse any request to a host
 they do not serve, so no test reaches the network. Shared pipeline steps live
 in `tests/fakes/pipeline.py`.
 
+Manga pipeline tests start from the series' blended-frontier search plan and
+its search terms, hand the release to the SABnzbd fake, and run the manga
+branch of post-processing against chapter rows laid out as the MangaDex import
+writes them (`tests/fakes/pipeline.py`).
+
 A scenario that exposes a bug keeps its test, marked as an expected failure
 that links the bug. The Status column names it.
 
@@ -88,5 +93,5 @@ places.
 |---|---|---|---|---|
 | SABnzbd | `comicarr/sabnzbd.py` | 82.3% of 395 lines (78.0% before #1219) | 82.3% | met |
 | NZBGet | `comicarr/nzbget.py` | 56.4% of 220 lines (6.4% before #1220) | 56.4% | 23.6 |
-| Manga | `comicarr/app/manga/` | 91.1% of 528 lines | 91.1% | met |
+| Manga | `comicarr/app/manga/` | 91.3% of 528 lines (91.1% before #1221) | 91.3% | met |
 | Downloads | `comicarr/app/downloads/handoff.py`, `completed_path.py`, `sab_reconcile.py` | 84.3% of 350 lines | 84.3% | met |

@@ -813,3 +813,212 @@ def test_nzbget_wrong_password_is_an_authentication_failure(nzb, monkeypatch):
     probe = connections._probe_nzbget(comicarr.CONFIG)
     assert probe.ok is False
     assert probe.result == "NZBGet rejected the username or password"
+
+
+# -- manga --------------------------------------------------------------------
+
+
+@pytest.fixture
+def manga(sab, tmp_path, monkeypatch):
+    """A MangaDex series with two released volumes, handed off through SABnzbd."""
+    manga_dest = tmp_path / "manga"
+    series_root = manga_dest / pipeline.MANGA_SERIES
+    series_root.mkdir(parents=True)
+    monkeypatch.setattr(comicarr.CONFIG, "MANGA_DESTINATION_DIR", str(manga_dest))
+    with db.get_engine().begin() as conn:
+        conn.execute(comics.insert().values(**pipeline.manga_series_row(series_root)))
+        for row in pipeline.manga_chapter_rows():
+            conn.execute(issues.insert().values(**row))
+    sab.manga_root = series_root
+    sab.tmp_path = tmp_path
+    return sab
+
+
+def _manga_series():
+    from comicarr.tables import comics as t_comics
+
+    return db.select_one(select(t_comics).where(t_comics.c.ComicID == pipeline.MANGA_ID))
+
+
+def _set_manga(**values):
+    with db.get_engine().begin() as conn:
+        conn.execute(comics.update().where(comics.c.ComicID == pipeline.MANGA_ID).values(**values))
+
+
+def _manga_plan():
+    from comicarr.app.manga.acquisition import search_plan_for_series
+
+    return search_plan_for_series(_manga_series(), list(pipeline.manga_issues().values()))
+
+
+def _grab_manga(sab, target, filename):
+    """Search for ``target`` as manga RSS does, hand the release to SABnzbd, and post-process what lands."""
+    from comicarr.app.manga.acquisition import search_terms_for_target
+    from comicarr.app.manga.ledger import volume_id
+
+    if target["kind"] == "volume":
+        issueid = volume_id(pipeline.MANGA_ID, target["number"])
+    else:
+        issueid = target["id"]
+    [term, *_] = search_terms_for_target(pipeline.MANGA_SERIES, target)
+    name = term.replace(" ", ".")
+    response, item = pipeline.send_to_sab(
+        pipeline.cached_nzb(sab.tmp_path, name),
+        name,
+        issueid=issueid,
+        comicid=pipeline.MANGA_ID,
+        series=pipeline.MANGA_SERIES,
+    )
+    [nzo_id] = [nzo for nzo, job in sab.jobs.items() if job["name"] == name]
+    landed = pipeline.write_download(sab.local_complete / sab.category / name / filename)
+    sab.complete(nzo_id, str(landed))
+    pipeline.monitor_sab(item)
+    result = pipeline.post_process_next()
+    return term, issueid, result
+
+
+def _downloaded():
+    return sorted(
+        (row["ChapterNumber"] for row in pipeline.manga_issues().values() if row["Status"] == "Downloaded"),
+        key=float,
+    )
+
+
+def _volume_of(chapter):
+    return next((volume for volume, chapters in pipeline.MANGA_VOLUMES.items() if chapter in chapters), None)
+
+
+def test_manga_bare_number_auto_mode_reads_a_volume(manga):
+    """``auto``: one bare-numbered file against two volumes and ten chapters is a volume."""
+    term, _issueid, result = _grab_manga(manga, {"kind": "volume", "number": "2"}, "Sakamoto Days 02.cbz")
+
+    assert term == "Sakamoto Days v02"
+    assert result.status == "processed"
+    assert (manga.manga_root / "Sakamoto Days 02.cbz").is_file()
+    downloaded = _downloaded()
+    assert downloaded and {_volume_of(chapter) for chapter in downloaded} == {"2"}
+
+
+def test_manga_bare_number_auto_mode_reads_a_number_past_the_volumes_as_a_chapter(manga):
+    """``auto``: 9 is past the last of two volumes, so it can only be chapter 9."""
+    target = {"kind": "chapter", "id": pipeline.manga_chapter_id("9"), "number": "9"}
+    term, _issueid, result = _grab_manga(manga, target, "Sakamoto Days 09.cbz")
+
+    assert term == "Sakamoto Days c009"
+    assert result.status == "processed"
+    assert _downloaded() == ["9"]
+
+
+def test_manga_bare_number_volumes_mode_reads_a_volume(manga):
+    _set_manga(BareNumberMode="volumes")
+
+    _term, _issueid, result = _grab_manga(manga, {"kind": "volume", "number": "1"}, "Sakamoto Days 01.cbz")
+
+    assert result.status == "processed"
+    downloaded = _downloaded()
+    assert downloaded and {_volume_of(chapter) for chapter in downloaded} == {"1"}
+
+
+def test_manga_bare_number_chapters_mode_reads_a_chapter(manga):
+    _set_manga(BareNumberMode="chapters")
+    target = {"kind": "chapter", "id": pipeline.manga_chapter_id("2"), "number": "2"}
+
+    _term, _issueid, result = _grab_manga(manga, target, "Sakamoto Days 02.cbz")
+
+    assert result.status == "processed"
+    assert _downloaded() == ["2"]
+
+
+def test_manga_v_prefixed_volume_is_a_volume_in_any_mode(manga):
+    """``v01`` names a volume even when the series reads bare numbers as chapters."""
+    _set_manga(BareNumberMode="chapters")
+
+    term, _issueid, result = _grab_manga(
+        manga, {"kind": "volume", "number": "1"}, "Sakamoto Days v01 (2021) (Digital).cbz"
+    )
+
+    assert term == "Sakamoto Days v01"
+    assert result.status == "processed"
+    assert (manga.manga_root / "Sakamoto Days v01 (2021) (Digital).cbz").is_file()
+    downloaded = _downloaded()
+    assert downloaded and {_volume_of(chapter) for chapter in downloaded} == {"1"}
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="A manga volume is matched to one of its chapter rows, which is marked Downloaded, and the "
+    "other chapters are never covered: https://github.com/frankieramirez/comicarr/issues/1278",
+)
+def test_manga_volume_covers_its_chapters_without_marking_them_have(manga):
+    _grab_manga(manga, {"kind": "volume", "number": "1"}, "Sakamoto Days v01 (2021) (Digital).cbz")
+
+    rows = pipeline.manga_issues()
+    volume_one = [rows[pipeline.manga_chapter_id(chapter)] for chapter in pipeline.MANGA_VOLUMES["1"]]
+    assert all(row["Status"] != "Downloaded" for row in volume_one)
+    chapters, _summary = _manga_detail()
+    covered = {row["ChapterNumber"] for row in chapters if row.get("covered")}
+    assert covered == set(pipeline.MANGA_VOLUMES["1"])
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="Recording a manga volume grab looks up an issue row the volume does not have: "
+    "https://github.com/frankieramirez/comicarr/issues/1279",
+)
+def test_manga_volume_grab_is_recorded_as_snatched(manga):
+    from comicarr.app.manga.ledger import volume_id
+
+    name = "Sakamoto.Days.v02"
+    _response, item = pipeline.send_to_sab(
+        pipeline.cached_nzb(manga.tmp_path, name),
+        name,
+        issueid=volume_id(pipeline.MANGA_ID, "2"),
+        comicid=pipeline.MANGA_ID,
+        series=pipeline.MANGA_SERIES,
+    )
+
+    assert item["snatch_error"] is None
+
+
+def test_manga_blended_frontier_searches_volumes_then_chapters_beyond(manga):
+    from comicarr.app.manga.acquisition import search_terms_for_target
+
+    plan = _manga_plan()
+    assert [(target["kind"], target["number"]) for target in plan] == [
+        ("volume", "1"),
+        ("volume", "2"),
+        ("chapter", "9"),
+        ("chapter", "10"),
+    ]
+    assert [search_terms_for_target(pipeline.MANGA_SERIES, target)[0] for target in plan] == [
+        "Sakamoto Days v01",
+        "Sakamoto Days v02",
+        "Sakamoto Days c009",
+        "Sakamoto Days c010",
+    ]
+
+    _term, _issueid, result = _grab_manga(manga, plan[2], "Sakamoto Days c009 (2021) (Digital).cbz")
+
+    assert result.status == "processed"
+    assert _downloaded() == ["9"]
+    assert [(target["kind"], target["number"]) for target in _manga_plan()] == [
+        ("volume", "1"),
+        ("volume", "2"),
+        ("chapter", "10"),
+    ]
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="A downloaded manga volume never leaves the blended frontier, so it is searched again: "
+    "https://github.com/frankieramirez/comicarr/issues/1278",
+)
+def test_manga_downloaded_volume_leaves_the_blended_frontier(manga):
+    _grab_manga(manga, {"kind": "volume", "number": "1"}, "Sakamoto Days v01 (2021) (Digital).cbz")
+
+    assert ("volume", "1") not in [(target["kind"], target["number"]) for target in _manga_plan()]
+
+
+def _manga_detail():
+    detail = series_service.get_comic_detail(_ctx(), pipeline.MANGA_ID)
+    return detail["issues"], detail["summary"]

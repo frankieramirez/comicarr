@@ -128,62 +128,73 @@ def cached_nzb(tmp_path, name=RELEASE):
     return path
 
 
-def release_key(name=RELEASE):
-    return journal.release_key(ISSUE_ID, INDEXER, nzbname=name, discriminant=INDEXER_ID)
+def release_key(name=RELEASE, issueid=None):
+    return journal.release_key(issueid or ISSUE_ID, INDEXER, nzbname=name, discriminant=INDEXER_ID)
 
 
-def _hand_off(route, send, name):
+def _hand_off(route, send, name, *, issueid=None, comicid=None, series=None):
     """Run ``send`` through the handoff and record the grab as ``search.py`` does."""
-    key = release_key(name)
+    issueid, comicid, series = issueid or ISSUE_ID, comicid or COMIC_ID, series or SERIES
+    key = release_key(name, issueid)
     response, _acceptance = handoff.perform_handoff(
         key,
         route,
         send,
         payload={
-            "issueid": ISSUE_ID,
-            "comicid": COMIC_ID,
+            "issueid": issueid,
+            "comicid": comicid,
             "provider": INDEXER,
             "nzbname": name,
-            "comicname": SERIES,
+            "comicname": series,
             "issuenumber": "1",
         },
-        issueid=ISSUE_ID,
+        issueid=issueid,
         provider=INDEXER,
         nzbname=name,
     )
     if response.get("status") is not True:
         return response, None
-    # search.py records the grab once the client has accepted it.
-    updater.nzblog(ISSUE_ID, name, SERIES, id=INDEXER_ID, prov=INDEXER)
-    updater.foundsearch(
-        COMIC_ID,
-        ISSUE_ID,
-        mode="want",
-        provider=INDEXER,
-        nzbname=name,
-        journal_release_key=key,
-        journal_managed=True,
-    )
     item = dict(response)
     item.update(
-        comicid=COMIC_ID,
-        issueid=ISSUE_ID,
+        comicid=comicid,
+        issueid=issueid,
         apicall=True,
         download_info={"provider": INDEXER, "id": INDEXER_ID},
         journal_release_key=key,
         clientmode=route,
+        snatch_error=None,
     )
+    # search.py queues the monitor item inside searcher(), then records the
+    # grab. A failure while recording does not take the queued item back, so
+    # it is kept on the item for the test to look at rather than raised.
+    updater.nzblog(issueid, name, series, id=INDEXER_ID, prov=INDEXER)
+    try:
+        updater.foundsearch(
+            comicid,
+            issueid,
+            mode="want",
+            provider=INDEXER,
+            nzbname=name,
+            journal_release_key=key,
+            journal_managed=True,
+        )
+    except Exception as e:
+        item["snatch_error"] = e
     return response, item
 
 
-def send_to_sab(nzb_path, name=RELEASE):
-    """Hand a cached NZB to SABnzbd as ``search.py`` does; return (response, monitor item)."""
+def send_to_sab(nzb_path, name=RELEASE, **grab):
+    """Hand a cached NZB to SABnzbd as ``search.py`` does; return (response, monitor item).
+
+    ``grab`` may name the ``issueid``, ``comicid`` and ``series`` the search
+    was for; they default to the comic fixture.
+    """
     config = comicarr.CONFIG
     params = {"apikey": config.SAB_APIKEY, "mode": "addfile", "nzbname": name, "output": "json", "priority": "-100"}
     if config.SAB_CATEGORY:
         params["cat"] = config.SAB_CATEGORY
     sender = sabnzbd.SABnzbd(params)
-    return _hand_off("sabnzbd", lambda: sender.sender(str(nzb_path)), name)
+    return _hand_off("sabnzbd", lambda: sender.sender(str(nzb_path)), name, **grab)
 
 
 def send_to_nzbget(nzb_path, name=RELEASE):
@@ -214,3 +225,75 @@ def post_process_next():
 def library_issue():
     detail = series_service.get_comic_detail(AppContext(config=SimpleNamespace(ANNUALS_ON=False)), COMIC_ID)
     return detail["issues"][0], detail["summary"]
+
+
+# -- manga ------------------------------------------------------------------
+
+MANGA_ID = "md-7c1e2a4b-0000-4000-8000-000000000001"
+MANGA_SERIES = "Sakamoto Days"
+# Two released volumes of four chapters each, then two chapters past the last
+# volume, as MangaDex's chapter feed lays them out.
+MANGA_VOLUMES = {"1": ("1", "2", "3", "4"), "2": ("5", "6", "7", "8")}
+MANGA_BEYOND = ("9", "10")
+
+
+def manga_series_row(series_root, **overrides) -> dict:
+    row = {
+        "ComicID": MANGA_ID,
+        "ComicName": MANGA_SERIES,
+        "ComicSortName": MANGA_SERIES,
+        "ComicName_Filesafe": MANGA_SERIES,
+        "DynamicComicName": "sakamotodays",
+        "ComicYear": "2020",
+        "ComicPublisher": "Shueisha",
+        "ComicPublished": "2020 - Present",
+        "Type": "Print",
+        "ContentType": "manga",
+        "Status": "Active",
+        "LatestIssue": "10",
+        "LastUpdated": "2026-11-01 00:00:00",
+        "Have": 0,
+        "Total": 10,
+        "ComicLocation": str(series_root),
+        "BareNumberMode": "auto",
+        "MonitorMode": "blended",
+    }
+    row.update(overrides)
+    return row
+
+
+def manga_chapter_id(chapter) -> str:
+    return "%s-ch%s" % (MANGA_ID, chapter)
+
+
+def manga_chapter_rows() -> list[dict]:
+    """Chapter rows as the MangaDex import writes them: one per chapter, no volume rows."""
+    placed = [(chapter, volume) for volume, chapters in MANGA_VOLUMES.items() for chapter in chapters]
+    placed += [(chapter, None) for chapter in MANGA_BEYOND]
+    return [
+        {
+            "IssueID": manga_chapter_id(chapter),
+            "ComicID": MANGA_ID,
+            "ComicName": MANGA_SERIES,
+            "Issue_Number": chapter,
+            "IssueName": "Chapter %s" % chapter,
+            "Int_IssueNumber": int(chapter) * 1000,
+            "ChapterNumber": chapter,
+            "VolumeNumber": volume,
+            "Status": "Wanted",
+            "ReleaseDate": "2021-01-%02d" % int(chapter),
+            "IssueDate": "2021-01-%02d" % int(chapter),
+        }
+        for chapter, volume in placed
+    ]
+
+
+def manga_issues() -> dict[str, dict]:
+    """This series' issue rows by IssueID, as the database holds them now."""
+    from sqlalchemy import select
+
+    from comicarr import db
+    from comicarr.tables import issues
+
+    rows = db.select_all(select(issues).where(issues.c.ComicID == MANGA_ID))
+    return {row["IssueID"]: row for row in rows}
