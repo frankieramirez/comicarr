@@ -250,6 +250,16 @@ _PAYLOAD_KEYS = frozenset(
         "download_info",
         "fail_detail",
         "recovery_count",
+        # An owed story-arc copy (#1225): what recovery needs to make it from
+        # the placed library file without the download.
+        "arc_copy",
+        "issuearcid",
+        "library_file",
+        "arc_destination",
+        "story_arc",
+        "story_arc_id",
+        "reading_order",
+        "publisher",
     }
 )
 _DOWNLOAD_INFO_KEYS = frozenset({"provider", "id", "nzo_id", "NZBID", "hash", "nzbname", "clientmode"})
