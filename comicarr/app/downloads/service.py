@@ -2340,6 +2340,7 @@ def lookupthebitches(
 ):
     from sqlalchemy import select
 
+    from comicarr.app.downloads import snatch_record
     from comicarr.app.series.service import listLibrary
 
     watchlist = listLibrary()
@@ -2382,8 +2383,10 @@ def lookupthebitches(
             else:
                 oneoff = False
                 mode = "want"
-            comicarr.updater.nzblog(x["issueid"], nzbname, x["comicname"], id=nzbid, prov=prov, oneoff=oneoff)
-            comicarr.updater.foundsearch(
+            snatch_record.record_release_link(
+                x["issueid"], nzbname, x["comicname"], provider=prov, nzb_id=nzbid, one_off=oneoff
+            )
+            snatch_record.record_snatch(
                 x["comicid"],
                 x["issueid"],
                 mode=mode,
