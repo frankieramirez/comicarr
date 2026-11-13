@@ -92,10 +92,6 @@ SEAMS = {
 # Foundations closes only when this list is empty (ADR-0005).
 # --------------------------------------------------------------------------
 FOUNDATIONS_ALLOWLIST = {
-    ("comicarr/app/downloads/service.py", "updater"): (
-        "dupecheck calls dbUpdate",
-        "#1207 moves this caller onto app/series/refresh.py",
-    ),
     ("comicarr/app/imports/finalization.py", "importer"): (
         "manual import adds a missing series with addComictoDB",
         "#1209 moves Series add behind app/series/add.py",

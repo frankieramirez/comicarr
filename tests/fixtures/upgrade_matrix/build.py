@@ -42,8 +42,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 
-# Rows built from a release tag. Fresh needs no fixture.
+# Rows built from a release tag: (tag, schema revision at that release).
+# Fresh needs no fixture. A revision of None is a release from before Alembic,
+# whose own ``dbcheck()`` creates the schema and leaves no ``alembic_version``.
 ROWS = {
+    "Pre-Alembic": ("v0.19.4", None),
     "0.2x": ("v0.20.0", "0003_library_chat"),
     "0.3x": ("v0.30.0", "0007_interactive_search_progress"),
     "0.4x": ("v0.40.0", "0009_chat_actions"),
@@ -55,6 +58,7 @@ ROWS = {
 FIXED_TIMESTAMP = "2026-01-01T00:00:00+00:00"
 GENERATED_ROWS = {
     "alembic_version": None,
+    "mylar_info": None,
     "acquisition_maintenance": None,
     "acquisition_reconciliation": "updated_at",
     "acquisition_schema_versions": "applied_at",
@@ -79,30 +83,39 @@ sab_host = http://sab.invalid:8080
 sab_category = comics
 """
 
-# Runs inside the extracted tag, with that tag's comicarr package first on the
-# path. argv: database path, data directory.
+# Runs inside the extracted tag, with that tag's comicarr package (and its
+# bundled ``lib/``, for releases that had one) first on the path. argv:
+# data directory, then the expected revision or "legacy".
 ERA_SCRIPT = """
+import os
 import sys
 sys.path.insert(0, ".")
+sys.path.insert(0, "lib")
 from unittest.mock import MagicMock
-from sqlalchemy import create_engine
 import comicarr
 import comicarr.maintenance
 from comicarr import config as config_module
-from comicarr.app.core.schema import upgrade_database
 
-database, data_dir = sys.argv[1], sys.argv[2]
-engine = create_engine("sqlite:///" + database)
-print(upgrade_database(engine))
-engine.dispose()
-
+data_dir, revision = sys.argv[1], sys.argv[2]
 comicarr.DATA_DIR = data_dir
 comicarr.PROG_DIR = "."
 comicarr.maintenance.Maintenance.backup_files = lambda self, **kwargs: True
-cfg = config_module.Config(data_dir + "/config.ini")
+cfg = config_module.Config(os.path.join(data_dir, "config.ini"))
 cfg.configure = MagicMock()
 cfg.provider_sequence = MagicMock()
 cfg.read(startup=False)
+
+if revision == "legacy":
+    comicarr.CONFIG = cfg
+    comicarr.dbcheck()
+    print("legacy")
+else:
+    from sqlalchemy import create_engine
+    from comicarr.app.core.schema import upgrade_database
+
+    engine = create_engine("sqlite:///" + os.path.join(data_dir, "comicarr.db"))
+    print(upgrade_database(engine))
+    engine.dispose()
 """
 
 
@@ -345,7 +358,9 @@ def _ensure_tag(tag):
 
 def _extract_tag(tag, destination):
     _ensure_tag(tag)
-    archive = _git("archive", "--format=tar", tag, "comicarr", "alembic", "alembic.ini").stdout
+    names = set(_git("ls-tree", "--name-only", tag).stdout.decode().split())
+    paths = [path for path in ("comicarr", "alembic", "alembic.ini", "lib") if path in names]
+    archive = _git("archive", "--format=tar", tag, *paths).stdout
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
         tar.extractall(destination, filter="data")
 
@@ -420,10 +435,11 @@ def build_row(name):
         config_source = (tree / "comicarr" / "config.py").read_text(encoding="utf-8")
         config_version = re.search(r"self\.newconfig = (\d+)", config_source).group(1)
         (data_dir / "config.ini").write_text(CONFIG_OVERRIDES.format(config_version=config_version), encoding="utf-8")
-        database = scratch / "comicarr.db"
+        database = data_dir / "comicarr.db"
+        expected = revision or "legacy"
 
         result = subprocess.run(
-            [sys.executable, "-I", "-W", "ignore", "-c", ERA_SCRIPT, str(database), str(data_dir)],
+            [sys.executable, "-I", "-W", "ignore", "-c", ERA_SCRIPT, str(data_dir), expected],
             cwd=tree,
             capture_output=True,
             text=True,
@@ -431,8 +447,8 @@ def build_row(name):
         if result.returncode != 0:
             raise SystemExit("%s: release upgrade failed\n%s" % (tag, result.stderr))
         reached = result.stdout.strip().splitlines()[-1]
-        if reached != revision:
-            raise SystemExit("%s upgraded to %s, expected %s" % (tag, reached, revision))
+        if reached != expected:
+            raise SystemExit("%s upgraded to %s, expected %s" % (tag, reached, expected))
 
         connection = sqlite3.connect(database)
         try:

@@ -12,6 +12,7 @@ jobs:
     name: Changesets
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: write
       pull-requests: write
     outputs:
@@ -41,6 +42,14 @@ jobs:
           commit-message: 'chore: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # GITHUB_TOKEN pushes start no pull_request workflows, so the release PR
+      # would never get its benchmark run; a dispatch is allowed to start one.
+      - name: Benchmark the release PR
+        if: steps.changesets.outputs.pullRequestNumber != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run benchmark.yml --ref changeset-release/main
 
       - name: Prepare GitHub release
         id: prepare

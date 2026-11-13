@@ -18,10 +18,11 @@ See docs/testing/benchmark.md.
 import argparse
 import json
 import logging
+import os
 import sys
 
 from tests.benchmark.library import DEFAULT_SEED, generate
-from tests.benchmark.run import OPERATIONS, run, table
+from tests.benchmark.run import KNOWN_MISSES, OPERATIONS, compare, load_known_misses, markdown, run, table
 
 
 def main(argv=None):
@@ -36,6 +37,13 @@ def main(argv=None):
     measure.add_argument("folder", help="a folder made by generate")
     measure.add_argument("--output", help="write the results as JSON to this file")
     measure.add_argument("--only", action="append", choices=[op.key for op in OPERATIONS], help="repeatable")
+    measure.add_argument("--baseline", help="warn when an operation is over 25%% slower than this results file")
+    measure.add_argument("--known-misses", default=str(KNOWN_MISSES), help="misses that have an open issue")
+    measure.add_argument(
+        "--summary",
+        default=os.environ.get("GITHUB_STEP_SUMMARY"),
+        help="append a Markdown report to this file (default: $GITHUB_STEP_SUMMARY)",
+    )
 
     args = parser.parse_args(argv)
     if args.command == "generate":
@@ -52,9 +60,23 @@ def main(argv=None):
             json.dump(results, handle, indent=2)
             handle.write("\n")
     print(table(results))
-    missed = [op["label"] for op in results["operations"] if not op["met"]]
-    if missed:
-        print("\nMissed: %s" % ", ".join(missed), file=sys.stderr)
+
+    baseline = None
+    if args.baseline:
+        with open(args.baseline) as handle:
+            baseline = json.load(handle)
+    verdict = compare(results, baseline, load_known_misses(args.known_misses))
+    if args.summary:
+        with open(args.summary, "a") as handle:
+            handle.write(markdown(results, verdict, baseline))
+    annotate = os.environ.get("GITHUB_ACTIONS") == "true"
+    for kind, items in (("warning", verdict.warnings), ("notice", verdict.notes), ("error", verdict.failures)):
+        for item in items:
+            print("::%s::%s" % (kind, item) if annotate else "%s: %s" % (kind.capitalize(), item), file=sys.stderr)
+    if verdict.failures:
+        missed = [op["label"] for op in results["operations"] if not op["met"]]
+        if missed:
+            print("\nMissed: %s" % ", ".join(missed), file=sys.stderr)
         return 1
     return 0
 

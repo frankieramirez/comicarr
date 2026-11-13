@@ -36,7 +36,13 @@ from alembic import command
 from comicarr import config as config_module
 from comicarr import db
 from comicarr.app.core import runtime
-from comicarr.app.core.schema import alembic_config, current_revision, upgrade_database
+from comicarr.app.core.schema import (
+    DatabaseState,
+    alembic_config,
+    classify_database,
+    current_revision,
+    upgrade_database,
+)
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "upgrade_matrix"
 
@@ -73,6 +79,7 @@ _SEARCH_DELAY_SECONDS_BEFORE_19 = {("General", "search_delay"): "60"}  # default
 _CURRENT_CONFIG_VERSION = {("General", "config_version"): "19"}
 
 DRIFT_1251 = "https://github.com/frankieramirez/comicarr/issues/1251"
+DRIFT_1252 = "https://github.com/frankieramirez/comicarr/issues/1252"
 
 
 @dataclass(frozen=True)
@@ -83,6 +90,8 @@ class Row:
     config_changes: dict = field(default_factory=dict)
     # Check test name -> issue link, for a known migration bug.
     xfail: dict = field(default_factory=dict)
+    # A release from before Alembic: no alembic_version, adopted on upgrade.
+    legacy: bool = False
 
     @property
     def seeded(self):
@@ -91,6 +100,21 @@ class Row:
 
 ROWS = (
     Row("Fresh"),
+    Row(
+        "Pre-Alembic",
+        sql="Pre-Alembic.sql",
+        config="Pre-Alembic.config.ini",
+        legacy=True,
+        xfail={"test_1_upgrade_reaches_head_without_drift": DRIFT_1252},
+        config_changes={
+            **_RETIRED_BEFORE_16,
+            **_GITHUB_ON_BEFORE_16,
+            **_RETIRED_BEFORE_17,
+            **_RETIRED_BEFORE_18,
+            **_SEARCH_DELAY_SECONDS_BEFORE_19,
+            **_CURRENT_CONFIG_VERSION,
+        },
+    ),
     Row(
         "0.2x",
         sql="0.2x.sql",
@@ -212,14 +236,25 @@ class Install:
         finally:
             connection.close()
 
-    def preserved_values(self):
+    def preserved_columns(self):
+        """The check-3 columns this database has, so later columns are not compared."""
+
         connection = sqlite3.connect(self.database)
         try:
-            present = {name for (name,) in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-            values = {}
+            found = {}
             for table, (keys, columns) in PRESERVED_VALUES.items():
-                if table not in present:
-                    continue
+                present = {row[1] for row in connection.execute('PRAGMA table_info("%s")' % table)}
+                if present:
+                    found[table] = (keys, tuple(column for column in columns if column in present))
+            return found
+        finally:
+            connection.close()
+
+    def preserved_values(self, preserved_columns):
+        connection = sqlite3.connect(self.database)
+        try:
+            values = {}
+            for table, (keys, columns) in preserved_columns.items():
                 selected = ", ".join('"%s"' % column for column in keys + columns)
                 for row in connection.execute('SELECT %s FROM "%s"' % (selected, table)):
                     values[(table, row[: len(keys)])] = row[len(keys) :]
@@ -250,8 +285,12 @@ def install(request, tmp_path, monkeypatch):
 
 @pytest.fixture
 def upgraded(install):
+    if install.row.legacy:
+        assert "alembic_version" not in install.table_counts()
+        assert classify_database(install.engine) is DatabaseState.LEGACY
     install.before_counts = install.table_counts()
-    install.before_values = install.preserved_values()
+    install.preserved_columns = install.preserved_columns()
+    install.before_values = install.preserved_values(install.preserved_columns)
     assert upgrade_database(install.engine) == _head_revision()
     return install
 
@@ -272,7 +311,7 @@ def test_2_row_counts_are_preserved(upgraded):
 
 
 def test_3_statuses_wanted_flags_and_locations_are_unchanged(upgraded):
-    assert upgraded.preserved_values() == upgraded.before_values
+    assert upgraded.preserved_values(upgraded.preserved_columns) == upgraded.before_values
     expected = sum(len(seed.rows) for seed in build.SEED) if upgraded.row.seeded else 0
     assert len(upgraded.before_values) == expected
 
