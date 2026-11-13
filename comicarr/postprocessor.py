@@ -31,7 +31,7 @@ import time
 from sqlalchemy import Integer, and_, func, inspect, or_, select, update
 
 import comicarr
-from comicarr import db, filechecker, getimage, helpers, logger, notifiers, series_kind, updater, weeklypull
+from comicarr import db, filechecker, getimage, helpers, logger, series_kind, updater, weeklypull
 from comicarr.app.common.numbers import zero_suppression_prefix
 from comicarr.app.common.placement import OnExisting, Outcome, Purpose, place
 from comicarr.app.common.redaction import redacted_traceback
@@ -44,6 +44,7 @@ from comicarr.app.downloads.postprocess_pipeline import (
 )
 from comicarr.app.downloads.pp_commands import safe_walk
 from comicarr.app.manga.ledger import normalize_volume_number
+from comicarr.app.notifications import service as notifiers
 from comicarr.config import get_manga_destination
 from comicarr.tables import (
     annuals,

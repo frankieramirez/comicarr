@@ -43,28 +43,28 @@ def _mock_response(status_code, text=""):
 
 class TestDiscordWebhookSuccess:
     def test_status_204_returns_true(self, mock_webhook_config):
-        from comicarr.notifiers import DISCORD
+        from comicarr.app.notifications.service import DISCORD
 
         with patch("requests.post", return_value=_mock_response(204)):
             result = DISCORD(test_webhook_url=WEBHOOK_URL).notify("Test Message", "Release the Ninjas!")
         assert result is True
 
     def test_status_200_returns_true(self, mock_webhook_config):
-        from comicarr.notifiers import DISCORD
+        from comicarr.app.notifications.service import DISCORD
 
         with patch("requests.post", return_value=_mock_response(200)):
             result = DISCORD(test_webhook_url=WEBHOOK_URL).notify("Test Message", "Release the Ninjas!")
         assert result is True
 
     def test_status_500_returns_false(self, mock_webhook_config):
-        from comicarr.notifiers import DISCORD
+        from comicarr.app.notifications.service import DISCORD
 
         with patch("requests.post", return_value=_mock_response(500, "error")):
             result = DISCORD(test_webhook_url=WEBHOOK_URL).notify("Test Message", "Release the Ninjas!")
         assert result is False
 
     def test_request_exception_returns_false(self, mock_webhook_config):
-        from comicarr.notifiers import DISCORD
+        from comicarr.app.notifications.service import DISCORD
 
         with patch(
             "requests.post",
@@ -76,21 +76,21 @@ class TestDiscordWebhookSuccess:
 
 class TestSlackWebhookSuccess:
     def test_status_200_returns_true(self, mock_webhook_config):
-        from comicarr.notifiers import SLACK
+        from comicarr.app.notifications.service import SLACK
 
         with patch("requests.post", return_value=_mock_response(200, "ok")):
             result = SLACK(test_webhook_url=WEBHOOK_URL).notify("Test Message", "Release the Ninjas!")
         assert result is True
 
     def test_status_500_returns_false(self, mock_webhook_config):
-        from comicarr.notifiers import SLACK
+        from comicarr.app.notifications.service import SLACK
 
         with patch("requests.post", return_value=_mock_response(500, "error")):
             result = SLACK(test_webhook_url=WEBHOOK_URL).notify("Test Message", "Release the Ninjas!")
         assert result is False
 
     def test_request_exception_returns_false(self, mock_webhook_config):
-        from comicarr.notifiers import SLACK
+        from comicarr.app.notifications.service import SLACK
 
         with patch(
             "requests.post",
@@ -106,7 +106,7 @@ class TestSlackWebhookSuccess:
 )
 class TestSiblingWebhookSuccess:
     def test_status_200_returns_true(self, mock_webhook_config, notifier_name):
-        from comicarr import notifiers
+        from comicarr.app.notifications import service as notifiers
 
         cls = getattr(notifiers, notifier_name)
         with patch("requests.post", return_value=_mock_response(200, "ok")):
@@ -114,7 +114,7 @@ class TestSiblingWebhookSuccess:
         assert result is True
 
     def test_status_500_returns_false(self, mock_webhook_config, notifier_name):
-        from comicarr import notifiers
+        from comicarr.app.notifications import service as notifiers
 
         cls = getattr(notifiers, notifier_name)
         with patch("requests.post", return_value=_mock_response(500, "error")):
@@ -122,7 +122,7 @@ class TestSiblingWebhookSuccess:
         assert result is False
 
     def test_request_exception_returns_false(self, mock_webhook_config, notifier_name):
-        from comicarr import notifiers
+        from comicarr.app.notifications import service as notifiers
 
         cls = getattr(notifiers, notifier_name)
         with patch(
