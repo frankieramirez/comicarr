@@ -79,6 +79,38 @@ writes them (`tests/fakes/pipeline.py`).
 A scenario that exposes a bug keeps its test, marked as an expected failure
 that links the bug. The Status column names it.
 
+## Checking the recordings against the real clients
+
+A recording drifts when a client release changes its responses, and the fakes
+would keep replaying the old shape. The nightly `Download client contracts`
+workflow (`.github/workflows/client-contracts.yml`) starts the pinned images,
+replays the same exchanges as the recorders, and compares each live response
+with its recording by shape: keys, value types and status codes, never values.
+A key the client stopped sending, a new key, or a changed type fails the run
+and names the recording and field. It never gates a pull request; run it by
+hand from the Actions tab with *Run workflow*. Locally, `pytest tests/contract`
+skips unless `SAB_CONTRACT_URL` and `SAB_CONTRACT_APIKEY`, or
+`NZBGET_CONTRACT_URL`, `NZBGET_CONTRACT_USERNAME` and
+`NZBGET_CONTRACT_PASSWORD`, point at disposable instances.
+
+| Client | Pinned image | Recordings |
+|---|---|---|
+| SABnzbd | `linuxserver/sabnzbd:5.1.3-ls281` | `tests/fixtures/sabnzbd/5.1.3/` |
+| NZBGet | `linuxserver/nzbget:v26.3-ls271` | `tests/fixtures/nzbget/26.3/` |
+
+To move to a new client release:
+
+1. Run the recorder against the new image, as that fixture directory's
+   README describes. It writes a new `<version>/` directory.
+2. Point `VERSION` in `tests/fakes/sabnzbd.py` or `tests/fakes/nzbget.py` at it.
+3. Change the image in the workflow's `env` block and in the table above.
+4. Run `pytest tests/unit tests/integration/test_acquisition_pipeline.py`, then
+   dispatch the workflow on the branch before merging.
+
+When the nightly run fails on an unchanged pin, the image tag was rebuilt or
+the comparison found a field that depends on the job; read the reported field
+before re-recording.
+
 ## Coverage baseline
 
 Line coverage from the backend test workflow's run: the unit suite, then the
@@ -93,5 +125,5 @@ places.
 |---|---|---|---|---|
 | SABnzbd | `comicarr/sabnzbd.py` | 82.3% of 395 lines (78.0% before #1219) | 82.3% | met |
 | NZBGet | `comicarr/nzbget.py` | 56.4% of 220 lines (6.4% before #1220) | 56.4% | 23.6 |
-| Manga | `comicarr/app/manga/` | 91.3% of 528 lines (91.1% before #1221) | 91.3% | met |
+| Manga | `comicarr/app/manga/` | 91.3% of 526 lines (91.1% before #1221) | 91.3% | met |
 | Downloads | `comicarr/app/downloads/handoff.py`, `completed_path.py`, `sab_reconcile.py` | 84.3% of 350 lines | 84.3% | met |
