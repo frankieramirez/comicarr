@@ -61,12 +61,6 @@ COVERAGE_TARGET = 80.0
 # (table, scenario, column) -> the build ticket that will fill the cell.
 # Shrink-only: a filled cell must leave this list in the same change.
 PENDING = {
-    ("Manga", "Bare-number filename, `auto` mode", "pipeline"): 1221,
-    ("Manga", "Bare-number filename, `volumes` mode", "pipeline"): 1221,
-    ("Manga", "Bare-number filename, `chapters` mode", "pipeline"): 1221,
-    ("Manga", "`v`-prefixed volume", "pipeline"): 1221,
-    ("Manga", "A volume covers its chapters without marking them Have", "pipeline"): 1221,
-    ("Manga", "Blended-frontier search terms", "pipeline"): 1221,
     ("Manga", "MangaDex ledger sync heals an empty ledger", "pipeline"): 1222,
     ("Manga", "MAL-sourced series", "pipeline"): 1222,
     ("Manga", "Chapter placement in post-processing", "pipeline"): 1222,
@@ -81,7 +75,7 @@ PENDING = {
 COVERAGE_FLOORS = {
     "SABnzbd": (("comicarr/sabnzbd.py",), 82.3),
     "NZBGet": (("comicarr/nzbget.py",), 56.4),
-    "Manga": (("comicarr/app/manga/",), 91.1),
+    "Manga": (("comicarr/app/manga/",), 91.3),
     "Downloads": (
         (
             "comicarr/app/downloads/handoff.py",
