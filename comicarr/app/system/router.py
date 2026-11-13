@@ -486,6 +486,14 @@ def get_connections():
     return {"connections": connections.snapshot()}
 
 
+@router.get("/system/deprecations", dependencies=[Depends(require_session)])
+def get_deprecations():
+    """Deprecated features this install still relies on, for Activity > Health."""
+    from comicarr.app.system import deprecations
+
+    return {"deprecations": [entry.as_dict() for entry in deprecations.deprecations_in_use()]}
+
+
 @router.post("/system/connections/test", dependencies=[Depends(require_session)])
 async def test_all_connections():
     """Check every configured connection now."""
