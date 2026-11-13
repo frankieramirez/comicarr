@@ -51,6 +51,10 @@ Routers carry a stricter rule: a `router.py` imports no root module outside
 Infrastructure. The five crossings that exist today are allowlisted and must
 reach zero before Foundations closes.
 
+The MCP tool layer under `comicarr/app/mcp/` follows the router rule too,
+with an empty allowlist from its first commit
+([MCP server design](../architecture/mcp-server.md#tool-layer)).
+
 The guard will be an AST scan under `npm run lint:guards`, in the style of
 `check_attention_seam.py`, so function-local imports count. It also catches
 attribute access through the package, such as `comicarr.updater.forceRescan`
