@@ -193,7 +193,9 @@ class TestMangaScan:
         """CodeQL #323/#324: the progress payload reaches the browser, so it carries a generic error."""
         with (
             patch("os.path.isdir", return_value=True),
-            patch.object(mangasync, "_collect_series_files", return_value={"Bleach": [("/manga/Bleach/v01.cbz", None)]}),
+            patch.object(
+                mangasync, "_collect_series_files", return_value={"Bleach": [("/manga/Bleach/v01.cbz", None)]}
+            ),
             patch.object(mangasync, "_check_existing_series", return_value=None),
             patch.object(mangasync, "_match_series", side_effect=RuntimeError("/secret/path leaked")),
         ):
