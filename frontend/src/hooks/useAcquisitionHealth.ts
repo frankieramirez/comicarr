@@ -479,6 +479,29 @@ export function useRunJob() {
   });
 }
 
+/** A deprecated feature this install still relies on (GET /system/deprecations). */
+export interface DeprecationInUse {
+  id: string;
+  name: string;
+  announced_in: string;
+  removable_from: string;
+  replacement: string;
+  docs_url: string;
+}
+
+/** Deprecated features this install uses; empty for most installs (Activity > Health). */
+export function useDeprecations() {
+  return useQuery<{ deprecations: DeprecationInUse[] }>({
+    queryKey: ["system", "deprecations"],
+    queryFn: () =>
+      apiRequest<{ deprecations: DeprecationInUse[] }>(
+        "GET",
+        "/api/system/deprecations",
+      ),
+    staleTime: 5 * 60_000,
+  });
+}
+
 const CONNECTIONS_KEY = ["system", "connections"] as const;
 
 /** Every configured connection with its last check (Activity > Health, Settings). */
