@@ -1149,6 +1149,13 @@ def updatearc_locs(storyarcid, arc_issues):
         db.upsert("storyarcs", {"Location": ui["Location"]}, {"IssueID": ui["IssueID"], "StoryArcID": storyarcid})
 
 
+def ensure_arc_directory(path):
+    """Create a story-arc folder with the configured permissions; False on failure."""
+    from comicarr import filechecker
+
+    return filechecker.validateAndCreateDirectory(path, True, module="[STORY-ARC]")
+
+
 def spantheyears(storyarcid):
     from sqlalchemy import Integer, case, cast, func, select
 
@@ -1182,8 +1189,11 @@ def spantheyears(storyarcid):
         return "%s - %s" % (min_year, max_year)
 
 
-def arcformat(arc, spanyears, publisher):
+def arcformat(arc, spanyears, publisher, config=None):
     from comicarr.helpers import filesafe, replace_all
+
+    if config is None:
+        config = comicarr.CONFIG
 
     arcdir = filesafe(arc)
     if publisher is None:
@@ -1191,7 +1201,7 @@ def arcformat(arc, spanyears, publisher):
 
     values = {"$arc": arcdir, "$spanyears": spanyears, "$publisher": publisher}
 
-    tmp_folderformat = comicarr.CONFIG.ARC_FOLDERFORMAT
+    tmp_folderformat = config.ARC_FOLDERFORMAT
 
     if tmp_folderformat is not None:
         if publisher == "None":
@@ -1204,24 +1214,22 @@ def arcformat(arc, spanyears, publisher):
     else:
         arcpath = replace_all(tmp_folderformat, values)
 
-    if comicarr.CONFIG.REPLACE_SPACES:
-        arcpath = arcpath.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
+    if config.REPLACE_SPACES:
+        arcpath = arcpath.replace(" ", config.REPLACE_CHAR)
 
     if arcpath.startswith("/"):
         arcpath = arcpath[1:]
     elif arcpath.startswith("//"):
         arcpath = arcpath[2:]
 
-    if comicarr.CONFIG.STORYARCDIR is True:
-        if comicarr.CONFIG.STORYARC_LOCATION is None:
-            dstloc = os.path.join(comicarr.CONFIG.DESTINATION_DIR, "StoryArcs", arcpath)
+    if config.STORYARCDIR is True:
+        if config.STORYARC_LOCATION is None:
+            dstloc = os.path.join(config.DESTINATION_DIR, "StoryArcs", arcpath)
         else:
-            dstloc = os.path.join(comicarr.CONFIG.STORYARC_LOCATION, arcpath)
-    elif comicarr.CONFIG.COPY2ARCDIR is True:
-        logger.warn(
-            "Story arc directory is not configured. Defaulting to grabbag directory: " + comicarr.CONFIG.GRABBAG_DIR
-        )
-        dstloc = os.path.join(comicarr.CONFIG.GRABBAG_DIR, arcpath)
+            dstloc = os.path.join(config.STORYARC_LOCATION, arcpath)
+    elif config.COPY2ARCDIR is True:
+        logger.warn("Story arc directory is not configured. Defaulting to grabbag directory: " + config.GRABBAG_DIR)
+        dstloc = os.path.join(config.GRABBAG_DIR, arcpath)
     else:
         dstloc = None
 
