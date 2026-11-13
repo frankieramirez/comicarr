@@ -1293,6 +1293,13 @@ def manga_library_scan(ctx):
     )
 
 
+def manga_scan_progress():
+    """Progress of the current or last manga library scan."""
+    from comicarr import mangasync
+
+    return mangasync.get_scan_progress()
+
+
 def manga_scan_confirm(ctx, selected_ids, scan_id):
     """Confirm and import selected manga series from scan results."""
     from comicarr import mangasync
@@ -1304,6 +1311,13 @@ def manga_scan_confirm(ctx, selected_ids, scan_id):
         return {"success": False, "error": "Missing scan_id"}
 
     return mangasync.import_selected_manga(selected_ids, scan_id)
+
+
+def comic_scan_progress():
+    """Progress of the current or last comic library scan."""
+    from comicarr import comicsync
+
+    return comicsync.get_scan_progress()
 
 
 def comic_library_scan(ctx):
