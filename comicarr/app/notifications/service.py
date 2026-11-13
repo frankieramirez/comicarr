@@ -17,6 +17,12 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
+"""Notification senders: one class per service, each with ``notify`` and ``test_notify``.
+
+Moved from ``comicarr/notifiers.py`` (#1202). Payloads, config keys and log lines are
+unchanged; ``tests/unit/notifiers/test_snatch_and_download.py`` pins the outgoing requests.
+"""
+
 import base64
 import json
 import smtplib
@@ -47,7 +53,7 @@ class PROWL:
         self.priority = comicarr.CONFIG.PROWL_PRIORITY
         pass
 
-    def notify(self, message, event, module=None):
+    def notify(self, message: str, event: str, module: str | None = None) -> bool | None:
         if not comicarr.CONFIG.PROWL_ENABLED:
             return
 
@@ -120,7 +126,16 @@ class PUSHOVER:
 
         self._session = requests.Session()
 
-    def notify(self, event, message=None, snatched_nzb=None, prov=None, sent_to=None, module=None, imageFile=None):
+    def notify(
+        self,
+        event: str,
+        message: str | None = None,
+        snatched_nzb: str | None = None,
+        prov: str | None = None,
+        sent_to: str | None = None,
+        module: str | None = None,
+        imageFile: str | None = None,
+    ) -> bool:
         if self.apikey is None:
             return False
 
@@ -228,7 +243,16 @@ class BOXCAR:
         logger.fdebug(module + " Boxcar2 notification successful.")
         return True
 
-    def notify(self, prline=None, prline2=None, sent_to=None, snatched_nzb=None, force=False, module=None, snline=None):
+    def notify(
+        self,
+        prline: str | None = None,
+        prline2: str | None = None,
+        sent_to: str | None = None,
+        snatched_nzb: str | None = None,
+        force: bool = False,
+        module: str | None = None,
+        snline: str | None = None,
+    ) -> bool:
         """
         Sends a boxcar notification based on the provided info or SB config
 
@@ -278,8 +302,16 @@ class PUSHBULLET:
         return self.notify(method="GET")
 
     def notify(
-        self, snline=None, prline=None, prline2=None, snatched=None, sent_to=None, prov=None, module=None, method=None
-    ):
+        self,
+        snline: str | None = None,
+        prline: str | None = None,
+        prline2: str | None = None,
+        snatched: str | None = None,
+        sent_to: str | None = None,
+        prov: str | None = None,
+        module: str | None = None,
+        method: str | None = None,
+    ) -> dict:
         if module is None:
             module = ""
         module += "[NOTIFIER]"
@@ -320,7 +352,7 @@ class PUSHBULLET:
         return self.notify(prline="Test Message", prline2="Release the Ninjas!")
 
 
-def _parse_telegram_target(userid):
+def _parse_telegram_target(userid: object) -> tuple[str | None, int | None]:
     """Split ``chat_id:topic_id`` targets used for forum topics (#787)."""
     if userid is None:
         return None, None
@@ -349,7 +381,7 @@ class TELEGRAM:
             payload["message_thread_id"] = self.message_thread_id
         return payload
 
-    def notify(self, message, imageFile=None):
+    def notify(self, message: str, imageFile: str | None = None) -> bool:
         payload = self._payload(chat_id=self.userid, text=message)
         sendMethod = "sendMessage"
         files = None
@@ -412,7 +444,7 @@ class EMAIL:
         self.emailpass = comicarr.CONFIG.EMAIL_PASSWORD if test_emailpass is None else test_emailpass
         self.emailenc = comicarr.CONFIG.EMAIL_ENC if test_emailenc is None else int(test_emailenc)
 
-    def notify(self, message, subject, module=None):
+    def notify(self, message: str, subject: str, module: str | None = None) -> bool:
         if module is None:
             module = ""
         module += "[NOTIFIER]"
@@ -460,7 +492,15 @@ class SLACK:
     def __init__(self, test_webhook_url=None):
         self.webhook_url = comicarr.CONFIG.SLACK_WEBHOOK_URL if test_webhook_url is None else test_webhook_url
 
-    def notify(self, text, attachment_text, snatched_nzb=None, prov=None, sent_to=None, module=None):
+    def notify(
+        self,
+        text: str,
+        attachment_text: str,
+        snatched_nzb: str | None = None,
+        prov: str | None = None,
+        sent_to: str | None = None,
+        module: str | None = None,
+    ) -> bool:
         if module is None:
             module = ""
         module += "[NOTIFIER]"
@@ -508,15 +548,15 @@ class MATTERMOST:
 
     def notify(
         self,
-        text,
-        attachment_text,
-        snatched_nzb=None,
-        prov=None,
-        sent_to=None,
-        module=None,
-        metadata=None,
-        imageFile=None,
-    ):
+        text: str,
+        attachment_text: str,
+        snatched_nzb: str | None = None,
+        prov: str | None = None,
+        sent_to: str | None = None,
+        module: str | None = None,
+        metadata: dict | None = None,
+        imageFile: str | None = None,
+    ) -> bool:
         if module is None:
             module = ""
         module += "[NOTIFIER]"
@@ -585,7 +625,16 @@ class DISCORD:
             self.webhook_url = test_webhook_url
             self.test = True
 
-    def notify(self, text, attachment_text, snatched_nzb=None, prov=None, sent_to=None, module=None, imageFile=None):
+    def notify(
+        self,
+        text: str,
+        attachment_text: str,
+        snatched_nzb: str | None = None,
+        prov: str | None = None,
+        sent_to: str | None = None,
+        module: str | None = None,
+        imageFile: str | None = None,
+    ) -> bool:
         if module is None:
             module = ""
         module += "[NOTIFIER]"
@@ -728,15 +777,15 @@ class GOTIFY:
 
     def notify(
         self,
-        text,
-        attachment_text,
-        snatched_nzb=None,
-        prov=None,
-        sent_to=None,
-        module=None,
-        imageFile=None,
-        metadata=None,
-    ):
+        text: str,
+        attachment_text: str,
+        snatched_nzb: str | None = None,
+        prov: str | None = None,
+        sent_to: str | None = None,
+        module: str | None = None,
+        imageFile: str | None = None,
+        metadata: dict | None = None,
+    ) -> bool:
         if module is None:
             module = ""
         module += "[NOTIFIER]"
@@ -802,7 +851,15 @@ class MATRIX:
             self.room_id = test_room_id
             self.test = True
 
-    def notify(self, text, attachment_text, snatched_nzb=None, prov=None, sent_to=None, module=None):
+    def notify(
+        self,
+        text: str,
+        attachment_text: str,
+        snatched_nzb: str | None = None,
+        prov: str | None = None,
+        sent_to: str | None = None,
+        module: str | None = None,
+    ) -> bool:
         if module is None:
             module = ""
         module += "[NOTIFIER]"
