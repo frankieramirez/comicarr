@@ -26,12 +26,30 @@ _MAX_INLINE_PP_REDRIVE_PER_PASS = 5
 _RECOVERY_BUDGET = ContextVar("postprocessing_recovery_budget", default=None)
 
 
+# What a run did, carried on ``PostProcessResult.outcome``.
+COMPLETED = "completed"  # the processor ran to its end
+FAILED = "failed"  # the download failed or processing raised; see fail_reason
+DEFERRED = "deferred"  # nothing ran yet; the caller retries or defers
+NOTHING = "nothing"  # nothing to do: duplicate, ignored, or no message
+
+
 @dataclass(frozen=True)
 class PostProcessResult:
     status: str
     value: object = None
     detail: str | None = None
     action: str | None = None
+    outcome: str | None = None
+    fail_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class _Execution:
+    """What one processing pass did. ``value`` is the processor's last message."""
+
+    outcome: str
+    value: object = None
+    fail_reason: str | None = None
 
 
 def _recovery_pass(function):
@@ -48,39 +66,137 @@ def _recovery_pass(function):
     return replay
 
 
-def _execute(item):
-    from comicarr import postprocessor, process
+def _mode(message):
+    """The ``mode`` of a legacy processor message, or None."""
+    if isinstance(message, dict):
+        message = [message]
+    if not isinstance(message, (list, tuple)) or not message or not isinstance(message[0], dict):
+        return None
+    return message[0].get("mode")
 
-    if item.get("source") in {"compat", "monitor"}:
-        import queue
 
-        if item.get("failed"):
-            return None
-        result_queue = queue.Queue()
+def _run_processor(item, *, outside=False):
+    """Run the folder processor once and return its message, or None.
+
+    ``outside`` is the retry the processor asks for when the download sits
+    outside the folder it was given: the folder is processed again as a
+    manual run with no issue identity.
+    """
+    import queue
+
+    from comicarr import postprocessor
+
+    messages = queue.Queue()
+    if outside:
+        processor = postprocessor.PostProcessor(
+            "Manual Run",
+            item["nzb_folder"],
+            queue=messages,
+            journal_release_key=item.get("journal_release_key"),
+        )
+    else:
         processor = postprocessor.PostProcessor(
             item["nzb_name"],
             item["nzb_folder"],
             item.get("issueid"),
-            queue=result_queue,
+            queue=messages,
             comicid=item.get("comicid"),
             apicall=item.get("apicall", False),
             ddl=item.get("ddl", False),
             journal_release_key=item.get("journal_release_key"),
         )
-        processor.Process()
-        return None if result_queue.empty() else result_queue.get_nowait()
-    processor = process.Process(
-        item["nzb_name"],
-        item["nzb_folder"],
-        item.get("failed", False),
-        item.get("issueid"),
-        item.get("comicid"),
-        item.get("apicall", False),
-        item.get("ddl", False),
-        item.get("download_info"),
-        journal_release_key=item.get("journal_release_key"),
+    processor.Process()
+    return None if messages.empty() else messages.get_nowait()
+
+
+def _ran(message):
+    return _Execution(NOTHING) if message is None else _Execution(COMPLETED, value=message)
+
+
+def _journal_fail_reason(release_key):
+    if not release_key:
+        return None
+    try:
+        row = journal.read_one(release_key)
+    except Exception as e:
+        logger.warn("[POST-PROCESSING] Could not read fail reason for %s: %s", release_key, type(e).__name__)
+        return None
+    return (row or {}).get("fail_reason")
+
+
+def _handle_failed_download(item):
+    """Hand a failed download to ``FailedProcessor``, or record it as left alone."""
+    # Lazy: the service module imports this one.
+    from comicarr.app.downloads import service
+
+    if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING is not True:
+        logger.warn("Failed Download Handling is not enabled. Leaving Failed Download as-is.")
+        return _Execution(FAILED, fail_reason=service.terminalize_unhandled_failed_download(item))
+    logger.info("Initiating Failed Download handling for this download.")
+    message = service.run_failed_processor(item)
+    mode = _mode(message)
+    if mode == "retry":
+        logger.info("Attempting to return to search module with " + str(message[0]["issueid"]))
+        from comicarr.app.search.commands import enqueue_failed_download_retry
+
+        enqueue_failed_download_retry(message[0])
+    elif mode not in (None, "stop"):
+        logger.error("mode is unsupported: %s" % mode)
+    return _Execution(FAILED, value=message, fail_reason=_journal_fail_reason(item.get("journal_release_key")))
+
+
+def _post_process(item):
+    """Process a download: the folder, then failed handling or the outside retry."""
+    failed = item.get("failed", False)
+    if failed == "0":
+        failed = False
+    elif failed == "1":
+        failed = True
+
+    execution = _Execution(NOTHING)
+    outside = False
+    if failed is False:
+        message = _run_processor(item)
+        execution = _ran(message)
+        mode = _mode(message)
+        if mode == "fail":
+            logger.info("Initiating Failed Download handling")
+            failed = True
+        elif mode == "outside":
+            outside = True
+        elif mode not in (None, "stop"):
+            logger.error("mode is unsupported: %s" % mode)
+
+    if failed is True:
+        execution = _handle_failed_download(item)
+
+    if outside:
+        message = _run_processor(item, outside=True)
+        execution = _ran(message)
+        if _mode(message) not in (None, "stop", "fail"):
+            logger.error("mode is unsupported: %s" % _mode(message))
+    return execution
+
+
+def _execute(item):
+    """Run one request; None means nothing ran."""
+    if item.get("source") in {"compat", "monitor"}:
+        if item.get("failed"):
+            return None
+        return _ran(_run_processor(item))
+    return _post_process(item)
+
+
+def _processed(execution, action=None):
+    if execution is None:
+        execution = _Execution(NOTHING)
+    return PostProcessResult(
+        "processed",
+        value=execution.value,
+        action=action,
+        outcome=execution.outcome,
+        fail_reason=execution.fail_reason,
     )
-    return processor.post_process()
 
 
 def _is_unjournaled(item):
@@ -238,7 +354,7 @@ def run(request):
         item = validate_postprocess_item(request)
     except PostProcessCommandError as e:
         _quarantine(request, "invalid_postprocess_command:%s" % type(e).__name__)
-        return PostProcessResult("failed", detail=str(e))
+        return PostProcessResult("failed", detail=str(e), outcome=FAILED, fail_reason="invalid_postprocess_command")
 
     unjournaled = _is_unjournaled(item)
     key = None
@@ -252,7 +368,9 @@ def run(request):
         )
     lock = comicarr.APILOCK
     if not lock.acquire(blocking=False):
-        return PostProcessResult("busy", detail="Post-processing is busy; retry later", action="retry")
+        return PostProcessResult(
+            "busy", detail="Post-processing is busy; retry later", action="retry", outcome=DEFERRED
+        )
     controller = None
     lease = None
     step = "maintenance lease"
@@ -266,7 +384,7 @@ def run(request):
             # Claiming its display name would suppress every subsequent scan.
             item["journal_release_key"] = None
             step = "process"
-            return PostProcessResult("processed", value=_execute(item))
+            return _processed(_execute(item))
         try:
             won = journal.record_transition(
                 key,
@@ -292,33 +410,38 @@ def run(request):
         except Exception as e:
             if item.get("journal_release_key"):
                 logger.error("[POST-PROCESSING] Claim unavailable for %s: %s", key, type(e).__name__)
-                return PostProcessResult("busy", detail="Processing journal unavailable; retry later", action="retry")
+                return PostProcessResult(
+                    "busy", detail="Processing journal unavailable; retry later", action="retry", outcome=DEFERRED
+                )
             logger.warn(
                 "[POST-PROCESSING] Manual journal unavailable; using existing status checks: %s", type(e).__name__
             )
             key = None
             won = True
         if not won and not _failed_import_redrive(item, key):
-            return PostProcessResult("duplicate")
+            return PostProcessResult("duplicate", outcome=NOTHING)
         item["journal_release_key"] = key
         step = "process"
-        value = _execute(item)
-        _try_note_unfinished_claim(key, value)
+        execution = _execute(item)
+        _try_note_unfinished_claim(key, execution.value if execution else None)
         _stamp_attention_import(item, succeeded=True)
-        return PostProcessResult("processed", value=value)
+        return _processed(execution)
     except MaintenanceBlocked:
         return PostProcessResult(
-            "busy", detail="Post-processing is paused for maintenance; retry later", action="retry"
+            "busy",
+            detail="Post-processing is paused for maintenance; retry later",
+            action="retry",
+            outcome=DEFERRED,
         )
     except PostProcessCommandError as e:
         _quarantine(item, "invalid_postprocess_command:%s" % type(e).__name__, key)
         _stamp_attention_import(item)
-        return PostProcessResult("failed", detail=str(e))
+        return PostProcessResult("failed", detail=str(e), outcome=FAILED, fail_reason="invalid_postprocess_command")
     except Exception as e:
         _quarantine(item, "postprocess_error:%s" % type(e).__name__, key)
         _stamp_attention_import(item)
         _log_failure(key, step, item, e)
-        return PostProcessResult("failed", detail=str(e))
+        return PostProcessResult("failed", detail=str(e), outcome=FAILED, fail_reason="postprocess_error")
     finally:
         try:
             if lease is not None:
@@ -341,8 +464,8 @@ def _recover_arc_copy(release_key, row, payload):
         recover_arc_copy(release_key, row, payload)
     except ArcCopyError as e:
         logger.warn("[POST-PROCESSING] Story-arc copy for %s is still owed: %s", release_key, e)
-        return PostProcessResult("failed", detail=str(e), action="arc-copy-owed")
-    return PostProcessResult("processed", action="arc-copy-finished")
+        return PostProcessResult("failed", detail=str(e), action="arc-copy-owed", outcome=DEFERRED)
+    return PostProcessResult("processed", action="arc-copy-finished", outcome=COMPLETED)
 
 
 def recover(release_key):
@@ -352,7 +475,9 @@ def recover(release_key):
 
     lock = comicarr.APILOCK
     if not lock.acquire(blocking=False):
-        return PostProcessResult("busy", detail="Post-processing is busy; retry later", action="post_processing-busy")
+        return PostProcessResult(
+            "busy", detail="Post-processing is busy; retry later", action="post_processing-busy", outcome=DEFERRED
+        )
     controller = None
     lease = None
     item = None
@@ -367,44 +492,60 @@ def recover(release_key):
         controller.assert_lease_current(lease)
         row = journal.read_one(release_key)
         if not row or row.get("stage") not in {journal.MOVED, journal.POST_PROCESSING}:
-            return PostProcessResult("ignored", action="ignored")
+            return PostProcessResult("ignored", action="ignored", outcome=NOTHING)
         payload = journal.load_payload(row.get("payload_json"))
         if isinstance(payload, dict) and payload.get("arc_copy"):
             return _recover_arc_copy(release_key, row, payload)
         if row["stage"] == journal.MOVED or obligation_already_fulfilled(row):
             finish_obligation(release_key, row, payload)
             action = "moved-finish-dbfacts" if row["stage"] == journal.MOVED else "post_processing-already-fulfilled"
-            return PostProcessResult("processed", action=action)
+            return PostProcessResult("processed", action=action, outcome=COMPLETED)
         budget = _RECOVERY_BUDGET.get()
         if budget is not None and budget["count"] >= _MAX_INLINE_PP_REDRIVE_PER_PASS:
-            return PostProcessResult("busy", action="skip-pp-cap-deferred", detail="Startup processing budget reached")
+            return PostProcessResult(
+                "busy", action="skip-pp-cap-deferred", detail="Startup processing budget reached", outcome=DEFERRED
+            )
         item = _command(row, payload)
         try:
             item = validate_postprocess_item(item)
         except PostProcessCommandError as e:
             _quarantine(item, "invalid_recovered_postprocess_command:%s" % type(e).__name__, release_key)
-            return PostProcessResult("failed", detail=str(e), action="post_processing-manual-review")
+            return PostProcessResult(
+                "failed",
+                detail=str(e),
+                action="post_processing-manual-review",
+                outcome=FAILED,
+                fail_reason="invalid_recovered_postprocess_command",
+            )
         if not _claim_recovery(release_key, item, payload):
             return PostProcessResult(
                 "failed",
                 detail="recovery_attempts_exhausted:post_processing",
                 action="post_processing-manual-review",
+                outcome=FAILED,
+                fail_reason="recovery_attempts_exhausted",
             )
         if budget is not None:
             budget["count"] += 1
-        value = _execute(item)
-        _try_note_unfinished_claim(release_key, value)
-        return PostProcessResult("processed", value=value, action="post_processing-redrive")
+        execution = _execute(item)
+        _try_note_unfinished_claim(release_key, execution.value if execution else None)
+        return _processed(execution, action="post_processing-redrive")
     except MaintenanceBlocked:
         return PostProcessResult(
-            "busy", detail="Post-processing is paused for maintenance", action="post_processing-busy"
+            "busy", detail="Post-processing is paused for maintenance", action="post_processing-busy", outcome=DEFERRED
         )
     except Exception as e:
         if item is None:
             raise
         _quarantine(item, "recovered_postprocess_error:%s" % type(e).__name__, release_key)
         _log_failure(release_key, "process", item, e)
-        return PostProcessResult("failed", detail=str(e), action="post_processing-manual-review")
+        return PostProcessResult(
+            "failed",
+            detail=str(e),
+            action="post_processing-manual-review",
+            outcome=FAILED,
+            fail_reason="recovered_postprocess_error",
+        )
     finally:
         try:
             if lease is not None:

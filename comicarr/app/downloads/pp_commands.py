@@ -172,7 +172,7 @@ def validate_postprocess_item(item, roots=None, require_exists=True):
             validate_mapped_path(command.get("nzb_folder"), roots=roots, require_exists=require_exists)
         )
     if "failed" in command:
-        # Normalize to a real bool. process.Process.post_process() only rewrites
+        # Normalize to a real bool. postprocessing._post_process() only rewrites
         # the string forms and then branches on `failed is False` / `is True`,
         # so an integer 1 would match neither branch: no PostProcessor, no
         # FailedProcessor, and the item silently does nothing. Canonicalizing

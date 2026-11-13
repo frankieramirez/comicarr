@@ -84,7 +84,6 @@ SEAMS = {
     ),
     "importer": frozenset({"comicarr/app/series/add.py"}),
     "postprocessor": frozenset({"comicarr/app/downloads/postprocessing.py"}),
-    "process": frozenset({"comicarr/app/downloads/postprocessing.py"}),
 }
 
 # --------------------------------------------------------------------------

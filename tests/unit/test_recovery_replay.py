@@ -31,7 +31,7 @@ from sqlalchemy import select
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.attention import RecordOutcome
-from comicarr.app.downloads import journal, recovery, recovery_classify
+from comicarr.app.downloads import journal, postprocessing, recovery, recovery_classify
 from comicarr.app.downloads.recovery import _MAX_INLINE_PP_REDRIVE_PER_PASS
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import comics, ddl_info, issues, metadata, nzblog, pipeline_journal, snatched, storyarcs
@@ -767,14 +767,13 @@ def test_finalizer_moved_finishes_dbfacts_only_no_reimport(queues, monkeypatch):
         provider="nzb.su",
         downloader_type="nzb",
     )
-    # If the finalizer tried to re-import it would construct process.Process —
+    # If the finalizer tried to re-import it would construct postprocessing._post_process —
     # blow up if that happens for the `moved` path.
-    import comicarr.process as process_mod
 
     def _boom(*a, **k):
-        raise AssertionError("moved path must NOT re-import (no process.Process)")
+        raise AssertionError("moved path must NOT re-import (no postprocessing._post_process)")
 
-    monkeypatch.setattr(process_mod, "Process", _boom)
+    monkeypatch.setattr(postprocessing, "_post_process", _boom)
 
     recovery.replay_pipeline(probes=_probe("complete"))
 
@@ -802,18 +801,13 @@ def test_finalizer_post_processing_redrives_in_full(queues, monkeypatch, tmp_pat
         downloader_type="nzb",
     )
     calls = {}
-    import comicarr.process as process_mod
 
-    class _FakeProc:
-        def __init__(self, nzb_name, nzb_folder, *a, journal_release_key=None, **k):
-            calls["nzb_name"] = nzb_name
-            calls["rkey"] = journal_release_key
+    def _fake_post_process(item):
+        calls["nzb_name"] = item["nzb_name"]
+        calls["rkey"] = item["journal_release_key"]
+        calls["ran"] = True
 
-        def post_process(self):
-            calls["ran"] = True
-            return None
-
-    monkeypatch.setattr(process_mod, "Process", _FakeProc)
+    monkeypatch.setattr(postprocessing, "_post_process", _fake_post_process)
     recovery.replay_pipeline(probes=_probe("complete"))
     assert calls.get("ran") is True
     # Authoritative release_key threaded so postprocessor markers advance THIS
@@ -1179,21 +1173,15 @@ def test_post_processing_redrive_capped_per_pass_and_rerun_processes_rest(queues
         )
 
     processed = []
-    import comicarr.process as process_mod
 
-    class _FakeProc:
-        def __init__(self, nzb_name, nzb_folder, *a, journal_release_key=None, **k):
-            self._rkey = journal_release_key
+    def _fake_post_process(item):
+        processed.append(item["journal_release_key"])
+        # Mark this row terminal so a re-run does not re-drive it (the
+        # finalizer's real C3 block does this; the fake must emulate
+        # idempotency so the second pass only picks up the deferred rows).
+        journal.mark_done(item["journal_release_key"])
 
-        def post_process(self):
-            processed.append(self._rkey)
-            # Mark this row terminal so a re-run does not re-drive it (the
-            # finalizer's real C3 block does this; the FakeProc must emulate
-            # idempotency so the second pass only picks up the deferred rows).
-            journal.mark_done(self._rkey)
-            return None
-
-    monkeypatch.setattr(process_mod, "Process", _FakeProc)
+    monkeypatch.setattr(postprocessing, "_post_process", _fake_post_process)
 
     # Pass 1: only `cap` rows re-driven inline; the rest deferred.
     s1 = recovery.replay_pipeline(probes=_probe("complete"))
@@ -1324,12 +1312,11 @@ def test_finalizer_moved_deletes_S_prefixed_story_arc_nzblog(queues, monkeypatch
         provider="nzb.su",
         downloader_type="nzb",
     )
-    import comicarr.process as process_mod
 
     def _boom(*a, **k):
         raise AssertionError("moved path must NOT re-import")
 
-    monkeypatch.setattr(process_mod, "Process", _boom)
+    monkeypatch.setattr(postprocessing, "_post_process", _boom)
 
     recovery.replay_pipeline(probes=_probe("complete"))
 
@@ -1353,9 +1340,10 @@ def test_finalizer_moved_deletes_plain_nzblog_regression(queues, monkeypatch):
         provider="nzb.su",
         downloader_type="nzb",
     )
-    import comicarr.process as process_mod
 
-    monkeypatch.setattr(process_mod, "Process", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no reimport")))
+    monkeypatch.setattr(
+        postprocessing, "_post_process", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no reimport"))
+    )
 
     recovery.replay_pipeline(probes=_probe("complete"))
 
@@ -1451,9 +1439,10 @@ def test_plain_issue_finalize_does_not_delete_unrelated_arc_S_row(queues, monkey
         provider="nzb.su",
         downloader_type="nzb",
     )
-    import comicarr.process as process_mod
 
-    monkeypatch.setattr(process_mod, "Process", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no reimport")))
+    monkeypatch.setattr(
+        postprocessing, "_post_process", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no reimport"))
+    )
 
     recovery.replay_pipeline(probes=_probe("complete"))
 
@@ -1827,27 +1816,22 @@ def _pp_obligation(tmp_path, issueid, name):
 
 
 def _forbid_reimport(monkeypatch):
-    import comicarr.process as process_mod
 
     monkeypatch.setattr(
-        process_mod,
-        "Process",
+        postprocessing,
+        "_post_process",
         lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not re-drive a fulfilled obligation")),
     )
 
 
 def _capture_reimport(monkeypatch):
     calls = {}
-    import comicarr.process as process_mod
 
-    class _FakeProc:
-        def __init__(self, *a, journal_release_key=None, **k):
-            calls["rkey"] = journal_release_key
+    def _fake_post_process(item):
+        calls["rkey"] = item["journal_release_key"]
+        calls["ran"] = True
 
-        def post_process(self):
-            calls["ran"] = True
-
-    monkeypatch.setattr(process_mod, "Process", _FakeProc)
+    monkeypatch.setattr(postprocessing, "_post_process", _fake_post_process)
     return calls
 
 
@@ -1954,16 +1938,11 @@ def test_fulfilled_row_still_closes_after_the_cap_is_exhausted(queues, tmp_path,
         )
 
     redriven = []
-    import comicarr.process as process_mod
 
-    class _FakeProc:
-        def __init__(self, *a, journal_release_key=None, **k):
-            self._rkey = journal_release_key
+    def _fake_post_process(item):
+        redriven.append(item["journal_release_key"])
 
-        def post_process(self):
-            redriven.append(self._rkey)
-
-    monkeypatch.setattr(process_mod, "Process", _FakeProc)
+    monkeypatch.setattr(postprocessing, "_post_process", _fake_post_process)
 
     summary = recovery.replay_pipeline(probes=_probe("complete"))
 
@@ -1981,16 +1960,11 @@ def test_unfulfilled_rows_are_still_capped(queues, tmp_path, monkeypatch):
     for n in range(_MAX_INLINE_PP_REDRIVE_PER_PASS + 3):
         _pp_obligation(tmp_path, "96%d" % n, "Nope.v%02d.cbz" % n)
     ran = {"count": 0}
-    import comicarr.process as process_mod
 
-    class _FakeProc:
-        def __init__(self, *a, **k):
-            pass
+    def _fake_post_process(item):
+        ran["count"] += 1
 
-        def post_process(self):
-            ran["count"] += 1
-
-    monkeypatch.setattr(process_mod, "Process", _FakeProc)
+    monkeypatch.setattr(postprocessing, "_post_process", _fake_post_process)
 
     summary = recovery.replay_pipeline(probes=_probe("complete"))
 

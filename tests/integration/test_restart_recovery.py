@@ -20,9 +20,9 @@ state (as if a prior process had written it and then died), then calling
 lifespan ordered drain and then a subsequent ``replay_pipeline()`` (AE5).
 
 ONLY the external downloader clients (via the U5 ``probes=`` injection
-seam) and the actual ``process.Process`` file-move side effect are faked —
+seam) and the actual ``postprocessing._post_process`` file-move side effect are faked —
 every journal state transition, queue put, ``mark_failed``/``mark_done``
-and the exactly-once ``process.Process``/PP invocation count is asserted
+and the exactly-once ``postprocessing._post_process``/PP invocation count is asserted
 against the real production code.
 
 Success Criteria asserted by every test (origin requirements doc):
@@ -325,16 +325,16 @@ def test_ae1_still_downloading_reenqueued_for_live_monitor_no_double_drive(fake_
 def test_ae2_moved_finishes_dbfacts_only_post_processing_redrives_in_full(fake_pp_queue, monkeypatch, tmp_path):
     """AE2 (R4/R5): the two-marker finalizer. A `moved` row (destructive move
     committed, DB facts uncommitted) must finish DB facts ONLY — NO duplicate
-    import/move, process.Process must NEVER be constructed for it. A
+    import/move, postprocessing._post_process must NEVER be constructed for it. A
     `post_processing` row (move did NOT commit, source intact) must re-drive
-    PP in full via a DIRECT process.Process (NOT via PP_QUEUE — a row already
+    PP in full via a DIRECT postprocessing._post_process (NOT via PP_QUEUE — a row already
     at post_processing would lose the U4 downloaded->post_processing claim).
     The decision is made on the `moved` marker ALONE, with no file probe.
 
-    Exactly-once: process.Process constructed exactly ONCE total, and only
+    Exactly-once: postprocessing._post_process constructed exactly ONCE total, and only
     for the post_processing row's authoritative release_key; the moved row
     reaches terminal post_processed with its nzblog deleted."""
-    import comicarr.process as process_mod
+    from comicarr.app.downloads import postprocessing
 
     moved_key = journal.release_key("600", "nzb.su", nzbname="M.cbz")
     with get_engine().begin() as conn:
@@ -365,18 +365,14 @@ def test_ae2_moved_finishes_dbfacts_only_post_processing_redrives_in_full(fake_p
 
     proc_calls = []
 
-    class _FakeProc:
-        def __init__(self, nzb_name, *a, journal_release_key=None, **k):
-            proc_calls.append(journal_release_key)
+    def _fake_post_process(item):
+        proc_calls.append(item["journal_release_key"])
 
-        def post_process(self):
-            return None
-
-    monkeypatch.setattr(process_mod, "Process", _FakeProc)
+    monkeypatch.setattr(postprocessing, "_post_process", _fake_post_process)
     recovery.replay_pipeline(probes=_probe("complete"))
 
     # `moved` -> DB facts finished (nzblog deleted, journal terminal
-    # post_processed), no re-import, no PP enqueue. process.Process was NOT
+    # post_processed), no re-import, no PP enqueue. postprocessing._post_process was NOT
     # constructed for the moved key.
     assert moved_key not in proc_calls, "AE2: `moved` row must NEVER be re-imported"
     assert journal.read_one(moved_key)["stage"] == journal.POST_PROCESSED
@@ -385,7 +381,9 @@ def test_ae2_moved_finishes_dbfacts_only_post_processing_redrives_in_full(fake_p
 
     # `post_processing` -> re-driven in full EXACTLY ONCE with the
     # authoritative key, and NOT via PP_QUEUE.
-    assert proc_calls == [pp_key], "AE2: post_processing re-drive must be exactly one direct process.Process"
+    assert proc_calls == [pp_key], (
+        "AE2: post_processing re-drive must be exactly one direct postprocessing._post_process"
+    )
     assert _drain(fake_pp_queue) == [], "AE2: post_processing re-drive must be direct, not via PP_QUEUE"
 
 
@@ -399,19 +397,15 @@ def test_ae2_already_post_processed_recognized_done_not_redriven(fake_pp_queue, 
     evicted while down).
 
     Exactly-once / no duplicate import: zero PP enqueues, zero
-    process.Process, journal converges to terminal post_processed."""
-    import comicarr.process as process_mod
+    postprocessing._post_process, journal converges to terminal post_processed."""
+    from comicarr.app.downloads import postprocessing
 
     proc_calls = []
 
-    class _FakeProc:
-        def __init__(self, *a, journal_release_key=None, **k):
-            proc_calls.append(journal_release_key)
+    def _fake_post_process(item):
+        proc_calls.append(item["journal_release_key"])
 
-        def post_process(self):
-            return None
-
-    monkeypatch.setattr(process_mod, "Process", _FakeProc)
+    monkeypatch.setattr(postprocessing, "_post_process", _fake_post_process)
 
     rkey = journal.release_key("650", "nzb.su", nzbname="Done.cbz")
     # nzblog ABSENT (deleted on PP success) + issues.Status Post-Processed:
