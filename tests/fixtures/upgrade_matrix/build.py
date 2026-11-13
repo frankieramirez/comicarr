@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import re
 import sqlite3
 import subprocess
 import sys
@@ -43,6 +44,9 @@ ROOT = HERE.parents[2]
 
 # Rows built from a release tag. Fresh needs no fixture.
 ROWS = {
+    "0.2x": ("v0.20.0", "0003_library_chat"),
+    "0.3x": ("v0.30.0", "0007_interactive_search_progress"),
+    "0.4x": ("v0.40.0", "0009_chat_actions"),
     "0.5x": ("v0.50.7", "0014_import_issue_readiness"),
 }
 
@@ -57,8 +61,9 @@ GENERATED_ROWS = {
 }
 
 # Non-default settings, so a lost key changes a value the test can see.
+# ``config_version`` is filled in with the release's own current version.
 CONFIG_OVERRIDES = """[General]
-config_version = 19
+config_version = {config_version}
 destination_dir = /library/comics
 manga_destination_dir = /library/manga
 
@@ -346,13 +351,19 @@ def _extract_tag(tag, destination):
 
 
 def _seed(connection):
+    """Insert the library, skipping tables and columns the release did not have."""
+
     for seed in SEED:
+        present = {row[1] for row in connection.execute('PRAGMA table_info("%s")' % seed.table)}
         for row in seed.rows:
-            columns = ", ".join('"%s"' % column for column in row)
-            placeholders = ", ".join("?" for _ in row)
+            values = {column: value for column, value in row.items() if column in present}
+            if not values:
+                continue
+            columns = ", ".join('"%s"' % column for column in values)
+            placeholders = ", ".join("?" for _ in values)
             connection.execute(
                 'INSERT INTO "%s" (%s) VALUES (%s)' % (seed.table, columns, placeholders),
-                tuple(row.values()),
+                tuple(values.values()),
             )
 
 
@@ -406,7 +417,9 @@ def build_row(name):
         tree.mkdir()
         data_dir.mkdir()
         _extract_tag(tag, tree)
-        (data_dir / "config.ini").write_text(CONFIG_OVERRIDES, encoding="utf-8")
+        config_source = (tree / "comicarr" / "config.py").read_text(encoding="utf-8")
+        config_version = re.search(r"self\.newconfig = (\d+)", config_source).group(1)
+        (data_dir / "config.ini").write_text(CONFIG_OVERRIDES.format(config_version=config_version), encoding="utf-8")
         database = scratch / "comicarr.db"
 
         result = subprocess.run(

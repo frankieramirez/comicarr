@@ -12,8 +12,8 @@
 Each row is a fixture database plus the ``config.ini`` its release wrote
 (``tests/fixtures/upgrade_matrix/``). Every row must pass the seven checks in
 section 6 of ``docs/architecture/foundations-plan.md``. A new row is one more
-``Row`` in ``ROWS``; a row that exposes a migration bug gets
-``xfail=<issue link>`` until the fix lands.
+``Row`` in ``ROWS``. A check that exposes a migration bug gets an entry in
+the row's ``xfail`` (check name to issue link) until the fix lands.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ import importlib.util
 import shutil
 import sqlite3
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -57,12 +57,32 @@ PRESERVED_VALUES = {
 }
 
 
+# Append-only ledgers that a later release legitimately extends on upgrade.
+GROWING_TABLES = {
+    # ensure_acquisition_schema records each acquisition schema version it applies.
+    "acquisition_schema_versions",
+}
+
+# config.ini migrations in ``Config.read`` that rewrite or drop a key on purpose,
+# by the config_version that introduced them. ``None`` means the key is removed.
+_RETIRED_BEFORE_16 = {("General", "auto_update"): None, ("Git", "check_github_on_startup"): None}
+_GITHUB_ON_BEFORE_16 = {("Git", "check_github"): "True"}
+_RETIRED_BEFORE_17 = {("Interface", "host_return"): None}
+_RETIRED_BEFORE_18 = {("General", "folder_scan_log_verbose"): None}
+_SEARCH_DELAY_SECONDS_BEFORE_19 = {("General", "search_delay"): "60"}  # default 1 minute
+_CURRENT_CONFIG_VERSION = {("General", "config_version"): "19"}
+
+DRIFT_1251 = "https://github.com/frankieramirez/comicarr/issues/1251"
+
+
 @dataclass(frozen=True)
 class Row:
     name: str
     sql: str | None = None
     config: str | None = None
-    xfail: str | None = None
+    config_changes: dict = field(default_factory=dict)
+    # Check test name -> issue link, for a known migration bug.
+    xfail: dict = field(default_factory=dict)
 
     @property
     def seeded(self):
@@ -71,14 +91,35 @@ class Row:
 
 ROWS = (
     Row("Fresh"),
+    Row(
+        "0.2x",
+        sql="0.2x.sql",
+        config="0.2x.config.ini",
+        config_changes={
+            **_RETIRED_BEFORE_16,
+            **_GITHUB_ON_BEFORE_16,
+            **_RETIRED_BEFORE_17,
+            **_RETIRED_BEFORE_18,
+            **_SEARCH_DELAY_SECONDS_BEFORE_19,
+            **_CURRENT_CONFIG_VERSION,
+        },
+        xfail={"test_1_upgrade_reaches_head_without_drift": DRIFT_1251},
+    ),
+    Row(
+        "0.3x",
+        sql="0.3x.sql",
+        config="0.3x.config.ini",
+        config_changes={**_SEARCH_DELAY_SECONDS_BEFORE_19, **_CURRENT_CONFIG_VERSION},
+        xfail={"test_1_upgrade_reaches_head_without_drift": DRIFT_1251},
+    ),
+    Row(
+        "0.4x",
+        sql="0.4x.sql",
+        config="0.4x.config.ini",
+        xfail={"test_1_upgrade_reaches_head_without_drift": DRIFT_1251},
+    ),
     Row("0.5x", sql="0.5x.sql", config="0.5x.config.ini"),
 )
-
-
-def _params():
-    for row in ROWS:
-        marks = [pytest.mark.xfail(reason=row.xfail, strict=True)] if row.xfail else []
-        yield pytest.param(row, id=row.name, marks=marks)
 
 
 # Process-global worker queues, which lifespan shutdown fills with "exit".
@@ -197,8 +238,11 @@ class Install:
         return cfg
 
 
-@pytest.fixture(params=list(_params()))
+@pytest.fixture(params=[pytest.param(row, id=row.name) for row in ROWS])
 def install(request, tmp_path, monkeypatch):
+    reason = request.param.xfail.get(request.node.originalname)
+    if reason:
+        request.applymarker(pytest.mark.xfail(reason=reason, strict=True))
     item = Install(request.param, tmp_path, monkeypatch)
     yield item
     db.shutdown_engine()
@@ -220,9 +264,11 @@ def test_1_upgrade_reaches_head_without_drift(upgraded):
 def test_2_row_counts_are_preserved(upgraded):
     after = upgraded.table_counts()
     migrated = {table: count for table, count in upgraded.before_counts.items() if table != "alembic_version"}
+    for table in GROWING_TABLES & set(migrated):
+        assert after[table] >= migrated.pop(table)
     assert {table: after.get(table) for table in migrated} == migrated
     if upgraded.row.seeded:
-        assert all(migrated[seed.table] == len(seed.rows) for seed in build.SEED)
+        assert all(migrated.get(seed.table) == len(seed.rows) for seed in build.SEED)
 
 
 def test_3_statuses_wanted_flags_and_locations_are_unchanged(upgraded):
@@ -271,7 +317,9 @@ def test_6_config_ini_loads_saves_and_reloads_with_no_key_lost(upgraded):
     cfg = upgraded.load_config()
     assert cfg.writeconfig() is not False
     saved = _ini_values(upgraded.config_file)
-    assert {key: saved.get(key) for key in era} == era
+    expected = {key: upgraded.row.config_changes.get(key, value) for key, value in era.items()}
+    assert {key: saved.get(key) for key in era} == expected
+    assert set(upgraded.row.config_changes) <= set(era)
 
     reloaded = upgraded.load_config()
     assert reloaded.writeconfig() is not False
