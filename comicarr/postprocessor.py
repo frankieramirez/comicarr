@@ -1940,7 +1940,7 @@ class PostProcessor(object):
                                     "Publisher": av["Publisher"],
                                     "IssueID": av["IssueID"],
                                     "IssueNumber": av["IssueNumber"],
-                                    "IssueYear": av["IssueYear"],
+                                    "IssueYear": av["IssueYEAR"],
                                     "ReadingOrder": av["ReadingOrder"],
                                     "IssueDate": av["IssueDate"],
                                     "Status": av["Status"],
@@ -2942,7 +2942,8 @@ class PostProcessor(object):
                         logger.fdebug("%s IssueArcID: %s" % (module, ml["IssueArcID"]))
                         newVal = {"Status": "Downloaded", "Location": grab_dst}
                     else:
-                        newVal = {"Status": "Downloaded", "Location": ml["ComicLocation"]}
+                        grab_dst = ml["ComicLocation"]
+                        newVal = {"Status": "Downloaded", "Location": grab_dst}
                     ctrlVal = {"IssueArcID": ml["IssueArcID"]}
                     logger.fdebug("writing: %s -- %s" % (newVal, ctrlVal))
                     db.upsert("storyarcs", newVal, ctrlVal)
