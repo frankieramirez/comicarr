@@ -92,37 +92,13 @@ SEAMS = {
 # Foundations closes only when this list is empty (ADR-0005).
 # --------------------------------------------------------------------------
 FOUNDATIONS_ALLOWLIST = {
-    ("comicarr/app/imports/finalization.py", "importer"): (
-        "manual import adds a missing series with addComictoDB",
-        "#1209 moves Series add behind app/series/add.py",
-    ),
-    ("comicarr/app/manga/sync.py", "importer"): (
-        "adds manga series with addMangaToDB and addMangaToDB_MAL",
-        "#1209 moves Series add behind app/series/add.py",
-    ),
     ("comicarr/app/manga/sync.py", "rsscheck"): (
         "runs mangaCheck and mangadexNewChapterCheck",
         "#1204 puts RSS checking behind app/search/rss.py",
     ),
-    ("comicarr/app/search/service.py", "importer"): (
-        "queues a series add on importer_thread",
-        "#1209 moves Series add behind app/series/add.py",
-    ),
     ("comicarr/app/search/service.py", "rsscheckit"): (
         "force RSS check runs rsscheckit.tehMain",
         "#1204 puts RSS checking behind app/search/rss.py",
-    ),
-    ("comicarr/app/series/service.py", "importer"): (
-        "queues adds and refreshes on importer_thread and refresh_thread",
-        "#1209 moves Series add behind app/series/add.py",
-    ),
-    ("comicarr/app/storyarcs/service.py", "importer"): (
-        "Add missing series queues adds on importer_thread",
-        "#1209 moves Series add behind app/series/add.py",
-    ),
-    ("comicarr/app/weekly/service.py", "importer"): (
-        "queues pull-list matches on issue_watcher_thread",
-        "#1209 moves Series add behind app/series/add.py",
     ),
 }
 

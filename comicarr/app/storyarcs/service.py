@@ -243,9 +243,11 @@ def add_missing_series(arc_id, additions):
     if not comic_ids:
         return {"success": False, "error": "No valid series to add"}
 
-    from comicarr import importer
+    from comicarr.app.series import add as series_add
 
-    importer.importer_thread([{"comicid": comic_id, "comicname": None, "seriesyear": None} for comic_id in comic_ids])
+    series_add.queue_series_adds(
+        [{"comicid": comic_id, "comicname": None, "seriesyear": None} for comic_id in comic_ids]
+    )
 
     start_background_thread(
         _want_issues_after_imports,
