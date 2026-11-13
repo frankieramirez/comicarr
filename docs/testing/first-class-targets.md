@@ -50,23 +50,24 @@ change.
 
 | Scenario | Unit test | Pipeline test | Status |
 |---|---|---|---|
-| Append handoff | pending | pending | pending #1220 |
-| History polling | pending | pending | pending #1220 |
-| Destination directory mapping | `tests/unit/test_postprocess_input_resolution.py::test_nzbget_resolution_preserves_existing_override_order`, `tests/unit/test_postprocess_input_resolution.py::test_nzbget_resolution_finds_download_under_category_subdirectory` | pending | pending #1220 |
-| Par failure maps to a failure reason | pending | pending | pending #1220 |
-| Unpack failure maps to a failure reason | pending | pending | pending #1220 |
-| Health failure maps to a failure reason | pending | pending | pending #1220 |
-| Restart mid-download | pending | pending | pending #1220 |
-| Authentication failure | pending | pending | pending #1220 |
+| Append handoff | `tests/unit/test_nzbget_recorded_responses.py::test_append_returns_the_nzbid_nzbget_assigned` | `tests/integration/test_acquisition_pipeline.py::test_nzbget_append_handoff_is_verified_from_nzbgets_own_response` | covered |
+| History polling | `tests/unit/test_nzbget_recorded_responses.py::test_processor_polls_the_queue_until_the_job_reaches_history` | `tests/integration/test_acquisition_pipeline.py::test_nzbget_history_polling_follows_the_job_into_history` | covered |
+| Destination directory mapping | `tests/unit/test_nzbget_recorded_responses.py::test_history_dest_dir_is_mapped_into_nzbget_directory`, `tests/unit/test_nzbget_recorded_responses.py::test_history_dest_dir_is_used_as_is_when_comicarr_can_see_it`, `tests/unit/test_postprocess_input_resolution.py::test_nzbget_resolution_preserves_existing_override_order`, `tests/unit/test_postprocess_input_resolution.py::test_nzbget_resolution_finds_download_under_category_subdirectory` | `tests/integration/test_acquisition_pipeline.py::test_nzbget_destination_directory_mapping` | covered |
+| Par failure maps to a failure reason | `tests/unit/test_nzbget_recorded_responses.py::test_par_failure_is_a_failed_download` | `tests/integration/test_acquisition_pipeline.py::test_nzbget_par_failure_leads_to_a_retry`, `tests/integration/test_acquisition_pipeline.py::test_nzbget_failure_reason_names_what_failed[par]` | covered; the reason naming the cause is an expected failure, #1264 |
+| Unpack failure maps to a failure reason | `tests/unit/test_nzbget_recorded_responses.py::test_unpack_failure_is_a_failed_download` | `tests/integration/test_acquisition_pipeline.py::test_nzbget_unpack_failure_leads_to_a_retry`, `tests/integration/test_acquisition_pipeline.py::test_nzbget_failure_reason_names_what_failed[unpack]` | covered; the reason naming the cause is an expected failure, #1264 |
+| Health failure maps to a failure reason | `tests/unit/test_nzbget_recorded_responses.py::test_health_failure_is_a_failed_download` | `tests/integration/test_acquisition_pipeline.py::test_nzbget_health_failure_leads_to_a_retry`, `tests/integration/test_acquisition_pipeline.py::test_nzbget_failure_reason_names_what_failed[health]` | covered; the reason naming the cause is an expected failure, #1264 |
+| Restart mid-download | `tests/unit/test_nzbget_recorded_responses.py::test_restart_probe_finds_a_finished_job_in_history`, `tests/unit/test_nzbget_recorded_responses.py::test_restart_probe_finds_the_job_from_the_saved_handoff` | `tests/integration/test_acquisition_pipeline.py::test_nzbget_restart_mid_download_resumes_monitoring`, `tests/integration/test_acquisition_pipeline.py::test_nzbget_restart_after_the_job_finished_resumes_handling` | covered; expected failure until #1263 |
+| Authentication failure | `tests/unit/test_nzbget_recorded_responses.py::test_wrong_password_upload_is_not_an_acceptance`, `tests/unit/test_nzbget_recorded_responses.py::test_wrong_password_probe_is_reported_as_rejected`, `tests/unit/test_nzbget_recorded_responses.py::test_right_password_probe_reports_the_version` | `tests/integration/test_acquisition_pipeline.py::test_nzbget_wrong_password_is_an_authentication_failure` | covered |
 
 ## How the download-client tests run
 
 Pipeline tests run Comicarr's real handoff, monitor, completed-download
 handling and post-processing, and stop only at the download client. That
-client is an in-process fake: `tests/fakes/sabnzbd.py` for SABnzbd. Its
-responses are built from files recorded from a real SABnzbd release in
-`tests/fixtures/sabnzbd/<version>/`; that directory's README names the
-release and how to record a fresh set. The fakes refuse any request to a host
+client is an in-process fake: `tests/fakes/sabnzbd.py` for SABnzbd and
+`tests/fakes/nzbget.py` for NZBGet. Their responses are built from files
+recorded from a real release in `tests/fixtures/sabnzbd/<version>/` and
+`tests/fixtures/nzbget/<version>/`; each directory's README names the release
+and how to record a fresh set. The fakes refuse any request to a host
 they do not serve, so no test reaches the network. Shared pipeline steps live
 in `tests/fakes/pipeline.py`.
 
@@ -86,6 +87,6 @@ places.
 | Group | Modules | Lines covered | Floor | Points to 80% |
 |---|---|---|---|---|
 | SABnzbd | `comicarr/sabnzbd.py` | 82.3% of 395 lines (78.0% before #1219) | 82.3% | met |
-| NZBGet | `comicarr/nzbget.py` | 6.4% of 220 lines | 6.4% | 73.6 |
+| NZBGet | `comicarr/nzbget.py` | 56.4% of 220 lines (6.4% before #1220) | 56.4% | 23.6 |
 | Manga | `comicarr/app/manga/` | 91.1% of 528 lines | 91.1% | met |
 | Downloads | `comicarr/app/downloads/handoff.py`, `completed_path.py`, `sab_reconcile.py` | 84.3% of 350 lines | 84.3% | met |

@@ -27,6 +27,7 @@ from comicarr.app.series import service as series_service
 from comicarr.tables import acquisition_run_items, acquisition_runs, comics, issues, metadata, nzblog, pipeline_journal
 from tests.fakes import pipeline
 from tests.fakes import sabnzbd as sab_fake
+from tests.fakes.nzbget import FakeNzbget
 from tests.fakes.sabnzbd import FakeSabnzbd
 
 
@@ -614,3 +615,201 @@ def test_sab_restart_with_a_current_comicvine_issue_id(current_comicvine_issue_i
     assert restarted["open"] == 1
     with db.get_engine().connect() as conn:
         assert len(conn.execute(select(pipeline_journal)).all()) == 1
+
+
+@pytest.fixture
+def nzb(tmp_path, monkeypatch):
+    fake = FakeNzbget().install(monkeypatch)
+    local_completed = tmp_path / "nzbget" / "completed"
+    local_completed.mkdir(parents=True)
+    monkeypatch.setattr(
+        comicarr,
+        "CONFIG",
+        pipeline.default_config(
+            NZBGET_HOST=fake.host,
+            NZBGET_PORT=fake.port,
+            NZBGET_USERNAME=fake.username,
+            NZBGET_PASSWORD=fake.password,
+            NZBGET_CATEGORY=fake.category,
+            NZBGET_CLIENT_POST_PROCESSING=True,
+            NZBGET_DIRECTORY=str(local_completed),
+            MANUAL_PP_FOLDER=str(tmp_path / "downloads"),
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(comicarr, "USE_NZBGET", True, raising=False)
+    monkeypatch.setattr(comicarr, "USE_SABNZBD", False, raising=False)
+    monkeypatch.setattr(comicarr, "NZB_QUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr("comicarr.nzbget.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("comicarr.app.downloads.service.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr(
+        "comicarr.postprocessor.time", SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _seconds: None)
+    )
+    series_root = tmp_path / "library" / "Absolute Batman (2024)"
+    series_root.mkdir(parents=True)
+    with db.get_engine().begin() as conn:
+        conn.execute(comics.insert().values(**pipeline.comic_series_row(series_root)))
+        conn.execute(issues.insert().values(**pipeline.comic_issue_row()))
+    fake.local_completed = local_completed
+    fake.series_root = series_root
+    fake.nzb = pipeline.cached_nzb(tmp_path)
+    return fake
+
+
+def _nzbget_download_lands(nzb):
+    """NZBGet finishes the job; NZBGET_DIRECTORY is where Comicarr sees its DestDir."""
+    return pipeline.write_download(nzb.local_completed / nzb.category / pipeline.RELEASE / pipeline.FILENAME)
+
+
+def test_nzbget_append_handoff_is_verified_from_nzbgets_own_response(nzb):
+    response, item = pipeline.send_to_nzbget(nzb.nzb)
+
+    [nzbid] = nzb.jobs
+    assert response == {"status": True, "NZBID": nzbid}
+    row = journal.read_one(pipeline.release_key())
+    assert row["stage"] == journal.SNATCHED
+    assert '"NZBID": "%s"' % nzbid in row["payload_json"]
+    [append] = [call for call in nzb.calls if call["method"] == "append"]
+    assert append["params"][2] == "comics" and "comicarr" not in str(append["params"][1:]).lower()
+
+    nzb.complete(nzbid)
+    _nzbget_download_lands(nzb)
+    assert pipeline.monitor_nzbget(item)["status"] is True
+    assert pipeline.post_process_next().status == "processed"
+    _assert_in_library(nzb)
+
+
+def test_nzbget_history_polling_follows_the_job_into_history(nzb):
+    _response, item = pipeline.send_to_nzbget(nzb.nzb)
+    [nzbid] = nzb.jobs
+    nzb.start(nzbid, polls=2)
+    _nzbget_download_lands(nzb)
+
+    nzstat = pipeline.monitor_nzbget(item)
+
+    assert [call["method"] for call in nzb.calls].count("listgroups") == 3
+    assert nzstat["status"] is True and nzstat["failed"] is False
+    assert pipeline.post_process_next().status == "processed"
+    _assert_in_library(nzb)
+
+
+def test_nzbget_destination_directory_mapping(nzb):
+    """NZBGet reports its own DestDir; NZBGET_DIRECTORY maps it to where Comicarr sees the job."""
+    _response, item = pipeline.send_to_nzbget(nzb.nzb)
+    [nzbid] = nzb.jobs
+    nzb.complete(nzbid)
+    local = _nzbget_download_lands(nzb)
+
+    nzstat = pipeline.monitor_nzbget(item)
+
+    assert not nzb.remote_dest(nzbid).startswith(str(nzb.local_completed))
+    assert str(nzstat["location"]) == str(local.parent)
+    assert "config" in [call["method"] for call in nzb.calls]
+    assert pipeline.post_process_next().status == "processed"
+    _assert_in_library(nzb)
+
+
+def _nzbget_failure_is_retried(nzb, monkeypatch, how):
+    monkeypatch.setattr(comicarr.CONFIG, "FAILED_DOWNLOAD_HANDLING", True)
+    monkeypatch.setattr(comicarr.CONFIG, "FAILED_AUTO", True)
+    _response, item = pipeline.send_to_nzbget(nzb.nzb)
+    [nzbid] = nzb.jobs
+    nzb.fail(nzbid, how)
+
+    nzstat = pipeline.monitor_nzbget(item)
+
+    assert nzstat["status"] is True and nzstat["failed"] is True
+    assert pipeline.post_process_next().status == "processed"
+    row = journal.read_one(pipeline.release_key())
+    assert row["stage"] == journal.FAILED
+    issue, _summary = pipeline.library_issue()
+    assert issue["fulfillment"] != "downloaded"
+    retry = comicarr.SEARCH_QUEUE.get_nowait()
+    assert retry["issueid"] == pipeline.ISSUE_ID
+    return row
+
+
+def test_nzbget_par_failure_leads_to_a_retry(nzb, monkeypatch):
+    _nzbget_failure_is_retried(nzb, monkeypatch, "par")
+
+
+def test_nzbget_unpack_failure_leads_to_a_retry(nzb, monkeypatch):
+    _nzbget_failure_is_retried(nzb, monkeypatch, "unpack")
+
+
+def test_nzbget_health_failure_leads_to_a_retry(nzb, monkeypatch):
+    _nzbget_failure_is_retried(nzb, monkeypatch, "health")
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="Every NZBGet FAILURE/* status records the same failure reason: "
+    "https://github.com/frankieramirez/comicarr/issues/1264",
+)
+@pytest.mark.parametrize("how", ["par", "unpack", "health"])
+def test_nzbget_failure_reason_names_what_failed(nzb, monkeypatch, how):
+    row = _nzbget_failure_is_retried(nzb, monkeypatch, how)
+
+    assert how in row["fail_reason"]
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="The handoff saves NZBID as a string and NZBGet reports an integer, so restart marks the grab gone: "
+    "https://github.com/frankieramirez/comicarr/issues/1263",
+)
+def test_nzbget_restart_after_the_job_finished_resumes_handling(nzb):
+    """NZBGet finished the job while Comicarr was down; startup picks it up from history."""
+    _response, _item = pipeline.send_to_nzbget(nzb.nzb)
+    [nzbid] = nzb.jobs
+    nzb.complete(nzbid)
+    _nzbget_download_lands(nzb)
+
+    restarted = recovery.replay_pipeline()
+
+    assert restarted["open"] == 1
+    rebuilt = comicarr.NZB_QUEUE.get_nowait()
+    assert rebuilt["NZBID"] == nzbid
+    pipeline.monitor_nzbget(rebuilt)
+    assert pipeline.post_process_next().status == "processed"
+    _assert_in_library(nzb)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="The restart probe misses the saved NZBID and reads only history, so a downloading job is marked gone: "
+    "https://github.com/frankieramirez/comicarr/issues/1263",
+)
+def test_nzbget_restart_mid_download_resumes_monitoring(nzb):
+    _response, _item = pipeline.send_to_nzbget(nzb.nzb)
+    [nzbid] = nzb.jobs
+    nzb.start(nzbid, polls=1)
+
+    restarted = recovery.replay_pipeline()
+
+    assert journal.read_one(pipeline.release_key())["stage"] == journal.SNATCHED
+    rebuilt = comicarr.NZB_QUEUE.get_nowait()
+    assert rebuilt["NZBID"] == nzbid
+    assert restarted["open"] == 1
+    _nzbget_download_lands(nzb)
+    pipeline.monitor_nzbget(rebuilt)
+    assert pipeline.post_process_next().status == "processed"
+    _assert_in_library(nzb)
+
+
+def test_nzbget_wrong_password_is_an_authentication_failure(nzb, monkeypatch):
+    from comicarr.app.system import connections
+
+    monkeypatch.setattr(comicarr.CONFIG, "NZBGET_PASSWORD", "a-stale-password")
+
+    response, item = pipeline.send_to_nzbget(nzb.nzb)
+
+    assert response == {"status": False} and item is None
+    assert nzb.jobs == {}
+    assert journal.read_one(pipeline.release_key())["fail_reason"] == "submission_rejected"
+    issue, _summary = pipeline.library_issue()
+    assert issue["fulfillment"] != "downloaded"
+    probe = connections._probe_nzbget(comicarr.CONFIG)
+    assert probe.ok is False
+    assert probe.result == "NZBGet rejected the username or password"

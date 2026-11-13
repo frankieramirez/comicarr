@@ -73,21 +73,6 @@ PENDING = {
     ("Manga", "Duplicate guard", "pipeline"): 1222,
     ("Manga", "Manga RSS", "pipeline"): 1222,
     ("Manga", "Add-manga failure narration", "pipeline"): 1222,
-    ("NZBGet", "Append handoff", "unit"): 1220,
-    ("NZBGet", "Append handoff", "pipeline"): 1220,
-    ("NZBGet", "History polling", "unit"): 1220,
-    ("NZBGet", "History polling", "pipeline"): 1220,
-    ("NZBGet", "Destination directory mapping", "pipeline"): 1220,
-    ("NZBGet", "Par failure maps to a failure reason", "unit"): 1220,
-    ("NZBGet", "Par failure maps to a failure reason", "pipeline"): 1220,
-    ("NZBGet", "Unpack failure maps to a failure reason", "unit"): 1220,
-    ("NZBGet", "Unpack failure maps to a failure reason", "pipeline"): 1220,
-    ("NZBGet", "Health failure maps to a failure reason", "unit"): 1220,
-    ("NZBGet", "Health failure maps to a failure reason", "pipeline"): 1220,
-    ("NZBGet", "Restart mid-download", "unit"): 1220,
-    ("NZBGet", "Restart mid-download", "pipeline"): 1220,
-    ("NZBGet", "Authentication failure", "unit"): 1220,
-    ("NZBGet", "Authentication failure", "pipeline"): 1220,
 }
 
 # Group -> (module paths relative to the repo root, line-coverage floor in percent).
@@ -95,7 +80,7 @@ PENDING = {
 # change raises a figure, record the new one here and in the doc.
 COVERAGE_FLOORS = {
     "SABnzbd": (("comicarr/sabnzbd.py",), 82.3),
-    "NZBGet": (("comicarr/nzbget.py",), 6.4),
+    "NZBGet": (("comicarr/nzbget.py",), 56.4),
     "Manga": (("comicarr/app/manga/",), 91.1),
     "Downloads": (
         (

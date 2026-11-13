@@ -1,0 +1,11 @@
+{
+  "method": "editqueue",
+  "params": [
+    "HistoryDelete",
+    "",
+    [
+      8
+    ]
+  ],
+  "result": true
+}
