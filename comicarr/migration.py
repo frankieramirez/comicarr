@@ -23,8 +23,10 @@ import re
 import sqlite3
 import threading
 
+import sqlalchemy as sa
+
 import comicarr
-from comicarr import encrypted, logger, maintenance
+from comicarr import db, encrypted, logger, maintenance
 
 _migration_lock = threading.Lock()
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -141,22 +143,35 @@ def _open_source_db(path):
         conn.close()
 
 
-def _get_common_columns(source_conn, dest_conn, table):
+def _get_common_columns(source_conn, dest_table, table):
     source_cols = {
         row[1]
         for row in source_conn.execute("PRAGMA table_info(%s)" % table).fetchall()
         if _SAFE_IDENTIFIER.match(row[1])
     }
-    dest_cols = {
-        row[1]
-        for row in dest_conn.execute("PRAGMA table_info(%s)" % table).fetchall()
-        if _SAFE_IDENTIFIER.match(row[1])
-    }
+    dest_cols = {column.name for column in dest_table.columns if _SAFE_IDENTIFIER.match(column.name)}
     if table == "weekly":
         source_cols.discard("rowid")
         dest_cols.discard("rowid")
     common = source_cols & dest_cols
     return sorted(common)
+
+
+def _insert_ignoring_duplicates(dest_table, dialect):
+    """INSERT that skips a row already present, on whichever database Comicarr runs (#1256)."""
+    if dialect == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+        return pg_insert(dest_table).on_conflict_do_nothing()
+    if dialect == "mysql":
+        return sa.insert(dest_table).prefix_with("IGNORE")
+    return sa.insert(dest_table).prefix_with("OR IGNORE")
+
+
+def _reflect_destination(engine, tables):
+    metadata = sa.MetaData()
+    metadata.reflect(bind=engine, only=lambda name, _metadata: name in tables)
+    return metadata.tables
 
 
 class Mylar3Migration:
@@ -280,75 +295,56 @@ class Mylar3Migration:
 
             upgrade_database()
 
+            engine = db.get_engine()
+            dialect = engine.dialect.name
             with _open_source_db(self.dbfile) as source_conn:
-                dest_conn = sqlite3.connect(comicarr.DB_FILE, timeout=20)
+                source_tables = {
+                    row[0]
+                    for row in source_conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+                }
+                dest_tables = _reflect_destination(engine, set(MIGRATABLE_TABLES) & source_tables)
+                tables_to_migrate = [t for t in MIGRATABLE_TABLES if t in source_tables and t in dest_tables]
+                comicarr.MIGRATION_TABLES_TOTAL = len(tables_to_migrate)
 
-                try:
-                    dest_conn.execute("PRAGMA synchronous = NORMAL")
-                    dest_conn.execute("PRAGMA cache_size = -128000")
-                    dest_conn.execute("PRAGMA temp_store = MEMORY")
-                    dest_conn.execute("PRAGMA foreign_keys = OFF")
+                for table in tables_to_migrate:
+                    comicarr.MIGRATION_CURRENT_TABLE = table
+                    logger.info("[MIGRATION][%s] Starting import..." % table.upper())
 
-                    source_tables = {
-                        row[0]
-                        for row in source_conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
-                    }
-                    dest_tables = {
-                        row[0]
-                        for row in dest_conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
-                    }
-                    tables_to_migrate = [t for t in MIGRATABLE_TABLES if t in source_tables and t in dest_tables]
-                    comicarr.MIGRATION_TABLES_TOTAL = len(tables_to_migrate)
+                    dest_table = dest_tables[table]
+                    columns = _get_common_columns(source_conn, dest_table, table)
+                    if not columns:
+                        logger.warn("[MIGRATION][%s] No common columns found, skipping" % table.upper())
+                        comicarr.MIGRATION_TABLES_COMPLETE += 1
+                        continue
 
-                    for table in tables_to_migrate:
-                        comicarr.MIGRATION_CURRENT_TABLE = table
-                        logger.info("[MIGRATION][%s] Starting import..." % table.upper())
+                    insert_stmt = _insert_ignoring_duplicates(dest_table, dialect)
+                    source_cursor = source_conn.execute("SELECT %s FROM %s" % (", ".join(columns), table))
 
-                        columns = _get_common_columns(source_conn, dest_conn, table)
-                        if not columns:
-                            logger.warn("[MIGRATION][%s] No common columns found, skipping" % table.upper())
-                            comicarr.MIGRATION_TABLES_COMPLETE += 1
-                            continue
-
-                        col_list = ", ".join(columns)
-                        placeholders = ", ".join(["?"] * len(columns))
-                        insert_sql = "INSERT OR IGNORE INTO %s (%s) VALUES (%s)" % (table, col_list, placeholders)
-
-                        source_cursor = source_conn.execute("SELECT %s FROM %s" % (col_list, table))
-
-                        dest_conn.execute("BEGIN")
-                        try:
-                            total_rows = 0
+                    try:
+                        total_rows = 0
+                        with engine.begin() as dest_conn:
+                            if dialect == "sqlite":
+                                dest_conn.exec_driver_sql("PRAGMA foreign_keys = OFF")
                             while True:
                                 batch = source_cursor.fetchmany(5000)
                                 if not batch:
                                     break
-                                dest_conn.executemany(insert_sql, [tuple(row) for row in batch])
+                                dest_conn.execute(
+                                    insert_stmt, [dict(zip(columns, tuple(row), strict=True)) for row in batch]
+                                )
                                 total_rows += len(batch)
-                            dest_conn.commit()
-                            logger.info("[MIGRATION][%s] Imported %d rows" % (table.upper(), total_rows))
-                        except Exception as e:
-                            dest_conn.rollback()
-                            logger.error("[MIGRATION][%s] Failed: %s" % (table.upper(), e))
-                            comicarr.MIGRATION_STATUS = "error"
-                            comicarr.MIGRATION_ERROR = "Failed on table %s" % table
-                            _set_acquisition_reconciliation(
-                                "failed",
-                                "Migration failed on table %s; operator review required before acquisition resumes"
-                                % table,
-                            )
-                            return False
+                        logger.info("[MIGRATION][%s] Imported %d rows" % (table.upper(), total_rows))
+                    except Exception as e:
+                        logger.error("[MIGRATION][%s] Failed: %s" % (table.upper(), e))
+                        comicarr.MIGRATION_STATUS = "error"
+                        comicarr.MIGRATION_ERROR = "Failed on table %s" % table
+                        _set_acquisition_reconciliation(
+                            "failed",
+                            "Migration failed on table %s; operator review required before acquisition resumes" % table,
+                        )
+                        return False
 
-                        comicarr.MIGRATION_TABLES_COMPLETE += 1
-
-                finally:
-                    try:
-                        dest_conn.execute("PRAGMA synchronous = NORMAL")
-                        dest_conn.execute("PRAGMA foreign_keys = ON")
-                        dest_conn.execute("PRAGMA optimize")
-                    except Exception:
-                        pass
-                    dest_conn.close()
+                    comicarr.MIGRATION_TABLES_COMPLETE += 1
 
             logger.info("[MIGRATION] Migrating config settings...")
             try:
@@ -470,40 +466,36 @@ def migrate_mylar3_config(source_path):
 
 def _verify_migration(source_db_path):
     try:
-        with _open_source_db(source_db_path) as source_conn:
-            dest_conn = sqlite3.connect(comicarr.DB_FILE)
-            try:
-                dest_conn.row_factory = sqlite3.Row
-
-                for table in ["comics", "issues", "annuals"]:
-                    try:
-                        src_count = source_conn.execute("SELECT COUNT(*) as cnt FROM %s" % table).fetchone()
-                        dst_count = dest_conn.execute("SELECT COUNT(*) as cnt FROM %s" % table).fetchone()
-                        src_n = int(src_count["cnt"]) if src_count else 0
-                        dst_n = int(dst_count["cnt"]) if dst_count else 0
-                        if src_n != dst_n:
-                            logger.warn(
-                                "[MIGRATION][VERIFY] Row count mismatch for %s: source=%d, destination=%d"
-                                % (table, src_n, dst_n)
-                            )
-                        else:
-                            logger.fdebug("[MIGRATION][VERIFY] %s: %d rows OK" % (table, dst_n))
-                    except Exception as e:
-                        logger.warn("[MIGRATION][VERIFY] Could not verify %s: %s" % (table, e))
-
+        with _open_source_db(source_db_path) as source_conn, db.get_engine().connect() as dest_conn:
+            for table in ["comics", "issues", "annuals"]:
                 try:
-                    orphans = dest_conn.execute(
-                        "SELECT COUNT(*) as cnt FROM issues WHERE ComicID NOT IN (SELECT ComicID FROM comics)"
-                    ).fetchone()
-                    orphan_count = int(orphans["cnt"]) if orphans else 0
-                    if orphan_count > 0:
+                    src_count = source_conn.execute("SELECT COUNT(*) as cnt FROM %s" % table).fetchone()
+                    src_n = int(src_count["cnt"]) if src_count else 0
+                    dst_n = int(dest_conn.execute(sa.text("SELECT COUNT(*) FROM %s" % table)).scalar() or 0)
+                    if src_n != dst_n:
                         logger.warn(
-                            "[MIGRATION][VERIFY] %d orphaned issues found (referencing non-existent comics)"
-                            % orphan_count
+                            "[MIGRATION][VERIFY] Row count mismatch for %s: source=%d, destination=%d"
+                            % (table, src_n, dst_n)
                         )
+                    else:
+                        logger.fdebug("[MIGRATION][VERIFY] %s: %d rows OK" % (table, dst_n))
                 except Exception as e:
-                    logger.warn("[MIGRATION][VERIFY] Orphan check failed: %s" % e)
-            finally:
-                dest_conn.close()
+                    logger.warn("[MIGRATION][VERIFY] Could not verify %s: %s" % (table, e))
+
+            try:
+                from comicarr.tables import comics, issues
+
+                orphans = (
+                    sa.select(sa.func.count())
+                    .select_from(issues)
+                    .where(issues.c.ComicID.not_in(sa.select(comics.c.ComicID)))
+                )
+                orphan_count = int(dest_conn.execute(orphans).scalar() or 0)
+                if orphan_count > 0:
+                    logger.warn(
+                        "[MIGRATION][VERIFY] %d orphaned issues found (referencing non-existent comics)" % orphan_count
+                    )
+            except Exception as e:
+                logger.warn("[MIGRATION][VERIFY] Orphan check failed: %s" % e)
     except Exception as e:
         logger.warn("[MIGRATION][VERIFY] Verification failed: %s" % e)
