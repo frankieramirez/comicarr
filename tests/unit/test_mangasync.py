@@ -189,6 +189,20 @@ class TestMangaScan:
         assert result["scan_results"] == []
         assert result["existing_updated"] == 1
 
+    def test_series_error_keeps_exception_text_out_of_progress(self, mangasync, _mock_globals):
+        """CodeQL #323/#324: the progress payload reaches the browser, so it carries a generic error."""
+        with (
+            patch("os.path.isdir", return_value=True),
+            patch.object(mangasync, "_collect_series_files", return_value={"Bleach": [("/manga/Bleach/v01.cbz", None)]}),
+            patch.object(mangasync, "_check_existing_series", return_value=None),
+            patch.object(mangasync, "_match_series", side_effect=RuntimeError("/secret/path leaked")),
+        ):
+            result = mangasync.mangaScan("/manga")
+
+        payload = repr(mangasync.get_scan_progress()) + repr(result)
+        assert "/secret/path" not in payload
+        assert result["errors"] == [{"series": "Bleach", "error": mangasync._SERIES_SCAN_ERROR}]
+
     def test_concurrent_scan_rejected(self, mangasync):
         mangasync._SCAN_LOCK.acquire()
         try:
