@@ -33,7 +33,6 @@ fill missing third-party notice or source-revision evidence.
 | `comictaggerlib/` | ComicTagger metadata/archive behavior | Bundled version `1.3.5` in `ctversion.py` | Apache-2.0 notices in source files | `evidence-recorded` |
 | `deluge_client/` | Deluge RPC | Mylar3 import; exact upstream version unidentified | Bundled `LICENSE` (MIT) | `evidence-recorded` |
 | `get_image_size.py` | Packaged image-size support; no current first-party import | Mylar3 import; version unidentified | MIT notice in source | `evidence-recorded` |
-| `mega/` | Mega downloads through `comicarr.downloaders.mega` | odwyersoftware/mega.py `1.0.8` base at a pinned revision, plus a localized Mylar3 patch | Conflicting license declarations at the identified base; engineering `NOTICE` is not a license | `unresolved` |
 | `qbittorrent/` | qBittorrent Web API | Mylar3 import; exact upstream revision unidentified | Bundled `LICENSE` (MIT) | `evidence-recorded` |
 | `rtorrent/` | rTorrent XML-RPC/SCGI | Version `0.2.9` in source | Mixed: MIT; GPL-2.0-or-later with OpenSSL exception; embedded Secret Labs terms | `evidence-recorded` |
 | `transmissionrpc/` | Transmission RPC | Version `0.11` in source | MIT notice in source | `evidence-recorded` |
@@ -42,35 +41,26 @@ fill missing third-party notice or source-revision evidence.
 packages. They are intentionally part of the manifest and wheel inventory.
 Nested rTorrent helpers belong to the `rtorrent` root.
 
-## Unresolved evidence packets
+## Removed unresolved trees
 
-### Mega
+Two inherited trees never had redistribution authority that Comicarr could
+establish. Both were deleted rather than cleared; deleting them ends the
+question instead of answering it.
 
-Mylar3 commit `9ad1b5d7d1be7c90cd49e6ec4149ade3d05e3292` introduced
-`lib/mega`. Its tree is the pre-notice Comicarr vendor tree, and later Mylar3
-commits did not change that path. The code base is odwyersoftware/mega.py
-version `1.0.8` at commit `34f3e7335992589eed8f08e675c5fb3038139355`:
-three source files match byte-for-byte, while `mega.py` has a localized 34-line
-Mylar3 delta for redirects and progress hooks.
+- **uTorrent**, removed by
+  [#1229](https://github.com/frankieramirez/comicarr/issues/1229). The
+  adapter uses `comicarr/torrent/clients/utorrent_webui.py`, written from the
+  public WebUI API and the recorded behavior in
+  `tests/unit/test_utorrent_adapter.py`.
+- **Mega**, removed by
+  [#1230](https://github.com/frankieramirez/comicarr/issues/1230). The Mega
+  downloader uses `comicarr/downloaders/mega_public.py`, written from Mega's
+  public-link protocol and tested in `tests/unit/test_mega_public.py`. It
+  uses the `cryptography` dependency Comicarr already had.
 
-Source lineage does not resolve redistribution authority. At that pinned
-upstream revision, `LICENSE` declares Apache-2.0 while `setup.py` declares a
-Creative Commons Attribution-Noncommercial-Share Alike license. The copied
-files do not settle the conflict, so the machine record remains `NOASSERTION`
-and `unresolved`.
-
-### uTorrent (removed)
-
-The vendored uTorrent tree was deleted by
-[#1229](https://github.com/frankieramirez/comicarr/issues/1229). Its
-redistribution status was never resolved; deleting it ends the question
-rather than answering it. The adapter now uses
-`comicarr/torrent/clients/utorrent_webui.py`, a first-party WebUI client
-under Comicarr's GPL-3.0 license, written from the public WebUI API and the
-recorded behavior in `tests/unit/test_utorrent_adapter.py`.
-
-The unresolved Mega directory includes an engineering `NOTICE` in the wheel. The
-notice preserves known custody and stop conditions; it grants no rights.
+Both replacements are first-party code under Comicarr's GPL-3.0 license. No
+packaged vendor root is `unresolved` now, and a contract test keeps it that
+way.
 
 ## Import and artifact contract
 
@@ -134,7 +124,7 @@ code under Comicarr's own GPL-3.0 license:
   stream with AES-CTR using a crypto library Comicarr already depends on, and
   verify the result. Accounts, uploads and folders are out of scope because
   Comicarr never used them. Then `comicarr/_vendor/mega/` and its provenance
-  entry are deleted.
+  entry are deleted. **Done in #1230.**
 
 Rules for both rewrites:
 

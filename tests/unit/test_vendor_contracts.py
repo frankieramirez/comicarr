@@ -342,35 +342,12 @@ def test_every_packaged_notice_is_claimed_exactly_once():
     assert set(claimed_notices) == actual_notices
 
 
-def test_unresolved_vendor_status_cannot_imply_redistribution_clearance():
+def test_no_packaged_vendor_root_has_unresolved_redistribution_status():
     unresolved = {
         name for name, record in provenance.VENDOR_PROVENANCE.items() if record["redistribution_status"] == "unresolved"
     }
 
-    assert unresolved == {"mega"}
-    for name in unresolved:
-        record = provenance.VENDOR_PROVENANCE[name]
-        assert record["license_expression"] == "NOASSERTION"
-        assert record["license_evidence"] == ()
-        assert record["unresolved_reasons"]
-
-    mega = provenance.VENDOR_PROVENANCE["mega"]
-    assert mega["upstream_source_url"] == "https://github.com/odwyersoftware/mega.py"
-    assert mega["upstream_revision"] == "34f3e7335992589eed8f08e675c5fb3038139355"
-    assert mega["upstream_version"] == "1.0.8"
-    assert mega["license_conflict_evidence"]
-
-
-def test_unresolved_notices_preserve_non_clearance_language():
-    required_text = {
-        "mega": (),
-    }
-    for name, phrases in required_text.items():
-        notice = (VENDOR_ROOT / name / "NOTICE").read_text(encoding="utf-8")
-        assert "Redistribution status: unresolved" in notice
-        assert "not a license grant" in notice
-        for phrase in phrases:
-            assert phrase in notice
+    assert unresolved == set()
 
 
 def test_vendor_imports_are_declared_and_legacy_top_level_imports_are_explicit():
@@ -382,13 +359,13 @@ def test_vendor_imports_are_declared_and_legacy_top_level_imports_are_explicit()
 
 def test_vendor_import_classifier_catches_exact_and_dotted_top_level_imports():
     tree = ast.parse(
-        "import mega.crypto\nfrom qbittorrent.client import Client\nfrom comicarr._vendor import rtorrent\n"
+        "import deluge_client.client\nfrom qbittorrent.client import Client\nfrom comicarr._vendor import rtorrent\n"
     )
 
     namespaced, legacy = _classify_vendor_imports(tree, "synthetic.py")
 
     assert namespaced == {"rtorrent"}
-    assert legacy == {"mega": {"synthetic.py"}, "qbittorrent": {"synthetic.py"}}
+    assert legacy == {"deluge_client": {"synthetic.py"}, "qbittorrent": {"synthetic.py"}}
 
 
 def test_vendor_import_scan_includes_root_runtime_entry_points():

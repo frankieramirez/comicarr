@@ -22,7 +22,7 @@ import sys
 
 import comicarr
 from comicarr import db, helpers, logger
-from comicarr._vendor.mega import Mega
+from comicarr.downloaders import mega_public
 
 
 class MegaNZ(object):
@@ -42,71 +42,44 @@ class MegaNZ(object):
         logger.info("trying link: %s" % (link,))
         logger.info("dl_location: %s / filename: %s" % (self.dl_location, filename))
 
-        mega = Mega()
         try:
-            m = mega.login()
-            pui = m.get_public_url_info(link)
-            if pui:
-                filesize = pui["size"]
-                filename = pui["name"]
-
-                logger.info("[get-public-url-info resolved] Writing to db: %s [%s]" % (filename, filesize))
-                db.upsert(
-                    "ddl_info",
-                    {
-                        "filename": str(filename),
-                        "remote_filesize": str(filesize),
-                        "size": helpers.human_size(str(filesize)),
-                    },
-                    {"ID": self.id},
-                )
-
-            if filename is None:
-                filename = m.download_url(link, self.dl_location, progress_hook=self.testing)
-            else:
-                filename = m.download_url(link, self.dl_location, filename, self.testing)
-        except Exception as e:
-            logger.warn("[MEGA][ERROR] %s" % e)
-            if "EBLOCKED" in str(e):
-                logger.warn("Content has been removed - we should move on to the next one at this point.")
-            return {"success": False, "filename": filename, "path": None, "link_type_failure": site}
-        else:
-            og_filepath = os.path.join(self.dl_location, filename)
-            if filename is not None:
-                og_filepath = filename
-                file, ext = os.path.splitext(os.path.basename(filename))
-                filename = "%s[__%s__]%s" % (file, issueid, ext)
-                filepath = og_filepath.with_name(filename)
-                try:
-                    filepath = og_filepath.replace(filepath)
-                except Exception:
-                    logger.warn("unable to rename/replace %s with %s" % (og_filepath, filepath))
-                else:
-                    logger.info("ddl_linked - filename: %s" % filename)
-                if ext == ".zip":
-                    ggc = comicarr.getcomics.GC()
-                    return ggc.zip_zip(id, str(filepath), filename)
-                else:
-                    return {"success": True, "filename": filename, "path": str(filepath)}
-            else:
-                logger.warn("filename returned from download has a None value")
-                return {"success": False, "filename": filename, "path": None, "link_type_failure": site}
-
-    def testing(self, data):
-        mth = (data["current"] / data["total"]) * 100
-
-        if data["tmp_filename"] is not None and self.wrote_tmp is False:
-            logger.info("writing to db: %s [%s][%s]" % (data["name"], data["total"], data["tmp_filename"]))
+            info = mega_public.resolve(link)
+            logger.info("[MEGA] resolved %s [%s bytes]" % (info.name, info.size))
             db.upsert(
                 "ddl_info",
-                {"tmp_filename": str(data["tmp_filename"])},
+                {
+                    "filename": str(info.name),
+                    "remote_filesize": str(info.size),
+                    "size": helpers.human_size(str(info.size)),
+                },
                 {"ID": self.id},
             )
-            self.wrote_tmp = True
+            filename = info.name
+            downloaded = mega_public.download(info, self.dl_location, self._progress)
+        except Exception as e:
+            logger.warn("[MEGA][ERROR] %s: %s" % (getattr(e, "reason", type(e).__name__), e))
+            return {"success": False, "filename": filename, "path": None, "link_type_failure": site}
 
-        if mth >= 100.0:
-            logger.info("status: %s" % (data["status"]))
-            logger.info("successfully downloaded %s [%s bytes]" % (data["name"], data["total"]))
+        logger.info("[MEGA] successfully downloaded %s [%s bytes]" % (downloaded.name, downloaded.size))
+        file, ext = os.path.splitext(downloaded.name)
+        filename = "%s[__%s__]%s" % (file, issueid, ext)
+        filepath = downloaded.path.with_name(filename)
+        try:
+            filepath = downloaded.path.replace(filepath)
+        except Exception:
+            logger.warn("unable to rename/replace %s with %s" % (downloaded.path, filepath))
+        else:
+            logger.info("ddl_linked - filename: %s" % filename)
+        if ext == ".zip":
+            ggc = comicarr.getcomics.GC()
+            return ggc.zip_zip(id, str(filepath), filename)
+        return {"success": True, "filename": filename, "path": str(filepath)}
+
+    def _progress(self, written, total, partial_path):
+        if not self.wrote_tmp:
+            logger.info("[MEGA] writing to db: %s [%s]" % (partial_path, total))
+            db.upsert("ddl_info", {"tmp_filename": str(partial_path)}, {"ID": self.id})
+            self.wrote_tmp = True
 
 
 if __name__ == "__main__":
