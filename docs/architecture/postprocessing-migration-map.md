@@ -131,6 +131,9 @@ Stages 1 to 4 above have landed. The sequence continues:
    functions in `app/downloads/postprocess_pipeline.py`. The story-arc copy
    becomes `copy_issue_to_arc` in `app/storyarcs/`, called from here with its
    own arc-scoped key.
+   `copy_issue_to_arc` (`app/storyarcs/arc_copy.py`) exists and is tested
+   against the legacy arc placement; the legacy branch keeps running until
+   this step switches the call.
 7. Orchestration: the loop in `process.py` moves into
    `app/downloads/postprocessing.py` and `process.py` is deleted.
    `FailedProcessor` is called from there unchanged.

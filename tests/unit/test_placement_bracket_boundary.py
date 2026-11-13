@@ -29,15 +29,18 @@ PLACE_CALLERS = {
     "comicarr/app/storyarcs/service.py",
     "comicarr/app/imports/finalization.py",
     "comicarr/app/series/location.py",
+    "comicarr/app/storyarcs/arc_copy.py",
 }
 
 # Callers that legitimately place files outside the post-processing journal.
 # Story arcs run from a location-update pass, not a release; manual import
 # finalization has its own transactional rollback and never enters the journal;
 # a Series folder change moves files the Series already holds, after recording
-# where each one stays if its move fails.
+# where each one stays if its move fails. The arc copy is journal-blind like
+# placement itself: the post-processing caller wraps it in an arc-scoped bracket.
 BRACKETLESS_CALLERS = {
     "comicarr/app/storyarcs/service.py",
+    "comicarr/app/storyarcs/arc_copy.py",
     "comicarr/app/imports/finalization.py",
     "comicarr/app/series/location.py",
 }
