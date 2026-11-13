@@ -347,7 +347,7 @@ def test_unresolved_vendor_status_cannot_imply_redistribution_clearance():
         name for name, record in provenance.VENDOR_PROVENANCE.items() if record["redistribution_status"] == "unresolved"
     }
 
-    assert unresolved == {"mega", "utorrent"}
+    assert unresolved == {"mega"}
     for name in unresolved:
         record = provenance.VENDOR_PROVENANCE[name]
         assert record["license_expression"] == "NOASSERTION"
@@ -360,17 +360,10 @@ def test_unresolved_vendor_status_cannot_imply_redistribution_clearance():
     assert mega["upstream_version"] == "1.0.8"
     assert mega["license_conflict_evidence"]
 
-    utorrent_record = provenance.VENDOR_PROVENANCE["utorrent"]
-    assert utorrent_record["upstream_source_url"] is None
-    assert utorrent_record["upstream_revision"] is None
-    assert utorrent_record["upstream_version"] is None
-    assert utorrent_record["origin_candidates"]
-
 
 def test_unresolved_notices_preserve_non_clearance_language():
     required_text = {
         "mega": (),
-        "utorrent": ("compatibility, not the version",),
     }
     for name, phrases in required_text.items():
         notice = (VENDOR_ROOT / name / "NOTICE").read_text(encoding="utf-8")
