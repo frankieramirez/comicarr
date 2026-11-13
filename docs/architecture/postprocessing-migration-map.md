@@ -97,9 +97,13 @@ Decided on the [Foundations map](https://github.com/frankieramirez/comicarr/issu
 - The success, failed-download and "outside" retry loop that `process.py` runs
   today lives in `app/downloads/postprocessing.py`.
 - What remains at the root is one module-level function in
-  `comicarr/postprocessor.py` that matches the files in a folder to library
-  issues and returns typed matches. It moves no files, writes no rows and
-  sends nothing. It is a Foundations legacy module with
+  `comicarr/postprocessor.py` that matches the files in a folder and returns
+  typed matches. A match is one of two kinds: a library issue, or an arc-only
+  match for a file that belongs to a watched story arc and to no watched
+  series. The pipeline places arc-only matches in the arc folder under an
+  arc-scoped journal key, which keeps the deprecated `storyarc-folder-match`
+  behavior working. The function moves no files, writes no rows and sends
+  nothing. It is a Foundations legacy module with
   `app/downloads/postprocessing.py` as its only seam (ADR-0005).
 
 The folder matcher stays at the root on purpose. It is about 2,900 lines of

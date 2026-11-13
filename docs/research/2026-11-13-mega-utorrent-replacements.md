@@ -9,7 +9,7 @@
 - **rclone** (MIT) and **megatools** have Mega backends, and Mega's official **SDK** and **MEGAcmd** are BSD-2-Clause. All of them are external binaries or C++ builds, which adds an install dependency for a small feature.
 - A clean-room downloader owned by Comicarr is small. A public link carries the file key; the client asks Mega's API for a download URL, then decrypts the stream with AES-CTR. `cryptography` is already a Comicarr dependency. Expect roughly 150 to 250 lines plus fixture tests.
 
-**uTorrent.** Comicarr's adapter uses a thin WebUI client: token fetch, `list`, `start`, `stop`, `pause`, `remove`, `getfiles`, `getprops`, `setprio` and `addfile`.
+**uTorrent.** Comicarr's adapter uses a thin WebUI client: token fetch, `list`, `start`, `stop`, `pause`, `remove`, `removedata`, `getfiles`, `getprops`, `setprio` and `addfile`.
 
 - The probable base, ftao/py-utorrent, has no license file (both `LICENSE` and `COPYING` return 404), so its license cannot be established.
 - Licensed alternatives exist: **micahr/uTorrent.Py** (LGPL-2.1) and **twistedfall/utorrentctl** (LGPL-3.0). Both are compatible with GPL-3.0, but both are old and unmaintained, so adopting one swaps a license problem for a maintenance one.

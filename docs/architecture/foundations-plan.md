@@ -13,7 +13,9 @@ section says so.
 Decision: [ADR-0005](../adr/0005-legacy-module-boundary.md)
 ([ticket](https://github.com/frankieramirez/comicarr/issues/1187)).
 
-`scripts/check_legacy_seams.py` runs under `npm run lint:guards`. Under
+The guard does not exist yet. The first build task writes
+`scripts/check_legacy_seams.py` and registers it in the `lint:guards` script
+in `package.json`. Once it runs: under
 `comicarr/app/`, a Foundations legacy module may be imported only by its seam
 module. Routers import no root module outside Infrastructure. Everything else
 is a shrink-only allowlist.

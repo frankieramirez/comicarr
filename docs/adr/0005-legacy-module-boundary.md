@@ -30,8 +30,9 @@ Three rules were considered:
 
 Rule 3.
 
-Root modules fall into three groups, listed by name in
-`scripts/check_legacy_seams.py`:
+Root modules fall into three groups. They will be listed by name in
+`scripts/check_legacy_seams.py`, a guard this ADR calls for and that is not
+written yet:
 
 - **Infrastructure**: `logger`, `db`, `tables`, `config`, `encrypted`,
   `helpers`, `series_kind`. Any code may import these. They are not legacy for
@@ -50,7 +51,7 @@ Routers carry a stricter rule: a `router.py` imports no root module outside
 Infrastructure. The five crossings that exist today are allowlisted and must
 reach zero before Foundations closes.
 
-The guard is an AST scan under `npm run lint:guards`, in the style of
+The guard will be an AST scan under `npm run lint:guards`, in the style of
 `check_attention_seam.py`, so function-local imports count. It also catches
 attribute access through the package, such as `comicarr.updater.forceRescan`
 after a bare `import comicarr`, which is how `app/downloads/service.py` reaches

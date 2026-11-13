@@ -149,9 +149,12 @@ Rules for both rewrites:
   request says so.
 - Each lands with recorded-response tests. A live check against the real
   service is run once by hand and noted in the pull request.
-- If a rewrite turns out not to be practical, that integration is removed
-  under the legal exception in [ADR-0006](../adr/0006-deprecation-policy.md),
-  after a notice in at least one prior release. No other fallback is approved.
+- If a rewrite turns out not to be practical, and the code cannot legally ship,
+  that integration is removed under the legal exception in
+  [ADR-0006](../adr/0006-deprecation-policy.md), after a notice in at least one
+  prior release. The `unresolved` status alone does not establish that the
+  code cannot legally ship; that is a project-owner call. No other fallback is
+  approved.
 
 async-mega.py (Apache-2.0) was considered for Mega and not chosen: its
 relationship to the odwyersoftware code could not be confirmed, and the feature

@@ -21,7 +21,8 @@ A banner shown to everyone trains people to ignore banners.
 
 One shared mechanism, one registry.
 
-**Registry.** `comicarr/app/system/deprecations.py` holds one entry per
+**Registry.** To be built: `comicarr/app/system/deprecations.py` does not
+exist yet. It will hold one entry per
 deprecated feature: a stable id, a plain-language name, the release that
 announced it, the earliest release that may remove it, what to use instead, a
 docs link, and an `in_use()` predicate that reads configuration and the

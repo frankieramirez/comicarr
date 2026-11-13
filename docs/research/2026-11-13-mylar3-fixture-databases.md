@@ -2,7 +2,7 @@
 
 ## Findings
 
-Mylar3 users can arrive from any release between v0.4.0 (June 2020) and v0.8.3 (August 2025, the latest tag). Mylar3 has no numbered schema migrations. `dbcheck()` in `mylar/__init__.py` creates every table with `CREATE TABLE IF NOT EXISTS` and then probes columns one at a time, adding any that are missing with `ALTER TABLE ... ADD COLUMN`. So an old database is upgraded in place each time a newer Mylar3 starts, and a database's shape depends on the last Mylar3 release that opened it.
+Users of upstream `mylar3/mylar3` can arrive from any tag between v0.4.0 (June 2020) and v0.8.3 (August 2025, the latest upstream tag). Forks of Mylar3 were not examined and are not covered by these fixtures. Mylar3 has no numbered schema migrations. `dbcheck()` in `mylar/__init__.py` creates every table with `CREATE TABLE IF NOT EXISTS` and then probes columns one at a time, adding any that are missing with `ALTER TABLE ... ADD COLUMN`. So an old database is upgraded in place each time a newer Mylar3 starts, and a database's shape depends on the last Mylar3 release that opened it.
 
 The schema grew slowly. Counting statements in `dbcheck()`:
 
@@ -24,13 +24,13 @@ Comicarr's reader is tolerant by design. `comicarr/migration.py` copies the 16 t
 **Recommended fixture recipe.** Build fixtures from Mylar3's own schema code rather than from anyone's library:
 
 1. Check out a pinned tag in a throwaway Python 3 environment with that tag's `requirements.txt`.
-2. Point Mylar3 at an empty data directory and let `dbcheck()` create the schema (either start `Mylar.py --nolaunch --datadir <dir>` and stop it after startup, or import `mylar`, set `DB_FILE`, and call `dbcheck()` directly).
+2. Point Mylar3 at an empty data directory and let `dbcheck()` create the schema by starting `Mylar.py --nolaunch --datadir <dir>` and stopping it after startup. Calling `dbcheck()` directly after setting only `DB_FILE` does not work: `CONFIG` is `None` at import, and `dbcheck()` reads `CONFIG.DYNAMIC_UPDATE`.
 3. Insert a small synthetic library with plain SQL: a few comics, their issues and annuals, a story arc, a snatched row, a failed row and a weekly row, using made-up IDs and names.
 4. Commit the resulting `.db` files plus the generator script, so they can be rebuilt.
 
 Three fixtures cover the range: **v0.4.0** (oldest, no `mylar_info`), **v0.6.9** (mid-range, `mylar_info` present, before the 2022 additions), and **v0.8.3** (current). The generator is headless and needs no network beyond fetching the tag.
 
-Caveat: this note did not run the recipe. The step 2 import path should be confirmed against v0.4.0, whose startup code is older.
+Caveat: this note did not run the recipe. Step 2 should be confirmed against v0.4.0, whose startup code is older.
 
 ## Sources
 
