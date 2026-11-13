@@ -276,7 +276,7 @@ def pending_import(metadata_environment, tmp_path, monkeypatch):
     )
     config = SimpleNamespace(IMP_MOVE=True, IMP_RENAME=False, IMP_METADATA=False, FILE_OPTS="move")
     ctx = SimpleNamespace(config=config)
-    monkeypatch.setattr("comicarr.updater.forceRescan", MagicMock())
+    monkeypatch.setattr("comicarr.app.series.rescan.rescan_series", MagicMock())
     return finalization, ctx, source, session, importresults
 
 

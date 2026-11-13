@@ -53,7 +53,7 @@ def library(tmp_path, monkeypatch):
     shutdown_engine()
     metadata.create_all(get_engine())
     rescans = []
-    monkeypatch.setattr("comicarr.updater.forceRescan", lambda comic_id, **kwargs: rescans.append(comic_id))
+    monkeypatch.setattr("comicarr.app.series.rescan.rescan_series", lambda comic_id, **kwargs: rescans.append(comic_id))
     yield SimpleNamespace(
         ctx=SimpleNamespace(config=config),
         config=config,
