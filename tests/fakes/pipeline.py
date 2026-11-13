@@ -34,7 +34,7 @@ import zipfile
 from types import SimpleNamespace
 
 import comicarr
-from comicarr import sabnzbd, updater
+from comicarr import nzbget, sabnzbd, updater
 from comicarr.app.core.context import AppContext
 from comicarr.app.downloads import handoff, journal, postprocessing, service
 from comicarr.app.series import service as series_service
@@ -132,18 +132,13 @@ def release_key(name=RELEASE):
     return journal.release_key(ISSUE_ID, INDEXER, nzbname=name, discriminant=INDEXER_ID)
 
 
-def send_to_sab(nzb_path, name=RELEASE):
-    """Hand a cached NZB to SABnzbd as ``search.py`` does; return (response, monitor item)."""
-    config = comicarr.CONFIG
-    params = {"apikey": config.SAB_APIKEY, "mode": "addfile", "nzbname": name, "output": "json", "priority": "-100"}
-    if config.SAB_CATEGORY:
-        params["cat"] = config.SAB_CATEGORY
-    sender = sabnzbd.SABnzbd(params)
+def _hand_off(route, send, name):
+    """Run ``send`` through the handoff and record the grab as ``search.py`` does."""
     key = release_key(name)
     response, _acceptance = handoff.perform_handoff(
         key,
-        "sabnzbd",
-        lambda: sender.sender(str(nzb_path)),
+        route,
+        send,
         payload={
             "issueid": ISSUE_ID,
             "comicid": COMIC_ID,
@@ -176,14 +171,37 @@ def send_to_sab(nzb_path, name=RELEASE):
         apicall=True,
         download_info={"provider": INDEXER, "id": INDEXER_ID},
         journal_release_key=key,
-        clientmode="sabnzbd",
+        clientmode=route,
     )
     return response, item
+
+
+def send_to_sab(nzb_path, name=RELEASE):
+    """Hand a cached NZB to SABnzbd as ``search.py`` does; return (response, monitor item)."""
+    config = comicarr.CONFIG
+    params = {"apikey": config.SAB_APIKEY, "mode": "addfile", "nzbname": name, "output": "json", "priority": "-100"}
+    if config.SAB_CATEGORY:
+        params["cat"] = config.SAB_CATEGORY
+    sender = sabnzbd.SABnzbd(params)
+    return _hand_off("sabnzbd", lambda: sender.sender(str(nzb_path)), name)
+
+
+def send_to_nzbget(nzb_path, name=RELEASE):
+    """Hand a cached NZB to NZBGet as ``search.py`` does; return (response, monitor item)."""
+    sender = nzbget.NZBGet()
+    return _hand_off("nzbget", lambda: sender.sender(str(nzb_path)), name)
 
 
 def monitor_sab(item):
     """One pass of the NZB monitor for ``item``; return SABnzbd's reported status."""
     nzstat = sabnzbd.SABnzbd(item).processor()
+    service.cdh_monitor(comicarr.NZB_QUEUE, item, nzstat)
+    return nzstat
+
+
+def monitor_nzbget(item):
+    """One pass of the NZB monitor for ``item``; return NZBGet's reported status."""
+    nzstat = nzbget.NZBGet().processor(item)
     service.cdh_monitor(comicarr.NZB_QUEUE, item, nzstat)
     return nzstat
 

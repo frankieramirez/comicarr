@@ -1,0 +1,15 @@
+{
+  "method": "append",
+  "params": [
+    "Absolute.Batman.001.2024.nzb",
+    "<nzb base64>",
+    "comics",
+    0,
+    false,
+    false,
+    "",
+    0,
+    "SCORE"
+  ],
+  "result": 8
+}
