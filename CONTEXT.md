@@ -99,3 +99,28 @@ Subsystem diagnostics, including folder-scan diagnostics, are Debug entries rath
 ## Support bundle
 
 A downloadable archive of allowlisted diagnostic data, engineered for public issue attachment after operator review. If its contents appear sensitive, the operator shares it privately with maintainers instead; CarePackage is the legacy implementation name, not the user-facing term.
+
+## Legacy module
+
+A root-level `comicarr/*.py` module inherited from Mylar3 that carries business logic. ADR-0005 names three groups: Infrastructure (shared plumbing, not legacy), Foundations legacy (reachable from `comicarr/app/` only through a Seam module), and Deferred legacy (baselined, shrink-only).
+
+_Avoid_: Old code, Mylar code
+
+## Seam module
+
+The one module under `comicarr/app/` allowed to import a given Legacy module. It exposes typed functions to modern callers and hides Mylar3 calling conventions such as status strings and queues. Putting a module behind its seam does not require rewriting it.
+
+_Avoid_: Facade (reserved for the legacy `PostProcessor` class being retired), wrapper, adapter (reserved for download and torrent clients)
+
+## Series add
+
+Creating a Series in the library from a metadata provider, and refreshing it later. This is what the legacy `importer.py` does. It is unrelated to the Import Inbox and Manual import finalization, which deal with files.
+
+_Avoid_: Import (for adding a Series)
+
+## Deprecation notice
+
+The announcement that a feature will be removed, made through the deprecation registry described in ADR-0006. A feature is deprecated only when it has a registry entry. Frozen features keep working, get no new features, and have no removal date.
+
+_Avoid_: Sunset, retired (reserved for names guarded by `RETIRED_GLOBALS`)
+

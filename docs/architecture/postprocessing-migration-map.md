@@ -84,3 +84,55 @@ completed journal stages rather than repeating irreversible file work.
 
 Each stage must retain focused success, expected-failure, and
 side-effect/idempotency coverage before the next extraction begins.
+
+## End state
+
+Decided on the [Foundations map](https://github.com/frankieramirez/comicarr/issues/1189).
+"Retiring the facade" means all of the following are true:
+
+- No class named `PostProcessor` exists, and `comicarr/process.py` is deleted.
+- `comicarr.app.downloads.postprocessing` is the only entry point. Its `run`
+  and `recover` return `PostProcessResult`; the queue messages with
+  `mode: stop | fail | outside` are gone.
+- The success, failed-download and "outside" retry loop that `process.py` runs
+  today lives in `app/downloads/postprocessing.py`.
+- What remains at the root is one module-level function in
+  `comicarr/postprocessor.py` that matches the files in a folder and returns
+  typed matches. A match is one of two kinds: a library issue, or an arc-only
+  match for a file that belongs to a watched story arc and to no watched
+  series. The pipeline places arc-only matches in the arc folder under an
+  arc-scoped journal key, which keeps the deprecated `storyarc-folder-match`
+  behavior working. The function moves no files, writes no rows and sends
+  nothing. It is a Foundations legacy module with
+  `app/downloads/postprocessing.py` as its only seam (ADR-0005).
+
+The folder matcher stays at the root on purpose. It is about 2,900 lines of
+inherited matching rules, and moving it under `comicarr/app/` would mean either
+rewriting it or weakening the modern lint lane. Neither is worth doing before
+1.0.
+
+Stages 1 to 3 above have landed. The sequence continues:
+
+4. Database reconciliation stage (unchanged from the list above).
+5. Cleanup and notification stages. Notification goes through
+   `app/notifications/service.py`, replacing `sendnotify`.
+6. Per-item processing: `Process_next` and `_process_manga` become pipeline
+   functions in `app/downloads/postprocess_pipeline.py`. The story-arc copy
+   becomes `copy_issue_to_arc` in `app/storyarcs/`, called from here with its
+   own arc-scoped key.
+7. Orchestration: the loop in `process.py` moves into
+   `app/downloads/postprocessing.py` and `process.py` is deleted.
+   `FailedProcessor` is called from there unchanged.
+8. Folder matching: the body of `Process()` becomes the typed function
+   described above, the class is deleted, and `FolderCheck` calls
+   `postprocessing.run`.
+
+The deprecated story-arc paths (`storyarc-oneoff`, `storyarc-folder-match`, see
+the [Foundations plan](foundations-plan.md#4-story-arc-file-handling)) travel
+inside the folder matcher and the one-off branch unchanged.
+
+An architecture test proves the end state: it fails if `comicarr.postprocessor`
+defines `PostProcessor`, if `comicarr/process.py` exists, or if anything under
+`comicarr/` other than `app/downloads/postprocessing.py` imports
+`comicarr.postprocessor`.
+
