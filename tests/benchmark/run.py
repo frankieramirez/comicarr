@@ -13,6 +13,10 @@ Every operation runs once as a warm-up and then five times; the median is
 compared with the ceiling from section 7 of
 ``docs/architecture/foundations-plan.md``. The run works on a copy of the
 library's ``data`` folder, so the generated library stays as generated.
+
+``compare`` checks results against the committed baseline and the
+known-misses list: a missed ceiling fails unless an open issue covers it, and
+a slowdown of more than 25% is a warning only.
 """
 
 import json
@@ -30,9 +34,14 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
 RUNS = 5
 STARTUP_TIMEOUT = 120
+BASELINE = HERE / "baseline.json"
+KNOWN_MISSES = HERE / "known_misses.json"
+SLOWDOWN = 1.25
+UPGRADE_ROW = ROOT / "tests" / "fixtures" / "upgrade_matrix" / "0.2x.sql"
 
 
 @dataclass(frozen=True)
@@ -51,17 +60,23 @@ OPERATIONS = (
     Operation("rescan", "Full library rescan", 300),
     Operation("weekly_pull_match", "Weekly pull match", 60),
     Operation("release_evaluation", "Release evaluation, 200 candidates for one issue", 2),
+    Operation("schema_upgrade", "Schema upgrade of the 0.2x row at benchmark size", 60),
 )
 
 
-def time_it(action, runs=RUNS):
-    """Warm up once, then return ``runs`` wall-clock samples in seconds."""
-    action()
+def time_it(action, runs=RUNS, setup=None):
+    """Warm up once, then return ``runs`` wall-clock samples in seconds.
+
+    ``setup``, when given, runs untimed before each call and its result is
+    passed to ``action``.
+    """
     samples = []
-    for _ in range(runs):
+    for attempt in range(runs + 1):
+        args = (setup(),) if setup else ()
         start = time.perf_counter()
-        action()
-        samples.append(time.perf_counter() - start)
+        action(*args)
+        if attempt:
+            samples.append(time.perf_counter() - start)
     return samples
 
 
@@ -242,6 +257,72 @@ def release_evaluation(comic_id):
     return lambda: EvaluationSession().evaluate(entries, info)
 
 
+# Tables seeded at benchmark size in the 0.2x row; the fixture's own small
+# library is removed first.
+UPGRADE_TABLES = ("comics", "issues", "storyarcs", "snatched", "weekly")
+
+
+def seed_upgrade_row(library, database):
+    """Write the 0.2x upgrade-matrix row to ``database``, seeded with the benchmark library.
+
+    The row is that release's schema at ``0003_library_chat``, built from its
+    git tag (see ``tests/fixtures/upgrade_matrix/build.py``). The library's rows
+    are rebuilt from its seed and inserted with only the columns the old
+    schema had, as an install that ran 0.2x for a while would hold them.
+    """
+    import sqlite3
+
+    from tests.benchmark.library import Spec, build_rows, pull_rows
+
+    library = Path(library)
+    summary = json.loads((library / "summary.json").read_text())
+    rows = build_rows(Spec(**summary["spec"]), summary["seed"], library)
+    rows["weekly"] = pull_rows(Spec(**summary["spec"]), rows, rows["rng"])
+    connection = sqlite3.connect(database)
+    try:
+        connection.executescript(UPGRADE_ROW.read_text(encoding="utf-8"))
+        for table in UPGRADE_TABLES:
+            present = {row[1] for row in connection.execute('PRAGMA table_info("%s")' % table)}
+            connection.execute('DELETE FROM "%s"' % table)
+            columns = [column for column in rows[table][0] if column in present]
+            connection.executemany(
+                'INSERT INTO "%s" (%s) VALUES (%s)'
+                % (table, ", ".join('"%s"' % c for c in columns), ", ".join("?" for _ in columns)),
+                [tuple(row.get(c) for c in columns) for row in rows[table]],
+            )
+        connection.commit()
+        revision = connection.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+    finally:
+        connection.close()
+    if revision != "0003_library_chat":
+        raise RuntimeError("the 0.2x row is at %s, expected 0003_library_chat" % revision)
+    return database
+
+
+def schema_upgrade(library, scratch):
+    """Time ``upgrade_database`` from the seeded 0.2x row, on a fresh copy each run."""
+    from sqlalchemy import create_engine
+
+    from comicarr.app.core.schema import upgrade_database
+
+    template = seed_upgrade_row(library, Path(scratch) / "upgrade-0.2x.db")
+    copies = iter(range(RUNS + 1))
+
+    def setup():
+        copy = Path(scratch) / ("upgrade-%d.db" % next(copies))
+        shutil.copyfile(template, copy)
+        return copy
+
+    def action(copy):
+        engine = create_engine("sqlite:///%s" % copy)
+        try:
+            upgrade_database(engine)
+        finally:
+            engine.dispose()
+
+    return action, setup
+
+
 def machine():
     return {
         "platform": platform.platform(),
@@ -282,6 +363,9 @@ def run(library, only=None):
             samples["weekly_pull_match"] = time_it(weekly_pull_match())
         if "release_evaluation" in wanted:
             samples["release_evaluation"] = time_it(release_evaluation(largest))
+        if "schema_upgrade" in wanted:
+            action, setup = schema_upgrade(library, scratch)
+            samples["schema_upgrade"] = time_it(action, setup=setup)
         from comicarr import db
 
         db.shutdown_engine()
@@ -321,3 +405,92 @@ def table(results):
     lines = ["  ".join(cell.ljust(widths[i]) for i, cell in enumerate(row)).rstrip() for row in rows]
     lines.insert(1, "  ".join("-" * w for w in widths))
     return "\n".join(lines)
+
+
+def load_known_misses(path=KNOWN_MISSES):
+    """Operation keys whose missed ceiling has an open issue, mapped to that issue."""
+    entries = json.loads(Path(path).read_text())
+    known = {}
+    for entry in entries:
+        key, issue = entry.get("key"), entry.get("issue", "")
+        if key not in {op.key for op in OPERATIONS}:
+            raise ValueError("known_misses.json names an unknown operation: %r" % key)
+        if not issue.startswith("https://github.com/"):
+            raise ValueError("known_misses.json entry for %s must link its issue" % key)
+        known[key] = issue
+    return known
+
+
+@dataclass
+class Verdict:
+    failures: list
+    warnings: list
+    notes: list
+
+    @property
+    def ok(self):
+        return not self.failures
+
+
+def compare(results, baseline=None, known_misses=None):
+    """Judge ``results``: missed ceilings fail, slowdowns over 25% warn.
+
+    A miss listed in ``known_misses`` is a note, not a failure. A listed
+    operation that now meets its ceiling fails too, so the list only shrinks:
+    remove the entry and close its issue.
+    """
+    known = known_misses or {}
+    before = {op["key"]: op for op in (baseline or {}).get("operations", [])}
+    verdict = Verdict([], [], [])
+    for op in results["operations"]:
+        key, label = op.get("key"), op["label"]
+        if not op["met"]:
+            if key in known:
+                verdict.notes.append("%s missed its ceiling, known: %s" % (label, known[key]))
+            else:
+                verdict.failures.append(
+                    "%s missed its ceiling: %s against %s"
+                    % (label, _seconds(op["median_s"]), _seconds(op["ceiling_s"]))
+                )
+        elif key in known:
+            verdict.failures.append(
+                "%s now meets its ceiling; remove it from known_misses.json and close %s" % (label, known[key])
+            )
+        old = before.get(key)
+        if old and op["median_s"] > old["median_s"] * SLOWDOWN:
+            verdict.warnings.append(
+                "%s is %d%% slower than the baseline: %s against %s"
+                % (
+                    label,
+                    round((op["median_s"] / old["median_s"] - 1) * 100),
+                    _seconds(op["median_s"]),
+                    _seconds(old["median_s"]),
+                )
+            )
+    return verdict
+
+
+def markdown(results, verdict, baseline=None):
+    """A job-summary report: the table, then failures, warnings and notes."""
+    before = {op["key"]: op["median_s"] for op in (baseline or {}).get("operations", [])}
+    lines = ["## Benchmark", "", "| Operation | Median | Baseline | Ceiling | Result |", "|---|---|---|---|---|"]
+    for op in results["operations"]:
+        old = before.get(op.get("key"))
+        lines.append(
+            "| %s | %s | %s | %s | %s |"
+            % (
+                op["label"],
+                _seconds(op["median_s"]),
+                _seconds(old) if old is not None else "none",
+                _seconds(op["ceiling_s"]),
+                "met" if op["met"] else "**missed**",
+            )
+        )
+    for title, items in (
+        ("Failures", verdict.failures),
+        ("Warnings", verdict.warnings),
+        ("Known misses", verdict.notes),
+    ):
+        if items:
+            lines += ["", "### %s" % title, ""] + ["- %s" % item for item in items]
+    return "\n".join(lines) + "\n"

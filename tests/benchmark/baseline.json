@@ -4,7 +4,7 @@
     "python": "3.13.18",
     "processor": "x86_64",
     "cpus": 4,
-    "note": "Claude Code cloud container: 4 vCPU Intel Xeon @ 2.10GHz, local disk. Outbound network blocked, so startup's publisher-imprint fetch fails fast instead of downloading.",
+    "note": "Claude Code cloud container: 4 vCPU Intel Xeon @ 2.10GHz, local disk. Outbound network blocked, so startup's publisher-imprint fetch fails fast instead of downloading. schema_upgrade was added later on the same machine, measured on its own.",
     "measured": "2026-11-13"
   },
   "library": {
@@ -145,6 +145,20 @@
         0.0402
       ],
       "ceiling_s": 2,
+      "met": true
+    },
+    {
+      "key": "schema_upgrade",
+      "label": "Schema upgrade of the 0.2x row at benchmark size",
+      "median_s": 0.1501,
+      "samples_s": [
+        0.1428,
+        0.1301,
+        0.171,
+        0.1501,
+        0.1587
+      ],
+      "ceiling_s": 60,
       "met": true
     }
   ]

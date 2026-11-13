@@ -1,0 +1,64 @@
+name: Benchmark
+
+# The wall-clock benchmark from docs/testing/benchmark.md: nightly, on demand,
+# and on the Changesets release PR. It fails only when an operation misses its
+# ceiling; a slowdown against tests/benchmark/baseline.json is a warning.
+#
+# The release PR is pushed with GITHUB_TOKEN, which starts no pull_request
+# workflows, so release.yml dispatches this one on changeset-release/main
+# instead. The pull_request trigger covers a person pushing to that branch.
+
+on:
+  schedule:
+    - cron: "41 6 * * *"
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Benchmark
+    # Never on an ordinary pull request.
+    if: github.event_name != 'pull_request' || github.head_ref == 'changeset-release/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python dependencies
+        run: uv sync --locked --extra dev
+
+      - name: Generate the library
+        run: uv run python -m tests.benchmark generate "$RUNNER_TEMP/library"
+
+      - name: Run the benchmark
+        run: |
+          uv run python -m tests.benchmark run "$RUNNER_TEMP/library" \
+            --baseline tests/benchmark/baseline.json \
+            --output benchmark-results.json
+
+      - name: Upload the results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-results
+          path: benchmark-results.json
+          if-no-files-found: warn
