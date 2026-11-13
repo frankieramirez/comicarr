@@ -193,9 +193,9 @@ class TestAnnounceReleaseFanout:
         config.DISCORD_ONSNATCH = True  # must not fire Discord
 
         with (
-            patch("comicarr.notifiers.PROWL") as prowl_cls,
-            patch("comicarr.notifiers.EMAIL") as email_cls,
-            patch("comicarr.notifiers.DISCORD") as discord_cls,
+            patch("comicarr.app.notifications.service.PROWL") as prowl_cls,
+            patch("comicarr.app.notifications.service.EMAIL") as email_cls,
+            patch("comicarr.app.notifications.service.DISCORD") as discord_cls,
         ):
             prowl = prowl_cls.return_value
             email = email_cls.return_value
@@ -217,7 +217,7 @@ class TestAnnounceReleaseFanout:
         _ctx, config = announce_ctx
         config.TELEGRAM_ENABLED = True
 
-        with patch("comicarr.notifiers.TELEGRAM") as telegram_cls:
+        with patch("comicarr.app.notifications.service.TELEGRAM") as telegram_cls:
             telegram_cls.return_value.notify.side_effect = RuntimeError("flaky webhook")
             versioncheck.announce_release(current_version="0.20.0", latest_version="0.21.5")
 
@@ -242,7 +242,7 @@ class TestAnnounceReleaseFanout:
             setattr(config, f"{name}_ENABLED", True)
 
         patches = {
-            name: patch(f"comicarr.notifiers.{name}")
+            name: patch(f"comicarr.app.notifications.service.{name}")
             for name in (
                 "PROWL",
                 "PUSHOVER",

@@ -1747,7 +1747,7 @@ def notify_ddl_stuck(item, age_minutes):
     Send notifications for a stuck DDL download.
     Follows the same notifier pattern as notify_snatch() in search.py.
     """
-    from comicarr import notifiers
+    from comicarr.app.notifications import service as notifiers
 
     stuck_name = "%s (%s)" % (item["series"], item["year"])
     if item["issues"]:
