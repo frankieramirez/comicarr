@@ -145,7 +145,7 @@ def test_metadata_cache_folder_goes_when_tagging_made_one(tmp_path):
     (cache / "tagged.cbz").write_bytes(b"x")
     stage, _ = _stage()
 
-    stage.tidy(_cleanup_context(tmp_path, enable_meta=True), odir=str(cache), cacheonly=True)
+    stage.tidy(_cleanup_context(tmp_path, enable_meta=True, cache_dir=str(tmp_path)), odir=str(cache), cacheonly=True)
 
     assert not cache.exists()
 
@@ -156,9 +156,46 @@ def test_a_folder_not_named_as_a_cache_is_never_emptied(tmp_path):
     (library / "Saga 001.cbz").write_bytes(b"x")
     stage, _ = _stage()
 
-    stage.tidy(_cleanup_context(tmp_path, enable_meta=True), odir=str(library), cacheonly=True)
+    stage.tidy(_cleanup_context(tmp_path, enable_meta=True, cache_dir=str(tmp_path)), odir=str(library), cacheonly=True)
 
     assert (library / "Saga 001.cbz").exists()
+
+
+def test_a_tagger_named_folder_outside_the_cache_dir_is_never_emptied(tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    downloads = tmp_path / "downloads" / "comicarr_release"
+    downloads.mkdir(parents=True)
+    (downloads / "Saga 001.cbz").write_bytes(b"x")
+    stage, _ = _stage()
+
+    stage.tidy(
+        _cleanup_context(tmp_path, enable_meta=True, cache_dir=str(cache_dir)), odir=str(downloads), cacheonly=True
+    )
+
+    assert (downloads / "Saga 001.cbz").exists()
+
+
+def test_a_folder_below_a_tagger_folder_is_not_a_tagger_folder(tmp_path):
+    nested = tmp_path / "comicarr_abc123" / "comicarr_inner"
+    nested.mkdir(parents=True)
+    (nested / "tagged.cbz").write_bytes(b"x")
+    stage, _ = _stage()
+
+    stage.tidy(_cleanup_context(tmp_path, enable_meta=True, cache_dir=str(tmp_path)), odir=str(nested), cacheonly=True)
+
+    assert (nested / "tagged.cbz").exists()
+
+
+def test_without_a_cache_dir_nothing_is_emptied(tmp_path):
+    cache = tmp_path / "comicarr_abc123"
+    cache.mkdir()
+    (cache / "tagged.cbz").write_bytes(b"x")
+    stage, _ = _stage()
+
+    stage.tidy(_cleanup_context(tmp_path, enable_meta=True, cache_dir=None), odir=str(cache), cacheonly=True)
+
+    assert (cache / "tagged.cbz").exists()
 
 
 def test_cache_folder_is_left_when_tagging_is_off(tmp_path):
@@ -167,7 +204,7 @@ def test_cache_folder_is_left_when_tagging_is_off(tmp_path):
     (cache / "tagged.cbz").write_bytes(b"x")
     stage, _ = _stage()
 
-    stage.tidy(_cleanup_context(tmp_path, enable_meta=False), odir=str(cache), cacheonly=True)
+    stage.tidy(_cleanup_context(tmp_path, enable_meta=False, cache_dir=str(tmp_path)), odir=str(cache), cacheonly=True)
 
     assert (cache / "tagged.cbz").exists()
 

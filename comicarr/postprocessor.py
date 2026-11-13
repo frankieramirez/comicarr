@@ -542,6 +542,7 @@ class PostProcessor(object):
                 enable_meta=comicarr.CONFIG.ENABLE_META,
                 ddl_location=getattr(comicarr.CONFIG, "DDL_LOCATION", None),
                 log_module=self.module,
+                cache_dir=getattr(comicarr.CONFIG, "CACHE_DIR", None),
             ),
             odir,
             del_nzbdir=del_nzbdir,

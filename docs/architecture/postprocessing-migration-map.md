@@ -96,7 +96,8 @@ completed journal stages rather than repeating irreversible file work.
    `app/downloads/postprocess_pipeline.py`.** Cleanup takes a
    `PostProcessCleanupContext` and removes download files and folders only
    when `FILE_OPTS` is `move`, keeps the `mega` DDL folder, and empties the
-   metadata cache folder only when tagging made one. A cleanup failure is
+   metadata cache folder only when tagging made one and it is a tagger
+   folder (`comicarr_*`, or `mylar_*`) directly inside `CACHE_DIR`. A cleanup failure is
    narrated and logged, never raised, so it cannot touch the journal or the
    library. The facade still calls it where `tidyup` ran, after `moved`, so
    its order against the journal is unchanged. Notification goes through

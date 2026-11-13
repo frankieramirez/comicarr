@@ -344,6 +344,29 @@ class PostProcessCleanupContext:
     enable_meta: bool
     ddl_location: str | None
     log_module: str = "[POST-PROCESSING]"
+    cache_dir: str | None = None
+
+
+_TAGGER_CACHE_PREFIXES = ("comicarr_", "mylar_")
+
+
+def _tagger_cache_folder(cache_dir, odir):
+    """``odir`` resolved, if it is a tagger folder directly under ``cache_dir``.
+
+    The tagger only ever makes ``CACHE_DIR/comicarr_*`` (``mylar_*`` before
+    the rename), so anything else is never emptied, whatever it is named.
+    """
+    if not cache_dir or not odir:
+        return None
+    root = os.path.realpath(cache_dir)
+    target = os.path.realpath(odir)
+    if not target.startswith(root + os.sep):
+        return None
+    if os.path.dirname(target) != root:
+        return None
+    if not os.path.basename(target).startswith(_TAGGER_CACHE_PREFIXES):
+        return None
+    return target
 
 
 class PostProcessCleanupStage:
@@ -352,7 +375,8 @@ class PostProcessCleanupStage:
     Runs after the ``moved`` journal transition, so the placed file is already
     durable: a failure here is logged and narrated and never touches the
     journal or the library. Only ``move`` removes download files or folders;
-    the metadata cache folder goes whenever tagging made one.
+    the metadata cache folder goes whenever tagging made one, and only when it
+    is a tagger folder inside ``CACHE_DIR``.
     """
 
     def __init__(self, *, narrate=lambda _message: None, log=logger):
@@ -459,9 +483,10 @@ class PostProcessCleanupStage:
         )
 
     def _tidy_cache(self, context, odir):
-        if not (context.enable_meta and odir and os.path.isdir(odir)):
+        if not context.enable_meta:
             return
-        if "mylar_" not in odir and "comicarr_" not in odir:
+        odir = _tagger_cache_folder(context.cache_dir, odir)
+        if odir is None or not os.path.isdir(odir):
             return
         for name in os.listdir(odir):
             try:
