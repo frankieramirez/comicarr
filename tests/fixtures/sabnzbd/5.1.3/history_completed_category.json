@@ -1,0 +1,83 @@
+{
+  "body": {
+    "history": {
+      "day_size": "6 K",
+      "last_history_update": 8,
+      "month_size": "6 K",
+      "noofslots": 1,
+      "ppslots": 0,
+      "slots": [
+        {
+          "action_line": "",
+          "archive": false,
+          "bytes": 6363,
+          "category": "comics",
+          "completed": 1794575010,
+          "completeness": null,
+          "download_time": 0,
+          "downloaded": 6363,
+          "duplicate_key": "absolute batman 001",
+          "fail_message": "",
+          "loaded": false,
+          "md5sum": "60a135896f0c889a17f49ddbc93e0915",
+          "meta": null,
+          "name": "Absolute.Batman.001.2024",
+          "nzb_name": "Absolute.Batman.001.2024.nzb",
+          "nzo_id": "f9efec3f-a05a-4e8d-b7fe-362c25aa2a54",
+          "password": null,
+          "path": "/config/Downloads/incomplete/Absolute.Batman.001.2024",
+          "postproc_time": 0,
+          "pp": "D",
+          "report": "",
+          "retry": false,
+          "script": "None",
+          "script_line": "",
+          "series": null,
+          "size": "6 KB",
+          "stage_log": [
+            {
+              "actions": [
+                "Absolute.Batman.001.2024.nzb"
+              ],
+              "name": "Source"
+            },
+            {
+              "actions": [
+                ""
+              ],
+              "name": "Download"
+            },
+            {
+              "actions": [
+                "recording=6 KB"
+              ],
+              "name": "Servers"
+            },
+            {
+              "actions": [
+                "Trying RAR renamer",
+                "[Absolute.Batman.001.2024] No par2 sets"
+              ],
+              "name": "Repair"
+            }
+          ],
+          "status": "Completed",
+          "storage": "/config/Downloads/complete/comics/Absolute.Batman.001.2024/Absolute Batman 001 2024.cbz",
+          "time_added": 1794575010,
+          "url": null,
+          "url_info": ""
+        }
+      ],
+      "total_size": "6 K",
+      "version": "5.1.3",
+      "week_size": "6 K"
+    }
+  },
+  "request": {
+    "category": "comics",
+    "mode": "history",
+    "nzo_ids": "f9efec3f-a05a-4e8d-b7fe-362c25aa2a54",
+    "output": "json"
+  },
+  "status_code": 200
+}

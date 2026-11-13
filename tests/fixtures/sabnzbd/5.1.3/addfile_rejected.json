@@ -1,0 +1,13 @@
+{
+  "body": {
+    "nzo_ids": [],
+    "status": false
+  },
+  "request": {
+    "cat": "comics",
+    "mode": "addfile",
+    "nzbname": "Not.An.Nzb",
+    "output": "json"
+  },
+  "status_code": 200
+}

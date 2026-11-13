@@ -1,0 +1,70 @@
+{
+  "body": {
+    "history": {
+      "day_size": "7 K",
+      "last_history_update": 11,
+      "month_size": "7 K",
+      "noofslots": 1,
+      "ppslots": 0,
+      "slots": [
+        {
+          "action_line": "",
+          "archive": false,
+          "bytes": 0,
+          "category": "comics",
+          "completed": 1794575015,
+          "completeness": null,
+          "download_time": 0,
+          "downloaded": 0,
+          "duplicate_key": "absolute batman 002",
+          "fail_message": "Download failed - Not on your server(s) - https://sabnzbd.org/not-complete",
+          "loaded": false,
+          "md5sum": "2b01a3cbc22c50cf689844f329782b25",
+          "meta": null,
+          "name": "Absolute.Batman.002.2024",
+          "nzb_name": "Absolute.Batman.002.2024.nzb",
+          "nzo_id": "2346f39d-cb23-412c-ab50-d84dbfe9fa50",
+          "password": null,
+          "path": "/config/Downloads/incomplete/Absolute.Batman.002.2024",
+          "postproc_time": 0,
+          "pp": "D",
+          "report": "",
+          "retry": true,
+          "script": "None",
+          "script_line": "",
+          "series": null,
+          "size": "0 B",
+          "stage_log": [
+            {
+              "actions": [
+                "Absolute.Batman.002.2024.nzb"
+              ],
+              "name": "Source"
+            },
+            {
+              "actions": [
+                "1 articles were missing",
+                "Download failed - Not on your server(s) - https://sabnzbd.org/not-complete"
+              ],
+              "name": "Download"
+            }
+          ],
+          "status": "Failed",
+          "storage": "/config/Downloads/incomplete/Absolute.Batman.002.2024",
+          "time_added": 1794575011,
+          "url": null,
+          "url_info": ""
+        }
+      ],
+      "total_size": "7 K",
+      "version": "5.1.3",
+      "week_size": "7 K"
+    }
+  },
+  "request": {
+    "mode": "history",
+    "nzo_ids": "2346f39d-cb23-412c-ab50-d84dbfe9fa50",
+    "output": "json"
+  },
+  "status_code": 200
+}

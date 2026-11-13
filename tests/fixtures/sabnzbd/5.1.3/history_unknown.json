@@ -1,0 +1,21 @@
+{
+  "body": {
+    "history": {
+      "day_size": "13 K",
+      "last_history_update": 17,
+      "month_size": "13 K",
+      "noofslots": 0,
+      "ppslots": 0,
+      "slots": [],
+      "total_size": "13 K",
+      "version": "5.1.3",
+      "week_size": "13 K"
+    }
+  },
+  "request": {
+    "mode": "history",
+    "nzo_ids": "SABnzbd_nzo_unknown",
+    "output": "json"
+  },
+  "status_code": 200
+}
