@@ -80,6 +80,9 @@ _CURRENT_CONFIG_VERSION = {("General", "config_version"): "19"}
 
 DRIFT_1251 = "https://github.com/frankieramirez/comicarr/issues/1251"
 DRIFT_1252 = "https://github.com/frankieramirez/comicarr/issues/1252"
+MYLAR_CONFIG_1254_1255 = (
+    "https://github.com/frankieramirez/comicarr/issues/1254 and https://github.com/frankieramirez/comicarr/issues/1255"
+)
 
 
 @dataclass(frozen=True)
@@ -92,6 +95,8 @@ class Row:
     xfail: dict = field(default_factory=dict)
     # A release from before Alembic: no alembic_version, adopted on upgrade.
     legacy: bool = False
+    # A Mylar3 data directory, imported into a fresh Comicarr install.
+    mylar: bool = False
 
     @property
     def seeded(self):
@@ -102,8 +107,8 @@ ROWS = (
     Row("Fresh"),
     Row(
         "Pre-Alembic",
-        sql="Pre-Alembic.sql",
-        config="Pre-Alembic.config.ini",
+        sql="pre-alembic.sql",
+        config="pre-alembic.config.ini",
         legacy=True,
         xfail={"test_1_upgrade_reaches_head_without_drift": DRIFT_1252},
         config_changes={
@@ -143,6 +148,35 @@ ROWS = (
         xfail={"test_1_upgrade_reaches_head_without_drift": DRIFT_1251},
     ),
     Row("0.5x", sql="0.5x.sql", config="0.5x.config.ini"),
+    *(
+        Row(
+            name,
+            sql=build.fixture_paths(name)[0].name,
+            config=build.fixture_paths(name)[1].name,
+            mylar=True,
+            config_changes={
+                **_SEARCH_DELAY_SECONDS_BEFORE_19,
+                **_CURRENT_CONFIG_VERSION,
+                # Mylar3 writes an empty provider order; Comicarr writes its None.
+                ("Providers", "provider_order"): "None",
+            },
+            xfail={"test_6_config_ini_loads_saves_and_reloads_with_no_key_lost": MYLAR_CONFIG_1254_1255},
+        )
+        for name in build.MYLAR_ROWS
+    ),
+)
+
+# Process globals the Mylar3 import writes as it reports progress.
+_MIGRATION_GLOBALS = (
+    "DB_FILE",
+    "DB_EMPTY",
+    "MIGRATION_IN_PROGRESS",
+    "MIGRATION_STATUS",
+    "MIGRATION_ERROR",
+    "MIGRATION_RECONCILIATION",
+    "MIGRATION_TABLES_COMPLETE",
+    "MIGRATION_TABLES_TOTAL",
+    "MIGRATION_CURRENT_TABLE",
 )
 
 
@@ -180,14 +214,20 @@ class Install:
         self.config_file = self.data_dir / "config.ini"
         self._monkeypatch = monkeypatch
 
-        connection = sqlite3.connect(self.database)
+        # A Mylar3 row starts as a Mylar3 data directory beside an empty install.
+        self.source_dir = tmp_path / "mylar3" if row.mylar else self.data_dir
+        self.source_dir.mkdir(exist_ok=True)
+        self.source = self.source_dir / ("mylar.db" if row.mylar else "comicarr.db")
+        self.source_config = self.source_dir / "config.ini"
+
+        connection = sqlite3.connect(self.source)
         try:
             if row.sql:
                 connection.executescript((FIXTURES / row.sql).read_text(encoding="utf-8"))
         finally:
             connection.close()
         if row.config:
-            shutil.copyfile(FIXTURES / row.config, self.config_file)
+            shutil.copyfile(FIXTURES / row.config, self.source_config)
 
         monkeypatch.delenv("DATABASE_URL", raising=False)
         # An operator maintenance override would hold the gate shut in check 4.
@@ -207,6 +247,9 @@ class Install:
         # Lifespan shutdown puts "exit" on every worker queue the runtime adopts.
         for name in _WORKER_QUEUES:
             monkeypatch.setattr(comicarr, name, type(getattr(comicarr, name))(), raising=False)
+        for name in _MIGRATION_GLOBALS:
+            monkeypatch.setattr(comicarr, name, getattr(comicarr, name, None), raising=False)
+        monkeypatch.setattr(comicarr, "DB_FILE", str(self.database), raising=False)
         monkeypatch.setattr(runtime, "_runtime", None)
         monkeypatch.setattr(
             "comicarr.maintenance.Maintenance.backup_files",
@@ -223,8 +266,8 @@ class Install:
         finally:
             connection.close()
 
-    def table_counts(self):
-        connection = sqlite3.connect(self.database)
+    def table_counts(self, database=None):
+        connection = sqlite3.connect(database or self.database)
         try:
             tables = [
                 name
@@ -236,10 +279,10 @@ class Install:
         finally:
             connection.close()
 
-    def preserved_columns(self):
+    def preserved_columns(self, database=None):
         """The check-3 columns this database has, so later columns are not compared."""
 
-        connection = sqlite3.connect(self.database)
+        connection = sqlite3.connect(database or self.database)
         try:
             found = {}
             for table, (keys, columns) in PRESERVED_VALUES.items():
@@ -250,8 +293,8 @@ class Install:
         finally:
             connection.close()
 
-    def preserved_values(self, preserved_columns):
-        connection = sqlite3.connect(self.database)
+    def preserved_values(self, preserved_columns, database=None):
+        connection = sqlite3.connect(database or self.database)
         try:
             values = {}
             for table, (keys, columns) in preserved_columns.items():
@@ -261,6 +304,15 @@ class Install:
             return values
         finally:
             connection.close()
+
+    def import_mylar3(self):
+        """Run the Mylar3 import as Settings does, minus the background fence."""
+
+        from comicarr import migration
+        from comicarr.app.acquisition.maintenance import get_reconciliation_status
+
+        assert migration.Mylar3Migration(str(self.source_dir)).execute() is True
+        return get_reconciliation_status(self.engine)["state"]
 
     def load_config(self):
         """Read config.ini the way startup does, with side effects stubbed."""
@@ -288,10 +340,26 @@ def upgraded(install):
     if install.row.legacy:
         assert "alembic_version" not in install.table_counts()
         assert classify_database(install.engine) is DatabaseState.LEGACY
-    install.before_counts = install.table_counts()
-    install.preserved_columns = install.preserved_columns()
-    install.before_values = install.preserved_values(install.preserved_columns)
-    assert upgrade_database(install.engine) == _head_revision()
+    before = install.table_counts(install.source)
+    if install.row.mylar:
+        from comicarr.migration import MIGRATABLE_TABLES
+
+        before = {table: count for table, count in before.items() if table in MIGRATABLE_TABLES}
+    install.before_counts = before
+    install.preserved_columns = install.preserved_columns(install.source)
+    install.before_values = install.preserved_values(install.preserved_columns, install.source)
+
+    if install.row.mylar:
+        from comicarr.app.acquisition.maintenance import set_reconciliation_state
+
+        install._monkeypatch.setattr(comicarr, "CONFIG", install.load_config(), raising=False)
+        # Startup brings the empty install to head before Settings offers the import.
+        assert upgrade_database(install.engine) == _head_revision()
+        # The import leaves acquisition gated until the operator reviews it.
+        assert install.import_mylar3() == "pending_preview"
+        set_reconciliation_state("ready", "upgrade matrix: operator reviewed the import", install.engine)
+    else:
+        assert upgrade_database(install.engine) == _head_revision()
     return install
 
 
@@ -351,7 +419,16 @@ def test_4_and_5_app_boots_and_serves_the_seeded_library(upgraded):
 
 
 def test_6_config_ini_loads_saves_and_reloads_with_no_key_lost(upgraded):
-    era = _ini_values(upgraded.config_file) if upgraded.config_file.exists() else {}
+    era = _ini_values(upgraded.source_config) if upgraded.source_config.exists() else {}
+    if upgraded.row.mylar:
+        # Only settings Comicarr defines, in the section it defines them, are imported.
+        from comicarr.config import _CONFIG_DEFINITIONS
+
+        era = {
+            (section, key): value
+            for (section, key), value in era.items()
+            if key.upper() in _CONFIG_DEFINITIONS and _CONFIG_DEFINITIONS[key.upper()][1] == section
+        }
 
     cfg = upgraded.load_config()
     assert cfg.writeconfig() is not False
@@ -372,9 +449,20 @@ def test_7_second_upgrade_changes_nothing(upgraded):
     first = upgraded.snapshot()
     assert upgrade_database(upgraded.engine) == _head_revision()
     assert upgraded.snapshot() == first
+    if upgraded.row.mylar:
+        counts = upgraded.table_counts()
+        upgraded.import_mylar3()
+        assert upgraded.table_counts() == counts
 
 
-@pytest.mark.parametrize("name", sorted(build.ROWS))
+@pytest.mark.parametrize(
+    "name",
+    [
+        *sorted(build.ROWS),
+        # Mylar3 rows install Mylar3's dependencies first; run them with -m slow.
+        *(pytest.param(name, marks=pytest.mark.slow) for name in build.MYLAR_ROWS),
+    ],
+)
 def test_rebuilding_a_fixture_reproduces_the_committed_files(name):
     sql, config_ini = build.build_row(name)
     sql_path, config_path = build.fixture_paths(name)
