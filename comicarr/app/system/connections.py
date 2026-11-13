@@ -156,9 +156,17 @@ def _probe_sabnzbd(config) -> Probe:
             verify=verify,
             allow_redirects=False,
         )
-        payload = queue.json() if queue.status_code == 200 else {}
-    except (requests.exceptions.RequestException, ValueError) as e:
+    except requests.exceptions.RequestException as e:
         return Probe(False, _scrub(e, apikey), latency, version)
+    # SABnzbd 5 answers a wrong key with HTTP 403 and a plain-text body (#1260).
+    if queue.status_code in (401, 403):
+        return Probe(False, "SABnzbd rejected the API key", latency, version)
+    if queue.status_code != 200:
+        return Probe(False, "SABnzbd answered with HTTP %s" % queue.status_code, latency, version)
+    try:
+        payload = queue.json()
+    except ValueError:
+        return Probe(False, "That address didn't answer like SABnzbd", latency, version)
     if isinstance(payload, dict) and payload.get("error"):
         return Probe(False, "SABnzbd rejected the API key", latency, version)
     slots = (payload.get("queue") or {}).get("noofslots") if isinstance(payload, dict) else None

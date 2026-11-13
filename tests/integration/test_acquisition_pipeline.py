@@ -555,11 +555,6 @@ def test_sab_restart_mid_download_resumes_monitoring(sab):
     _assert_in_library(sab)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SABnzbd 5 answers a wrong key with HTTP 403 text, which the probe reads as Reachable: "
-    "https://github.com/frankieramirez/comicarr/issues/1260",
-)
 def test_sab_wrong_api_key_is_a_connection_failure(sab, monkeypatch):
     from comicarr.app.system import connections
 

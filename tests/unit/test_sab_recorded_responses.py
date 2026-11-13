@@ -131,11 +131,6 @@ def test_queue_reports_a_downloading_job(sab):
     assert sabnzbd.SABnzbd({}).queuecheck(nzo_id) is False
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SABnzbd 5 answers a wrong key with HTTP 403 text, which the probe reads as Reachable: "
-    "https://github.com/frankieramirez/comicarr/issues/1260",
-)
 def test_wrong_api_key_is_reported_as_rejected(sab, monkeypatch):
     monkeypatch.setattr(comicarr.CONFIG, "SAB_APIKEY", "a-stale-key")
 
