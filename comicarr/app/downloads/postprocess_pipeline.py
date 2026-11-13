@@ -746,6 +746,7 @@ class PostProcessRun:
                 enable_meta=config.ENABLE_META,
                 ddl_location=getattr(config, "DDL_LOCATION", None),
                 log_module=self.module,
+                cache_dir=getattr(config, "CACHE_DIR", None),
             ),
             odir,
             del_nzbdir=del_nzbdir,
