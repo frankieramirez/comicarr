@@ -105,11 +105,11 @@ def heal_empty_ledgers():
 def run_manga_sync():
     """Scheduled: heal empty ledgers, poll MangaDex, then search wanted."""
     import comicarr
+    from comicarr.app.search.rss import check_manga_releases, check_mangadex_new_chapters
     from comicarr.helpers import utctimestamp
-    from comicarr.rsscheck import mangaCheck, mangadexNewChapterCheck
 
     comicarr.SCHED_MANGA_SYNC_LAST = utctimestamp()
     healed = heal_empty_ledgers()
-    mangadexNewChapterCheck()
-    mangaCheck()
+    check_mangadex_new_chapters()
+    check_manga_releases()
     return {"healed": healed}
