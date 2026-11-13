@@ -406,22 +406,25 @@ def test_two_arc_only_files_are_each_copied_from_their_own_source(tmp_path, libr
     assert placed["arc-1_issue2"].read_bytes() == second.read_bytes()
 
 
-def test_the_arc_row_is_written_before_its_journal_row_completes(tmp_path, library, monkeypatch):
-    from comicarr.app.downloads import _postprocess_completion
+def test_the_arc_row_is_written_before_its_journal_row_reaches_moved(tmp_path, library, monkeypatch):
+    """Recovery finishes a ``moved`` arc row without copying again."""
+    from comicarr.app.downloads import journal
 
     _arc_folder_config(monkeypatch)
     with db.get_engine().begin() as conn:
         conn.execute(storyarcs.insert().values(**_arc_row()))
     path = _download(tmp_path, "Batman 024 (2013).cbz")
     seen = []
-    real_complete = _postprocess_completion.complete
+    real_transition = journal.record_transition
 
-    def complete(context, **kwargs):
-        seen.append(_arc_row_for("arc-1_issue")["Status"])
-        return real_complete(context, **kwargs)
+    def record_transition(key, stage, **kwargs):
+        if stage in (journal.MOVED, journal.POST_PROCESSED) and kwargs.get("payload", {}).get("issuearcid"):
+            seen.append((stage, _arc_row_for("arc-1_issue")["Status"]))
+        return real_transition(key, stage, **kwargs)
 
-    monkeypatch.setattr(_postprocess_completion, "complete", complete)
+    monkeypatch.setattr(journal, "record_transition", record_transition)
 
     _processed(path.parent)
 
-    assert seen == ["Downloaded"]
+    assert (journal.MOVED, "Downloaded") in seen
+    assert all(status == "Downloaded" for _stage, status in seen)

@@ -2503,6 +2503,11 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                     )
                     return run.abort()
 
+                # The arc row is written before ``moved``: recovery finishes a
+                # ``moved`` row without re-driving the copy, so the row must
+                # already name the placed file. A restart before this point
+                # leaves the row at ``post_processing``, which re-drives it.
+                _mark_arc_row_downloaded(ml, grab_dst)
                 run.journal("moved", issue_arc_id=ml["IssueArcID"])
 
                 if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
@@ -2513,10 +2518,6 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                             "Not deleting %s due to belonging to multiple arcs - will delete in subsequent pass(es)"
                             % os.path.basename(orig_filename)
                         )
-                # The arc row is written before completion, which ends the
-                # journal row: a restart in between re-drives the copy rather
-                # than leaving a placed file behind an unchanged row.
-                _mark_arc_row_downloaded(ml, grab_dst)
                 completion = complete(
                     run.context,
                     issue_arc_id=ml["IssueArcID"],
