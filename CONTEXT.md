@@ -124,3 +124,9 @@ The announcement that a feature will be removed, made through the deprecation re
 
 _Avoid_: Sunset, retired (reserved for names guarded by `RETIRED_GLOBALS`)
 
+
+## MCP tool
+
+A named operation an agent calls on Comicarr's MCP server at `/mcp`. Read tools answer questions; write tools change the library and are listed only when MCP writes are enabled. Tool names are part of the 1.0 contract. See `docs/architecture/mcp-server.md`.
+
+_Avoid_: Query pattern, action (reserved for the frozen built-in chat's own mechanisms)
