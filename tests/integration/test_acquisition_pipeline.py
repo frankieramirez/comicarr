@@ -751,11 +751,6 @@ def test_nzbget_failure_reason_names_what_failed(nzb, monkeypatch, how):
     assert how in row["fail_reason"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="The handoff saves NZBID as a string and NZBGet reports an integer, so restart marks the grab gone: "
-    "https://github.com/frankieramirez/comicarr/issues/1263",
-)
 def test_nzbget_restart_after_the_job_finished_resumes_handling(nzb):
     """NZBGet finished the job while Comicarr was down; startup picks it up from history."""
     _response, _item = pipeline.send_to_nzbget(nzb.nzb)
@@ -765,19 +760,16 @@ def test_nzbget_restart_after_the_job_finished_resumes_handling(nzb):
 
     restarted = recovery.replay_pipeline()
 
+    # The history probe finds the finished job, so recovery queues post-processing
+    # directly and the live monitor has nothing left to watch.
     assert restarted["open"] == 1
-    rebuilt = comicarr.NZB_QUEUE.get_nowait()
-    assert rebuilt["NZBID"] == nzbid
-    pipeline.monitor_nzbget(rebuilt)
+    assert restarted["actions"] == {"complete-pp-enqueued": 1}
+    assert journal.read_one(pipeline.release_key())["stage"] == journal.DOWNLOADED
+    assert comicarr.NZB_QUEUE.empty()
     assert pipeline.post_process_next().status == "processed"
     _assert_in_library(nzb)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="The restart probe misses the saved NZBID and reads only history, so a downloading job is marked gone: "
-    "https://github.com/frankieramirez/comicarr/issues/1263",
-)
 def test_nzbget_restart_mid_download_resumes_monitoring(nzb):
     _response, _item = pipeline.send_to_nzbget(nzb.nzb)
     [nzbid] = nzb.jobs

@@ -149,11 +149,6 @@ def test_restart_probe_finds_a_finished_job_in_history(nzb, monkeypatch, tmp_pat
     assert probed["name"] == pipeline.RELEASE
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="The handoff saves NZBID as a string and NZBGet reports an integer: "
-    "https://github.com/frankieramirez/comicarr/issues/1263",
-)
 def test_restart_probe_finds_the_job_from_the_saved_handoff(nzb, monkeypatch, tmp_path):
     monkeypatch.setattr(comicarr.CONFIG, "NZBGET_DIRECTORY", str(tmp_path))
     _send(nzb)

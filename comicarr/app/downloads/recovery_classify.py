@@ -431,7 +431,8 @@ def _sab_history_or_queue(row, payload=None, keep_history=False):
 
 
 def _nzbget_history(row, payload=None):
-    """NZBGet: history lookup by NZBID. Reuses nzbget.NZBGet.historycheck().
+    """NZBGet: still in the active queue ⇒ still; otherwise history lookup by
+    NZBID through nzbget.NZBGet.historycheck().
 
     A missing NZBID is a permanent property of the row (nothing to ask the
     client), so it is ``unprobeable`` — not a transient ``unreachable``.
@@ -454,6 +455,9 @@ def _nzbget_history(row, payload=None):
             "download_info": di,
         }
         nz = nzbget.NZBGet()
+        # A job still downloading is in the queue, not yet in history (#1263).
+        if nz.queuecheck(nzbid):
+            return "still"
         nzstat = nz.historycheck(nzbinfo)
     except Exception as e:
         logger.warn("[RECOVERY-CLASSIFY] NZBGet unreachable probing %s: %s" % (nzbid, e))
