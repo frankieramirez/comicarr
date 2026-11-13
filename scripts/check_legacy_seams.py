@@ -93,8 +93,8 @@ SEAMS = {
 # --------------------------------------------------------------------------
 FOUNDATIONS_ALLOWLIST = {
     ("comicarr/app/downloads/service.py", "updater"): (
-        "dupecheck calls dbUpdate; snatch bookkeeping calls nzblog and foundsearch",
-        "#1206 and #1207 move these callers onto app/downloads/snatch_record.py and app/series/refresh.py",
+        "dupecheck calls dbUpdate",
+        "#1207 moves this caller onto app/series/refresh.py",
     ),
     ("comicarr/app/imports/finalization.py", "importer"): (
         "manual import adds a missing series with addComictoDB",
