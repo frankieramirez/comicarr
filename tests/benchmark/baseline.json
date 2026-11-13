@@ -1,0 +1,151 @@
+{
+  "machine": {
+    "platform": "Linux-6.18.44-fc-v445-x86_64-with-glibc2.39",
+    "python": "3.13.18",
+    "processor": "x86_64",
+    "cpus": 4,
+    "note": "Claude Code cloud container: 4 vCPU Intel Xeon @ 2.10GHz, local disk. Outbound network blocked, so startup's publisher-imprint fetch fails fast instead of downloading.",
+    "measured": "2026-11-13"
+  },
+  "library": {
+    "seed": 20261113,
+    "spec": {
+      "comic_series": 350,
+      "manga_series": 50,
+      "issues": 20000,
+      "files": 15000,
+      "wanted": 2000,
+      "story_arcs": 50,
+      "history": 5000,
+      "largest_series": 500,
+      "pull_list": 500,
+      "pull_followed": 120
+    },
+    "rows": {
+      "comics": 400,
+      "issues": 20000,
+      "storyarcs": 741,
+      "snatched": 5000,
+      "activity_events": 5000,
+      "weekly": 500,
+      "wanted": 2000
+    },
+    "files": 15000,
+    "largest_series": "100000"
+  },
+  "runs": 5,
+  "operations": [
+    {
+      "key": "library_list",
+      "label": "Library list API",
+      "median_s": 0.0155,
+      "samples_s": [
+        0.0195,
+        0.0147,
+        0.0155,
+        0.0141,
+        0.0166
+      ],
+      "ceiling_s": 0.5,
+      "met": true
+    },
+    {
+      "key": "series_detail",
+      "label": "Series detail API, 500-issue series",
+      "median_s": 0.0627,
+      "samples_s": [
+        0.0566,
+        0.0627,
+        0.0612,
+        0.0762,
+        0.1738
+      ],
+      "ceiling_s": 0.5,
+      "met": true
+    },
+    {
+      "key": "wanted",
+      "label": "Wanted API",
+      "median_s": 0.0288,
+      "samples_s": [
+        0.0259,
+        0.0288,
+        0.0358,
+        0.0307,
+        0.0247
+      ],
+      "ceiling_s": 0.5,
+      "met": true
+    },
+    {
+      "key": "dashboard",
+      "label": "Dashboard API",
+      "median_s": 0.0118,
+      "samples_s": [
+        0.0131,
+        0.011,
+        0.0177,
+        0.0104,
+        0.0118
+      ],
+      "ceiling_s": 0.5,
+      "met": true
+    },
+    {
+      "key": "startup",
+      "label": "Startup to ready",
+      "median_s": 2.9546,
+      "samples_s": [
+        2.9634,
+        2.9546,
+        2.9789,
+        2.8851,
+        2.816
+      ],
+      "ceiling_s": 15,
+      "met": true
+    },
+    {
+      "key": "rescan",
+      "label": "Full library rescan",
+      "median_s": 5.3185,
+      "samples_s": [
+        5.6406,
+        5.4626,
+        5.2329,
+        5.3185,
+        5.2624
+      ],
+      "ceiling_s": 300,
+      "met": true
+    },
+    {
+      "key": "weekly_pull_match",
+      "label": "Weekly pull match",
+      "median_s": 0.2523,
+      "samples_s": [
+        0.2638,
+        0.2514,
+        0.2523,
+        0.2622,
+        0.2428
+      ],
+      "ceiling_s": 60,
+      "met": true
+    },
+    {
+      "key": "release_evaluation",
+      "label": "Release evaluation, 200 candidates for one issue",
+      "median_s": 0.0395,
+      "samples_s": [
+        0.0388,
+        0.0395,
+        0.0416,
+        0.0395,
+        0.0402
+      ],
+      "ceiling_s": 2,
+      "met": true
+    }
+  ]
+}
