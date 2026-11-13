@@ -28,6 +28,7 @@ import comicarr
 from comicarr import db, logger
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome, RunState
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.search import rss
 from comicarr.app.search.commands import SearchCommand, SearchCommandError
 from comicarr.app.search.routes import classify, route_health
 from comicarr.tables import issues, ref32p
@@ -404,9 +405,8 @@ def force_search(ctx):
 def force_rss(ctx):
     """Trigger an RSS feed check."""
     try:
-        rss = comicarr.rsscheckit.tehMain()
         start_background_thread(
-            rss.run,
+            rss.run_feed_check,
             args=(True,),
             name="ManualRSS",
             registry=ctx.background_workers,
