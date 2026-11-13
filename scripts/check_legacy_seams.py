@@ -147,24 +147,7 @@ FOUNDATIONS_ALLOWLIST = {
 # Routers importing a root module outside Infrastructure. Must reach zero
 # before Foundations closes (ADR-0005).
 # --------------------------------------------------------------------------
-ROUTER_ALLOWLIST = {
-    ("comicarr/app/opds/router.py", "getimage"): (
-        "OPDS page streaming opens archives and scales pages directly",
-        "#1201 moves the call into a new app/opds/service.py",
-    ),
-    ("comicarr/app/opds/router.py", "readinglist"): (
-        "OPDS reading-list feed builds a Readinglist",
-        "#1201 moves the call into a new app/opds/service.py",
-    ),
-    ("comicarr/app/series/router.py", "comicsync"): (
-        "comic scan progress endpoint reads get_scan_progress",
-        "#1201 moves the call into app/series/service.py",
-    ),
-    ("comicarr/app/series/router.py", "mangasync"): (
-        "manga scan progress endpoint reads get_scan_progress",
-        "#1201 moves the call into app/series/service.py",
-    ),
-}
+ROUTER_ALLOWLIST: dict[tuple[str, str], tuple[str, str]] = {}
 
 # --------------------------------------------------------------------------
 # Deferred legacy crossings. Baselined, shrink-only, not a Foundations gate.
@@ -198,6 +181,8 @@ DEFERRED_ALLOWLIST = {
     ("comicarr/app/metadata/service.py", "getimage"): ("cover extract_image and retrieve_image", DEFERRED),
     ("comicarr/app/metadata/service.py", "mangadex"): ("MangaDex search_manga", DEFERRED),
     ("comicarr/app/metadata/service.py", "metron"): ("Metron get_series_image", DEFERRED),
+    ("comicarr/app/opds/service.py", "getimage"): ("OPDS page streaming opens archives and scales pages", DEFERRED),
+    ("comicarr/app/opds/service.py", "readinglist"): ("OPDS download marks the issue read", DEFERRED),
     ("comicarr/app/search/evaluation.py", "filechecker"): ("FileChecker parses release names", DEFERRED),
     ("comicarr/app/search/exact_lookup.py", "mb"): ("haveit_for_comicvine and listLibrary", DEFERRED),
     ("comicarr/app/search/interactive.py", "search"): ("interactive search drives search.py", DEFERRED),
