@@ -349,3 +349,79 @@ def test_the_snatch_lookup_runs_after_the_arc_only_files_are_placed(tmp_path, mo
 
     assert order == ["arc", "snatch", "library"]
     assert run.log == "matched\nplaced\nlooked up\n"
+
+
+def _arc_folder_config(monkeypatch):
+    monkeypatch.setattr(comicarr.CONFIG, "STORYARCDIR", True)
+    monkeypatch.setattr(comicarr.CONFIG, "COPY2ARCDIR", True)
+    monkeypatch.setattr(comicarr.CONFIG, "ARC_FILEOPS", "copy", raising=False)
+
+
+def _arc_row_for(issue_arc_id):
+    return db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == issue_arc_id))
+
+
+def test_an_arc_only_file_whose_tagging_fails_is_still_copied(tmp_path, library, monkeypatch):
+    from comicarr import postprocessor
+
+    _arc_folder_config(monkeypatch)
+    monkeypatch.setattr(comicarr.CONFIG, "ENABLE_META", True)
+    monkeypatch.setattr(postprocessor, "_tag_file", lambda *a, **k: "fail")
+    with db.get_engine().begin() as conn:
+        conn.execute(storyarcs.insert().values(**_arc_row()))
+    path = _download(tmp_path, "Batman 024 (2013).cbz")
+
+    _processed(path.parent)
+
+    row = _arc_row_for("arc-1_issue")
+    assert row["Status"] == "Downloaded"
+    assert pathlib.Path(row["Location"]).read_bytes() == path.read_bytes()
+
+
+def test_two_arc_only_files_are_each_copied_from_their_own_source(tmp_path, library, monkeypatch):
+    _arc_folder_config(monkeypatch)
+    with db.get_engine().begin() as conn:
+        conn.execute(storyarcs.insert().values(**_arc_row()))
+        conn.execute(
+            storyarcs.insert().values(
+                **_arc_row(
+                    IssueArcID="arc-1_issue2",
+                    IssueID="other-issue-25",
+                    IssueNumber="25",
+                    Int_IssueNumber=25000,
+                    ReadingOrder=2,
+                    IssueDate="2013-11-01",
+                )
+            )
+        )
+    first = _download(tmp_path, "Batman 024 (2013).cbz")
+    second = _download(tmp_path, "Batman 025 (2013).cbz")
+    second.write_bytes(second.read_bytes() + b"second")
+
+    _processed(first.parent)
+
+    placed = {key: pathlib.Path(_arc_row_for(key)["Location"]) for key in ("arc-1_issue", "arc-1_issue2")}
+    assert placed["arc-1_issue"] != placed["arc-1_issue2"]
+    assert placed["arc-1_issue"].read_bytes() == first.read_bytes()
+    assert placed["arc-1_issue2"].read_bytes() == second.read_bytes()
+
+
+def test_the_arc_row_is_written_before_its_journal_row_completes(tmp_path, library, monkeypatch):
+    from comicarr.app.downloads import _postprocess_completion
+
+    _arc_folder_config(monkeypatch)
+    with db.get_engine().begin() as conn:
+        conn.execute(storyarcs.insert().values(**_arc_row()))
+    path = _download(tmp_path, "Batman 024 (2013).cbz")
+    seen = []
+    real_complete = _postprocess_completion.complete
+
+    def complete(context, **kwargs):
+        seen.append(_arc_row_for("arc-1_issue")["Status"])
+        return real_complete(context, **kwargs)
+
+    monkeypatch.setattr(_postprocess_completion, "complete", complete)
+
+    _processed(path.parent)
+
+    assert seen == ["Downloaded"]

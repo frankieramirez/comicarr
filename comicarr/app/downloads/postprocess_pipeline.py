@@ -2264,6 +2264,13 @@ def mark_pull_row_downloaded(issueid):
         conn.execute(update(weekly).where(weekly.c.IssueID == issueid).values(STATUS="Downloaded"))
 
 
+def _mark_arc_row_downloaded(ml, location):
+    newVal = {"Status": "Downloaded", "Location": location}
+    ctrlVal = {"IssueArcID": ml["IssueArcID"]}
+    logger.fdebug("writing: %s -- %s" % (newVal, ctrlVal))
+    db.upsert("storyarcs", newVal, ctrlVal)
+
+
 def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manual_arclist):
     """Place files that belong to a watched arc and no watched series.
 
@@ -2281,7 +2288,14 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
         )
         multiple_arcs = None
         ml_cnt = 0
+        source = None
         for ml in manual_arclist:
+            # The multiple-arc bookkeeping is for one file in several arcs;
+            # a different file starts its own count and placement lookup.
+            if ml["ComicLocation"] != source:
+                source = ml["ComicLocation"]
+                multiple_arcs = None
+                ml_cnt = 0
             ml_cnt += 1
             issueid = ml["IssueID"]
             ofilename = orig_filename = ml["ComicLocation"]
@@ -2295,6 +2309,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                 logger.info("grdst: %s" % grdst)
 
                 metaresponse = None
+                tagged = False
 
                 helpers.crc(ofilename)
 
@@ -2369,6 +2384,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                         else:
                             odir = os.path.split(metaresponse)[0]
                             ofilename = os.path.split(metaresponse)[1]
+                            tagged = True
                             logger.info(
                                 "%s Sucessfully wrote metadata to .cbz (%s) - Continuing.." % (module, ofilename)
                             )
@@ -2401,11 +2417,12 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                             except Exception as e:
                                 logger.error("[POST-PROCESS] AI reconciliation error: %s" % e)
 
-                        dfilename = ofilename
+                        # An untagged file keeps its own name, not its path.
+                        dfilename = ofilename if tagged else ml["Filename"]
                     else:
                         dfilename = ml["Filename"]
 
-                    if metaresponse:
+                    if tagged:
                         src_location = odir
                         grab_src = os.path.join(src_location, ofilename)
                     else:
@@ -2496,6 +2513,10 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                             "Not deleting %s due to belonging to multiple arcs - will delete in subsequent pass(es)"
                             % os.path.basename(orig_filename)
                         )
+                # The arc row is written before completion, which ends the
+                # journal row: a restart in between re-drives the copy rather
+                # than leaving a placed file behind an unchanged row.
+                _mark_arc_row_downloaded(ml, grab_dst)
                 completion = complete(
                     run.context,
                     issue_arc_id=ml["IssueArcID"],
@@ -2505,13 +2526,9 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                 )
 
                 logger.fdebug("%s IssueArcID: %s" % (module, ml["IssueArcID"]))
-                newVal = {"Status": "Downloaded", "Location": grab_dst}
             else:
                 grab_dst = ml["ComicLocation"]
-                newVal = {"Status": "Downloaded", "Location": grab_dst}
-            ctrlVal = {"IssueArcID": ml["IssueArcID"]}
-            logger.fdebug("writing: %s -- %s" % (newVal, ctrlVal))
-            db.upsert("storyarcs", newVal, ctrlVal)
+                _mark_arc_row_downloaded(ml, grab_dst)
             deps.foundsearch(
                 ComicID=ml["ComicID"],
                 mode="story_arc",
