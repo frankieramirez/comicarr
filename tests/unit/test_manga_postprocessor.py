@@ -40,6 +40,7 @@ def _mock_db():
     mock_db = MagicMock()
     with (
         patch("comicarr.postprocessor.db", mock_db),
+        patch("comicarr.app.downloads.postprocess_pipeline.db", mock_db),
         patch("comicarr.app.series.queries.db", mock_db),
         patch("comicarr.app.downloads.queries.db", mock_db),
     ):
@@ -1026,20 +1027,22 @@ class TestMangaMetatagWiring:
     def _source():
         import inspect
 
-        from comicarr.postprocessor import PostProcessor
+        from comicarr.app.downloads.postprocess_pipeline import process_manga_download
 
-        return inspect.getsource(PostProcessor._process_manga)
+        return inspect.getsource(process_manga_download)
 
     def test_process_manga_calls_the_tagger(self):
-        assert "self._metatag_manga_file(" in self._source(), (
-            "_process_manga no longer tags its files; a manga volume will land in the library with no ComicInfo.xml"
+        assert "metatag_manga_file(" in self._source(), (
+            "the manga import no longer tags its files; a manga volume will land in the library with no ComicInfo.xml"
         )
 
     def test_the_ledger_row_is_resolved_before_placement(self):
-        assert "self._match_manga_issue(" in self._source(), (
-            "_process_manga no longer resolves the ledger row; the tagger needs the "
+        source = self._source()
+        assert "match_manga_issue(" in source, (
+            "the manga import no longer resolves the ledger row; the tagger needs the "
             "IssueID and must run while the file is still at the download location"
         )
+        assert source.index("match_manga_issue(") < source.index("deps.place(")
 
 
 class TestVolumeIdentifiesFile:

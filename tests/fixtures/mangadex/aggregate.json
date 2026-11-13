@@ -1,0 +1,143 @@
+{
+  "request": {
+    "method": "GET",
+    "host": "api.mangadex.org",
+    "path": "/manga/be7fd0c5-209a-440c-b20d-8b611be1310c/aggregate",
+    "params": {}
+  },
+  "status_code": 200,
+  "body": {
+    "result": "ok",
+    "volumes": {
+      "1": {
+        "volume": "1",
+        "count": 46,
+        "chapters": {
+          "11": {
+            "chapter": "11",
+            "id": "6d75357b-7398-4dce-96b5-97030d009675",
+            "isUnavailable": false,
+            "others": [
+              "1d8d56de-628c-4852-b960-f0a5275175f0",
+              "27a1c992-681a-4969-9c47-87fa3c6422a1",
+              "3b0995a1-bab4-4b5a-a7b8-9215664cdaf9"
+            ],
+            "count": 4
+          },
+          "10": {
+            "chapter": "10",
+            "id": "60f2dfbd-809c-49ec-a35d-da45924e3a79",
+            "isUnavailable": false,
+            "others": [
+              "99482f31-6814-4ced-9228-1c7ba1e23376",
+              "96dac6fc-fec8-4051-95f9-9755b4a34e77",
+              "b613a116-f292-4aeb-b1b4-0ddc9fb14d69"
+            ],
+            "count": 4
+          },
+          "9": {
+            "chapter": "9",
+            "id": "586a361e-d93b-45b4-a129-e1bbcba58325",
+            "isUnavailable": false,
+            "others": [
+              "21b23460-d181-4a1d-bd73-c310f965a828",
+              "cefce50e-d6ae-4da5-bd9b-eb8eca7bec4e",
+              "a0a7a64b-12e0-4acf-a36d-f9c6257fb0ab"
+            ],
+            "count": 4
+          },
+          "8": {
+            "chapter": "8",
+            "id": "49b508ed-2395-4c07-af16-c222dede3db9",
+            "isUnavailable": false,
+            "others": [
+              "9e4cb459-4079-47c4-99dc-7f29260405ac",
+              "e6652be2-021f-4fa9-a7ed-c8979ba1baf7",
+              "ebbc53b8-22f6-4336-8103-31be6c985416",
+              "bf760321-5e72-46e8-b96c-f8c3309c09ec"
+            ],
+            "count": 5
+          },
+          "7": {
+            "chapter": "7",
+            "id": "71ddfff2-4009-4d0d-93ce-3229449e4e8a",
+            "isUnavailable": false,
+            "others": [
+              "c90356fb-f802-46be-953b-21f7b6b2fb20",
+              "c36a80a7-7ee3-4699-9c2c-ea505423e5f4",
+              "f7434412-3a2f-4931-a3a7-6ad8ce3e291a"
+            ],
+            "count": 4
+          },
+          "6": {
+            "chapter": "6",
+            "id": "b50cb7b5-1e3a-4226-9101-5c4d9d980d8e",
+            "isUnavailable": false,
+            "others": [
+              "e830bbe0-4eeb-4023-913c-d5e2e7193fa8",
+              "7785f488-13ab-44f7-ba6c-112662523cd8",
+              "a4fd5e8a-0098-4ced-8393-24b55c69ff02"
+            ],
+            "count": 4
+          },
+          "5": {
+            "chapter": "5",
+            "id": "256e2bb6-f322-4c97-947c-ffbd021e2bbe",
+            "isUnavailable": false,
+            "others": [
+              "9ca2be70-0cf0-4020-a7af-d23f262b44c6",
+              "5bc90415-4a21-4dbe-b32c-e093390fa99a",
+              "b3f1d9e1-3276-4f00-b956-d66563266d39"
+            ],
+            "count": 4
+          },
+          "4": {
+            "chapter": "4",
+            "id": "113cf4a5-739c-4481-ac6f-c4572550bf4b",
+            "isUnavailable": false,
+            "others": [
+              "aa1988eb-5b01-4bf4-ba62-bb9aa5679dfc",
+              "b06a2b96-0183-460a-b3d9-c77c610a2171",
+              "9abc2e58-5848-462f-9ba3-10d814e0e7f0",
+              "8057e056-695d-4e13-acc2-f8722fd7e79e"
+            ],
+            "count": 5
+          },
+          "3": {
+            "chapter": "3",
+            "id": "e1621d93-1d4d-47df-a847-46d48c61aa36",
+            "isUnavailable": false,
+            "others": [
+              "3f197d02-7cea-4e3c-9ad5-74d931ad33a7",
+              "bb9780a2-c442-4001-a021-e69e7f6f5a4c",
+              "c7058914-398c-4fa5-889e-c54abc5a5882"
+            ],
+            "count": 4
+          },
+          "2": {
+            "chapter": "2",
+            "id": "bc026f41-ac01-446c-a6d7-2ccbcc6ae34c",
+            "isUnavailable": false,
+            "others": [
+              "0cc9754d-e00f-4157-a929-77e7a831e87b",
+              "890a4c14-644b-4603-a4a3-498aaede5f37",
+              "9ef8fff8-79b2-4111-b49b-74690ad2d462"
+            ],
+            "count": 4
+          },
+          "1": {
+            "chapter": "1",
+            "id": "4eecbe4d-c951-4cc0-9633-ca76ed31a648",
+            "isUnavailable": false,
+            "others": [
+              "4605b34b-f506-44b2-9fe1-dbe3fb20ba8f",
+              "4a5a8551-7bcc-4a94-a232-ffe0552a23b5",
+              "fc07ddb7-e64b-47fb-a2cb-cacbe4213bf9"
+            ],
+            "count": 4
+          }
+        }
+      }
+    }
+  }
+}

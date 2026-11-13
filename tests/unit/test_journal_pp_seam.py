@@ -38,6 +38,7 @@ import comicarr
 from comicarr import postprocessor
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.downloads import journal, postprocessing, service
+from comicarr.app.downloads.postprocess_pipeline import PostProcessRun
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.postprocessor import PostProcessor
 from comicarr.tables import comics, ddl_info, issues, metadata, pipeline_journal
@@ -512,11 +513,11 @@ def test_manga_pp_writes_processing_moved_processed_in_order(tmp_path, monkeypat
     pp = _make_pp(nzb_name="Chainsaw Man 165.cbz", nzb_folder=str(tmp_path), comicid="md-csm", issueid=None)
 
     seen = []
-    real_pp = pp._journal_pp
+    real_pp = PostProcessRun.journal
 
-    def _spy(stage, **k):
+    def _spy(run, stage, **k):
         seen.append(stage)
-        return real_pp(stage, **k)
+        return real_pp(run, stage, **k)
 
     moved_calls = []
 
@@ -529,7 +530,7 @@ def test_manga_pp_writes_processing_moved_processed_in_order(tmp_path, monkeypat
 
     with (
         patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
-        patch.object(pp, "_journal_pp", side_effect=_spy),
+        patch.object(PostProcessRun, "journal", _spy),
     ):
         pp._process_manga()
 
@@ -708,11 +709,11 @@ def test_manga_multichapter_per_file_marker_is_post_processing_not_moved(tmp_pat
         )
 
     seen = []
-    real_pp = pp._journal_pp
+    real_pp = PostProcessRun.journal
 
-    def _spy(stage, **k):
+    def _spy(run, stage, **k):
         seen.append(stage)
-        return real_pp(stage, **k)
+        return real_pp(run, stage, **k)
 
     def _fileop(s, d, *a, **k):
         seen.append("__fileop__")
@@ -725,7 +726,7 @@ def test_manga_multichapter_per_file_marker_is_post_processing_not_moved(tmp_pat
 
     with (
         patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
-        patch.object(pp, "_journal_pp", side_effect=_spy),
+        patch.object(PostProcessRun, "journal", _spy),
     ):
         pp._process_manga()
 

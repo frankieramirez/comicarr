@@ -327,6 +327,24 @@ def run(request):
             lock.release()
 
 
+def _recover_arc_copy(release_key, row, payload):
+    """Finish an owed story-arc copy from the placed library file.
+
+    The library issue completed before the restart, so the download is never
+    re-processed: the copy is made (or recorded) from the journal row alone.
+    A failed copy leaves the row owed for the next pass.
+    """
+    from comicarr.app.downloads.postprocess_pipeline import recover_arc_copy
+    from comicarr.app.storyarcs import ArcCopyError
+
+    try:
+        recover_arc_copy(release_key, row, payload)
+    except ArcCopyError as e:
+        logger.warn("[POST-PROCESSING] Story-arc copy for %s is still owed: %s", release_key, e)
+        return PostProcessResult("failed", detail=str(e), action="arc-copy-owed")
+    return PostProcessResult("processed", action="arc-copy-finished")
+
+
 def recover(release_key):
     """Continue authoritative journal state without repeating a fresh claim."""
     from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController
@@ -351,6 +369,8 @@ def recover(release_key):
         if not row or row.get("stage") not in {journal.MOVED, journal.POST_PROCESSING}:
             return PostProcessResult("ignored", action="ignored")
         payload = journal.load_payload(row.get("payload_json"))
+        if isinstance(payload, dict) and payload.get("arc_copy"):
+            return _recover_arc_copy(release_key, row, payload)
         if row["stage"] == journal.MOVED or obligation_already_fulfilled(row):
             finish_obligation(release_key, row, payload)
             action = "moved-finish-dbfacts" if row["stage"] == journal.MOVED else "post_processing-already-fulfilled"

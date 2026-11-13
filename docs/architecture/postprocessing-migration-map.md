@@ -135,17 +135,23 @@ inherited matching rules, and moving it under `comicarr/app/` would mean either
 rewriting it or weakening the modern lint lane. Neither is worth doing before
 1.0.
 
-Stages 1 to 5 above have landed. The sequence continues:
+Stages 1 to 6 have landed. The sequence continues:
 
 4. Database reconciliation stage (landed, see above).
 5. Cleanup and notification stages (landed, see above).
-6. Per-item processing: `Process_next` and `_process_manga` become pipeline
-   functions in `app/downloads/postprocess_pipeline.py`. The story-arc copy
-   becomes `copy_issue_to_arc` in `app/storyarcs/`, called from here with its
-   own arc-scoped key.
-   `copy_issue_to_arc` (`app/storyarcs/arc_copy.py`) exists and is tested
-   against the legacy arc placement; the legacy branch keeps running until
-   this step switches the call.
+6. Per-item processing (landed). `process_comic_issue` and
+   `process_manga_download` in `app/downloads/postprocess_pipeline.py` take
+   one match plus a `PostProcessRun` (the request's journal context, log and
+   queue messages) and a `PostProcessItemDeps` of legacy collaborators the
+   facade passes in. `Process_next` and `_process_manga` only delegate.
+   A library issue in a watched arc gets its arc copy through
+   `copy_issue_to_arc`, under its own arc-scoped key. That key is claimed
+   (`post_processing`, with the library file and arc membership in its
+   payload) after the library `moved` and before the library completes, so a
+   restart in between leaves the copy owed. `recover` finishes an owed copy
+   from the payload alone: at `post_processing` it copies from the library
+   file, at `moved` it only records `arc_destination`. The download is never
+   re-processed for it.
 7. Orchestration: the loop in `process.py` moves into
    `app/downloads/postprocessing.py` and `process.py` is deleted.
    `FailedProcessor` is called from there unchanged.

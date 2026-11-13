@@ -459,7 +459,23 @@ class TestOneOffStoryArcPlacementCallShape:
     def test_every_placement_names_its_policy_explicitly(self):
         calls = self._placement_calls()
 
-        assert len(calls) == 6, "expected six placements in postprocessor.py, found %d" % len(calls)
+        assert len(calls) == 2, "expected two placements in postprocessor.py, found %d" % len(calls)
+        for call in calls:
+            keywords = {kw.arg for kw in call.keywords}
+            assert "on_existing" in keywords, "a placement at line %d names no policy" % call.lineno
+
+    def test_every_pipeline_placement_names_its_policy_explicitly(self):
+        """The per-item sites moved to the pipeline, which places through ``deps.place``."""
+        from comicarr.app.downloads import postprocess_pipeline
+
+        tree = ast.parse(pathlib.Path(postprocess_pipeline.__file__).read_text())
+        calls = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "place"
+        ]
+
+        assert len(calls) == 3, "expected three placements in postprocess_pipeline.py, found %d" % len(calls)
         for call in calls:
             keywords = {kw.arg for kw in call.keywords}
             assert "on_existing" in keywords, "a placement at line %d names no policy" % call.lineno
