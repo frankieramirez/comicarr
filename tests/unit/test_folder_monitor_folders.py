@@ -14,7 +14,7 @@ import pytest
 
 import comicarr
 from comicarr.app.downloads import postprocessing, pp_commands
-from comicarr.postprocessor import FolderCheck
+from comicarr.app.downloads.folder_monitor import FolderCheck
 
 
 def _config(**overrides):

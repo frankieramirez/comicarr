@@ -9,8 +9,10 @@
 
 """Restart-safe stages used by the legacy post-processing facade."""
 
+import datetime
 import json
 import os
+import pathlib
 import re
 import shlex
 import shutil
@@ -20,16 +22,16 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, or_, select, update
 
-from comicarr import db, helpers, logger
+from comicarr import db, helpers, logger, series_kind
 from comicarr.app.common.numbers import zero_suppression_prefix
 from comicarr.app.common.placement import OnExisting, Outcome, Purpose
 from comicarr.app.common.redaction import redacted_traceback
 from comicarr.app.downloads import journal
 from comicarr.app.downloads.pp_commands import safe_walk
 from comicarr.app.manga.ledger import normalize_volume_number
-from comicarr.tables import annuals, comics, issues, snatched, storyarcs
+from comicarr.tables import annuals, comics, issues, snatched, storyarcs, weekly
 
 
 @dataclass(frozen=True)
@@ -656,7 +658,9 @@ class PostProcessItemDeps:
 
     ADR-0005 keeps the Deferred legacy modules (``cmtag``, ``filechecker``,
     ``getimage``, ``weeklypull``) and ``updater`` out of ``comicarr/app/``, so
-    the facade hands over the functions themselves.
+    the facade hands over the functions themselves. ``settle`` waits while a
+    file is still being written; ``refresh_series`` refreshes series for the
+    folder matcher.
     """
 
     place: Callable
@@ -668,6 +672,8 @@ class PostProcessItemDeps:
     foundsearch: Callable
     extract_cover: Callable
     manga_destination: Callable
+    settle: Callable = lambda _path: None
+    refresh_series: Callable = lambda _comic_ids: None
 
 
 @dataclass(frozen=True)
@@ -755,11 +761,11 @@ class PostProcessRun:
             filename=filename,
         )
 
-    def log_placement_failure(self, operation, src, dst, error):
+    def log_placement_failure(self, operation, src, dst, error, *, module=None):
         logger.error(
             "%s Failed to %s %s to %s (release=%s, issue=%s)\n%s"
             % (
-                self.module,
+                module or self.module,
                 operation,
                 src,
                 dst,
@@ -2093,3 +2099,1152 @@ def process_manga_download(run: PostProcessRun, deps: PostProcessItemDeps):
     return PostProcessItemResult(
         COMPLETED if processed > 0 else STOPPED, True, issue_id=last_matched_issueid, placed_path=None
     )
+
+
+# ---------------------------------------------------------------------------
+# A whole post-processing request: resolve the folder, match it, process it.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PostProcessRequest:
+    """One post-processing request, as a downloader or a folder scan makes it.
+
+    ``nzb_name`` is ``"Manual Run"`` for a folder scan. ``journal_release_key``
+    is the journal row the caller claimed, so every marker advances it.
+    """
+
+    nzb_name: str
+    nzb_folder: str
+    issue_id: str | None = None
+    comic_id: str | None = None
+    api_call: bool = False
+    ddl: bool = False
+    module: str | None = None
+    journal_release_key: str | None = None
+
+
+_INPUT = PostProcessInputStage()
+
+
+def _rename(src, dst):
+    return pathlib.Path(src).replace(dst)
+
+
+def process_download(request: PostProcessRequest, *, match: Callable, deps: PostProcessItemDeps):
+    """Run one request; return the messages it posted, or None for none.
+
+    ``match`` is the folder matcher (``comicarr.postprocessor.match_folder``),
+    passed in by the facade like the other legacy collaborators.
+    """
+    import comicarr
+
+    config = comicarr.CONFIG
+    module = request.module + "[POST-PROCESSING]" if request.module is not None else "[POST-PROCESSING]"
+    extensions = tuple(x for x in DEFAULT_EXTENSIONS if x not in config.IGNORE_SEARCH_WORDS)
+    api_call = request.api_call is True
+    ddl = request.ddl is True
+
+    def new_run(nzb_folder, issue_id, issue_arc_id, comic_id, log):
+        return PostProcessRun(
+            context=PostProcessContext(
+                issue_id=issue_id,
+                issue_arc_id=issue_arc_id,
+                comic_id=comic_id,
+                nzb_name=request.nzb_name,
+                nzb_folder=nzb_folder,
+                api_call=api_call,
+                ddl=ddl,
+                canonical_release_key=request.journal_release_key,
+                log_module=module,
+            ),
+            nzb_name=request.nzb_name,
+            nzb_folder=nzb_folder,
+            module=module,
+            extensions=extensions,
+            log=log,
+        )
+
+    log = "nzb name: %s\nnzb folder: %s\n" % (request.nzb_name, request.nzb_folder)
+    logger.fdebug("%s nzb name: %s" % (module, request.nzb_name))
+    logger.fdebug("%s nzb folder: %s" % (module, request.nzb_folder))
+    use_sabnzbd = comicarr.USE_SABNZBD == 1
+    use_nzbget = comicarr.USE_NZBGET == 1
+    input_result = _INPUT.resolve(
+        PostProcessInputContext(
+            nzb_name=request.nzb_name,
+            nzb_folder=request.nzb_folder,
+            module=module,
+            ddl=ddl,
+            use_sabnzbd=use_sabnzbd,
+            use_nzbget=use_nzbget,
+            sab_direct_unpack=(config.SAB_DIRECT_UNPACK if use_sabnzbd else False),
+            sab_directory=(config.SAB_DIRECTORY if use_sabnzbd else None),
+            nzbget_directory=(config.NZBGET_DIRECTORY if use_nzbget else None),
+            nzbget_category=(config.NZBGET_CATEGORY if use_nzbget else None),
+        )
+    )
+    nzb_folder = input_result.folder
+    if input_result.error is not None:
+        run = new_run(nzb_folder, request.issue_id, None, request.comic_id, log)
+        run.finish("stop")
+        return run.messages
+
+    if request.comic_id is not None:
+        series = db.select_one(
+            select(comics.c.ComicID, comics.c.ContentType, comics.c.ContentKindSetBy).where(
+                comics.c.ComicID == request.comic_id
+            )
+        )
+        if series_kind.is_manga(series if series is not None else request.comic_id):
+            logger.fdebug(
+                "%s Manga series detected (ComicID: %s) - branching to manga post-processing"
+                % (module, request.comic_id)
+            )
+            run = new_run(nzb_folder, request.issue_id, None, request.comic_id, log)
+            run.narrate("Manga series detected - using manga post-processing path")
+            process_manga_download(run, deps)
+            return run.messages or None
+
+    matches = match(
+        request.nzb_name,
+        nzb_folder,
+        issueid=request.issue_id,
+        comicid=request.comic_id,
+        apicall=api_call,
+        module=module,
+        extensions=extensions,
+        log=log,
+        refresh_series=deps.refresh_series,
+        rename=_rename,
+    )
+    run = new_run(matches.nzb_folder, matches.issue_id, matches.issue_arc_id, matches.comic_id, matches.log)
+    process_folder_matches(run, deps, matches)
+    return run.messages or None
+
+
+def process_folder_matches(run: PostProcessRun, deps: PostProcessItemDeps, matches):
+    """Place what a folder scan matched, in the order the legacy rules did.
+
+    Arc-only files go first. A scan the rules ended stops there; otherwise
+    each snatched download is processed, then the library matches.
+    """
+    library = [m.values for m in matches.library]
+    arc_only = [m.values for m in matches.arc_only]
+    if place_arc_only_matches(run, deps, arc_only) is not None:
+        return
+    if matches.exit == "abort":
+        return
+    if matches.exit is not None:
+        run.finish(matches.exit)
+        return
+    for pp in matches.snatched:
+        logger.info("[PPINFO-POST-PROCESSING-ATTEMPT] %s" % pp)
+        process_snatched_match(run, deps, tinfo=pp)
+    dispatch_library_matches(run, deps, library, arc_only)
+
+
+def _process_library_issue(run, deps, comicid, issueid, issuenumOG, ml=None, stat=None):
+    match = PostProcessComicMatch(comicid, issueid, issuenumOG, manual=ml, position=stat)
+    return process_comic_issue(match, run, deps)
+
+
+def mark_pull_row_downloaded(issueid):
+    """Mark a one-off's existing pull-list row as Downloaded.
+
+    An update rather than an upsert: weekly's upsert target is (ComicID,
+    IssueID), and a one-off only knows its IssueID.
+    """
+    with db.get_engine().begin() as conn:
+        conn.execute(update(weekly).where(weekly.c.IssueID == issueid).values(STATUS="Downloaded"))
+
+
+def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manual_arclist):
+    """Place files that belong to a watched arc and no watched series.
+
+    Returns None to go on, or how the request ended.
+    """
+    import comicarr
+    from comicarr.app.downloads._postprocess_completion import complete
+
+    module = run.module
+
+    if len(manual_arclist) > 0:
+        logger.info(
+            "[STORY-ARC MANUAL POST-PROCESSING] I have found %s issues that belong to Story Arcs. Flinging them into the correct directories."
+            % len(manual_arclist)
+        )
+        multiple_arcs = None
+        ml_cnt = 0
+        for ml in manual_arclist:
+            ml_cnt += 1
+            issueid = ml["IssueID"]
+            ofilename = orig_filename = ml["ComicLocation"]
+            logger.info("[STORY-ARC POST-PROCESSING] Enabled for %s" % ml["StoryArc"])
+
+            # No copy into the arc folder means no completion write here,
+            # and so the legacy unconditional notification.
+            completion = None
+            if all([comicarr.CONFIG.STORYARCDIR is True, comicarr.CONFIG.COPY2ARCDIR is True]):
+                grdst = helpers.arcformat(ml["StoryArc"], helpers.spantheyears(ml["StoryArcID"]), ml["Publisher"])
+                logger.info("grdst: %s" % grdst)
+
+                metaresponse = None
+
+                helpers.crc(ofilename)
+
+                if comicarr.CONFIG.CMTAG_START_YEAR_AS_VOLUME:
+                    vol_label = ml["SeriesYear"]
+                else:
+                    vol_label = ml["Volume"]
+
+                if not multiple_arcs:
+                    roders = db.select_all(
+                        select(storyarcs.c.StoryArc, storyarcs.c.ReadingOrder).where(
+                            and_(storyarcs.c.ComicID == ml["ComicID"], storyarcs.c.IssueID == issueid)
+                        )
+                    )
+                    readingorder = None
+                    if roders is not None:
+                        readingorder = []
+                        for rd in roders:
+                            readingorder.append((rd["StoryArc"], rd["ReadingOrder"]))
+                        multiple_arcs = len(readingorder)
+
+                    logger.fdebug("readingorder: %s" % (readingorder))
+
+                    if any([comicarr.CONFIG.ENABLE_META, comicarr.CONFIG.CBR2CBZ_ONLY]):
+                        logger.info("[STORY-ARC POST-PROCESSING] Metatagging enabled - proceeding...")
+
+                        pre_cmtag_info = None
+                        try:
+                            from comicarr.app.ai.enrichment import _read_comicinfo
+
+                            pre_cmtag_info = _read_comicinfo(ofilename)
+                        except Exception as e:
+                            logger.fdebug("[POST-PROCESS] Could not read pre-cmtag ComicInfo.xml: %s" % e)
+
+                        try:
+                            metaresponse = deps.tag_file(
+                                run.nzb_folder,
+                                issueid=issueid,
+                                comversion=vol_label,
+                                filename=ofilename,
+                                readingorder=readingorder,
+                                agerating=None,
+                            )
+                        except ImportError:
+                            logger.warn(
+                                "%s comictaggerlib not found on system. Ensure the bundled vendor package is available at comicarr/_vendor/comictaggerlib/"
+                                % module
+                            )
+                            metaresponse = "fail"
+
+                        if metaresponse == "fail":
+                            logger.fdebug(
+                                "%s Unable to write metadata successfully - check comicarr.log file. Attempting to continue without metatagging..."
+                                % module
+                            )
+                        elif any([metaresponse == "unrar error", metaresponse == "corrupt"]):
+                            logger.error(
+                                "%s This is a corrupt archive - whether CRC errors or it is incomplete. Marking as BAD, and retrying it."
+                                % module
+                            )
+                            continue
+                        elif metaresponse.startswith("file not found"):
+                            filename_in_error = metaresponse.split("||")[1]
+                            run.narrate(
+                                "The file cannot be found in the location provided for metatagging to be used [%s]. Please verify it exists, and re-run if necessary. Attempting to continue without metatagging..."
+                                % (filename_in_error)
+                            )
+                            logger.error(
+                                "%s The file cannot be found in the location provided for metatagging to be used [%s]. Please verify it exists, and re-run if necessary. Attempting to continue without metatagging..."
+                                % (module, filename_in_error)
+                            )
+                        else:
+                            odir = os.path.split(metaresponse)[0]
+                            ofilename = os.path.split(metaresponse)[1]
+                            logger.info(
+                                "%s Sucessfully wrote metadata to .cbz (%s) - Continuing.." % (module, ofilename)
+                            )
+                            run.narrate("Sucessfully wrote metadata to .cbz (%s) - proceeding..." % ofilename)
+
+                            try:
+                                from comicarr.app.ai.enrichment import enrich_metadata
+
+                                enriched_count = enrich_metadata(
+                                    cbz_path=metaresponse,
+                                    issue_id=issueid,
+                                )
+                                if enriched_count > 0:
+                                    logger.fdebug("[POST-PROCESS] AI enriched %d metadata fields" % enriched_count)
+                            except Exception as e:
+                                logger.error("[POST-PROCESS] AI enrichment error: %s" % e)
+
+                            try:
+                                from comicarr.app.ai.reconciliation import reconcile_metadata
+
+                                post_cmtag_info = _read_comicinfo(metaresponse)
+                                reconciled_count = reconcile_metadata(
+                                    cbz_path=metaresponse,
+                                    issue_id=issueid,
+                                    pre_cmtag_info=pre_cmtag_info,
+                                    post_cmtag_info=post_cmtag_info,
+                                )
+                                if reconciled_count > 0:
+                                    logger.fdebug("[POST-PROCESS] AI reconciled %d metadata fields" % reconciled_count)
+                            except Exception as e:
+                                logger.error("[POST-PROCESS] AI reconciliation error: %s" % e)
+
+                        dfilename = ofilename
+                    else:
+                        dfilename = ml["Filename"]
+
+                    if metaresponse:
+                        src_location = odir
+                        grab_src = os.path.join(src_location, ofilename)
+                    else:
+                        src_location = ofilename
+                        grab_src = ofilename
+
+                    logger.fdebug("%s Source Path : %s" % (module, grab_src))
+
+                checkdirectory = deps.validate_directory(grdst, True, module=module)
+                if not checkdirectory:
+                    logger.warn(
+                        "%s Error trying to validate/create directory. Aborting this process at this time." % module
+                    )
+                    return run.finish("stop")
+
+                if comicarr.CONFIG.RENAME_FILES:
+                    renamed_file = helpers.rename_param(
+                        ml["ComicID"],
+                        ml["ComicName"],
+                        ml["IssueNumber"],
+                        dfilename,
+                        issueid=ml["IssueID"],
+                        arc=ml["StoryArc"],
+                    )
+                    if renamed_file:
+                        dfilename = renamed_file["nfilename"]
+                        logger.fdebug("%s Renaming file to conform to configuration: %s" % (module, ofilename))
+
+                if comicarr.CONFIG.READ2FILENAME:
+                    if multiple_arcs > 1:
+                        new_path_f = dfilename[dfilename.find("-") + 1 :].strip()
+                    else:
+                        new_path_f = os.path.split(dfilename)[1]
+                    logger.fdebug("%s readingorder#: %s" % (module, ml["ReadingOrder"]))
+                    if int(ml["ReadingOrder"]) < 10:
+                        readord = "00" + str(ml["ReadingOrder"])
+                    elif int(ml["ReadingOrder"]) >= 10 and int(ml["ReadingOrder"]) <= 99:
+                        readord = "0" + str(ml["ReadingOrder"])
+                    else:
+                        readord = str(ml["ReadingOrder"])
+                    dfilename = "%s-%s" % (readord, new_path_f)
+
+                grab_dst = os.path.join(grdst, dfilename)
+
+                logger.fdebug("%s Destination Path : %s" % (module, grab_dst))
+                logger.fdebug("%s Source Path : %s" % (module, grab_src))
+
+                logger.info(
+                    "%s[ONE-OFF MODE][%s] %s into directory : %s"
+                    % (module, comicarr.CONFIG.ARC_FILEOPS.upper(), grab_src, grab_dst)
+                )
+
+                run.journal("post_processing", issue_arc_id=ml["IssueArcID"])
+
+                try:
+                    checkspace = helpers.get_free_space(grdst)
+                    if checkspace is False:
+                        if all([metaresponse is not None, metaresponse != "fail"]):
+                            run.tidy(src_location, True, cacheonly=True)
+                        raise OSError
+                    mult_count = False
+                    if ml_cnt != multiple_arcs:
+                        mult_count = True
+                    logger.fdebug(
+                        "ml_cnt: %s / multiple_arcs: %s --- multiple arc entry: %s"
+                        % (ml_cnt, multiple_arcs, mult_count)
+                    )
+                    deps.place(
+                        grab_src,
+                        grab_dst,
+                        Purpose.ONE_OFF,
+                        on_existing=OnExisting.UNGUARDED,
+                        multiple=mult_count,
+                    )
+                except Exception as e:
+                    run.log_placement_failure(
+                        comicarr.CONFIG.ARC_FILEOPS, grab_src, grab_dst, e, module="%s [ONE-OFF MODE]" % module
+                    )
+                    return run.abort()
+
+                run.journal("moved", issue_arc_id=ml["IssueArcID"])
+
+                if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
+                    if mult_count is False:
+                        run.tidy(src_location, True, filename=os.path.basename(orig_filename))
+                    else:
+                        logger.fdebug(
+                            "Not deleting %s due to belonging to multiple arcs - will delete in subsequent pass(es)"
+                            % os.path.basename(orig_filename)
+                        )
+                completion = complete(
+                    run.context,
+                    issue_arc_id=ml["IssueArcID"],
+                    anchor_ids=("S" + str(ml["IssueArcID"]), str(ml["IssueArcID"])),
+                    arc_scope=ml["StoryArc"],
+                    database=db,
+                )
+
+                logger.fdebug("%s IssueArcID: %s" % (module, ml["IssueArcID"]))
+                newVal = {"Status": "Downloaded", "Location": grab_dst}
+            else:
+                grab_dst = ml["ComicLocation"]
+                newVal = {"Status": "Downloaded", "Location": grab_dst}
+            ctrlVal = {"IssueArcID": ml["IssueArcID"]}
+            logger.fdebug("writing: %s -- %s" % (newVal, ctrlVal))
+            db.upsert("storyarcs", newVal, ctrlVal)
+            deps.foundsearch(
+                ComicID=ml["ComicID"],
+                mode="story_arc",
+                IssueID=ml["IssueID"],
+                IssueArcID=ml["IssueArcID"],
+                down="PP",
+            )
+            if all([comicarr.CONFIG.STORYARCDIR is True, comicarr.CONFIG.COPY2ARCDIR is True]):
+                logger.fdebug("%s [%s] Post-Processing completed for: %s" % (module, ml["StoryArc"], grab_dst))
+            else:
+                logger.fdebug(
+                    "%s [%s] Post-Processing completed for: %s" % (module, ml["StoryArc"], ml["ComicLocation"])
+                )
+
+            _notify(
+                run,
+                deps,
+                completion,
+                series=ml["ComicName"],
+                issue_year=ml["IssueYear"],
+                issue_number=ml["IssueNumber"],
+                placed_path=grab_dst,
+                issue_id=issueid,
+            )
+
+            run.journal("post_processed", issue_arc_id=ml["IssueArcID"])
+    return None
+
+
+def dispatch_library_matches(run: PostProcessRun, deps: PostProcessItemDeps, manual_list, manual_arclist):
+    """Process each library match, then post the request's summary."""
+    import comicarr
+
+    module = run.module
+    # The legacy loop read the last arc-only row for a one-arc summary.
+    ml = manual_arclist[-1] if manual_arclist else None
+
+    if any(
+        [
+            run.nzb_name == "Manual Run",
+            run.context.issue_id is not None,
+            run.context.comic_id is not None,
+            run.context.api_call is True,
+        ]
+    ):
+        annualtype = None
+        issuenumOG = None
+        if len(manual_list) == 0 and len(manual_arclist) == 0:
+            if run.nzb_name == "Manual Run":
+                logger.info("%s No matches for Manual Run ... exiting." % module)
+            return run.finish("stop")
+        elif len(manual_arclist) > 0:
+            if len(manual_arclist) > 1:
+                logger.info(
+                    "%s Manual post-processing completed for %s story-arc issues." % (module, len(manual_arclist))
+                )
+            try:
+                dspcname = None
+                dspcyear = None
+                if len(manual_arclist) == 1:
+                    dspcname = ml["ComicName"]
+                    dspcyear = ml["SeriesYear"]
+                    annualtype = ml["AnnualType"]
+                    issuenumOG = ml["IssueNumber"]
+                    logger.info(
+                        "%s[STORY-ARC] Manual post-processing completed for %s issue belonging to %s"
+                        % (module, len(manual_arclist), ml["StoryArc"])
+                    )
+            except Exception:
+                dspcname = None
+                dspcyear = None
+        i = 0
+
+        for ml in manual_list:
+            i += 1
+            comicid = ml["ComicID"]
+            issueid = ml["IssueID"]
+            issuenumOG = ml["IssueNumber"]
+            dspcname = ml["ComicName"]
+            dspcyear = ml["SeriesYear"]
+            deps.settle(ml["ComicLocation"])
+
+            dupthis = helpers.duplicate_filecheck(ml["ComicLocation"], ComicID=comicid, IssueID=issueid)
+            if dupthis["action"] == "dupe_src" or dupthis["action"] == "dupe_file":
+                if comicarr.CONFIG.DDUMP and not all(
+                    [comicarr.CONFIG.DUPLICATE_DUMP is None, comicarr.CONFIG.DUPLICATE_DUMP == ""]
+                ):
+                    dupchkit = _move_duplicate(deps, dupthis)
+                    if not dupchkit:
+                        logger.warn("Unable to move duplicate file - skipping post-processing of this file.")
+                        continue
+
+            if any([dupthis["action"] == "write", dupthis["action"] == "dupe_src"]):
+                stat = " [%s/%s]" % (i, len(manual_list))
+                _process_library_issue(run, deps, comicid, issueid, issuenumOG, ml, stat)
+                dupthis = None
+
+        if run.failed_files == 0:
+            if all([run.context.comic_id is not None, run.context.issue_id is None]):
+                try:
+                    logger.info(
+                        "%s post-processing of pack completed for %s issues of %s (%s)."
+                        % (module, i, dspcname, dspcyear)
+                    )
+                    global_line = "Successfully post-processed pack for %s issues of %s (%s)" % (
+                        i,
+                        dspcname,
+                        dspcyear,
+                    )
+                except Exception:
+                    logger.info("%s post-processing of pack completed for %s issues." % (module, i))
+                    global_line = "Successfully post-processed pack for %s issues." % (i)
+
+            elif run.context.issue_id is not None:
+                if ml:
+                    t_comicname = ml["ComicName"]
+                    t_annualtype = ml["AnnualType"]
+                    if t_annualtype is not None:
+                        try:
+                            t_comicname = ml["AnnualSeries"]
+                        except Exception:
+                            pass
+                        else:
+                            if t_annualtype == "Annual":
+                                t_annualtype = None
+                    t_issuenumber = ml["IssueNumber"]
+                else:
+                    t_comicname = dspcname
+                    t_annualtype = annualtype
+                    t_issuenumber = issuenumOG
+                if t_annualtype is not None:
+                    logger.info(
+                        "%s direct post-processing of issue completed for %s %s #%s."
+                        % (module, t_comicname, t_annualtype, t_issuenumber)
+                    )
+                    global_line = "Successfully post-processed</br> %s %s %s" % (
+                        t_comicname,
+                        t_annualtype,
+                        t_issuenumber,
+                    )
+                else:
+                    if t_issuenumber is not None:
+                        logger.info(
+                            "%s direct post-processing of issue completed for %s #%s."
+                            % (module, t_comicname, t_issuenumber)
+                        )
+                        global_line = "Successfully post-processed</br> %s #%s" % (t_comicname, t_issuenumber)
+                    else:
+                        logger.info("%s direct post-processing of issue completed for %s." % (module, t_comicname))
+                        global_line = "Successfully post-processed</br> %s" % (t_comicname)
+            else:
+                if i == 0 and len(manual_arclist) >= 1:
+                    global_line = "Successfully post-processed</br> %s storyarc issues" % len(manual_arclist)
+                else:
+                    logger.info("%s Manual post-processing completed for %s issues." % (module, i))
+                    global_line = "Manual post-processing completed for %s issues" % (i)
+        else:
+            if run.context.comic_id is not None:
+                logger.info(
+                    "%s post-processing of pack completed for %s issues [FAILED: %s]" % (module, i, run.failed_files)
+                )
+                global_line = "Successfully post-processing of pack completed for %s issues [FAILED: %s]" % (
+                    i,
+                    run.failed_files,
+                )
+            else:
+                logger.info(
+                    "%s Manual post-processing completed for %s issues [FAILED: %s]" % (module, i, run.failed_files)
+                )
+                global_line = "Successfully post-processed %s issues [FAILED: %s]" % (i, run.failed_files)
+
+        logger.fdebug("%s %s" % (module, global_line))
+
+        return run.finish("stop")
+    else:
+        pass
+
+
+def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo=None, manual=None):
+    """Process a download identified from what was snatched, not its filename."""
+    import comicarr
+    from comicarr.app.downloads._postprocess_completion import complete
+
+    module = run.module
+    manual_list = None
+    if tinfo is not None:
+        sandwich = None
+        issueid = tinfo["issueid"]
+        comicid = tinfo["comicid"]
+        comicname = tinfo["comicname"]
+        seriesyear = tinfo["seriesyear"]
+        seriesvolume = tinfo["seriesvolume"]
+        issuearcid = None
+        issuenumber = tinfo["issuenumber"]
+        tinfo["publisher"]
+        sarc = tinfo["sarc"]
+        oneoff = tinfo["oneoff"]
+        if all([oneoff is True, tinfo["comiclocation"] is not None]):
+            location = os.path.abspath(os.path.join(tinfo["comiclocation"], os.pardir))
+        else:
+            location = run.nzb_folder
+        issuenzb = db.select_one(
+            select(issues).where(and_(issues.c.IssueID == issueid, issues.c.ComicName.isnot(None)))
+        )
+        if issuenzb is None:
+            logger.info("%s Could not detect as a standard issue - checking against annuals." % module)
+            issuenzb = db.select_one(
+                select(annuals).where(
+                    and_(annuals.c.IssueID == issueid, annuals.c.ComicName.isnot(None), annuals.c.Deleted != 1)
+                )
+            )
+            if issuenzb is None:
+                logger.info("%s issuenzb not found." % module)
+                if "S" in issueid:
+                    sandwich = issueid
+                    if oneoff is False:
+                        onechk = db.select_one(
+                            select(storyarcs).where(storyarcs.c.IssueArcID == re.sub("S", "", issueid).strip())
+                        )
+                        if onechk is not None:
+                            issuearcid = onechk["IssueArcID"]
+                            issuenzb = db.select_one(
+                                select(issues).where(
+                                    and_(issues.c.IssueID == onechk["IssueID"], issues.c.ComicName.isnot(None))
+                                )
+                            )
+                            if issuenzb is None:
+                                issuenzb = db.select_one(
+                                    select(annuals).where(
+                                        and_(
+                                            annuals.c.IssueID == onechk["IssueID"],
+                                            annuals.c.ComicName.isnot(None),
+                                            annuals.c.Deleted != 1,
+                                        )
+                                    )
+                                )
+                        if issuenzb is not None:
+                            issueid = issuenzb["IssueID"]
+                            logger.fdebug(
+                                "Reverse lookup discovered watchlisted series [issueid: %s] - adjusting so we can PP both properly."
+                                % issueid
+                            )
+                elif "G" in issueid or "-" in issueid:
+                    sandwich = 1
+                elif any([oneoff is True, issueid >= "900000", issueid == "1"]):
+                    logger.info(
+                        "%s [ONE-OFF POST-PROCESSING] One-off download detected. Post-processing as a non-watchlist item."
+                        % module
+                    )
+                    sandwich = None
+                else:
+                    logger.error(
+                        "%s Unable to locate downloaded file as being initiated via Comicarr. Attempting to parse the filename directly and process."
+                        % module
+                    )
+                    run.narrate(
+                        "Unable to locate downloaded file within items I have snatched. Attempting to parse the filename directly and process."
+                    )
+                    return run.finish("outside")
+            else:
+                logger.info("%s Successfully located issue as an annual. Continuing." % module)
+
+        if issuenzb is not None:
+            logger.info("%s issuenzb found." % module)
+            if helpers.is_number(issueid):
+                sandwich = int(issuenzb["IssueID"])
+        if all([sandwich is not None, helpers.is_number(sandwich), sarc is None]):
+            if sandwich < 900000:
+                pass
+        else:
+            if (
+                any([oneoff is True, issuenzb is None])
+                or all([sandwich is not None, "S" in str(sandwich), oneoff is True])
+                or int(sandwich) >= 900000
+            ):
+                if sandwich is not None and "S" in sandwich:
+                    run.narrate("One-off STORYARC mode enabled for Post-Processing for %s" % sarc)
+                    logger.info("%s One-off STORYARC mode enabled for Post-Processing for %s" % (module, sarc))
+                else:
+                    run.narrate(
+                        "One-off mode enabled for Post-Processing. All I'm doing is moving the file untouched into the Grab-bag directory."
+                    )
+                    if comicarr.CONFIG.GRABBAG_DIR is None:
+                        comicarr.CONFIG.GRABBAG_DIR = os.path.join(comicarr.CONFIG.DESTINATION_DIR, "Grabbag")
+                    logger.info(
+                        "%s One-off mode enabled for Post-Processing. Will move into Grab-bag directory: %s"
+                        % (module, comicarr.CONFIG.GRABBAG_DIR)
+                    )
+                    run.narrate("Grab-Bag Directory set to : %s" % comicarr.CONFIG.GRABBAG_DIR)
+                    grdst = comicarr.CONFIG.GRABBAG_DIR
+
+                odir = location
+
+                if odir is None:
+                    odir = run.nzb_folder
+
+                ofilename = orig_filename = tinfo["comiclocation"]
+                if ofilename is not None:
+                    path, ext = os.path.splitext(ofilename)
+                else:
+                    if os.path.isfile(odir):
+                        logger.fdebug(
+                            "%s Assumed directory location (%s) is actually file location. Correcting..."
+                            % (module, odir)
+                        )
+                        ofilename = orig_filename = os.path.basename(odir)
+                        _, ext = os.path.splitext(ofilename)
+                    else:
+                        for root, _dirnames, filenames in safe_walk(odir):
+                            for filename in filenames:
+                                if filename.lower().endswith(run.extensions):
+                                    ofilename = orig_filename = filename
+                                    logger.fdebug("%s Valid filename located as : %s" % (module, ofilename))
+                                    path, ext = os.path.splitext(ofilename)
+                                    break
+
+                if ofilename is None:
+                    logger.error(
+                        "%s Unable to post-process file as it is not in a valid cbr/cbz format or cannot be located in path. PostProcessing aborted."
+                        % module
+                    )
+                    run.narrate("Unable to locate downloaded file to rename. PostProcessing aborted.")
+                    return run.finish("stop")
+
+                rdorder = None
+                arcdata = None
+                if sandwich is not None and "S" in sandwich:
+                    issuearcid = re.sub("S", "", issueid)
+                    logger.fdebug("%s issuearcid:%s" % (module, issuearcid))
+                    arcdata = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == issuearcid))
+                    if arcdata is None:
+                        logger.warn(
+                            "%s Unable to locate issue within Story Arcs. Cannot post-process at this time - try to Refresh the Arc and manual post-process if necessary."
+                            % module
+                        )
+                        run.narrate(
+                            "Unable to locate issue within Story Arcs in orde to properly assign metadata. PostProcessing aborted."
+                        )
+                        return run.finish("stop")
+
+                    if arcdata["Publisher"] is None:
+                        arcpub = arcdata["IssuePublisher"]
+                    else:
+                        arcpub = arcdata["Publisher"]
+
+                    grdst = helpers.arcformat(arcdata["StoryArc"], helpers.spantheyears(arcdata["StoryArcID"]), arcpub)
+
+                    if comicid is None:
+                        comicid = arcdata["ComicID"]
+                    if comicname is None:
+                        comicname = arcdata["ComicName"]
+                    if issuenumber is None:
+                        issuenumber = arcdata["IssueNumber"]
+                    issueid = arcdata["IssueID"]
+                    rdorder = arcdata["ReadingOrder"]
+
+                if comicarr.CONFIG.CMTAG_START_YEAR_AS_VOLUME:
+                    if arcdata:
+                        vol_label = arcdata["SeriesYear"]
+                    else:
+                        vol_label = seriesyear
+                else:
+                    if arcdata:
+                        vol_label = arcdata["ComicVersion"]
+                    else:
+                        vol_label = seriesvolume
+
+                if rdorder is not None:
+                    roders = db.select_all(
+                        select(storyarcs.c.StoryArc, storyarcs.c.ReadingOrder).where(
+                            and_(storyarcs.c.ComicID == comicid, storyarcs.c.IssueID == issueid)
+                        )
+                    )
+                    readingorder = None
+                    if roders is not None:
+                        readingorder = []
+                        for rd in roders:
+                            readingorder.append((rd["StoryArc"], rd["ReadingOrder"]))
+                else:
+                    readingorder = rdorder
+                logger.fdebug("readingorder: %s" % (readingorder))
+
+                metaresponse = None
+                helpers.crc(os.path.join(location, ofilename))
+
+                if all([comicarr.CONFIG.ENABLE_META, issueid is not None]) or comicarr.CONFIG.CBR2CBZ_ONLY:
+                    run.narrate("Metatagging enabled - proceeding...")
+
+                    pre_cmtag_info = None
+                    try:
+                        from comicarr.app.ai.enrichment import _read_comicinfo
+
+                        if os.path.isfile(odir):
+                            pre_cmtag_info = _read_comicinfo(odir)
+                        else:
+                            pre_cmtag_info = _read_comicinfo(os.path.join(odir, ofilename))
+                    except Exception as e:
+                        logger.fdebug("[POST-PROCESS] Could not read pre-cmtag ComicInfo.xml: %s" % e)
+
+                    try:
+                        if os.path.isfile(odir):
+                            tmp_ppdir = odir
+                        else:
+                            tmp_ppdir = os.path.join(odir, ofilename)
+                        metaresponse = deps.tag_file(
+                            location,
+                            issueid=issueid,
+                            comversion=vol_label,
+                            filename=tmp_ppdir,
+                            readingorder=readingorder,
+                            agerating=None,
+                        )
+                    except ImportError:
+                        logger.warn(
+                            "%s comictaggerlib not found on system. Ensure the bundled vendor package is available at comicarr/_vendor/comictaggerlib/"
+                            % module
+                        )
+                        metaresponse = "fail"
+
+                    if metaresponse == "fail":
+                        logger.fdebug(
+                            "%s Unable to write metadata successfully - check comicarr.log file. Attempting to continue without metatagging..."
+                            % module
+                        )
+                    elif any([metaresponse == "unrar error", metaresponse == "corrupt"]):
+                        logger.error(
+                            "%s This is a corrupt archive - whether CRC errors or it is incomplete. Marking as BAD, and retrying it."
+                            % module
+                        )
+                    elif metaresponse.startswith("file not found"):
+                        filename_in_error = metaresponse.split("||")[1]
+                        run.narrate(
+                            "The file cannot be found in the location provided for metatagging [%s]. Please verify it exists, and re-run if necessary."
+                            % filename_in_error
+                        )
+                        logger.error(
+                            "%s The file cannot be found in the location provided for metagging [%s]. Please verify it exists, and re-run if necessary."
+                            % (module, filename_in_error)
+                        )
+                    else:
+                        odir = os.path.split(metaresponse)[0]
+                        ofilename = os.path.split(metaresponse)[1]
+                        os.path.splitext(metaresponse)[1]
+                        logger.info("%s Sucessfully wrote metadata to .cbz (%s) - Continuing.." % (module, ofilename))
+                        run.narrate("Sucessfully wrote metadata to .cbz (%s) - proceeding..." % ofilename)
+
+                        try:
+                            from comicarr.app.ai.enrichment import enrich_metadata
+
+                            enriched_count = enrich_metadata(
+                                cbz_path=metaresponse,
+                                issue_id=issueid,
+                            )
+                            if enriched_count > 0:
+                                logger.fdebug("[POST-PROCESS] AI enriched %d metadata fields" % enriched_count)
+                        except Exception as e:
+                            logger.error("[POST-PROCESS] AI enrichment error: %s" % e)
+
+                        try:
+                            from comicarr.app.ai.reconciliation import reconcile_metadata
+
+                            post_cmtag_info = _read_comicinfo(metaresponse)
+                            reconciled_count = reconcile_metadata(
+                                cbz_path=metaresponse,
+                                issue_id=issueid,
+                                pre_cmtag_info=pre_cmtag_info,
+                                post_cmtag_info=post_cmtag_info,
+                            )
+                            if reconciled_count > 0:
+                                logger.fdebug("[POST-PROCESS] AI reconciled %d metadata fields" % reconciled_count)
+                        except Exception as e:
+                            logger.error("[POST-PROCESS] AI reconciliation error: %s" % e)
+
+                dfilename = ofilename
+                if metaresponse:
+                    src_location = odir
+                else:
+                    src_location = location
+
+                grab_src = os.path.join(src_location, ofilename)
+                run.narrate("Source Path : %s" % grab_src)
+                logger.info("%s Source Path : %s" % (module, grab_src))
+
+                checkdirectory = deps.validate_directory(grdst, True, module=module)
+                if not checkdirectory:
+                    logger.warn(
+                        "%s Error trying to validate/create directory. Aborting this process at this time." % module
+                    )
+                    return run.finish("stop")
+
+                if comicarr.CONFIG.RENAME_FILES:
+                    renamed_file = helpers.rename_param(
+                        comicid, comicname, issuenumber, dfilename, issueid=issueid, arc=sarc
+                    )
+                    if renamed_file:
+                        dfilename = renamed_file["nfilename"]
+                        logger.fdebug("%s Renaming file to conform to configuration: %s" % (module, dfilename))
+
+                if sandwich is not None and "S" in sandwich:
+                    if comicarr.CONFIG.READ2FILENAME:
+                        logger.fdebug("%s readingorder#: %s" % (module, arcdata["ReadingOrder"]))
+                        if int(arcdata["ReadingOrder"]) < 10:
+                            readord = "00" + str(arcdata["ReadingOrder"])
+                        elif int(arcdata["ReadingOrder"]) >= 10 and int(arcdata["ReadingOrder"]) <= 99:
+                            readord = "0" + str(arcdata["ReadingOrder"])
+                        else:
+                            readord = str(arcdata["ReadingOrder"])
+                        dfilename = str(readord) + "-" + dfilename
+                    else:
+                        dfilename = ofilename
+                    grab_dst = os.path.join(grdst, dfilename)
+                else:
+                    grab_dst = os.path.join(grdst, dfilename)
+
+                if not os.path.exists(grab_dst) or grab_src == grab_dst:
+                    grab_dst = os.path.join(grdst, os.path.split(dfilename)[1])
+
+                run.narrate("Destination Path : %s" % grab_dst)
+
+                logger.info("%s Destination Path : %s" % (module, grab_dst))
+                logger.info("%s[%s] %s into directory : %s" % (module, comicarr.CONFIG.FILE_OPTS, ofilename, grab_dst))
+
+                run.journal("post_processing", issue_id=issueid, issue_arc_id=issuearcid)
+
+                try:
+                    checkspace = helpers.get_free_space(grdst)
+                    if checkspace is False:
+                        if all([metaresponse != "fail", metaresponse is not None]):
+                            run.tidy(src_location, True, cacheonly=True)
+                        raise OSError
+                    deps.place(grab_src, grab_dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED)
+                except Exception as e:
+                    run.log_placement_failure(comicarr.CONFIG.FILE_OPTS, grab_src, grab_dst, e)
+                    run.narrate("Failed to %s %s: %s" % (comicarr.CONFIG.FILE_OPTS, grab_src, e))
+                    return run.finish("stop")
+
+                run.journal("moved", issue_id=issueid, issue_arc_id=issuearcid)
+
+                if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
+                    run.tidy(src_location, True, filename=os.path.basename(orig_filename))
+
+                completion = complete(
+                    run.context,
+                    issue_id=issueid,
+                    issue_arc_id=issuearcid,
+                    anchor_ids=(issueid,),
+                    database=db,
+                )
+
+                if (sandwich is not None and "S" in sandwich) or "_" in issueid:
+                    logger.info("%s IssueArcID is : %s" % (module, issuearcid))
+                    ctrlVal = {"IssueArcID": issuearcid}
+                    newVal = {"Status": "Downloaded", "Location": grab_dst}
+                    db.upsert("storyarcs", newVal, ctrlVal)
+                    deps.foundsearch(
+                        ComicID=comicid,
+                        mode="story_arc",
+                        IssueID=issueid,
+                        IssueArcID=issuearcid,
+                        down="PP",
+                    )
+                    logger.info("%s Updated status to Downloaded" % module)
+
+                    logger.info("%s Post-Processing completed for: [%s] %s" % (module, sarc, grab_dst))
+                    run.narrate("Post Processing SUCCESSFUL! ")
+                elif oneoff is True:
+                    logger.info("%s IssueID is : %s" % (module, issueid))
+                    ctrlVal = {"IssueID": issueid}
+                    newVal = {"Status": "Downloaded"}
+                    logger.info("%s Writing to db: %s -- %s" % (module, newVal, ctrlVal))
+                    mark_pull_row_downloaded(issueid)
+                    logger.info("%s Updated status to Downloaded" % module)
+                    db.upsert("oneoffhistory", newVal, ctrlVal)
+                    logger.info("%s Updated history for one-off's for tracking purposes" % module)
+                    logger.info(
+                        "%s Post-Processing completed for: [ %s #%s ] %s" % (module, comicname, issuenumber, grab_dst)
+                    )
+                    run.narrate("Post Processing SUCCESSFUL! ")
+
+                _notify(
+                    run,
+                    deps,
+                    completion,
+                    series=comicname,
+                    issue_year=None,
+                    issue_number=issuenumber,
+                    placed_path=grab_dst,
+                    issue_id=issueid,
+                )
+
+                run.journal("post_processed", issue_id=issueid, issue_arc_id=issuearcid)
+
+                return run.finish("stop")
+
+            else:
+                try:
+                    len(manual_arclist)
+                except (TypeError, NameError):
+                    manual_arclist = []
+
+                if tinfo["comiclocation"] is None:
+                    cloc = run.nzb_folder
+                else:
+                    cloc = tinfo["comiclocation"]
+
+                clocation = cloc
+                if os.path.isdir(cloc):
+                    for root, _dirnames, filenames in safe_walk(cloc):
+                        for filename in filenames:
+                            if filename.lower().endswith(run.extensions):
+                                clocation = os.path.join(root, filename)
+
+                manual_list = {
+                    "ComicID": tinfo["comicid"],
+                    "IssueID": tinfo["issueid"],
+                    "ComicLocation": clocation,
+                    "SARC": tinfo["sarc"],
+                    "IssueArcID": issuearcid,
+                    "ComicName": tinfo["comicname"],
+                    "IssueNumber": tinfo["issuenumber"],
+                    "Publisher": tinfo["publisher"],
+                    "OneOff": tinfo["oneoff"],
+                    "ForcedMatch": False,
+                }
+
+    else:
+        manual_list = manual
+
+    if run.nzb_name == "Manual Run":
+        if len(manual_list) == 0 and len(manual_arclist) == 0:
+            logger.info("%s No matches for Manual Run ... exiting." % module)
+            return run.finish("stop")
+        elif len(manual_arclist) > 0 and len(manual_list) == 0:
+            logger.info("%s Manual post-processing completed for %s story-arc issues." % (module, len(manual_arclist)))
+            return run.finish("stop")
+        elif len(manual_arclist) > 0:
+            logger.info("%s Manual post-processing completed for %s story-arc issues." % (module, len(manual_arclist)))
+        i = 0
+
+        for ml in manual_list:
+            i += 1
+            comicid = ml["ComicID"]
+            issueid = ml["IssueID"]
+            issuenumOG = ml["IssueNumber"]
+            deps.settle(ml["ComicLocation"])
+
+            dupthis = helpers.duplicate_filecheck(ml["ComicLocation"], ComicID=comicid, IssueID=issueid)
+            if dupthis["action"] == "dupe_src" or dupthis["action"] == "dupe_file":
+                if comicarr.CONFIG.DDUMP and not all(
+                    [comicarr.CONFIG.DUPLICATE_DUMP is None, comicarr.CONFIG.DUPLICATE_DUMP == ""]
+                ):
+                    dupchkit = _move_duplicate(deps, dupthis)
+                    if not dupchkit:
+                        logger.warn("Unable to move duplicate file - skipping post-processing of this file.")
+                        continue
+
+            if any([dupthis["action"] == "write", dupthis["action"] == "dupe_src"]):
+                stat = " [%s/%s]" % (i, len(manual_list))
+                _process_library_issue(run, deps, comicid, issueid, issuenumOG, ml, stat)
+                dupthis = None
+
+        if run.failed_files == 0:
+            logger.info("%s Manual post-processing completed for %s issues." % (module, i))
+        else:
+            logger.info(
+                "%s Manual post-processing completed for %s issues [FAILED: %s]" % (module, i, run.failed_files)
+            )
+        return run.finish("stop")
+
+    else:
+        comicid = issuenzb["ComicID"]
+        issuenumOG = issuenzb["Issue_Number"]
+        dupthis = helpers.duplicate_filecheck(run.nzb_folder, ComicID=comicid, IssueID=issueid)
+        if dupthis["action"] == "dupe_src" or dupthis["action"] == "dupe_file":
+            if comicarr.CONFIG.DUPLICATE_DUMP:
+                if comicarr.CONFIG.DDUMP and not all(
+                    [comicarr.CONFIG.DUPLICATE_DUMP is None, comicarr.CONFIG.DUPLICATE_DUMP == ""]
+                ):
+                    dupchkit = _move_duplicate(deps, dupthis)
+                    if not dupchkit:
+                        logger.warn("Unable to move duplicate file - skipping post-processing of this file.")
+                        return run.finish("stop", issueid=issueid, comicid=comicid)
+
+        if dupthis["action"] == "write" or dupthis["action"] == "dupe_src":
+            if manual_list is None:
+                return _process_library_issue(run, deps, comicid, issueid, issuenumOG)
+            else:
+                logger.info("Post-processing issue is found in more than one destination - let us do this!")
+                return _process_library_issue(run, deps, comicid, issueid, issuenumOG, manual_list)
+        else:
+            return run.finish("stop", issueid=issueid, comicid=comicid)
+
+
+def _move_duplicate(deps, dupeinfo):
+    import comicarr
+
+    path_to_move = dupeinfo["to_dupe"]
+    file_to_move = os.path.split(path_to_move)[1]
+
+    if dupeinfo["action"] == "dupe_src" and comicarr.CONFIG.FILE_OPTS == "move":
+        logger.info(
+            "[DUPLICATE-CLEANUP] New File will be post-processed. Moving duplicate [%s] to Duplicate Dump Folder for manual intervention."
+            % path_to_move
+        )
+    else:
+        if comicarr.CONFIG.FILE_OPTS == "move":
+            logger.info(
+                "[DUPLICATE-CLEANUP][MOVE-MODE] New File will not be post-processed. Moving duplicate [%s] to Duplicate Dump Folder for manual intervention."
+                % path_to_move
+            )
+        else:
+            logger.info(
+                "[DUPLICATE-CLEANUP][COPY-MODE] NEW File will not be post-processed. Retaining file in original location [%s]"
+                % path_to_move
+            )
+            return True
+
+    if comicarr.CONFIG.FILE_OPTS == "move":
+        deps.validate_directory(comicarr.CONFIG.DUPLICATE_DUMP, True, module="[DUPLICATE-CLEANUP]")
+
+        if comicarr.CONFIG.DUPLICATE_DATED_FOLDERS is True:
+            todaydate = datetime.datetime.now().strftime("%Y-%m-%d")
+            dump_folder = os.path.join(comicarr.CONFIG.DUPLICATE_DUMP, todaydate)
+            deps.validate_directory(dump_folder, True, module="[DUPLICATE-DATED CLEANUP]")
+        else:
+            dump_folder = comicarr.CONFIG.DUPLICATE_DUMP
+
+        try:
+            shutil.move(path_to_move, os.path.join(dump_folder, file_to_move))
+        except (OSError, IOError):
+            logger.warn(
+                "[DUPLICATE-CLEANUP] Failed to move %s ... to ... %s"
+                % (path_to_move, os.path.join(dump_folder, file_to_move))
+            )
+            return False
+
+        logger.warn(
+            "[DUPLICATE-CLEANUP] Successfully moved %s ... to ... %s"
+            % (path_to_move, os.path.join(dump_folder, file_to_move))
+        )
+        return True

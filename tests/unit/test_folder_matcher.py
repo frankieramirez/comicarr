@@ -15,10 +15,9 @@ issue or one-off each one belongs to. The expected matches were recorded from
 the pipeline, so they pin the inherited rules rather than describe new ones.
 """
 
-import queue
+import pathlib
 import time
 from types import SimpleNamespace
-from unittest.mock import patch
 
 import pytest
 
@@ -80,32 +79,19 @@ def _scan(folder):
     """The matches a manual scan of ``folder`` hands on, by kind."""
     from comicarr import postprocessor
 
-    found = {"library": [], "arc_only": [], "one_off": []}
-
-    def library_match(self, comicid, issueid, issuenumOG, ml=None, stat=None):
-        found["library"].append((comicid, issueid, issuenumOG, ml["ComicLocation"]))
-
-    def one_off(self, tinfo=None, manual=None):
-        found["one_off"].append((tinfo["issueid"], tinfo["comiclocation"]))
-
-    real_upsert = db.upsert
-
-    def upsert(table, values, keys, *args, **kwargs):
-        if table == "storyarcs":
-            found["arc_only"].append((keys["IssueArcID"], values["Location"]))
-            return None
-        return real_upsert(table, values, keys, *args, **kwargs)
-
-    with (
-        patch.object(postprocessor.PostProcessor, "Process_next", library_match),
-        patch.object(postprocessor.PostProcessor, "nzb_or_oneoff_pp", one_off),
-        patch.object(postprocessor.db, "upsert", upsert),
-        patch("comicarr.updater.foundsearch"),
-        patch("comicarr.app.notifications.service"),
-        patch("comicarr.helpers.duplicate_filecheck", return_value={"action": "write"}),
-    ):
-        postprocessor.PostProcessor("Manual Run", str(folder), queue=queue.Queue()).Process()
-    return found
+    refreshed = []
+    matches = postprocessor.match_folder(
+        "Manual Run",
+        str(folder),
+        refresh_series=refreshed.extend,
+        rename=lambda src, dst: pathlib.Path(src).replace(dst),
+    )
+    assert matches.exit is None
+    return {
+        "library": [(m.comic_id, m.issue_id, m.issue_number, m.location) for m in matches.library],
+        "arc_only": [(m.issue_arc_id, m.location) for m in matches.arc_only],
+        "one_off": [(s["issueid"], s["comiclocation"]) for s in matches.snatched],
+    }
 
 
 def test_a_library_issue_matches_its_series_and_issue(tmp_path, library):

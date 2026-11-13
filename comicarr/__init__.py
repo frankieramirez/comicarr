@@ -52,7 +52,6 @@ from comicarr import (
     helpers,
     logger,
     maintenance,
-    postprocessor,
     rsscheckit,
     sabnzbd,
     searchit,
@@ -1008,7 +1007,9 @@ def start(ctx):
             )
             VERSION_SCHEDULER.pause()
 
-            fm = postprocessor.FolderCheck()
+            from comicarr.app.downloads.folder_monitor import FolderCheck
+
+            fm = FolderCheck()
             MONITOR_SCHEDULER = _add_recurring_job(
                 func=fm.run,
                 id="monitor",
