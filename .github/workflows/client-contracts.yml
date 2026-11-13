@@ -1,0 +1,97 @@
+name: Download client contracts
+
+# Checks that the recorded SABnzbd and NZBGet responses the pull-request tests
+# replay still match the real clients at the versions they were recorded from.
+# It never gates a pull request. See docs/testing/first-class-targets.md.
+
+on:
+  schedule:
+    - cron: "41 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: client-contracts
+  cancel-in-progress: false
+
+env:
+  # Bump these together with the fixture directories they were recorded from.
+  SABNZBD_IMAGE: linuxserver/sabnzbd:5.1.3-ls281
+  NZBGET_IMAGE: linuxserver/nzbget:v26.3-ls271
+
+jobs:
+  contracts:
+    name: SABnzbd and NZBGet contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y par2
+
+      - name: Install Python dependencies
+        run: uv sync --locked --extra dev
+
+      - name: Start SABnzbd and NZBGet
+        run: |
+          nzbget_password="$(openssl rand -hex 16)"
+          echo "::add-mask::${nzbget_password}"
+          docker run -d --name sabnzbd -p 18080:8080 "${SABNZBD_IMAGE}"
+          docker run -d --name nzbget -p 16789:6789 \
+            -e NZBGET_USER=contract -e NZBGET_PASS="${nzbget_password}" "${NZBGET_IMAGE}"
+
+          # SABnzbd writes a fresh API key into sabnzbd.ini on first start.
+          for _ in $(seq 1 60); do
+            apikey="$(docker exec sabnzbd sed -n 's/^api_key = //p' /config/sabnzbd.ini 2>/dev/null || true)"
+            if [ -n "${apikey}" ] && curl -fsS "http://127.0.0.1:18080/api?mode=version&output=json" >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          test -n "${apikey}"
+          echo "::add-mask::${apikey}"
+
+          for _ in $(seq 1 60); do
+            if curl -fsS -u "contract:${nzbget_password}" http://127.0.0.1:16789/jsonrpc/version >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS -u "contract:${nzbget_password}" http://127.0.0.1:16789/jsonrpc/version
+
+          {
+            echo "SAB_CONTRACT_URL=http://127.0.0.1:18080"
+            echo "SAB_CONTRACT_APIKEY=${apikey}"
+            echo "NZBGET_CONTRACT_URL=http://127.0.0.1:16789"
+            echo "NZBGET_CONTRACT_USERNAME=contract"
+            echo "NZBGET_CONTRACT_PASSWORD=${nzbget_password}"
+            # The containers reach the runner, where the test's NNTP server
+            # listens, through the default bridge gateway.
+            echo "CONTRACT_NNTP_HOST=$(docker network inspect bridge --format '{{(index .IPAM.Config 0).Gateway}}')"
+          } >> "${GITHUB_ENV}"
+
+      - name: Compare live responses with the recordings
+        run: uv run --no-sync pytest tests/contract -v
+
+      - name: Client logs
+        if: failure()
+        run: |
+          docker logs sabnzbd 2>&1 | tail -n 100
+          docker logs nzbget 2>&1 | tail -n 100

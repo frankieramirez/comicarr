@@ -90,16 +90,7 @@ SEAMS = {
 # Foundations legacy crossings that do not go through the module's seam.
 # Foundations closes only when this list is empty (ADR-0005).
 # --------------------------------------------------------------------------
-FOUNDATIONS_ALLOWLIST = {
-    ("comicarr/app/manga/sync.py", "rsscheck"): (
-        "runs mangaCheck and mangadexNewChapterCheck",
-        "#1204 puts RSS checking behind app/search/rss.py",
-    ),
-    ("comicarr/app/search/service.py", "rsscheckit"): (
-        "force RSS check runs rsscheckit.tehMain",
-        "#1204 puts RSS checking behind app/search/rss.py",
-    ),
-}
+FOUNDATIONS_ALLOWLIST: dict[tuple[str, str], tuple[str, str]] = {}
 
 # --------------------------------------------------------------------------
 # Routers importing a root module outside Infrastructure. Must reach zero

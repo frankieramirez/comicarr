@@ -24,12 +24,12 @@ change.
 | `v`-prefixed volume | `tests/unit/test_bare_numbers.py::test_prefixed_volume_is_always_a_volume`, `tests/unit/test_manga_acquisition.py::test_volume_targets_search_v_prefix_not_chapter_tokens` | `tests/integration/test_acquisition_pipeline.py::test_manga_v_prefixed_volume_is_a_volume_in_any_mode`, `tests/integration/test_acquisition_pipeline.py::test_manga_volume_grab_is_recorded_as_snatched` | covered; recording the volume grab is an expected failure, #1279 |
 | A volume covers its chapters without marking them Have | `tests/unit/test_manga_ledger.py::test_covered_fulfillment_is_not_have_and_is_not_searchable`, `tests/unit/test_manga_ledger.py::test_owning_a_volume_covers_only_mapped_chapters` | `tests/integration/test_acquisition_pipeline.py::test_manga_volume_covers_its_chapters_without_marking_them_have` | covered; expected failure until #1278 |
 | Blended-frontier search terms | `tests/unit/test_manga_acquisition.py::test_blended_searches_missing_volumes_and_chapters_beyond`, `tests/unit/test_manga_ledger.py::test_blended_frontier_counts_volumes_then_chapters_beyond` | `tests/integration/test_acquisition_pipeline.py::test_manga_blended_frontier_searches_volumes_then_chapters_beyond`, `tests/integration/test_acquisition_pipeline.py::test_manga_downloaded_volume_leaves_the_blended_frontier` | covered; a downloaded volume leaving the frontier is an expected failure, #1278 |
-| MangaDex ledger sync heals an empty ledger | `tests/unit/test_manga_sync.py::test_heal_empty_ledgers_reruns_add_for_md_and_mal` | pending | pending #1222 |
-| MAL-sourced series | `tests/unit/test_mal_prefix_drift.py::TestPostProcessingRoutesBothProviders::test_manga_ids_reach_the_manga_path`, `tests/unit/test_mal_prefix_drift.py::TestChapterPollCoversBothProviders::test_both_providers_are_polled_with_a_mangadex_id` | pending | pending #1222 |
-| Chapter placement in post-processing | `tests/unit/test_manga_postprocessor.py::TestProcessMangaChapterMatch::test_matches_chapter_and_updates_status`, `tests/unit/test_manga_postprocessor.py::TestProcessMangaFileMove::test_moves_files_to_series_folder` | pending | pending #1222 |
-| Duplicate guard | `tests/unit/test_manga_duplicate_guard.py::test_adding_mal_id_is_refused_when_mangadex_row_has_that_mal_id`, `tests/unit/test_manga_postprocessor.py::TestProcessMangaExistingDestination::test_hardlink_rerun_is_idempotent` | pending | pending #1222 |
-| Manga RSS | `tests/unit/test_manga_rss.py::TestMangaCheck::test_triggers_search_for_wanted_chapters` | pending | pending #1222 |
-| Add-manga failure narration | `tests/unit/test_add_manga_handoff.py::test_addvialist_narrates_add_failed_when_importer_raises` | pending | pending #1222 |
+| MangaDex ledger sync heals an empty ledger | `tests/unit/test_manga_sync.py::test_heal_empty_ledgers_reruns_add_for_md_and_mal`, `tests/unit/test_manga_recorded_responses.py::test_all_chapters_come_back_once_each_in_order` | `tests/integration/test_acquisition_pipeline.py::test_mangadex_ledger_sync_heals_an_empty_ledger` | covered |
+| MAL-sourced series | `tests/unit/test_mal_prefix_drift.py::TestPostProcessingRoutesBothProviders::test_manga_ids_reach_the_manga_path`, `tests/unit/test_mal_prefix_drift.py::TestChapterPollCoversBothProviders::test_both_providers_are_polled_with_a_mangadex_id`, `tests/unit/test_manga_recorded_responses.py::test_mal_details_map_to_the_mangadex_shape`, `tests/unit/test_manga_recorded_responses.py::test_mal_id_resolves_to_the_mangadex_series_by_its_link` | `tests/integration/test_acquisition_pipeline.py::test_mal_sourced_series_reaches_the_library` | covered |
+| Chapter placement in post-processing | `tests/unit/test_manga_postprocessor.py::TestProcessMangaChapterMatch::test_matches_chapter_and_updates_status`, `tests/unit/test_manga_postprocessor.py::TestProcessMangaFileMove::test_moves_files_to_series_folder` | `tests/integration/test_acquisition_pipeline.py::test_manga_chapter_is_placed_in_its_series_folder` | covered |
+| Duplicate guard | `tests/unit/test_manga_duplicate_guard.py::test_adding_mal_id_is_refused_when_mangadex_row_has_that_mal_id`, `tests/unit/test_manga_postprocessor.py::TestProcessMangaExistingDestination::test_hardlink_rerun_is_idempotent` | `tests/integration/test_acquisition_pipeline.py::test_manga_duplicate_guard_refuses_the_same_work_from_mal`, `tests/integration/test_acquisition_pipeline.py::test_manga_second_release_of_an_owned_chapter_is_not_sent` | covered |
+| Manga RSS | `tests/unit/test_manga_rss.py::TestMangaCheck::test_triggers_search_for_wanted_chapters` | `tests/integration/test_acquisition_pipeline.py::test_manga_rss_grabs_and_places_a_wanted_chapter` | covered |
+| Add-manga failure narration | `tests/unit/test_add_manga_handoff.py::test_addvialist_narrates_add_failed_when_importer_raises`, `tests/unit/test_manga_recorded_responses.py::test_missing_mangadex_series_is_none_not_an_exception` | `tests/integration/test_acquisition_pipeline.py::test_manga_add_failure_is_narrated_in_activity` | covered |
 
 ## SABnzbd
 
@@ -67,7 +67,12 @@ client is an in-process fake: `tests/fakes/sabnzbd.py` for SABnzbd and
 `tests/fakes/nzbget.py` for NZBGet. Their responses are built from files
 recorded from a real release in `tests/fixtures/sabnzbd/<version>/` and
 `tests/fixtures/nzbget/<version>/`; each directory's README names the release
-and how to record a fresh set. The fakes refuse any request to a host
+and how to record a fresh set. Manga scenarios that add their series through the real importer answer
+from `tests/fakes/manga.py`, whose MangaDex and MyAnimeList responses were
+recorded from the live APIs into `tests/fixtures/mangadex/` and
+`tests/fixtures/myanimelist/` (see `tests/fixtures/mangadex/README.md`). The
+manga RSS scenario downloads its NZB from `tests/fakes/newznab.py`. The
+fakes refuse any request to a host
 they do not serve, so no test reaches the network. Shared pipeline steps live
 in `tests/fakes/pipeline.py`.
 
@@ -78,6 +83,38 @@ writes them (`tests/fakes/pipeline.py`).
 
 A scenario that exposes a bug keeps its test, marked as an expected failure
 that links the bug. The Status column names it.
+
+## Checking the recordings against the real clients
+
+A recording drifts when a client release changes its responses, and the fakes
+would keep replaying the old shape. The nightly `Download client contracts`
+workflow (`.github/workflows/client-contracts.yml`) starts the pinned images,
+replays the same exchanges as the recorders, and compares each live response
+with its recording by shape: keys, value types and status codes, never values.
+A key the client stopped sending, a new key, or a changed type fails the run
+and names the recording and field. It never gates a pull request; run it by
+hand from the Actions tab with *Run workflow*. Locally, `pytest tests/contract`
+skips unless `SAB_CONTRACT_URL` and `SAB_CONTRACT_APIKEY`, or
+`NZBGET_CONTRACT_URL`, `NZBGET_CONTRACT_USERNAME` and
+`NZBGET_CONTRACT_PASSWORD`, point at disposable instances.
+
+| Client | Pinned image | Recordings |
+|---|---|---|
+| SABnzbd | `linuxserver/sabnzbd:5.1.3-ls281` | `tests/fixtures/sabnzbd/5.1.3/` |
+| NZBGet | `linuxserver/nzbget:v26.3-ls271` | `tests/fixtures/nzbget/26.3/` |
+
+To move to a new client release:
+
+1. Run the recorder against the new image, as that fixture directory's
+   README describes. It writes a new `<version>/` directory.
+2. Point `VERSION` in `tests/fakes/sabnzbd.py` or `tests/fakes/nzbget.py` at it.
+3. Change the image in the workflow's `env` block and in the table above.
+4. Run `pytest tests/unit tests/integration/test_acquisition_pipeline.py`, then
+   dispatch the workflow on the branch before merging.
+
+When the nightly run fails on an unchanged pin, the image tag was rebuilt or
+the comparison found a field that depends on the job; read the reported field
+before re-recording.
 
 ## Coverage baseline
 
@@ -93,5 +130,5 @@ places.
 |---|---|---|---|---|
 | SABnzbd | `comicarr/sabnzbd.py` | 82.3% of 395 lines (78.0% before #1219) | 82.3% | met |
 | NZBGet | `comicarr/nzbget.py` | 56.4% of 220 lines (6.4% before #1220) | 56.4% | 23.6 |
-| Manga | `comicarr/app/manga/` | 91.3% of 528 lines (91.1% before #1221) | 91.3% | met |
+| Manga | `comicarr/app/manga/` | 91.3% of 526 lines (91.1% before #1221) | 91.3% | met |
 | Downloads | `comicarr/app/downloads/handoff.py`, `completed_path.py`, `sab_reconcile.py` | 84.3% of 350 lines | 84.3% | met |
