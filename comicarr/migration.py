@@ -157,14 +157,23 @@ def _get_common_columns(source_conn, dest_table, table):
     return sorted(common)
 
 
-def _insert_ignoring_duplicates(dest_table, dialect):
-    """INSERT that skips a row already present, on whichever database Comicarr runs (#1256)."""
+def _insert_ignoring_duplicates(dest_table, dialect, columns):
+    """INSERT that skips a row already present, on whichever database Comicarr runs (#1256).
+
+    Only a duplicate key is skipped. MySQL's ``INSERT IGNORE`` would also turn a
+    too-long or invalid value into a warning and store a changed row, so MySQL
+    uses a no-op ``ON DUPLICATE KEY UPDATE`` instead and strict mode still fails
+    the table's transaction on bad data.
+    """
     if dialect == "postgresql":
         from sqlalchemy.dialects.postgresql import insert as pg_insert
 
         return pg_insert(dest_table).on_conflict_do_nothing()
     if dialect == "mysql":
-        return sa.insert(dest_table).prefix_with("IGNORE")
+        from sqlalchemy.dialects.mysql import insert as mysql_insert
+
+        keep = columns[0]
+        return mysql_insert(dest_table).on_duplicate_key_update({keep: dest_table.c[keep]})
     return sa.insert(dest_table).prefix_with("OR IGNORE")
 
 
@@ -317,7 +326,7 @@ class Mylar3Migration:
                         comicarr.MIGRATION_TABLES_COMPLETE += 1
                         continue
 
-                    insert_stmt = _insert_ignoring_duplicates(dest_table, dialect)
+                    insert_stmt = _insert_ignoring_duplicates(dest_table, dialect, columns)
                     source_cursor = source_conn.execute("SELECT %s FROM %s" % (", ".join(columns), table))
 
                     try:
