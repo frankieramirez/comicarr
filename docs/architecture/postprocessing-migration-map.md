@@ -84,8 +84,9 @@ completed journal stages rather than repeating irreversible file work.
    `app/downloads/postprocess_pipeline.py`.** It takes a
    `PostProcessPlacedItem` (series, issue, kind: issue, annual or manga, and
    the placed path) and writes through `app/series/queries.py` and
-   `app/downloads/queries.py`, still calling `updater.totals` and
-   `updater.foundsearch` for comics and annuals. The facade calls it where the
+   `app/downloads/queries.py`. For comics and annuals it still runs
+   `updater.totals` and `updater.foundsearch`, which the facade passes in so the
+   stage imports no legacy module. The facade calls it where the
    inline writes sat, so its position against the journal is unchanged. The
    inherited `snatched` writes do not converge on their own (a NULL `Provider`
    never conflicts), so the stage skips an item whose row already records the

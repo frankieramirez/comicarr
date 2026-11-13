@@ -244,18 +244,6 @@ class PostProcessReconcileResult:
     already_reconciled: bool = False
 
 
-def _legacy_totals(*args, **kwargs):
-    from comicarr import updater
-
-    return updater.totals(*args, **kwargs)
-
-
-def _legacy_foundsearch(*args, **kwargs):
-    from comicarr import updater
-
-    return updater.foundsearch(*args, **kwargs)
-
-
 class PostProcessReconcileStage:
     """Write the database facts that follow a placed file.
 
@@ -263,13 +251,17 @@ class PostProcessReconcileStage:
     after a restart leaves the rows as the first run left them. Callers run it
     after the ``moved`` journal transition for comics and before it for manga,
     exactly where the inline writes used to sit.
+
+    ``totals`` and ``foundsearch`` are the legacy ``updater`` functions. The
+    facade passes them in, so this module never imports a legacy root module
+    (ADR-0005); the series seams replace them later.
     """
 
     def __init__(
         self,
         *,
-        totals=_legacy_totals,
-        foundsearch=_legacy_foundsearch,
+        totals,
+        foundsearch,
         series_queries=None,
         downloads_queries=None,
         is_file=os.path.isfile,

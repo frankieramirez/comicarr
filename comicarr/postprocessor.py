@@ -4422,7 +4422,7 @@ class PostProcessor(object):
 
         sibling_names = [os.path.basename(path) for path in manga_files]
         series_issues = db.select_all(select(issues).where(issues.c.ComicID == self.comicid))
-        reconcile = PostProcessReconcileStage()
+        reconcile = PostProcessReconcileStage(totals=updater.totals, foundsearch=updater.foundsearch)
         for filepath in manga_files:
             filename = os.path.basename(filepath)
             parsed = parse_in_series_context(
@@ -5234,7 +5234,7 @@ class PostProcessor(object):
             database=db,
         )
 
-        PostProcessReconcileStage().reconcile(
+        PostProcessReconcileStage(totals=updater.totals, foundsearch=updater.foundsearch).reconcile(
             PostProcessPlacedItem(
                 comic_id=comicid,
                 issue_id=issueid,

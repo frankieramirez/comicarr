@@ -18,7 +18,7 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import db
+from comicarr import db, updater
 from comicarr.app.downloads.postprocess_pipeline import (
     ANNUAL,
     ISSUE,
@@ -76,6 +76,10 @@ def library(tmp_path, monkeypatch):
     db.shutdown_engine()
 
 
+def _stage():
+    return PostProcessReconcileStage(totals=updater.totals, foundsearch=updater.foundsearch)
+
+
 def _placed(tmp_path, name):
     path = tmp_path / "library" / name
     path.parent.mkdir(exist_ok=True)
@@ -110,7 +114,7 @@ def _have(comic_id):
 def test_a_placed_comic_issue_is_marked_downloaded_and_counted(library):
     dst = _placed(library, "Saga 007 (2013).cbz")
 
-    result = PostProcessReconcileStage().reconcile(
+    result = _stage().reconcile(
         PostProcessPlacedItem(comic_id="C1", issue_id="I7", kind=ISSUE, placed_path=dst, download_type="PP")
     )
 
@@ -125,7 +129,7 @@ def test_a_placed_comic_issue_is_marked_downloaded_and_counted(library):
 def test_a_placed_annual_writes_the_annuals_row(library):
     dst = _placed(library, "Saga Annual 001 (2014).cbz")
 
-    result = PostProcessReconcileStage().reconcile(
+    result = _stage().reconcile(
         PostProcessPlacedItem(comic_id="C1", issue_id="A1", kind=ANNUAL, placed_path=dst, download_type="PP")
     )
 
@@ -140,7 +144,7 @@ def test_a_placed_annual_writes_the_annuals_row(library):
 
 def test_a_placed_manga_chapter_moves_its_history_and_the_series_recount(library):
     dst = _placed(library, "Chainsaw Man 002.cbz")
-    stage = PostProcessReconcileStage()
+    stage = _stage()
 
     stage.reconcile(PostProcessPlacedItem(comic_id="M1", issue_id="M1-2", kind=MANGA, placed_path=dst))
     assert stage.recount_series("M1") == 2
@@ -170,7 +174,7 @@ def test_a_file_that_is_not_there_is_not_marked_downloaded(library):
 
 
 def test_a_second_run_after_a_restart_changes_nothing(library):
-    stage = PostProcessReconcileStage()
+    stage = _stage()
     placed = [
         PostProcessPlacedItem(
             comic_id="C1", issue_id="I7", kind=ISSUE, placed_path=_placed(library, "Saga 007.cbz"), download_type="PP"
