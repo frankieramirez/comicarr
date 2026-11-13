@@ -153,7 +153,8 @@ class _Mac:
     """Mega's chunked CBC-MAC over the plaintext."""
 
     def __init__(self, key, nonce):
-        self._ecb = Cipher(algorithms.AES(key), modes.ECB()).encryptor()
+        # The file MAC is a CBC-MAC (zero IV) over the chunk MACs.
+        self._file = Cipher(algorithms.AES(key), modes.CBC(b"\0" * 16)).encryptor()
         self._key = key
         self._chunk_iv = nonce + nonce
         self._sizes = _chunk_sizes()
@@ -183,7 +184,7 @@ class _Mac:
         if self._pending:
             self._last = self._chunk.update(self._pending.ljust(16, b"\0"))[-16:]
             self._pending = b""
-        self._file_mac = self._ecb.update(_xor(self._file_mac, self._last))
+        self._file_mac = self._file.update(self._last)
         self._chunk = self._new_chunk()
         self._last = None
 

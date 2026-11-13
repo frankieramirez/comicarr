@@ -32,8 +32,9 @@ def _b64url(data):
     return base64.urlsafe_b64encode(data).decode().rstrip("=")
 
 
-def _ecb(block):
-    encryptor = Cipher(algorithms.AES(AES_KEY), modes.ECB()).encryptor()
+def _aes_block(block):
+    """AES on one 16-byte block (CBC with a zero IV over one block)."""
+    encryptor = Cipher(algorithms.AES(AES_KEY), modes.CBC(b"\0" * 16)).encryptor()
     return encryptor.update(block) + encryptor.finalize()
 
 
@@ -50,8 +51,8 @@ def _reference_meta_mac(data):
         chunk = data[start:end]
         for offset in range(0, len(chunk), 16):
             block = chunk[offset : offset + 16].ljust(16, b"\0")
-            chunk_mac = _ecb(bytes(a ^ b for a, b in zip(chunk_mac, block)))
-        file_mac = _ecb(bytes(a ^ b for a, b in zip(file_mac, chunk_mac)))
+            chunk_mac = _aes_block(bytes(a ^ b for a, b in zip(chunk_mac, block)))
+        file_mac = _aes_block(bytes(a ^ b for a, b in zip(file_mac, chunk_mac)))
     words = struct.unpack(">4I", file_mac)
     return struct.pack(">2I", words[0] ^ words[1], words[2] ^ words[3])
 
