@@ -47,6 +47,9 @@ def complete(
 ):
     """Atomically delete completion anchors and write ``post_processed``.
 
+    Returns the transition result; ``recorded`` is true only for the call that
+    completed the release, which is what gates the completion notification.
+
     ``anchor_ids`` and ``arc_scope`` preserve the caller's exact legacy
     predicates while keeping transaction ownership here. Any journal failure
     propagates and rolls back the anchor deletion.
@@ -58,7 +61,7 @@ def complete(
             if arc_scope is not _UNSCOPED:
                 predicate = and_(predicate, nzblog.c.SARC == arc_scope)
             conn.execute(delete(nzblog).where(predicate))
-        _JOURNAL_STAGE.transition(
+        return _JOURNAL_STAGE.transition(
             context,
             journal.POST_PROCESSED,
             issue_id=issue_id,

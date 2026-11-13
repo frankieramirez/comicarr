@@ -40,16 +40,19 @@ from comicarr.app.downloads.postprocess_pipeline import (
     ANNUAL,
     ISSUE,
     MANGA,
+    PostProcessCleanupContext,
+    PostProcessCleanupStage,
     PostProcessContext,
     PostProcessInputContext,
     PostProcessInputStage,
     PostProcessJournalStage,
+    PostProcessNotification,
+    PostProcessNotifyStage,
     PostProcessPlacedItem,
     PostProcessReconcileStage,
 )
 from comicarr.app.downloads.pp_commands import safe_walk
 from comicarr.app.manga.ledger import normalize_volume_number
-from comicarr.app.notifications import service as notifiers
 from comicarr.config import get_manga_destination
 from comicarr.tables import (
     annuals,
@@ -530,194 +533,38 @@ class PostProcessor(object):
             return True
 
     def tidyup(self, odir=None, del_nzbdir=False, sub_path=None, cacheonly=False, filename=None):
-        try:
-            if cacheonly is False:
-                logger.fdebug(
-                    "File Option: %s [META-ENABLED: %s]" % (comicarr.CONFIG.FILE_OPTS, comicarr.CONFIG.ENABLE_META)
-                )
-                logger.fdebug("odir: %s [filename: %s][self.nzb_folder: %s]" % (odir, filename, self.nzb_folder))
-                logger.fdebug("sub_path: %s [cacheonly: %s][del_nzbdir: %s]" % (sub_path, cacheonly, del_nzbdir))
-                if all(
-                    [
-                        sub_path is not None,
-                        sub_path != self.nzb_folder,
-                        sub_path != os.path.join(self.nzb_folder, "mega"),
-                    ]
-                ):
-                    if self.issueid is None:
-                        logger.fdebug(
-                            "Sub-directory detected during cleanup. Will attempt to remove if empty: %s" % sub_path
-                        )
-                        orig_folder = sub_path
-                    else:
-                        logger.fdebug(
-                            "Direct post-processing was performed against specific issueid. Using supplied filepath for deletion."
-                        )
-                        orig_folder = self.nzb_folder
-                else:
-                    orig_folder = self.nzb_folder
+        PostProcessCleanupStage(narrate=self._log).tidy(
+            PostProcessCleanupContext(
+                nzb_folder=self.nzb_folder,
+                nzb_name=self.nzb_name,
+                issue_id=self.issueid,
+                file_opts=comicarr.CONFIG.FILE_OPTS,
+                enable_meta=comicarr.CONFIG.ENABLE_META,
+                ddl_location=getattr(comicarr.CONFIG, "DDL_LOCATION", None),
+                log_module=self.module,
+                cache_dir=getattr(comicarr.CONFIG, "CACHE_DIR", None),
+            ),
+            odir,
+            del_nzbdir=del_nzbdir,
+            sub_path=sub_path,
+            cacheonly=cacheonly,
+            filename=filename,
+        )
 
-                if orig_folder.endswith("/") or orig_folder.endswith("\\"):
-                    tmp_folder = orig_folder[:-1]
-                else:
-                    tmp_folder = orig_folder
-
-                if os.path.split(tmp_folder)[1] == filename and not os.path.isdir(tmp_folder):
-                    logger.fdebug(
-                        "%s item to be deleted is file, not folder due to direct submission: %s"
-                        % (self.module, tmp_folder)
-                    )
-                    tmp_folder = os.path.split(tmp_folder)[0]
-
-                if all(
-                    [comicarr.CONFIG.FILE_OPTS == "move", self.nzb_name == "Manual Run", tmp_folder != self.nzb_folder]
-                ):
-                    if not os.listdir(tmp_folder):
-                        logger.fdebug("%s Tidying up. Deleting sub-folder location : %s" % (self.module, tmp_folder))
-                        shutil.rmtree(tmp_folder)
-                        self._log("Removed temporary directory : %s" % tmp_folder)
-                    else:
-                        if filename is not None:
-                            if os.path.isfile(os.path.join(tmp_folder, filename)):
-                                logger.fdebug(
-                                    "%s Attempting to remove file: %s"
-                                    % (self.module, os.path.join(tmp_folder, filename))
-                                )
-                                try:
-                                    os.remove(os.path.join(tmp_folder, filename))
-                                except Exception as e:
-                                    logger.warn(
-                                        "%s [%s] Unable to remove file : %s"
-                                        % (self.module, e, os.path.join(tmp_folder, filename))
-                                    )
-                                else:
-                                    if not os.listdir(tmp_folder):
-                                        logger.fdebug(
-                                            "%s Tidying up. Deleting original folder location : %s"
-                                            % (self.module, tmp_folder)
-                                        )
-                                        try:
-                                            shutil.rmtree(tmp_folder)
-                                        except Exception as e:
-                                            logger.warn(
-                                                "%s [%s] Unable to delete original folder location: %s"
-                                                % (self.module, e, tmp_folder)
-                                            )
-                                        else:
-                                            logger.fdebug(
-                                                "%s Removed original folder location: %s" % (self.module, tmp_folder)
-                                            )
-                                            self._log("Removed temporary directory : %s" % tmp_folder)
-                                    else:
-                                        self._log("Failed to remove temporary directory: %s" % tmp_folder)
-                                        logger.error(
-                                            "%s %s not empty. Skipping removal of directory - this will either be caught in further post-processing or it will have to be manually deleted."
-                                            % (self.module, tmp_folder)
-                                        )
-                        else:
-                            self._log("Failed to remove temporary directory: " + tmp_folder)
-                            logger.error(
-                                "%s %s not empty. Skipping removal of directory - this will either be caught in further post-processing or it will have to be manually deleted."
-                                % (self.module, tmp_folder)
-                            )
-
-                elif all([comicarr.CONFIG.FILE_OPTS == "move", self.nzb_name == "Manual Run", filename is not None]):
-                    if os.path.isfile(os.path.join(tmp_folder, filename)):
-                        logger.fdebug(
-                            "%s Attempting to remove original file: %s"
-                            % (self.module, os.path.join(tmp_folder, filename))
-                        )
-                        try:
-                            os.remove(os.path.join(tmp_folder, filename))
-                        except Exception as e:
-                            logger.warn(
-                                "%s [%s] Unable to remove file : %s"
-                                % (self.module, e, os.path.join(tmp_folder, filename))
-                            )
-
-                elif comicarr.CONFIG.FILE_OPTS == "move" and all([del_nzbdir is True, self.nzb_name != "Manual Run"]):
-                    if not os.listdir(tmp_folder):
-                        logger.fdebug(
-                            "%s Tidying up. Deleting original folder location : %s" % (self.module, tmp_folder)
-                        )
-                        shutil.rmtree(tmp_folder)
-                        self._log("Removed temporary directory : %s" % tmp_folder)
-                    else:
-                        if filename is not None:
-                            if os.path.isfile(os.path.join(tmp_folder, filename)):
-                                logger.fdebug(
-                                    "%s Attempting to remove file: %s"
-                                    % (self.module, os.path.join(tmp_folder, filename))
-                                )
-                                try:
-                                    os.remove(os.path.join(tmp_folder, filename))
-                                except Exception as e:
-                                    logger.warn(
-                                        "%s [%s] Unable to remove file : %s"
-                                        % (self.module, e, os.path.join(tmp_folder, filename))
-                                    )
-                                else:
-                                    if not os.listdir(tmp_folder):
-                                        if os.path.join(comicarr.CONFIG.DDL_LOCATION, "mega") == tmp_folder:
-                                            logger.fdebug(
-                                                "%s Tidying up. %s sub-directory not being removed as is required for mega ddl"
-                                                % (self.module, tmp_folder)
-                                            )
-                                        else:
-                                            logger.fdebug(
-                                                "%s Tidying up. Deleting original folder location : %s"
-                                                % (self.module, tmp_folder)
-                                            )
-                                            try:
-                                                shutil.rmtree(tmp_folder)
-                                            except Exception as e:
-                                                logger.warn(
-                                                    "%s [%s] Unable to delete original folder location: %s"
-                                                    % (self.module, e, tmp_folder)
-                                                )
-                                            else:
-                                                logger.fdebug(
-                                                    "%s Removed original folder location: %s"
-                                                    % (self.module, tmp_folder)
-                                                )
-                                                self._log("Removed temporary directory : " + tmp_folder)
-                                    else:
-                                        self._log("Failed to remove temporary directory: " + tmp_folder)
-                                        logger.error(
-                                            "%s %s not empty. Skipping removal of directory - this will either be caught in further post-processing or it will have to be manually deleted."
-                                            % (self.module, tmp_folder)
-                                        )
-                        else:
-                            self._log("Failed to remove temporary directory: " + tmp_folder)
-                            logger.error(
-                                "%s %s not empty. Skipping removal of directory - this will either be caught in further post-processing or it will have to be manually deleted."
-                                % (self.module, tmp_folder)
-                            )
-
-            if comicarr.CONFIG.ENABLE_META and all([os.path.isdir(odir), any(["mylar_" in odir, "comicarr_" in odir])]):
-                for filename in os.listdir(odir):
-                    filepath = os.path.join(odir, filename)
-                    try:
-                        os.remove(filepath)
-                    except OSError:
-                        pass
-                if not os.listdir(odir):
-                    logger.fdebug("%s Tidying up. Deleting temporary cache directory : %s" % (self.module, odir))
-                    shutil.rmtree(odir)
-                    self._log("Removed temporary directory : %s" % odir)
-                else:
-                    self._log("Failed to remove temporary directory: %s" % odir)
-                    logger.error(
-                        "%s %s not empty. Skipping removal of temporary cache directory - this will either be caught in further post-processing or have to be manually deleted."
-                        % (self.module, odir)
-                    )
-
-        except (OSError, IOError) as e:
-            logger.fdebug(
-                "%s[%s] Failed to remove directory - Processing will continue, but manual removal is necessary"
-                % (self.module, e)
-            )
-            self._log("Failed to remove temporary directory")
+    def _notify_completed(self, completion, *, series, issue_year, issue_number, placed_path, issue_id, module):
+        # No completion attempt on this path means legacy behaviour: notify.
+        completed = True if completion is None else bool(completion.recorded)
+        PostProcessNotifyStage(extract_cover=getimage.extract_image).notify(
+            PostProcessNotification(
+                series=series,
+                issue_year=issue_year,
+                issue_number=issue_number,
+                placed_path=placed_path,
+                issue_id=issue_id,
+                log_module=module,
+            ),
+            completed=completed,
+        )
 
     def Process(self):
         module = self.module
@@ -2968,6 +2815,9 @@ class PostProcessor(object):
                     ofilename = orig_filename = ml["ComicLocation"]
                     logger.info("[STORY-ARC POST-PROCESSING] Enabled for %s" % ml["StoryArc"])
 
+                    # No copy into the arc folder means no completion write here,
+                    # and so the legacy unconditional notification.
+                    completion = None
                     if all([comicarr.CONFIG.STORYARCDIR is True, comicarr.CONFIG.COPY2ARCDIR is True]):
                         grdst = helpers.arcformat(
                             ml["StoryArc"], helpers.spantheyears(ml["StoryArcID"]), ml["Publisher"]
@@ -3186,7 +3036,7 @@ class PostProcessor(object):
                                     "Not deleting %s due to belonging to multiple arcs - will delete in subsequent pass(es)"
                                     % os.path.basename(orig_filename)
                                 )
-                        _complete_postprocess(
+                        completion = _complete_postprocess(
                             self._journal_context(),
                             issue_arc_id=ml["IssueArcID"],
                             anchor_ids=("S" + str(ml["IssueArcID"]), str(ml["IssueArcID"])),
@@ -3216,36 +3066,15 @@ class PostProcessor(object):
                             "%s [%s] Post-Processing completed for: %s" % (module, ml["StoryArc"], ml["ComicLocation"])
                         )
 
-                    if any(
-                        [
-                            all([comicarr.CONFIG.PUSHOVER_IMAGE, comicarr.CONFIG.PUSHOVER_ENABLED]),
-                            all([comicarr.CONFIG.TELEGRAM_IMAGE, comicarr.CONFIG.TELEGRAM_ENABLED]),
-                            comicarr.CONFIG.DISCORD_ENABLED,
-                            comicarr.CONFIG.GOTIFY_ENABLED,
-                            comicarr.CONFIG.MATTERMOST_ENABLED,
-                        ]
-                    ):
-                        try:
-                            get_cover = getimage.extract_image(grab_dst, single=True, imquality="notif")
-                            imageFile = get_cover["ComicImage"]
-                        except Exception:
-                            logger.info("[WARNING] Could not extract image from download in order to send notification")
-                            imageFile = None
-                    else:
-                        imageFile = None
-
-                    try:
-                        self.sendnotify(
-                            ml["ComicName"],
-                            issueyear=ml["IssueYear"],
-                            issuenumOG=ml["IssueNumber"],
-                            annchk=annchk,
-                            module=module,
-                            imageFile=imageFile,
-                            issueid=issueid,
-                        )
-                    except Exception as e:
-                        logger.error("[PP] Failed to send notification: %s" % e)
+                    self._notify_completed(
+                        completion,
+                        series=ml["ComicName"],
+                        issue_year=ml["IssueYear"],
+                        issue_number=ml["IssueNumber"],
+                        placed_path=grab_dst,
+                        issue_id=issueid,
+                        module=module,
+                    )
 
                     self._journal_pp("post_processed", issuearcid=ml["IssueArcID"])
 
@@ -3615,7 +3444,6 @@ class PostProcessor(object):
                 location = os.path.abspath(os.path.join(tinfo["comiclocation"], os.pardir))
             else:
                 location = self.nzb_folder
-            annchk = "no"
             issuenzb = db.select_one(
                 select(issues).where(and_(issues.c.IssueID == issueid, issues.c.ComicName.isnot(None)))
             )
@@ -3677,7 +3505,6 @@ class PostProcessor(object):
                         return self.queue.put(self.valreturn)
                 else:
                     logger.info("%s Successfully located issue as an annual. Continuing." % module)
-                    annchk = "yes"
 
             if issuenzb is not None:
                 logger.info("%s issuenzb found." % module)
@@ -3970,7 +3797,7 @@ class PostProcessor(object):
                     if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
                         self.tidyup(src_location, True, filename=os.path.basename(orig_filename))
 
-                    _complete_postprocess(
+                    completion = _complete_postprocess(
                         self._journal_context(),
                         issue_id=issueid,
                         issue_arc_id=issuearcid,
@@ -4010,36 +3837,15 @@ class PostProcessor(object):
                         )
                         self._log("Post Processing SUCCESSFUL! ")
 
-                    if any(
-                        [
-                            all([comicarr.CONFIG.PUSHOVER_IMAGE, comicarr.CONFIG.PUSHOVER_ENABLED]),
-                            all([comicarr.CONFIG.TELEGRAM_IMAGE, comicarr.CONFIG.TELEGRAM_ENABLED]),
-                            comicarr.CONFIG.DISCORD_ENABLED,
-                            comicarr.CONFIG.GOTIFY_ENABLED,
-                            comicarr.CONFIG.MATTERMOST_ENABLED,
-                        ]
-                    ):
-                        try:
-                            get_cover = getimage.extract_image(grab_dst, single=True, imquality="notif")
-                            imageFile = get_cover["ComicImage"]
-                        except Exception:
-                            logger.info("[WARNING] Could not extract image from download in order to send notification")
-                            imageFile = None
-                    else:
-                        imageFile = None
-
-                    try:
-                        self.sendnotify(
-                            comicname,
-                            issueyear=None,
-                            issuenumOG=issuenumber,
-                            annchk=annchk,
-                            module=module,
-                            imageFile=imageFile,
-                            issueid=issueid,
-                        )
-                    except Exception as e:
-                        logger.error("[PP] Failed to send notification: %s" % e)
+                    self._notify_completed(
+                        completion,
+                        series=comicname,
+                        issue_year=None,
+                        issue_number=issuenumber,
+                        placed_path=grab_dst,
+                        issue_id=issueid,
+                        module=module,
+                    )
 
                     self._journal_pp("post_processed", issueid=issueid, issuearcid=issuearcid)
 
@@ -5228,7 +5034,7 @@ class PostProcessor(object):
                         "%s Continuing post-processing but unable to change file permissions in %s" % (module, dst)
                     )
 
-        _complete_postprocess(
+        completion = _complete_postprocess(
             self._journal_context(),
             issue_id=issueid,
             anchor_ids=(issueid,),
@@ -5378,24 +5184,15 @@ class PostProcessor(object):
             seriesmetadata["seriesmeta"] = seriesmeta
             self._run_extra_scripts(nzbn, self.nzb_folder, filen, folderp, seriesmetadata)
 
-        if any(
-            [
-                all([comicarr.CONFIG.PUSHOVER_IMAGE, comicarr.CONFIG.PUSHOVER_ENABLED]),
-                all([comicarr.CONFIG.TELEGRAM_IMAGE, comicarr.CONFIG.TELEGRAM_ENABLED]),
-                comicarr.CONFIG.DISCORD_ENABLED,
-                comicarr.CONFIG.GOTIFY_ENABLED,
-                comicarr.CONFIG.MATTERMOST_ENABLED,
-            ]
-        ):
-            try:
-                get_cover = getimage.extract_image(dst, single=True, imquality="notif")
-                imageFile = get_cover["ComicImage"]
-            except Exception:
-                logger.info("[WARNING] Could not extract image from download in order to send notification")
-                imageFile = None
-        else:
-            imageFile = None
-        self.sendnotify(series, issueyear, dispiss, annchk, module, imageFile, issueid)
+        self._notify_completed(
+            completion,
+            series=series,
+            issue_year=issueyear,
+            issue_number=dispiss,
+            placed_path=dst,
+            issue_id=issueid,
+            module=module,
+        )
 
         logger.info("%s Post-Processing completed for: %s %s" % (module, series, dispiss))
         self._log("Post Processing SUCCESSFUL! ")
@@ -5405,89 +5202,6 @@ class PostProcessor(object):
         self.valreturn.append({"self.log": self.log, "mode": "stop", "issueid": issueid, "comicid": comicid})
 
         return self.queue.put(self.valreturn)
-
-    def sendnotify(self, series, issueyear, issuenumOG, annchk, module, imageFile, issueid=None):
-
-        if issuenumOG is not None:
-            if "#" not in issuenumOG:
-                issuenumOG = "#%s" % issuenumOG
-
-        if issueyear is not None:
-            if issuenumOG is not None:
-                prline = "%s (%s) %s" % (series, issueyear, issuenumOG)
-            else:
-                prline = "%s (%s)" % (series, issueyear)
-        else:
-            if issuenumOG is not None:
-                prline = "%s %s" % (series, issuenumOG)
-            else:
-                prline = "%s" % (series)
-        prline2 = "Comicarr has downloaded and post-processed: " + prline
-
-        try:
-            if comicarr.CONFIG.PROWL_ENABLED:
-                pushmessage = prline
-                prowl = notifiers.PROWL()
-                prowl.notify(pushmessage, "Download and Postprocessing completed", module=module)
-
-            if comicarr.CONFIG.PUSHOVER_ENABLED:
-                pushover = notifiers.PUSHOVER()
-                pushover.notify(prline, prline2, module=module, imageFile=imageFile)
-
-            if comicarr.CONFIG.BOXCAR_ENABLED:
-                boxcar = notifiers.BOXCAR()
-                boxcar.notify(prline=prline, prline2=prline2, module=module)
-
-            if comicarr.CONFIG.PUSHBULLET_ENABLED:
-                pushbullet = notifiers.PUSHBULLET()
-                pushbullet.notify(prline=prline, prline2=prline2, module=module)
-
-            if comicarr.CONFIG.TELEGRAM_ENABLED:
-                telegram = notifiers.TELEGRAM()
-                telegram.notify(prline2, imageFile)
-
-            if comicarr.CONFIG.SLACK_ENABLED:
-                slack = notifiers.SLACK()
-                slack.notify("Download and Postprocessing completed", prline2, module=module)
-
-            if comicarr.CONFIG.MATTERMOST_ENABLED:
-                mattermost = notifiers.MATTERMOST()
-                metadata = {"series": series, "issue": issuenumOG, "year": issueyear}
-                mattermost.notify(
-                    "Downloading and Postprocessing completed",
-                    prline2,
-                    metadata=metadata,
-                    imageFile=imageFile,
-                    module=module,
-                )
-
-            if comicarr.CONFIG.DISCORD_ENABLED:
-                discord = notifiers.DISCORD()
-                discord.notify("Download and Postprocessing completed", prline2, module=module, imageFile=imageFile)
-
-            if comicarr.CONFIG.EMAIL_ENABLED and comicarr.CONFIG.EMAIL_ONPOST:
-                logger.info("Sending email notification")
-                email = notifiers.EMAIL()
-                email.notify(prline2, "Comicarr notification - Processed", module=module)
-
-            if comicarr.CONFIG.GOTIFY_ENABLED:
-                gotify = notifiers.GOTIFY()
-                metadata = {"series": series, "issue": issuenumOG, "year": issueyear, "issueid": issueid}
-                gotify.notify(
-                    "Download and Postprocessing completed",
-                    prline2,
-                    module=module,
-                    imageFile=imageFile,
-                    metadata=metadata,
-                )
-
-            if comicarr.CONFIG.MATRIX_ENABLED:
-                matrix = notifiers.MATRIX()
-                matrix.notify("Download and Postprocessing completed", prline2, module=module)
-        except Exception as e:
-            logger.warn("[NOTIFICATION] Unable to send notification: %s" % e)
-
-        return
 
 
 class FolderCheck:
