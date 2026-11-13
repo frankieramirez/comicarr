@@ -117,10 +117,10 @@ def _ensure_series(series_id: str, requested_name: str | None, *, add_missing: b
     if not add_missing:
         raise _fail("Confirm Add series and import for %s first" % (requested_name or series_id), phase="series")
 
-    from comicarr import importer
+    from comicarr.app.series import add as series_add
 
     try:
-        result = importer.addComictoDB(series_id, metadata_only=True)
+        result = series_add.add_series(series_id, metadata_only=True)
     except Exception as e:
         raise _fail("Could not add %s: %s" % (requested_name or series_id, e), phase="series") from e
 

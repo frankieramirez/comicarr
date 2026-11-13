@@ -1,0 +1,10 @@
+{
+  "body": {
+    "version": "5.1.3"
+  },
+  "request": {
+    "mode": "version",
+    "output": "json"
+  },
+  "status_code": 200
+}

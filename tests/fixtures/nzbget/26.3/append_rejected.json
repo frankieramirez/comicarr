@@ -1,0 +1,15 @@
+{
+  "method": "append",
+  "params": [
+    "Not.An.Nzb.nzb",
+    "<not an nzb, base64>",
+    "comics",
+    0,
+    false,
+    false,
+    "",
+    0,
+    "SCORE"
+  ],
+  "result": 13
+}

@@ -299,11 +299,11 @@ def get_comic_detail(ctx, comic_id):
 
 
 def add_comic(ctx, comic_id, folder=None):
-    """Add a comic to the watchlist (background thread via importer)."""
+    """Add a comic to the watchlist (queued on the mass-add worker)."""
     if comic_id.startswith("4050-"):
         comic_id = re.sub("4050-", "", comic_id).strip()
 
-    from comicarr import importer
+    from comicarr.app.series import add as series_add
 
     try:
         location = series_locations.folder_for_new_series(comic_id, folder, ctx.config)
@@ -314,7 +314,7 @@ def add_comic(ctx, comic_id, folder=None):
         watch = {"comicid": comic_id, "comicname": None, "seriesyear": None}
         if location:
             watch["location"] = location
-        importer.importer_thread([watch])
+        series_add.queue_series_adds([watch])
     except Exception as e:
         logger.error("[SERIES] Error adding comic %s: %s" % (comic_id, e))
         return {"success": False, "error": "Could not queue this series. The log has the reason."}
@@ -663,7 +663,7 @@ def _refresh_queue_contains(comic_id):
 
 def refresh_comic(ctx, comic_id):
     """Refresh comic metadata in the background."""
-    from comicarr import importer
+    from comicarr.app.series import add as series_add
 
     id_list = [cid.strip() for cid in comic_id.split(",") if cid.strip()]
 
@@ -698,7 +698,7 @@ def refresh_comic(ctx, comic_id):
         return {"success": False, "error": "No comics to refresh"}
 
     try:
-        importer.refresh_thread(watch)
+        series_add.refresh_series(watch)
     except Exception as e:
         logger.warn("[SERIES-REFRESH] Unable to refresh: %s" % e)
         return {"success": False, "error": "Unable to refresh: %s" % str(e)}

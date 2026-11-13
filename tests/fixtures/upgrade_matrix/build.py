@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import os
 import re
 import sqlite3
 import subprocess
@@ -52,6 +53,42 @@ ROWS = {
     "0.4x": ("v0.40.0", "0009_chat_actions"),
     "0.5x": ("v0.50.7", "0014_import_issue_readiness"),
 }
+
+# Mylar3 rows: upstream releases whose own dbcheck() creates the schema. Mylar3
+# code is fetched at build time and never committed.
+MYLAR_REPOSITORY = "https://github.com/mylar3/mylar3"
+MYLAR_ROWS = {
+    "Mylar3 old": "v0.4.0",
+    "Mylar3 mid": "v0.6.9",
+    "Mylar3 current": "v0.8.3",
+}
+# Enough of Mylar3's requirements.txt to import it on Python 3.11. Old pins such
+# as Pillow~=6.2 and feedparser 5 no longer build there; neither touches the schema.
+MYLAR_REQUIREMENTS = (
+    "APScheduler<4",
+    "beautifulsoup4",
+    "cfscrape",
+    "CherryPy",
+    "configparser",
+    "feedparser",
+    "Mako",
+    "natsort",
+    "packaging",
+    "Pillow",
+    "pycryptodome",
+    "pytz",
+    "rarfile",
+    "requests",
+    "setuptools<81",
+    "simplejson",
+    "six",
+    "tenacity",
+    "tzlocal",
+    "urllib3<2",
+    "user_agent2",
+)
+
+ALL_ROWS = (*ROWS, *MYLAR_ROWS)
 
 # Written by the release's own upgrade and startup, then pinned so a rebuild
 # reproduces the committed SQL byte for byte.
@@ -85,7 +122,8 @@ sab_category = comics
 
 # Runs inside the extracted tag, with that tag's comicarr package (and its
 # bundled ``lib/``, for releases that had one) first on the path. argv:
-# data directory, then the expected revision or "legacy".
+# data directory, the expected revision or "legacy", and optionally a database
+# URL (default: comicarr.db in the data directory).
 ERA_SCRIPT = """
 import os
 import sys
@@ -97,6 +135,7 @@ import comicarr.maintenance
 from comicarr import config as config_module
 
 data_dir, revision = sys.argv[1], sys.argv[2]
+url = sys.argv[3] if len(sys.argv) > 3 else "sqlite:///" + os.path.join(data_dir, "comicarr.db")
 comicarr.DATA_DIR = data_dir
 comicarr.PROG_DIR = "."
 comicarr.maintenance.Maintenance.backup_files = lambda self, **kwargs: True
@@ -113,9 +152,33 @@ else:
     from sqlalchemy import create_engine
     from comicarr.app.core.schema import upgrade_database
 
-    engine = create_engine("sqlite:///" + os.path.join(data_dir, "comicarr.db"))
+    engine = create_engine(url)
     print(upgrade_database(engine))
     engine.dispose()
+"""
+
+
+# Runs inside an extracted Mylar3 tag. argv: tree, data directory. Startup
+# order follows Mylar.py: config.read(startup=True), then dbcheck().
+MYLAR_SCRIPT = """
+import os
+import sys
+tree, data_dir = sys.argv[1], sys.argv[2]
+sys.path.insert(0, tree)
+sys.path.append(os.path.join(tree, "lib"))
+import feedparser
+if not hasattr(feedparser, "_FeedParserMixin"):
+    # v0.4.0 patches feedparser 5's parser class at import; RSS only, not schema.
+    feedparser._FeedParserMixin = type("_FeedParserMixin", (), {})
+import mylar
+import mylar.config
+mylar.PROG_DIR = tree
+mylar.DATA_DIR = data_dir
+mylar.CONFIG_FILE = os.path.join(data_dir, "config.ini")
+mylar.DB_FILE = os.path.join(data_dir, "mylar.db")
+mylar.CONFIG = mylar.config.Config(mylar.CONFIG_FILE).read(startup=True)
+mylar.dbcheck()
+print("ok")
 """
 
 
@@ -365,6 +428,20 @@ def _extract_tag(tag, destination):
         tar.extractall(destination, filter="data")
 
 
+def _extract_mylar_tag(tag, destination):
+    """Fetch one upstream Mylar3 tag into a throwaway repository and extract it."""
+
+    repository = destination.parent / "mylar3.git"
+    subprocess.run(["git", "init", "--quiet", "--bare", str(repository)], check=True)
+    git = ["git", "--git-dir", str(repository)]
+    subprocess.run(
+        [*git, "fetch", "--quiet", "--depth=1", MYLAR_REPOSITORY, "refs/tags/%s:refs/tags/%s" % (tag, tag)], check=True
+    )
+    archive = subprocess.run([*git, "archive", "--format=tar", tag], check=True, capture_output=True).stdout
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        tar.extractall(destination, filter="data")
+
+
 def _seed(connection):
     """Insert the library, skipping tables and columns the release did not have."""
 
@@ -421,34 +498,102 @@ def dump_sql(connection):
     return "\n".join(lines) + "\n"
 
 
-def build_row(name):
+def _run_release(tag, python, script, args, tree):
+    result = subprocess.run(
+        [python, "-I", "-W", "ignore", "-c", script, *args],
+        cwd=tree,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise SystemExit("%s: release startup failed\n%s" % (tag, result.stderr[-4000:]))
+    return result.stdout.strip().splitlines()[-1]
+
+
+def _build_comicarr(name, tree, data_dir, url=None):
+    tag, revision = ROWS[name]
+    _extract_tag(tag, tree)
+    config_source = (tree / "comicarr" / "config.py").read_text(encoding="utf-8")
+    config_version = re.search(r"self\.newconfig = (\d+)", config_source).group(1)
+    (data_dir / "config.ini").write_text(CONFIG_OVERRIDES.format(config_version=config_version), encoding="utf-8")
+    expected = revision or "legacy"
+    args = [str(data_dir), expected, *([url] if url else [])]
+    reached = _run_release(tag, sys.executable, ERA_SCRIPT, args, tree)
+    if reached != expected:
+        raise SystemExit("%s upgraded to %s, expected %s" % (tag, reached, expected))
+    return data_dir / "comicarr.db"
+
+
+def build_release_database(name, url):
+    """Create one Alembic-era row directly in the database at ``url`` and seed it.
+
+    PostgreSQL and MySQL rows are built this way at test time rather than from
+    committed SQL: the release's own code creates the schema on that dialect.
+    """
+
+    from sqlalchemy import MetaData, create_engine
+
+    if ROWS[name][1] is None:
+        raise ValueError("%s predates Alembic and is SQLite only" % name)
+    with tempfile.TemporaryDirectory(prefix="upgrade-matrix-") as scratch:
+        scratch = Path(scratch)
+        (scratch / "tree").mkdir()
+        (scratch / "data").mkdir()
+        _build_comicarr(name, scratch / "tree", scratch / "data", url)
+    engine = create_engine(url)
+    try:
+        reflected = MetaData()
+        reflected.reflect(bind=engine)
+        with engine.begin() as connection:
+            for seed in SEED:
+                table = reflected.tables[seed.table]
+                for row in seed.rows:
+                    values = {column: value for column, value in row.items() if column in table.c}
+                    connection.execute(table.insert().values(**values))
+    finally:
+        engine.dispose()
+
+
+def _mylar_python(scratch):
+    """A Python with Mylar3's runtime dependencies: MYLAR_PYTHON, or a fresh uv venv."""
+
+    configured = os.environ.get("MYLAR_PYTHON")
+    if configured:
+        return configured
+    venv = scratch / "mylar-venv"
+    subprocess.run(["uv", "venv", "--quiet", "--python", "3.11", str(venv)], check=True)
+    python = str(venv / "bin" / "python")
+    subprocess.run(["uv", "pip", "install", "--quiet", "--python", python, *MYLAR_REQUIREMENTS], check=True)
+    return python
+
+
+def _build_mylar(name, tree, data_dir, python):
+    tag = MYLAR_ROWS[name]
+    _extract_mylar_tag(tag, tree)
+    overrides = "\n".join(
+        line
+        for line in CONFIG_OVERRIDES.splitlines()
+        if not line.startswith(("config_version", "manga_destination_dir"))
+    )
+    (data_dir / "config.ini").write_text(overrides + "\n", encoding="utf-8")
+    if _run_release(tag, python, MYLAR_SCRIPT, [str(tree), str(data_dir)], tree) != "ok":
+        raise SystemExit("%s: Mylar3 dbcheck did not finish" % tag)
+    return data_dir / "mylar.db"
+
+
+def build_row(name, mylar_python=None):
     """Return ``(sql, config_ini)`` text for one release row."""
 
-    tag, revision = ROWS[name]
     with tempfile.TemporaryDirectory(prefix="upgrade-matrix-") as scratch:
         scratch = Path(scratch)
         tree = scratch / "tree"
         data_dir = scratch / "data"
         tree.mkdir()
         data_dir.mkdir()
-        _extract_tag(tag, tree)
-        config_source = (tree / "comicarr" / "config.py").read_text(encoding="utf-8")
-        config_version = re.search(r"self\.newconfig = (\d+)", config_source).group(1)
-        (data_dir / "config.ini").write_text(CONFIG_OVERRIDES.format(config_version=config_version), encoding="utf-8")
-        database = data_dir / "comicarr.db"
-        expected = revision or "legacy"
-
-        result = subprocess.run(
-            [sys.executable, "-I", "-W", "ignore", "-c", ERA_SCRIPT, str(data_dir), expected],
-            cwd=tree,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            raise SystemExit("%s: release upgrade failed\n%s" % (tag, result.stderr))
-        reached = result.stdout.strip().splitlines()[-1]
-        if reached != expected:
-            raise SystemExit("%s upgraded to %s, expected %s" % (tag, reached, expected))
+        if name in MYLAR_ROWS:
+            database = _build_mylar(name, tree, data_dir, mylar_python or _mylar_python(scratch))
+        else:
+            database = _build_comicarr(name, tree, data_dir)
 
         connection = sqlite3.connect(database)
         try:
@@ -460,30 +605,39 @@ def build_row(name):
             connection.close()
         config_ini = (data_dir / "config.ini").read_text(encoding="utf-8")
     if str(scratch) in config_ini:
-        raise SystemExit("%s: config.ini embeds a build path" % tag)
+        raise SystemExit("%s: config.ini embeds a build path" % name)
     return sql, config_ini
 
 
 def fixture_paths(name):
-    return HERE / ("%s.sql" % name), HERE / ("%s.config.ini" % name)
+    slug = name.lower().replace(" ", "-")
+    return HERE / ("%s.sql" % slug), HERE / ("%s.config.ini" % slug)
+
+
+def _write_or_check(name, texts, check):
+    stale = []
+    for path, text in zip(fixture_paths(name), texts):
+        if check:
+            if not path.exists() or path.read_text(encoding="utf-8") != text:
+                stale.append(path.relative_to(ROOT))
+        else:
+            path.write_text(text, encoding="utf-8")
+            print("wrote %s" % path.relative_to(ROOT))
+    return stale
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("rows", nargs="*", choices=[[], *ROWS], help="rows to rebuild (default: all)")
+    parser.add_argument("rows", nargs="*", choices=[[], *ALL_ROWS], help="rows to rebuild (default: all)")
     parser.add_argument("--check", action="store_true", help="fail when a rebuild differs from the committed files")
     args = parser.parse_args(argv)
 
     stale = []
-    for name in args.rows or ROWS:
-        sql, config_ini = build_row(name)
-        for path, text in zip(fixture_paths(name), (sql, config_ini)):
-            if args.check:
-                if not path.exists() or path.read_text(encoding="utf-8") != text:
-                    stale.append(path.relative_to(ROOT))
-            else:
-                path.write_text(text, encoding="utf-8")
-                print("wrote %s" % path.relative_to(ROOT))
+    names = args.rows or ALL_ROWS
+    with tempfile.TemporaryDirectory(prefix="upgrade-matrix-venv-") as venv_scratch:
+        mylar_python = _mylar_python(Path(venv_scratch)) if any(n in MYLAR_ROWS for n in names) else None
+        for name in names:
+            stale.extend(_write_or_check(name, build_row(name, mylar_python), args.check))
     if stale:
         print("Stale upgrade-matrix fixtures (rebuild with %s):" % Path(__file__).relative_to(ROOT))
         for path in stale:

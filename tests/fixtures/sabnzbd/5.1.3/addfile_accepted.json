@@ -1,0 +1,15 @@
+{
+  "body": {
+    "nzo_ids": [
+      "f9efec3f-a05a-4e8d-b7fe-362c25aa2a54"
+    ],
+    "status": true
+  },
+  "request": {
+    "cat": "comics",
+    "mode": "addfile",
+    "nzbname": "Absolute.Batman.001.2024",
+    "output": "json"
+  },
+  "status_code": 200
+}

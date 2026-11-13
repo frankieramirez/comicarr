@@ -1,0 +1,92 @@
+{
+  "body": {
+    "status": {
+      "active_lang": "en",
+      "active_socks5_proxy": null,
+      "apikey": "<scrubbed>",
+      "cache_art": "0",
+      "cache_buster": "5.1.3-a647f73426cb70ad60ae7964b96c2d5e939b4727",
+      "cache_size": "0 B",
+      "color_scheme": "Auto",
+      "completedir": "/config/Downloads/complete",
+      "completedirspeed": 0,
+      "configfn": "/config/sabnzbd.ini",
+      "confighelpuri": "https://sabnzbd.org/wiki/configuration/5.1/",
+      "delayed_assembler": 0,
+      "diskspace1": "28.63",
+      "diskspace1_norm": "28.6 G",
+      "diskspace2": "28.63",
+      "diskspace2_norm": "28.6 G",
+      "diskspacetotal1": "251.97",
+      "diskspacetotal2": "251.97",
+      "dnslookup": "<scrubbed>",
+      "downloaddir": "/config/Downloads/incomplete",
+      "downloaddirspeed": 0,
+      "finishaction": null,
+      "folders": [],
+      "have_quota": false,
+      "have_warnings": "1",
+      "internetbandwidth": 0,
+      "ipv6": null,
+      "left_quota": "0 B",
+      "loadavg": "<scrubbed>",
+      "localipv4": "<scrubbed>",
+      "logfile": "/config/logs/sabnzbd.log",
+      "loglevel": "1",
+      "macos": false,
+      "my_home": "/config",
+      "my_lcldata": "/config",
+      "new_rel_url": null,
+      "new_release": null,
+      "pause_int": "0",
+      "paused": false,
+      "paused_all": false,
+      "pid": 154,
+      "power_options": false,
+      "pp_pause_event": false,
+      "publicipv4": null,
+      "pystone": "<scrubbed>",
+      "quota": "0 B",
+      "rtl": false,
+      "servers": [
+        {
+          "serveractive": true,
+          "serveractiveconn": 0,
+          "serverbps": "0",
+          "servercanonname": null,
+          "serverconnections": [],
+          "servererror": "",
+          "serveripaddress": null,
+          "servername": "recording",
+          "serveroptional": 0,
+          "serverpriority": 0,
+          "serverssl": 0,
+          "serversslinfo": "",
+          "servertotalconn": 2,
+          "serverwarning": ""
+        }
+      ],
+      "speedlimit": "0",
+      "speedlimit_abs": "0",
+      "uptime": "0m",
+      "url_base": "",
+      "version": "5.1.3",
+      "warnings": [
+        {
+          "origin": "interface.py444",
+          "text": "API key incorrect, Use the API key from Config->General in your 3rd party program: 192.0.2.1 [python-requests/2.34.2]",
+          "time": 1794575010,
+          "type": "WARNING"
+        }
+      ],
+      "webdir": "/app/sabnzbd/interfaces/Glitter/templates",
+      "weblogfile": null,
+      "windows": false
+    }
+  },
+  "request": {
+    "mode": "status",
+    "output": "json"
+  },
+  "status_code": 200
+}

@@ -1,0 +1,45 @@
+{
+  "body": {
+    "queue": {
+      "cache_art": "0",
+      "cache_size": "0 B",
+      "diskspace1": "28.63",
+      "diskspace1_norm": "28.6 G",
+      "diskspace2": "28.63",
+      "diskspace2_norm": "28.6 G",
+      "diskspacetotal1": "251.97",
+      "diskspacetotal2": "251.97",
+      "finish": 0,
+      "finishaction": null,
+      "have_quota": false,
+      "have_warnings": "1",
+      "kbpersec": "0.00",
+      "left_quota": "0 B",
+      "limit": 0,
+      "mb": "0.00",
+      "mbleft": "0.00",
+      "noofslots": 0,
+      "noofslots_total": 0,
+      "pause_int": "0",
+      "paused": false,
+      "paused_all": false,
+      "quota": "0 B",
+      "size": "0 B",
+      "sizeleft": "0 B",
+      "slots": [],
+      "speed": "0",
+      "speedlimit": "0",
+      "speedlimit_abs": "0",
+      "start": 0,
+      "status": "Idle",
+      "timeleft": "0:00:00",
+      "version": "5.1.3"
+    }
+  },
+  "request": {
+    "mode": "queue",
+    "nzo_ids": "f9efec3f-a05a-4e8d-b7fe-362c25aa2a54",
+    "output": "json"
+  },
+  "status_code": 200
+}

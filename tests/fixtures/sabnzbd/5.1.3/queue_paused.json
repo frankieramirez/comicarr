@@ -1,0 +1,69 @@
+{
+  "body": {
+    "queue": {
+      "cache_art": "0",
+      "cache_size": "0 B",
+      "diskspace1": "28.63",
+      "diskspace1_norm": "28.6 G",
+      "diskspace2": "28.63",
+      "diskspace2_norm": "28.6 G",
+      "diskspacetotal1": "251.97",
+      "diskspacetotal2": "251.97",
+      "finish": 5,
+      "finishaction": null,
+      "have_quota": false,
+      "have_warnings": "1",
+      "kbpersec": "0.00",
+      "left_quota": "0 B",
+      "limit": 5,
+      "mb": "0.01",
+      "mbleft": "0.01",
+      "noofslots": 1,
+      "noofslots_total": 1,
+      "pause_int": "0",
+      "paused": true,
+      "paused_all": false,
+      "quota": "0 B",
+      "size": "6 KB",
+      "sizeleft": "6 KB",
+      "slots": [
+        {
+          "avg_age": "365d",
+          "cat": "comics",
+          "direct_unpack": null,
+          "filename": "Absolute.Batman.001.2024",
+          "index": 0,
+          "labels": [],
+          "mb": "0.01",
+          "mbleft": "0.01",
+          "mbmissing": "0.00",
+          "nzo_id": "f9efec3f-a05a-4e8d-b7fe-362c25aa2a54",
+          "password": "",
+          "percentage": "0",
+          "priority": "Normal",
+          "script": "None",
+          "size": "6 KB",
+          "sizeleft": "6 KB",
+          "status": "Queued",
+          "time_added": 1794575010,
+          "timeleft": "0:00:00",
+          "unpackopts": "3"
+        }
+      ],
+      "speed": "0",
+      "speedlimit": "0",
+      "speedlimit_abs": "0",
+      "start": 0,
+      "status": "Paused",
+      "timeleft": "0:00:00",
+      "version": "5.1.3"
+    }
+  },
+  "request": {
+    "limit": 5,
+    "mode": "queue",
+    "output": "json",
+    "start": 0
+  },
+  "status_code": 200
+}

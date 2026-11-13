@@ -73,39 +73,14 @@ PENDING = {
     ("Manga", "Duplicate guard", "pipeline"): 1222,
     ("Manga", "Manga RSS", "pipeline"): 1222,
     ("Manga", "Add-manga failure narration", "pipeline"): 1222,
-    ("SABnzbd", "Handoff verified from SABnzbd's own response", "pipeline"): 1219,
-    ("SABnzbd", "Completed path with remote path mapping", "pipeline"): 1219,
-    ("SABnzbd", "Completed path without remote path mapping", "pipeline"): 1219,
-    ("SABnzbd", "Missing completed path", "pipeline"): 1219,
-    ("SABnzbd", "History entry removed before Comicarr reads it", "pipeline"): 1219,
-    ("SABnzbd", "Failed download leads to a retry", "pipeline"): 1219,
-    ("SABnzbd", "Category routing", "pipeline"): 1219,
-    ("SABnzbd", "Restart mid-download", "pipeline"): 1219,
-    ("SABnzbd", "Wrong API key is a connection failure", "pipeline"): 1219,
-    ("SABnzbd", "Unreachable host is a connection failure", "pipeline"): 1219,
-    ("NZBGet", "Append handoff", "unit"): 1220,
-    ("NZBGet", "Append handoff", "pipeline"): 1220,
-    ("NZBGet", "History polling", "unit"): 1220,
-    ("NZBGet", "History polling", "pipeline"): 1220,
-    ("NZBGet", "Destination directory mapping", "pipeline"): 1220,
-    ("NZBGet", "Par failure maps to a failure reason", "unit"): 1220,
-    ("NZBGet", "Par failure maps to a failure reason", "pipeline"): 1220,
-    ("NZBGet", "Unpack failure maps to a failure reason", "unit"): 1220,
-    ("NZBGet", "Unpack failure maps to a failure reason", "pipeline"): 1220,
-    ("NZBGet", "Health failure maps to a failure reason", "unit"): 1220,
-    ("NZBGet", "Health failure maps to a failure reason", "pipeline"): 1220,
-    ("NZBGet", "Restart mid-download", "unit"): 1220,
-    ("NZBGet", "Restart mid-download", "pipeline"): 1220,
-    ("NZBGet", "Authentication failure", "unit"): 1220,
-    ("NZBGet", "Authentication failure", "pipeline"): 1220,
 }
 
 # Group -> (module paths relative to the repo root, line-coverage floor in percent).
 # A path ending in "/" covers every .py file below it. Floors only rise: when a
 # change raises a figure, record the new one here and in the doc.
 COVERAGE_FLOORS = {
-    "SABnzbd": (("comicarr/sabnzbd.py",), 78.0),
-    "NZBGet": (("comicarr/nzbget.py",), 6.4),
+    "SABnzbd": (("comicarr/sabnzbd.py",), 82.3),
+    "NZBGet": (("comicarr/nzbget.py",), 56.4),
     "Manga": (("comicarr/app/manga/",), 91.1),
     "Downloads": (
         (
@@ -186,7 +161,7 @@ def check_doc(text: str, root: Path, pending: dict, floors: dict) -> list[str]:
                 continue
             scenario, status = cells[0], cells[3]
             tickets: set[int] = set()
-            for column, cell in zip(COLUMNS, cells[1:3]):
+            for column, cell in zip(COLUMNS, cells[1:3], strict=True):
                 key = (table, scenario, column)
                 if cell.lower() == PENDING_CELL:
                     if key in pending:
@@ -210,8 +185,8 @@ def check_doc(text: str, root: Path, pending: dict, floors: dict) -> list[str]:
                 if not status.lower().startswith(PENDING_CELL) or not tickets <= named:
                     want = ", ".join("#%d" % t for t in sorted(tickets))
                     errors.append("%s / %s: status must read 'pending' and name %s" % (table, scenario, want))
-            elif status.lower() != "covered":
-                errors.append("%s / %s: both tests are named, so status must read 'covered'" % (table, scenario))
+            elif not status.lower().startswith("covered"):
+                errors.append("%s / %s: both tests are named, so status must start with 'covered'" % (table, scenario))
 
     for key in sorted(set(pending) - seen_pending):
         errors.append("stale PENDING entry (cell is no longer pending, or the row is gone): %s / %s / %s" % key)
