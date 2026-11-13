@@ -47,6 +47,58 @@ const failingMonitor = job("monitor", "Folder Monitor", {
 });
 
 describe("Activity > Health", () => {
+  it("shows one row per deprecated feature in use, with its replacement and docs", async () => {
+    server.use(
+      http.get("/api/system/deprecations", () =>
+        HttpResponse.json({
+          deprecations: [
+            {
+              id: "storyarc-oneoff",
+              name: "Downloading story-arc issues whose series is not in your library",
+              announced_in: "0.52.0",
+              removable_from: "1.0.0",
+              replacement: "Add what's missing on the story arc",
+              docs_url:
+                "https://comicarr.com/docs/deprecations#storyarc-oneoff",
+            },
+          ],
+        }),
+      ),
+    );
+    render(<ActivityPage />, {
+      useMemoryRouter: true,
+      route: "/activity?view=health",
+    });
+
+    const rows = await screen.findAllByTestId("health-deprecation");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain(
+      "Downloading story-arc issues whose series is not in your library",
+    );
+    expect(rows[0].textContent).toContain(
+      "Add what's missing on the story arc",
+    );
+    expect(rows[0].textContent).toContain("1.0.0");
+    expect(
+      screen
+        .getByRole("link", {
+          name: "Read about Downloading story-arc issues whose series is not in your library",
+        })
+        .getAttribute("href"),
+    ).toBe("https://comicarr.com/docs/deprecations#storyarc-oneoff");
+  });
+
+  it("renders no deprecations section when none are in use", async () => {
+    render(<ActivityPage />, {
+      useMemoryRouter: true,
+      route: "/activity?view=health",
+    });
+
+    await screen.findAllByTestId("health-job");
+    expect(screen.queryByText("Deprecated features in use")).toBeNull();
+    expect(screen.queryAllByTestId("health-deprecation")).toHaveLength(0);
+  });
+
   it("lists failing jobs first, counts them on the tab, and runs one now", async () => {
     const ran: string[] = [];
     server.use(

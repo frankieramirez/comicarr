@@ -285,6 +285,9 @@ export const handlers = [
   http.get("/api/system/connections", () =>
     HttpResponse.json({ connections: [] }),
   ),
+  http.get("/api/system/deprecations", () =>
+    HttpResponse.json({ deprecations: [] }),
+  ),
   http.get("/api/system/jobs", () =>
     HttpResponse.json({
       jobs: [
