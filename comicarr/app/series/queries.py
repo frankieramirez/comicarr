@@ -557,6 +557,36 @@ def set_issue_status(issue_id, status, audit_identity, *, table, conn=None):
     return _update_one(stmt.values(**values), conn=conn)
 
 
+def get_issue_file_state(issue_id, *, annual=False):
+    """Status, Location and ComicSize of an issue, annual or manga chapter row."""
+    table = t_annuals if annual else t_issues
+    return db.select_one(select(table.c.Status, table.c.Location, table.c.ComicSize).where(table.c.IssueID == issue_id))
+
+
+def mark_issue_downloaded(issue_id, location, *, annual=False):
+    """Record that the file for an issue, annual or manga chapter is in the library."""
+    values = {"Status": "Downloaded", "Location": location}
+    key = {"IssueID": issue_id}
+    if annual:
+        db.upsert("annuals", values, key)
+    else:
+        db.upsert("issues", values, key)
+
+
+def recount_have(comic_id):
+    """Set a series' ``Have`` to the number of its issues marked Downloaded."""
+    count = db.select_one(
+        select(func.count())
+        .select_from(t_issues)
+        .where(and_(t_issues.c.ComicID == comic_id, t_issues.c.Status == "Downloaded"))
+    )
+    if count is None:
+        return None
+    have = list(count.values())[0] if hasattr(count, "values") else count[0]
+    db.upsert("comics", {"Have": have}, {"ComicID": comic_id})
+    return have
+
+
 def get_wanted_issues(limit=None, offset=None, search=None, comic_id=None):
     """Get all wanted issues joined with comic info.
 

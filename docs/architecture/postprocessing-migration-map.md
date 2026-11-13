@@ -80,6 +80,17 @@ completed journal stages rather than repeating irreversible file work.
    is why the bracket and retry rule are preserved by the callers rather than
    by the stage.
 4. Database reconciliation stage using downloads/series query boundaries.
+   **Landed as `PostProcessReconcileStage` in
+   `app/downloads/postprocess_pipeline.py`.** It takes a
+   `PostProcessPlacedItem` (series, issue, kind: issue, annual or manga, and
+   the placed path) and writes through `app/series/queries.py` and
+   `app/downloads/queries.py`. For comics and annuals it still runs
+   `updater.totals` and `updater.foundsearch`, which the facade passes in so the
+   stage imports no legacy module. The facade calls it where the
+   inline writes sat, so its position against the journal is unchanged. The
+   inherited `snatched` writes do not converge on their own (a NULL `Provider`
+   never conflicts), so the stage skips an item whose row already records the
+   placed file; a re-run after a restart writes nothing.
 5. Cleanup and notification stages after durable completion.
 
 Each stage must retain focused success, expected-failure, and
@@ -111,9 +122,9 @@ inherited matching rules, and moving it under `comicarr/app/` would mean either
 rewriting it or weakening the modern lint lane. Neither is worth doing before
 1.0.
 
-Stages 1 to 3 above have landed. The sequence continues:
+Stages 1 to 4 above have landed. The sequence continues:
 
-4. Database reconciliation stage (unchanged from the list above).
+4. Database reconciliation stage (landed, see above).
 5. Cleanup and notification stages. Notification goes through
    `app/notifications/service.py`, replacing `sendnotify`.
 6. Per-item processing: `Process_next` and `_process_manga` become pipeline

@@ -23,6 +23,7 @@ Tests cover the _process_manga() method and the manga branch in Process().
 
 import os
 import queue
+from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -31,6 +32,19 @@ import pytest
 import comicarr
 from comicarr.app.common.placement import OnExisting, PlacementError, Purpose
 from tests.conftest import placement_result
+
+
+@contextmanager
+def _mock_db():
+    """One mock behind the facade's db and the query boundaries the stages write through."""
+    mock_db = MagicMock()
+    with (
+        patch("comicarr.postprocessor.db", mock_db),
+        patch("comicarr.app.series.queries.db", mock_db),
+        patch("comicarr.app.downloads.queries.db", mock_db),
+    ):
+        yield mock_db
+
 
 # Ensure LOG_LEVEL is set for tests
 if comicarr.LOG_LEVEL is None:
@@ -124,7 +138,7 @@ class TestMangaPlacementHonoursFileOpts:
         with (
             patch.object(comicarr, "CONFIG", config),
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
             mock_db.select_one.side_effect = [comic_row, None, None, None]
             pp._process_manga()
@@ -158,7 +172,7 @@ class TestMangaBranchDetection:
         )
         with (
             patch.object(pp, "_process_manga", return_value=None) as mock_pm,
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
             mock_db.select_one.return_value = {"ComicID": "md-abc123", "ContentType": "manga"}
             pp.Process()
@@ -176,7 +190,7 @@ class TestMangaBranchDetection:
         with (
             patch.object(pp, "_process_manga") as mock_pm,
             patch("comicarr.postprocessor.filechecker") as mock_fc,
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
             mock_db.select_one.return_value = {"ComicID": "12345"}
             mock_fc.FileChecker.return_value.listFiles.return_value = {"comiccount": 0, "comiclist": []}
@@ -195,7 +209,7 @@ class TestMangaBranchDetection:
         )
         with (
             patch.object(pp, "_process_manga", return_value=None) as mock_pm,
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
             mock_db.select_one.return_value = {"ComicID": "134064", "ContentType": "manga"}
             pp.Process()
@@ -213,7 +227,7 @@ class TestMangaBranchDetection:
         with (
             patch.object(pp, "_process_manga") as mock_pm,
             patch("comicarr.postprocessor.filechecker") as mock_fc,
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
             mock_db.select_one.return_value = {
                 "ComicID": "md-example",
@@ -239,7 +253,7 @@ class TestMangaBranchDetection:
         )
         with (
             patch.object(pp, "_process_manga", return_value=None) as mock_pm,
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
             mock_db.select_one.return_value = {"ComicID": "md-example", "ContentType": "comic"}
             pp.Process()
@@ -273,7 +287,7 @@ class TestProcessMangaSeriesLookup:
             comicid="md-bleach",
         )
 
-        with patch("comicarr.postprocessor.db") as mock_db:
+        with _mock_db() as mock_db:
             mock_db.select_one.return_value = None
             pp._process_manga()
 
@@ -298,7 +312,7 @@ class TestProcessMangaNoFiles:
 
         comic_row = {"ComicName": "Bleach", "ComicLocation": "/manga/Bleach"}
 
-        with patch("comicarr.postprocessor.db") as mock_db:
+        with _mock_db() as mock_db:
             mock_db.select_one.return_value = comic_row
             pp._process_manga()
 
@@ -325,7 +339,7 @@ class TestProcessMangaNoDestination:
         comic_row = {"ComicName": "Bleach", "ComicLocation": None}
 
         with (
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
             patch("comicarr.postprocessor.get_manga_destination", return_value=None),
         ):
             mock_db.select_one.return_value = comic_row
@@ -364,7 +378,7 @@ class TestProcessMangaHealsMisplacedLocation:
 
         with (
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(manga_dest)),
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
             patch("comicarr.app.series.queries.update_comic_content_kind") as update,
         ):
             mock_db.select_one.side_effect = [comic_row, None, None, None]
@@ -400,7 +414,7 @@ class TestProcessMangaHealsMisplacedLocation:
 
         with (
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(manga_dest)),
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
             patch("comicarr.app.series.queries.update_comic_content_kind") as update,
         ):
             mock_db.select_one.return_value = comic_row
@@ -437,7 +451,7 @@ class TestProcessMangaHonorsChosenFolder:
         with (
             patch.object(comicarr, "CONFIG", config),
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
             patch("comicarr.app.series.queries.update_comic_content_kind") as update,
             patch("comicarr.postprocessor.place", return_value=placement_result()) as placer,
         ):
@@ -487,7 +501,7 @@ class TestProcessMangaFileMove:
 
         with (
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
             # First call: comic lookup. Remaining: chapter/issue lookups return None
             mock_db.select_one.side_effect = [comic_row, None, None, None]
@@ -530,7 +544,7 @@ class TestProcessMangaFileMove:
 
         with (
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
             mock_db.select_one.return_value = comic_row
             with patch("comicarr.postprocessor.place", **placement_kwargs):
@@ -563,7 +577,7 @@ class TestProcessMangaFileMove:
 
         with (
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
             # a chapter match IS available -- only the falsy placement stops it
             mock_db.select_one.side_effect = [comic_row, issue_row, None, None]
@@ -610,7 +624,7 @@ class TestProcessMangaExistingDestination:
         with (
             patch.object(comicarr, "CONFIG", config),
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
             mock_db.select_one.side_effect = [comic_row, None, None, None]
             if placement is None:
@@ -724,10 +738,10 @@ class TestProcessMangaChapterMatch:
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
             patch("comicarr.app.downloads.journal.record_transition", return_value=True),
             patch("comicarr.postprocessor.place", return_value=placement_result()),
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
-            # select_one calls: 1) comic lookup, 2) chapter match, 3) have count
-            mock_db.select_one.side_effect = [comic_row, issue_row, have_count]
+            # select_one calls: 1) comic lookup, 2) chapter match, 3) re-run check, 4) have count
+            mock_db.select_one.side_effect = [comic_row, issue_row, None, have_count]
             mock_db.get_engine.return_value.begin.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_db.get_engine.return_value.begin.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -762,7 +776,7 @@ class TestProcessMangaChapterMatch:
         with (
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
             patch("comicarr.postprocessor.place", return_value=placement_result()),
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
             # comic lookup succeeds, all chapter/issue lookups return None
             mock_db.select_one.side_effect = [comic_row, None, None, None]
@@ -821,7 +835,7 @@ class TestMangaTidiesTheEmptiedDownloadFolder:
         mock_conn = MagicMock()
 
         if matched:
-            lookups = [comic_row, issue_row, have_count]
+            lookups = [comic_row, issue_row, None, have_count]
         else:
             lookups = [comic_row, None, None, None]
 
@@ -831,7 +845,7 @@ class TestMangaTidiesTheEmptiedDownloadFolder:
             patch.object(comicarr, "CONFIG", config),
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
             patch("comicarr.app.downloads.journal.record_transition", return_value=True),
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
             mock_db.select_one.side_effect = lookups
             mock_db.get_engine.return_value.begin.return_value.__enter__ = MagicMock(return_value=mock_conn)
@@ -931,7 +945,7 @@ class TestMangaMetatagOnImport:
             patch("comicarr.postprocessor.place", return_value=placement_result()) as mock_place,
             patch("comicarr.cmtag.run", return_value=resolved) as mock_cmtag,
             patch.object(comicarr, "CONFIG", config),
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
             mock_db.select_one.side_effect = lookups
             mock_db.get_engine.return_value.begin.return_value.__enter__ = MagicMock(return_value=mock_conn)
@@ -1177,7 +1191,7 @@ class TestMangaVolumeRows:
             {"IssueID": "md-csm-v20", "VolumeNumber": "20"},
             {"IssueID": "md-csm-v21", "VolumeNumber": "21"},
         ]
-        with patch("comicarr.postprocessor.db") as mock_db:
+        with _mock_db() as mock_db:
             mock_db.select_all.return_value = rows
 
             matched = manga_volume_rows("md-csm", "v20")
@@ -1186,7 +1200,7 @@ class TestMangaVolumeRows:
 
     def test_zero_padding_and_the_v_marker_do_not_prevent_a_match(self):
         rows = [{"IssueID": "md-csm-v01", "VolumeNumber": "1"}]
-        with patch("comicarr.postprocessor.db") as mock_db:
+        with _mock_db() as mock_db:
             mock_db.select_all.return_value = rows
 
             assert manga_volume_rows("md-csm", "v01") == rows
@@ -1197,20 +1211,20 @@ class TestMangaVolumeRows:
         Returning None (rather than an empty list) is what tells the caller to
         run its existing query instead of concluding nothing matched.
         """
-        with patch("comicarr.postprocessor.db") as mock_db:
+        with _mock_db() as mock_db:
             mock_db.select_all.return_value = []
 
             assert manga_volume_rows("cv-123", "v20") is None
 
     def test_an_unusable_volume_defers_without_querying(self):
-        with patch("comicarr.postprocessor.db") as mock_db:
+        with _mock_db() as mock_db:
             assert manga_volume_rows("md-csm", None) is None
             assert manga_volume_rows("md-csm", "v") is None
             mock_db.select_all.assert_not_called()
 
     def test_a_volume_with_no_matching_row_reports_no_match(self):
         """An empty list is a real answer: the series has volumes, just not this one."""
-        with patch("comicarr.postprocessor.db") as mock_db:
+        with _mock_db() as mock_db:
             mock_db.select_all.return_value = [{"IssueID": "md-csm-v01", "VolumeNumber": "1"}]
 
             assert manga_volume_rows("md-csm", "v20") == []
@@ -1786,9 +1800,9 @@ class TestMangaKeepsTheFileWhenTheDownloadFolderIsTheSeriesFolder:
             patch("comicarr.app.downloads.journal.record_transition", return_value=True),
             patch("comicarr.postprocessor.place", side_effect=fake_place),
             patch("comicarr.cmtag.run", return_value=str(tagged)),
-            patch("comicarr.postprocessor.db") as mock_db,
+            _mock_db() as mock_db,
         ):
-            mock_db.select_one.side_effect = [comic_row, issue_row, have_count]
+            mock_db.select_one.side_effect = [comic_row, issue_row, None, have_count]
             mock_db.get_engine.return_value.begin.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_db.get_engine.return_value.begin.return_value.__exit__ = MagicMock(return_value=False)
 

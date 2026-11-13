@@ -199,6 +199,16 @@ def claim_failed_ddl_retry(item_id):
     return result.rowcount == 1
 
 
+def mark_snatched_post_processed(issue_id):
+    """The manga facade's history write after a chapter is placed, kept as it was.
+
+    ``db.upsert`` lays the key over the values, so this leaves ``Status`` at
+    Snatched rather than Post-Processed. Reconciliation must not change which
+    rows are written (#1212); fixing the write is its own change.
+    """
+    db.upsert("snatched", {"Status": "Post-Processed"}, {"IssueID": issue_id, "Status": "Snatched"})
+
+
 def get_issue_file_info(issue_id):
     """Look up the file location for an issue by joining comics and issues.
 

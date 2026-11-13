@@ -37,10 +37,15 @@ from comicarr.app.common.placement import OnExisting, Outcome, Purpose, place
 from comicarr.app.common.redaction import redacted_traceback
 from comicarr.app.downloads._postprocess_completion import complete as _complete_postprocess
 from comicarr.app.downloads.postprocess_pipeline import (
+    ANNUAL,
+    ISSUE,
+    MANGA,
     PostProcessContext,
     PostProcessInputContext,
     PostProcessInputStage,
     PostProcessJournalStage,
+    PostProcessPlacedItem,
+    PostProcessReconcileStage,
 )
 from comicarr.app.downloads.pp_commands import safe_walk
 from comicarr.app.manga.ledger import normalize_volume_number
@@ -4418,6 +4423,7 @@ class PostProcessor(object):
 
         sibling_names = [os.path.basename(path) for path in manga_files]
         series_issues = db.select_all(select(issues).where(issues.c.ComicID == self.comicid))
+        reconcile = PostProcessReconcileStage(totals=updater.totals, foundsearch=updater.foundsearch)
         for filepath in manga_files:
             filename = os.path.basename(filepath)
             parsed = parse_in_series_context(
@@ -4506,21 +4512,19 @@ class PostProcessor(object):
 
             if matching:
                 issueid = matching["IssueID"]
-                db.upsert(
-                    "issues",
-                    {"Status": "Downloaded", "Location": filename},
-                    {"IssueID": issueid},
+                reconcile.reconcile(
+                    PostProcessPlacedItem(
+                        comic_id=self.comicid,
+                        issue_id=issueid,
+                        kind=MANGA,
+                        placed_path=dst,
+                        log_module=module,
+                    )
                 )
                 logger.info("%s Matched and marked downloaded: %s (IssueID: %s)" % (module, filename, issueid))
                 self._log("Matched to chapter IssueID: %s" % issueid)
 
                 matched_issueids.append(issueid)
-
-                db.upsert(
-                    "snatched",
-                    {"Status": "Post-Processed"},
-                    {"IssueID": issueid, "Status": "Snatched"},
-                )
 
                 last_matched_issueid = issueid
                 processed += 1
@@ -4528,19 +4532,7 @@ class PostProcessor(object):
                 logger.warn("%s Unable to match %s to any chapter for %s" % (module, filename, series_name))
 
         if processed > 0:
-            have_count = db.select_one(
-                select(func.count())
-                .select_from(issues)
-                .where(
-                    and_(
-                        issues.c.ComicID == self.comicid,
-                        issues.c.Status == "Downloaded",
-                    )
-                )
-            )
-            if have_count is not None:
-                count_val = list(have_count.values())[0] if hasattr(have_count, "values") else have_count[0]
-                db.upsert("comics", {"Have": count_val}, {"ComicID": self.comicid})
+            reconcile.recount_series(self.comicid)
 
         if processed > 0:
             self._log("Post Processing SUCCESSFUL! %d file(s) processed" % processed)
@@ -5243,30 +5235,22 @@ class PostProcessor(object):
             database=db,
         )
 
-        updater.totals(comicid, havefiles="+1", issueid=issueid, file=dst)
+        PostProcessReconcileStage(totals=updater.totals, foundsearch=updater.foundsearch).reconcile(
+            PostProcessPlacedItem(
+                comic_id=comicid,
+                issue_id=issueid,
+                kind=ISSUE if annchk == "no" else ANNUAL,
+                placed_path=dst,
+                download_type=downtype,
+                crc=crcvalue,
+                log_module=module,
+            )
+        )
 
-        if annchk == "no":
-            updater.foundsearch(comicid, issueid, down=downtype, module=module, crc=crcvalue)
-            dispiss = "#%s" % issuenumOG
-            updatetable = "issues"
-        else:
-            updater.foundsearch(comicid, issueid, mode="want_ann", down=downtype, module=module, crc=crcvalue)
-            if "annual" in issuenzb["ReleaseComicName"].lower():
-                series = issuenzb["ReleaseComicName"]
-                dispiss = "#%s" % issuenumOG
-            elif "special" in issuenzb["ReleaseComicName"].lower():
-                series = issuenzb["ReleaseComicName"]
-                dispiss = "#%s" % issuenumOG
-            else:
-                dispiss = "#%s" % issuenumOG
-            updatetable = "annuals"
+        dispiss = "#%s" % issuenumOG
+        if annchk != "no" and any(word in issuenzb["ReleaseComicName"].lower() for word in ("annual", "special")):
+            series = issuenzb["ReleaseComicName"]
         logger.fdebug("[%s][annchk:%s] issue to update: %s" % (series, annchk, dispiss))
-
-        if os.path.isfile(dst):
-            ctrlVal = {"IssueID": issueid}
-            newVal = {"Status": "Downloaded", "Location": os.path.basename(dst)}
-            logger.fdebug("writing: %s -- %s" % (newVal, ctrlVal))
-            db.upsert(updatetable, newVal, ctrlVal)
 
         try:
             if ml["IssueArcID"]:

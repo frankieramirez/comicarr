@@ -214,3 +214,119 @@ class PostProcessJournalStage:
                 raise
             self._log.error(f"{context.log_module} [JOURNAL] {stage} transition failed (inert, continuing): {e}")
             return PostProcessTransitionResult(release_key, stage, False, str(e))
+
+
+ISSUE = "issue"
+ANNUAL = "annual"
+MANGA = "manga"
+
+
+@dataclass(frozen=True)
+class PostProcessPlacedItem:
+    """A file the placement stage has put in the library, and what it is for."""
+
+    comic_id: str
+    issue_id: str
+    kind: str
+    placed_path: str
+    download_type: str | None = None
+    crc: str | None = None
+    log_module: str = "[POST-PROCESSING]"
+
+
+@dataclass(frozen=True)
+class PostProcessReconcileResult:
+    """Which row the reconciliation marked Downloaded, if any."""
+
+    issue_id: str
+    table: str
+    marked_downloaded: bool
+    already_reconciled: bool = False
+
+
+class PostProcessReconcileStage:
+    """Write the database facts that follow a placed file.
+
+    Every write is keyed on the issue and converges, so re-running the stage
+    after a restart leaves the rows as the first run left them. Callers run it
+    after the ``moved`` journal transition for comics and before it for manga,
+    exactly where the inline writes used to sit.
+
+    ``totals`` and ``foundsearch`` are the legacy ``updater`` functions. The
+    facade passes them in, so this module never imports a legacy root module
+    (ADR-0005); the series seams replace them later.
+    """
+
+    def __init__(
+        self,
+        *,
+        totals,
+        foundsearch,
+        series_queries=None,
+        downloads_queries=None,
+        is_file=os.path.isfile,
+        log=logger,
+    ):
+        if series_queries is None:
+            from comicarr.app.series import queries as series_queries
+        if downloads_queries is None:
+            from comicarr.app.downloads import queries as downloads_queries
+        self._totals = totals
+        self._foundsearch = foundsearch
+        self._series = series_queries
+        self._downloads = downloads_queries
+        self._is_file = is_file
+        self._log = log
+
+    def reconcile(self, item: PostProcessPlacedItem) -> PostProcessReconcileResult:
+        location = os.path.basename(item.placed_path)
+        annual = item.kind == ANNUAL
+        table = "annuals" if annual else "issues"
+        if self._already_reconciled(item, location, annual):
+            self._log.fdebug(f"{item.log_module} {table} row {item.issue_id} already records {location}; skipping")
+            return PostProcessReconcileResult(item.issue_id, table, True, already_reconciled=True)
+
+        if item.kind == MANGA:
+            self._series.mark_issue_downloaded(item.issue_id, location)
+            self._downloads.mark_snatched_post_processed(item.issue_id)
+            return PostProcessReconcileResult(item.issue_id, "issues", True)
+
+        self._totals(item.comic_id, havefiles="+1", issueid=item.issue_id, file=item.placed_path)
+        if annual:
+            self._foundsearch(
+                item.comic_id,
+                item.issue_id,
+                mode="want_ann",
+                down=item.download_type,
+                module=item.log_module,
+                crc=item.crc,
+            )
+        else:
+            self._foundsearch(
+                item.comic_id, item.issue_id, down=item.download_type, module=item.log_module, crc=item.crc
+            )
+
+        if not self._is_file(item.placed_path):
+            return PostProcessReconcileResult(item.issue_id, table, False)
+        self._log.fdebug(f"{item.log_module} Marking {table} row {item.issue_id} Downloaded: {location}")
+        self._series.mark_issue_downloaded(item.issue_id, location, annual=annual)
+        return PostProcessReconcileResult(item.issue_id, table, True)
+
+    def _already_reconciled(self, item: PostProcessPlacedItem, location: str, annual: bool) -> bool:
+        # The history writes underneath are not keyed tightly enough to
+        # converge (a NULL Provider never conflicts), so a re-run is detected
+        # from the row the first run leaves behind instead.
+        row = self._series.get_issue_file_state(item.issue_id, annual=annual)
+        if not row or row.get("Status") != "Downloaded" or row.get("Location") != location:
+            return False
+        if item.kind == MANGA:
+            return True
+        try:
+            size = os.path.getsize(item.placed_path)
+        except OSError:
+            return False
+        return str(row.get("ComicSize")) == str(size)
+
+    def recount_series(self, comic_id: str):
+        """Refresh a manga series' Have count after its chapters were marked."""
+        return self._series.recount_have(comic_id)
