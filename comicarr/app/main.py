@@ -212,6 +212,13 @@ async def lifespan(app: FastAPI):
 
     from comicarr import logger
 
+    try:
+        from comicarr.app.system.deprecations import warn_deprecations_in_use
+
+        await asyncio.to_thread(warn_deprecations_in_use)
+    except Exception as e:
+        logger.error("[DEPRECATION] Startup deprecation check failed: %s" % e)
+
     yield
 
     import comicarr
