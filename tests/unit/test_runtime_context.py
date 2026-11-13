@@ -258,6 +258,49 @@ async def test_lifespan_attaches_the_factory_runtime_instance(_legacy_runtime_ob
         get_context(SimpleNamespace(app=app))
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("predicate_raises", [False, True])
+async def test_lifespan_warns_about_deprecations_in_use(_legacy_runtime_objects, monkeypatch, predicate_raises):
+    """Startup logs one warning per deprecation in use, and a failing predicate never blocks it."""
+    from comicarr.app.acquisition.maintenance import RuntimeGateStatus
+    from comicarr.app.main import lifespan
+    from comicarr.app.system import deprecations
+
+    def in_use():
+        if predicate_raises:
+            raise RuntimeError("no database")
+        return True
+
+    entry = deprecations.Deprecation(
+        id="fake-feature",
+        name="Fake feature",
+        announced_in="0.52.0",
+        removable_from="1.0.0",
+        replacement="Real feature",
+        docs_url="https://comicarr.com/docs/deprecations#fake-feature",
+        in_use=in_use,
+    )
+    warnings = []
+    monkeypatch.setattr(deprecations, "REGISTRY", [entry])
+    monkeypatch.setattr(deprecations.logger, "warn", warnings.append)
+    monkeypatch.setattr(deprecations.logger, "error", lambda _message: None)
+    create_runtime()
+    gate = RuntimeGateStatus(blocked=False, reason=None, schema_ready=True, maintenance_active=False, epoch=0)
+    monkeypatch.setattr("comicarr.app.acquisition.maintenance.refresh_runtime_state", lambda *_args: gate)
+    monkeypatch.setattr("comicarr.db.get_engine", lambda: None)
+
+    app = SimpleNamespace(state=SimpleNamespace())
+    cm = lifespan(app)
+    await cm.__aenter__()
+    await cm.__aexit__(None, None, None)
+
+    if predicate_raises:
+        assert warnings == []
+    else:
+        assert len(warnings) == 1
+        assert "Fake feature" in warnings[0]
+
+
 def test_migrated_runtime_boundaries_have_no_unallowlisted_legacy_globals():
     """Prevent a new direct mutable-global dependency in the first ownership wave."""
     project_root = Path(__file__).resolve().parents[2]

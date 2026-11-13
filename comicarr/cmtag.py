@@ -7,7 +7,8 @@ import sys
 from packaging.version import parse as parse_version
 
 import comicarr
-from comicarr import filechecker, logger, notifiers
+from comicarr import filechecker, logger
+from comicarr.app.notifications import service as notifiers
 
 # A second save pass over an archive whose tags were just written: no online
 # fetch, no conversion. Generous enough for a large archive on slow storage,
