@@ -481,7 +481,7 @@ def _record_announced_version(latest_version):
 
 def _fan_out_release_announce(event, body, current_version, latest_version):
     """Send the release template through every ENABLED notifier (no snatch flags)."""
-    from comicarr import notifiers
+    from comicarr.app.notifications import service as notifiers
 
     module = "[RELEASE_ANNOUNCE]"
     mattermost_meta = {

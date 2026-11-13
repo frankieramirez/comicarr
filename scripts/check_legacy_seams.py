@@ -71,7 +71,6 @@ INFRASTRUCTURE = frozenset({"logger", "db", "tables", "config", "encrypted", "he
 # Foundations legacy module -> the seam modules allowed to import it under
 # comicarr/app/. Most seams do not exist yet; each seam ticket creates its file.
 SEAMS = {
-    "notifiers": frozenset({"comicarr/app/notifications/service.py"}),
     "weeklypull": frozenset({"comicarr/app/weekly/pull.py"}),
     "weeklypullit": frozenset({"comicarr/app/weekly/pull.py"}),
     "rsscheck": frozenset({"comicarr/app/search/rss.py"}),
@@ -137,10 +136,6 @@ FOUNDATIONS_ALLOWLIST = {
     ("comicarr/app/storyarcs/service.py", "importer"): (
         "Add missing series queues adds on importer_thread",
         "#1209 moves Series add behind app/series/add.py",
-    ),
-    ("comicarr/app/system/service.py", "notifiers"): (
-        "notify_ddl_stuck builds each notifiers class to report a stuck DDL download",
-        "#1202 moves notifications behind app/notifications/service.py and deletes notifiers.py",
     ),
     ("comicarr/app/weekly/service.py", "importer"): (
         "queues pull-list matches on issue_watcher_thread",
