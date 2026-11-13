@@ -34,6 +34,7 @@ primitives, and the frontend anti-pattern list. Read it before touching
 | Lint modern backend | `npm run lint:modern` (`comicarr/app` + `Comicarr.py`) |
 | Run every contributor gate | `npm run lint:guards` |
 | Lint all (CI parity) | `npm run lint` |
+| Benchmark (20k-issue library, local) | `npm run benchmark -- generate DIR` then `npm run benchmark -- run DIR` (`docs/testing/benchmark.md`) |
 | Regenerate settings types | `npm run lint:fix:generated` (after editing the config registry) |
 
 `frontend/src/types/config.generated.ts` is generated from `comicarr/app/config/registry.py` and committed. `npm run lint` fails if it is stale; a pre-commit hook regenerates it when the registry or `system/service.py` changes.

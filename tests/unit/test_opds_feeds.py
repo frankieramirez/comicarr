@@ -229,3 +229,18 @@ def test_links_keep_http_root_prefix(opds, monkeypatch):
     monkeypatch.setattr(comicarr.CONFIG, "HTTP_ROOT", "/comicarr/")
     raw, _ = _feed(opds, "/opds/")
     assert 'href="/comicarr/opds/publishers"' in raw
+
+
+def test_issue_download_marks_it_read_on_the_reading_list(opds, monkeypatch):
+    from comicarr import readinglist
+
+    marked = []
+
+    class _Readinglist:
+        def markasRead(self, IssueID):
+            marked.append(IssueID)
+
+    monkeypatch.setattr(readinglist, "Readinglist", _Readinglist)
+    response = opds.get("/opds/issues/i1", auth=AUTH)
+    assert response.status_code == 200
+    assert marked == ["i1"]

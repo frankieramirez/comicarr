@@ -711,9 +711,7 @@ def manga_scan(ctx: AppContext = Depends(get_context)):
 @router.get("/import/manga/progress", dependencies=[Depends(require_session)])
 def manga_scan_progress(ctx: AppContext = Depends(get_context)):
     """Get manga scan progress."""
-    from comicarr import mangasync
-
-    return mangasync.get_scan_progress()
+    return series_service.manga_scan_progress()
 
 
 @router.post("/import/manga/confirm", dependencies=[Depends(require_session)])
@@ -754,9 +752,7 @@ def comic_scan(ctx: AppContext = Depends(get_context)):
 @router.get("/import/comic/progress", dependencies=[Depends(require_session)])
 def comic_scan_progress(ctx: AppContext = Depends(get_context)):
     """Get comic scan progress."""
-    from comicarr import comicsync
-
-    return comicsync.get_scan_progress()
+    return series_service.comic_scan_progress()
 
 
 @router.post("/import/comic/confirm", dependencies=[Depends(require_session)])

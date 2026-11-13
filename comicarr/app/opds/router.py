@@ -29,7 +29,7 @@ from comicarr import db, helpers, logger
 from comicarr.app.common.library_roots import is_servable_library_file
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_opds_auth
-from comicarr.getimage import comic_pages, open_archive, page_count, scale_image
+from comicarr.app.opds.service import comic_pages, mark_issue_read, open_archive, page_count, scale_image
 from comicarr.tables import annuals, comics, issues, readlist, snatched, storyarcs
 
 router = APIRouter(prefix="/opds", tags=["opds"])
@@ -760,13 +760,7 @@ def opds_issue(
     if not is_servable_library_file(file_path, comicarr.CONFIG):
         return Response(status_code=403)
 
-    try:
-        from comicarr import readinglist
-
-        logger.fdebug("OPDS is attempting to markasRead filename %s aka issue_id %s" % (filename, resolved_issue_id))
-        readinglist.Readinglist().markasRead(IssueID=resolved_issue_id)
-    except Exception:
-        logger.fdebug("No reading list found to update.")
+    mark_issue_read(resolved_issue_id, filename)
 
     return FileResponse(
         path=file_path,
