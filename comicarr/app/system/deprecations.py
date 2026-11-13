@@ -11,7 +11,7 @@
 
 One entry per deprecated feature. An operator hears about an entry only when
 its ``in_use()`` says this install relies on it: one warning in the log at
-startup, and a row in Activity > Health through ``GET /system/deprecations``.
+startup, and a row in Activity > Health through ``GET /api/system/deprecations``.
 """
 
 from __future__ import annotations

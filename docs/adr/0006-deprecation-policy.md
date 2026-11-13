@@ -38,7 +38,7 @@ database to say whether this install relies on the feature.
    is visible at log level 0.
 
 No new SSE event type is added. The Health view reads the registry through the
-existing system endpoint, `GET /system/deprecations`.
+existing system endpoint, `GET /api/system/deprecations`.
 
 **Window.**
 
