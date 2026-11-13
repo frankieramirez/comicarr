@@ -19,7 +19,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from comicarr import logger
+from sqlalchemy import exists, select
+
+import comicarr
+from comicarr import db, logger
+from comicarr.tables import annuals, issues, storyarcs
 
 
 @dataclass(frozen=True)
@@ -43,7 +47,47 @@ class Deprecation:
         }
 
 
-REGISTRY: list[Deprecation] = []
+DOCS_URL = "https://comicarr.com/docs/deprecations"
+ADD_MISSING_SERIES = "Add what's missing on the story arc, so its series join your library and the arc's issues download and copy to the arc folder the normal way"
+
+
+def _arc_issue_wanted_without_library_issue() -> bool:
+    in_library = exists().where(issues.c.IssueID == storyarcs.c.IssueID)
+    in_annuals = exists().where(annuals.c.IssueID == storyarcs.c.IssueID)
+    row = db.select_one(
+        select(storyarcs.c.IssueArcID)
+        .where(storyarcs.c.Status.in_(["Wanted", "Snatched"]), ~in_library, ~in_annuals)
+        .limit(1)
+    )
+    return row is not None
+
+
+def _arc_folder_matching_on() -> bool:
+    if getattr(comicarr.CONFIG, "STORYARCDIR", False) is not True:
+        return False
+    return db.select_one(select(storyarcs.c.StoryArcID).limit(1)) is not None
+
+
+REGISTRY: list[Deprecation] = [
+    Deprecation(
+        id="storyarc-oneoff",
+        name="Downloading story-arc issues whose series is not in your library",
+        announced_in="0.52.0",
+        removable_from="1.0.0",
+        replacement=ADD_MISSING_SERIES,
+        docs_url=DOCS_URL + "#storyarc-oneoff",
+        in_use=_arc_issue_wanted_without_library_issue,
+    ),
+    Deprecation(
+        id="storyarc-folder-match",
+        name="Matching scanned files to a story arc when their series is not in your library",
+        announced_in="0.52.0",
+        removable_from="1.0.0",
+        replacement=ADD_MISSING_SERIES,
+        docs_url=DOCS_URL + "#storyarc-folder-match",
+        in_use=_arc_folder_matching_on,
+    ),
+]
 
 
 def deprecations_in_use() -> list[Deprecation]:
