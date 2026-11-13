@@ -556,7 +556,9 @@ def _resume_item_from_row(row, payload):
             }
         )
     elif route == "nzbget":
-        item["NZBID"] = payload.get("NZBID") or di.get("NZBID")
+        nzbid = payload.get("NZBID") or di.get("NZBID")
+        # The handoff saved NZBID as text; the live monitor holds NZBGet's integer (#1263).
+        item["NZBID"] = int(nzbid) if str(nzbid or "").isdigit() else nzbid
     return "nzb", item
 
 

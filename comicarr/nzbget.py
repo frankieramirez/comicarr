@@ -148,7 +148,7 @@ class NZBGet(object):
             return {"status": False}
         else:
             logger.fdebug("valid queue result returned. Analyzing...")
-            queuedl = [qu for qu in queueinfo if qu["NZBID"] == nzbid]
+            queuedl = [qu for qu in queueinfo if str(qu["NZBID"]) == str(nzbid)]
             if len(queuedl) == 0:
                 logger.warn("Unable to locate NZBID %s in active queue. Could it be finished already ?" % nzbid)
                 return self.historycheck(nzbinfo)
@@ -159,7 +159,7 @@ class NZBGet(object):
             while stat is False:
                 time.sleep(10)
                 queueinfo = self.server.listgroups()
-                queuedl = [qu for qu in queueinfo if qu["NZBID"] == nzbid]
+                queuedl = [qu for qu in queueinfo if str(qu["NZBID"]) == str(nzbid)]
                 if len(queuedl) == 0:
                     logger.fdebug("Item is no longer in active queue. It should be finished by my calculations")
                     stat = True
@@ -215,12 +215,20 @@ class NZBGet(object):
             time.sleep(5)
             return self.historycheck(nzbinfo)
 
+    def queuecheck(self, nzbid):
+        """True when NZBGet still has the job in its active queue.
+
+        NZBGet reports NZBID as an integer; a saved handoff holds it as a
+        string, so compare the two as text (#1263).
+        """
+        return any(str(qu.get("NZBID")) == str(nzbid) for qu in self.server.listgroups())
+
     def historycheck(self, nzbinfo):
         nzbid = nzbinfo["NZBID"]
         history = self.server.history(True)
         destdir = None
         double_pp = False
-        hq = [hs for hs in history if hs["NZBID"] == nzbid]
+        hq = [hs for hs in history if str(hs["NZBID"]) == str(nzbid)]
         if len(hq) > 0:
             logger.fdebug("found matching completed item in history. Job has a status of %s" % hq[0]["Status"])
             if len(hq[0]["ScriptStatuses"]) > 0:
