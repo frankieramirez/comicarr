@@ -38,6 +38,7 @@ import os
 import pathlib
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from sqlalchemy import Integer, and_, func, inspect, or_, select
@@ -244,6 +245,11 @@ class FolderMatches:
     ``nzblog`` row, a story-arc snatch or a pull-list one-off) rather than by
     filename. ``exit`` is ``"stop"`` or ``"outside"`` when the rules ended the
     request with that message, and ``"abort"`` when they ended it with none.
+
+    ``match_folder`` stops before the snatch lookup and hands it over as
+    ``find_snatched(log)``, which returns the finished ``FolderMatches``. The
+    legacy rules ran it after the arc-only files were placed, and the caller
+    keeps that order.
     """
 
     library: tuple
@@ -255,6 +261,7 @@ class FolderMatches:
     issue_arc_id: str | None
     comic_id: str | None
     log: str
+    find_snatched: Callable | None = None
 
 
 class _Scan:
@@ -282,11 +289,12 @@ class _Scan:
         self.manual_list = manual_list
         self.manual_arclist = manual_arclist
 
-    def result(self, exit, snatched=()):
-        # Matching that ends early hands nothing on; the snatch lookup ends
+    def result(self, exit, snatched=(), find_snatched=None):
+        # Matching that ends early hands nothing on; the snatch lookup runs
         # after the arc-only files were placed, so those still go.
-        library = self.manual_list if self.phase == "snatch" else []
-        arc_only = self.manual_arclist if self.phase == "snatch" else []
+        done = self.phase == "snatch" or find_snatched is not None
+        library = self.manual_list if done else []
+        arc_only = self.manual_arclist if done else []
         return FolderMatches(
             library=tuple(
                 LibraryIssueMatch(ml["ComicID"], ml["IssueID"], ml["IssueNumber"], ml["ComicLocation"], ml)
@@ -300,6 +308,7 @@ class _Scan:
             issue_arc_id=self.issuearcid,
             comic_id=self.comicid,
             log=self.log,
+            find_snatched=find_snatched,
         )
 
 
@@ -328,7 +337,6 @@ def match_folder(
     manual_list = []
     manual_arclist = []
     oneoff_issuelist = []
-    ppinfo = []
     if any([scan.nzb_name == "Manual Run", scan.issueid is not None, scan.comicid is not None, scan.apicall is True]):
         if (
             all([scan.issueid is None, scan.comicid is not None, scan.apicall is True])
@@ -2474,7 +2482,19 @@ def match_folder(
             )
 
     scan.matched_files(manual_list, manual_arclist)
+    return scan.result(None, find_snatched=lambda log: _find_snatched(scan, module, oneoff_issuelist, log))
+
+
+def _find_snatched(scan, module, oneoff_issuelist, log):
+    """The second half of the rules: downloads identified from what was snatched.
+
+    The caller runs it after placing the arc-only files, because placing one
+    can complete its snatch and so change what this finds. ``log`` is the
+    request's narration so far.
+    """
     scan.phase = "snatch"
+    scan.log = log
+    ppinfo = []
     if (
         all([scan.nzb_name != "Manual Run", scan.apicall is False])
         or (scan.oneoffinlist is True or all([scan.issuearcid is not None, scan.issueid is None]))
@@ -2555,7 +2575,6 @@ def match_folder(
                 tmpiss = db.select_one(
                     select(annuals).where(and_(annuals.c.IssueID == issueid, annuals.c.Deleted != 1))
                 )
-            comicid = None
             if tmpiss is not None:
                 ppinfo.append(
                     {

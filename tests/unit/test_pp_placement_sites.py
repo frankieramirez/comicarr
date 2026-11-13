@@ -10,8 +10,9 @@
 """Call-shape characterization for the post-processor's placement sites.
 
 These five sites had **zero** line coverage before this suite: no test in the
-repo called `Process_next` or `nzb_or_oneoff_pp`, and
-`test_pp_complete_ordering.py:579` says why -- "full Process_next needs
+repo drove the per-issue path (`process_comic_issue`, once `Process_next`) or
+the snatched-download path (`process_snatched_match`, once `nzb_or_oneoff_pp`),
+and `test_pp_complete_ordering.py:579` says why -- "full Process_next needs
 extensive series fixtures". One site did not justify building them. Five does.
 
 Two things are pinned per site, and the second is the valuable one:
@@ -21,8 +22,8 @@ Two things are pinned per site, and the second is the valuable one:
    change which config key is read and what happens to an occupied destination.
 2. **The caller's reaction to a failure** -- which is where these five sites
    genuinely differ, and where an asymmetry nobody chose is written down for the
-   first time. Sites that put `mode: stop` on the queue halt post-processing;
-   sites that `return` bare leave the queue empty, and `process.py:83`'s
+   first time. Sites that post `mode: stop` (`run.finish`) halt post-processing;
+   sites that `run.abort()` post nothing, and `process.py:83`'s
    `if not ppqueue.empty()` guard means the worker then carries on as though
    post-processing had succeeded. That is preserved here under the map's
    standing constraint, not fixed -- but it is no longer invisible.
@@ -30,7 +31,6 @@ Two things are pinned per site, and the second is the valuable one:
 
 import ast
 import pathlib
-import queue as queuelib
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -39,9 +39,10 @@ from sqlalchemy import insert
 import comicarr
 from comicarr import postprocessor
 from comicarr.app.common.placement import OnExisting, PlacementError, Purpose
+from comicarr.app.downloads import postprocess_pipeline
 from comicarr.db import get_engine, shutdown_engine
-from comicarr.postprocessor import PostProcessor
 from comicarr.tables import comics, issues, metadata
+from tests.fakes import folder_request
 
 
 class Config:
@@ -138,27 +139,18 @@ def library(tmp_path):
 
 
 def _post_processor(download, **kwargs):
-    apilock = MagicMock()
-    apilock.locked.return_value = False
-    with patch.object(comicarr, "APILOCK", apilock), patch.object(comicarr, "CONFIG", Config()):
-        return PostProcessor(
-            nzb_name="Saga 001.cbz",
-            nzb_folder=str(download),
-            comicid="C1",
-            issueid="I1",
-            queue=MagicMock(spec=queuelib.Queue),
-            **kwargs,
-        )
+    return folder_request.folder_run("Saga 001.cbz", download, "I1", comicid="C1", **kwargs)
 
 
 def _drive_process_next(library, monkeypatch, *, config=None, place=None, ml=None, **pp_kwargs):
-    """Run Process_next to completion, capturing every placement call.
+    """Run one library issue (the old Process_next) to completion, capturing every placement call.
 
     Everything downstream of placement -- library totals, search bookkeeping,
     notifications -- is stubbed. This suite is about what reaches the stage and
     what the caller does when it raises, not about the DB facts that follow.
+    Returns the run, the placement calls, and how the item ended.
     """
-    pp = _post_processor(library["download"], **pp_kwargs)
+    run = _post_processor(library["download"], **pp_kwargs)
     calls = []
     real_place = postprocessor.place
 
@@ -176,16 +168,17 @@ def _drive_process_next(library, monkeypatch, *, config=None, place=None, ml=Non
         patch("comicarr.updater.foundsearch"),
         patch("comicarr.app.notifications.service", MagicMock()),
     ):
-        pp.Process_next("C1", "I1", "1", ml=ml)
+        deps = postprocessor.pipeline_deps()
+        result = postprocess_pipeline._process_library_issue(run, deps, "C1", "I1", "1", ml)
 
-    return pp, calls
+    return run, calls, result
 
 
 class TestNonManualSeriesPlacement:
-    """postprocessor.py -- Process_next, the primary non-manual path."""
+    """postprocess_pipeline.py -- process_comic_issue (once Process_next), the primary non-manual path."""
 
     def test_places_the_grab_into_the_series_folder_as_a_series_file(self, library, monkeypatch):
-        pp, calls = _drive_process_next(library, monkeypatch)
+        pp, calls, result = _drive_process_next(library, monkeypatch)
 
         assert len(calls) == 1
         (source, destination, purpose), keywords = calls[0]
@@ -214,12 +207,12 @@ class TestNonManualSeriesPlacement:
         def boom(*_args, **_kwargs):
             raise PlacementError("disk full")
 
-        pp, calls = _drive_process_next(library, monkeypatch, place=boom)
+        pp, calls, result = _drive_process_next(library, monkeypatch, place=boom)
 
         assert len(calls) == 1
-        pp.queue.put.assert_called_once()
-        payload = pp.queue.put.call_args[0][0]
-        assert payload[0]["mode"] == "stop"
+        assert result.queued is True
+        assert len(pp.messages) == 1
+        assert pp.messages[0]["mode"] == "stop"
 
     def test_a_denied_move_logs_release_paths_and_traceback(self, library, monkeypatch, capture_logs):
         def denied(*_args, **_kwargs):
@@ -245,7 +238,7 @@ class TestNonManualSeriesPlacement:
 
 
 def _manual_list(library):
-    """A watchlist story-arc match, which is what puts Process_next on its
+    """A watchlist story-arc match, which is what puts process_comic_issue on its
     manual-run branch."""
     return {
         "ComicID": "C1",
@@ -257,10 +250,10 @@ def _manual_list(library):
 
 
 class TestManualRunSeriesPlacement:
-    """postprocessor.py -- Process_next, the manual-run branch (`ml` is not None)."""
+    """postprocess_pipeline.py -- process_comic_issue, the manual-run branch (`ml` is not None)."""
 
     def test_places_as_a_series_file_with_the_same_intent_as_the_automatic_path(self, library, monkeypatch):
-        pp, calls = _drive_process_next(library, monkeypatch, ml=_manual_list(library))
+        pp, calls, result = _drive_process_next(library, monkeypatch, ml=_manual_list(library))
 
         series_calls = [c for c in calls if c[0][2] is Purpose.SERIES]
         assert series_calls, "the manual-run branch must place the grab"
@@ -276,15 +269,16 @@ class TestManualRunSeriesPlacement:
         def boom(*_args, **_kwargs):
             raise PlacementError("disk full")
 
-        pp, _calls = _drive_process_next(library, monkeypatch, place=boom, ml=_manual_list(library))
+        pp, _calls, result = _drive_process_next(library, monkeypatch, place=boom, ml=_manual_list(library))
 
-        pp.queue.put.assert_called_once()
-        assert pp.queue.put.call_args[0][0][0]["mode"] == "stop"
+        assert result.queued is True
+        assert len(pp.messages) == 1
+        assert pp.messages[0]["mode"] == "stop"
         assert pp.failed_files == 1
 
 
 class TestStoryArcDirectoryPlacement:
-    """postprocessor.py -- Process_next's COPY2ARCDIR secondary placement.
+    """postprocess_pipeline.py -- process_comic_issue's COPY2ARCDIR secondary placement.
 
     A second, arc-shaped placement of the file the primary placement just put in
     the series folder. It reads ARC_FILEOPS rather than FILE_OPTS, and its arc
@@ -320,7 +314,7 @@ class TestStoryArcDirectoryPlacement:
 
     def test_the_arc_copy_carries_arc_intent(self, library, monkeypatch, arc):
         config = Config(COPY2ARCDIR=True, STORYARCDIR=True, STORYARC_LOCATION=str(arc), ARC_FOLDERFORMAT="$arc")
-        _pp, calls = _drive_process_next(library, monkeypatch, config=config, ml=_manual_list(library))
+        _pp, calls, result = _drive_process_next(library, monkeypatch, config=config, ml=_manual_list(library))
 
         arc_calls = [c for c in calls if c[0][2] is Purpose.ARC]
         assert arc_calls, "COPY2ARCDIR must place the file into the arc directory"
@@ -333,7 +327,7 @@ class TestStoryArcDirectoryPlacement:
 
     def test_the_primary_placement_still_happens_first(self, library, monkeypatch, arc):
         config = Config(COPY2ARCDIR=True, STORYARCDIR=True, STORYARC_LOCATION=str(arc), ARC_FOLDERFORMAT="$arc")
-        _pp, calls = _drive_process_next(library, monkeypatch, config=config, ml=_manual_list(library))
+        _pp, calls, result = _drive_process_next(library, monkeypatch, config=config, ml=_manual_list(library))
 
         purposes = [c[0][2] for c in calls]
         assert purposes.index(Purpose.SERIES) < purposes.index(Purpose.ARC)
@@ -341,8 +335,8 @@ class TestStoryArcDirectoryPlacement:
     def test_a_failed_arc_copy_returns_without_signalling_the_queue(self, library, monkeypatch, arc):
         """Preserved, not endorsed.
 
-        This site swallows the failure: it returns without putting `mode: stop`
-        on the queue, so `process.py:83`'s `if not ppqueue.empty()` guard leaves
+        This site swallows the failure: it returns `run.abort()` without posting
+        `mode: stop`, so `process.py:83`'s `if not ppqueue.empty()` guard leaves
         the worker believing post-processing succeeded. The automatic and
         manual-run sites both signal. Nobody chose this asymmetry; the map's
         standing constraint keeps it, and this test makes it visible.
@@ -355,17 +349,19 @@ class TestStoryArcDirectoryPlacement:
                 raise PlacementError("arc directory is read-only")
             return real_place(source, destination, purpose, **kwargs)
 
-        pp, calls = _drive_process_next(
+        pp, calls, result = _drive_process_next(
             library, monkeypatch, config=config, place=boom_on_arc, ml=_manual_list(library)
         )
 
         assert any(c[0][2] is Purpose.ARC for c in calls)
-        pp.queue.put.assert_not_called()
+        assert result.queued is False
+        assert pp.messages == []
 
 
 def _drive_nzb_or_oneoff(library, monkeypatch, *, config=None, place=None, tinfo_overrides=None):
+    """Run one snatched download (the old nzb_or_oneoff_pp) through ``process_snatched_match``."""
     config = config or Config(GRABBAG_DIR=str(library["series_folder"]))
-    pp = _post_processor(library["download"])
+    run = _post_processor(library["download"])
     calls = []
     real_place = postprocessor.place
 
@@ -399,21 +395,22 @@ def _drive_nzb_or_oneoff(library, monkeypatch, *, config=None, place=None, tinfo
         patch.object(comicarr, "CONFIG", config),
         patch("comicarr.updater.totals"),
         patch("comicarr.updater.foundsearch"),
-        patch.object(postprocessor.db, "upsert"),
+        patch.object(postprocess_pipeline.db, "upsert"),
         patch("comicarr.app.notifications.service", MagicMock()),
     ):
-        pp.nzb_or_oneoff_pp(tinfo=tinfo)
+        deps = postprocessor.pipeline_deps()
+        result = postprocess_pipeline.process_snatched_match(run, deps, tinfo=tinfo)
 
-    return pp, calls
+    return run, calls, result
 
 
 class TestOneOffAndGrabBagPlacement:
-    """postprocessor.py -- nzb_or_oneoff_pp, the one-off / grab-bag path."""
+    """postprocess_pipeline.py -- process_snatched_match (once nzb_or_oneoff_pp), the one-off / grab-bag path."""
 
     def test_places_with_series_intent(self, library, monkeypatch):
-        _pp, calls = _drive_nzb_or_oneoff(library, monkeypatch)
+        _pp, calls, result = _drive_nzb_or_oneoff(library, monkeypatch)
 
-        assert calls, "nzb_or_oneoff_pp must place the grab"
+        assert calls, "process_snatched_match must place the grab"
         (_source, _destination, purpose), keywords = calls[0]
         assert purpose is Purpose.SERIES
         assert keywords["on_existing"] is OnExisting.UNGUARDED
@@ -422,24 +419,26 @@ class TestOneOffAndGrabBagPlacement:
         def boom(*_args, **_kwargs):
             raise PlacementError("disk full")
 
-        pp, calls = _drive_nzb_or_oneoff(library, monkeypatch, place=boom)
+        pp, calls, result = _drive_nzb_or_oneoff(library, monkeypatch, place=boom)
 
         assert calls
-        pp.queue.put.assert_called_once()
-        assert pp.queue.put.call_args[0][0][0]["mode"] == "stop"
+        assert result.queued is True
+        assert len(pp.messages) == 1
+        assert pp.messages[0]["mode"] == "stop"
 
 
 class TestOneOffStoryArcPlacementCallShape:
-    """postprocessor.py -- Process()'s one-off story-arc placement.
+    """postprocess_pipeline.py -- ``place_arc_only_matches``'s one-off story-arc placement.
 
-    **This site has no behavioural test.** Reaching it means driving `Process()`
-    far enough to build `manual_arclist`, which requires the whole file-matching
-    phase -- FileChecker over a download tree, watchlist match verification,
-    story-arc reading-order lookups -- not just the placement phase that
-    `Process_next` and `nzb_or_oneoff_pp` expose. That was beyond the fixture
-    budget for this migration, and #336 decided the tiebreak in advance: the site
-    migrates anyway, because leaving one of eight on the legacy helper is worse
-    than migrating it without a behavioural test.
+    **This site has no behavioural test.** Reaching it means driving a whole
+    request far enough to build `manual_arclist`, which requires the whole
+    file-matching phase (`match_folder`) -- FileChecker over a download tree,
+    watchlist match verification, story-arc reading-order lookups -- not just
+    the placement phase that `process_comic_issue` and `process_snatched_match`
+    expose. That was beyond the fixture budget for this migration, and #336
+    decided the tiebreak in advance: the site migrates anyway, because leaving
+    one of eight on the legacy helper is worse than migrating it without a
+    behavioural test.
 
     What is left is a source-level pin. It cannot catch a runtime bug, but it
     does catch the two things a careless edit would change silently: the intent
@@ -447,35 +446,35 @@ class TestOneOffStoryArcPlacementCallShape:
     """
 
     @staticmethod
-    def _placement_calls():
-        source = pathlib.Path(postprocessor.__file__).read_text()
-        tree = ast.parse(source)
-        return [
-            node
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "place"
-        ]
+    def _is_placement(node):
+        """A ``deps.place(...)`` call: the pipeline places only through its deps."""
+        return isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "place"
 
-    def test_every_placement_names_its_policy_explicitly(self):
-        calls = self._placement_calls()
-
-        assert len(calls) == 2, "expected two placements in postprocessor.py, found %d" % len(calls)
-        for call in calls:
-            keywords = {kw.arg for kw in call.keywords}
-            assert "on_existing" in keywords, "a placement at line %d names no policy" % call.lineno
-
-    def test_every_pipeline_placement_names_its_policy_explicitly(self):
-        """The per-item sites moved to the pipeline, which places through ``deps.place``."""
-        from comicarr.app.downloads import postprocess_pipeline
-
+    @classmethod
+    def _placement_calls(cls):
         tree = ast.parse(pathlib.Path(postprocess_pipeline.__file__).read_text())
+        return [node for node in ast.walk(tree) if cls._is_placement(node)]
+
+    def test_the_matcher_places_nothing(self):
+        """Matching is pure; every placement site lives in the pipeline."""
+        tree = ast.parse(pathlib.Path(postprocessor.__file__).read_text())
         calls = [
             node
             for node in ast.walk(tree)
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "place"
+            if isinstance(node, ast.Call)
+            and (
+                (isinstance(node.func, ast.Name) and node.func.id == "place")
+                or (isinstance(node.func, ast.Attribute) and node.func.attr == "place")
+            )
         ]
 
-        assert len(calls) == 3, "expected three placements in postprocess_pipeline.py, found %d" % len(calls)
+        assert calls == [], "postprocessor.py places at line(s) %s" % [c.lineno for c in calls]
+
+    def test_every_pipeline_placement_names_its_policy_explicitly(self):
+        """The two sites once in ``Process()`` joined the three per-item sites in the pipeline."""
+        calls = self._placement_calls()
+
+        assert len(calls) == 5, "expected five placements in postprocess_pipeline.py, found %d" % len(calls)
         for call in calls:
             keywords = {kw.arg for kw in call.keywords}
             assert "on_existing" in keywords, "a placement at line %d names no policy" % call.lineno
@@ -501,12 +500,12 @@ class TestOneOffStoryArcPlacementCallShape:
     def test_the_one_off_site_swallows_failure_without_signalling_the_queue(self):
         """Preserved, not endorsed -- the same asymmetry the arc site has.
 
-        `Process()` returns bare here, so `process.py:83`'s empty-queue guard
-        leaves the worker believing post-processing succeeded. Pinned at source
-        level so a change is deliberate rather than accidental.
+        The site returns ``run.abort()``, which posts no message, so
+        `process.py:83`'s empty-queue guard leaves the worker believing
+        post-processing succeeded. (``Process()`` returned bare here.) Pinned
+        at source level so a change is deliberate rather than accidental.
         """
-        source = pathlib.Path(postprocessor.__file__).read_text()
-        tree = ast.parse(source)
+        tree = ast.parse(pathlib.Path(postprocess_pipeline.__file__).read_text())
 
         one_off_handlers = []
         for node in ast.walk(tree):
@@ -515,7 +514,7 @@ class TestOneOffStoryArcPlacementCallShape:
             names = {
                 arg.attr
                 for call in ast.walk(node)
-                if isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == "place"
+                if self._is_placement(call)
                 for arg in call.args
                 if isinstance(arg, ast.Attribute)
             }
@@ -525,7 +524,18 @@ class TestOneOffStoryArcPlacementCallShape:
         assert one_off_handlers, "the one-off placement must stay inside a try"
         returns = [n for handler in one_off_handlers for n in ast.walk(handler) if isinstance(n, ast.Return)]
         assert returns, "the one-off failure path must return"
-        assert all(r.value is None for r in returns), (
-            "the one-off site returns bare today, signalling nothing to the queue worker; "
+        assert all(
+            isinstance(r.value, ast.Call)
+            and isinstance(r.value.func, ast.Attribute)
+            and r.value.func.attr == "abort"
+            and not r.value.args
+            for r in returns
+        ), (
+            "the one-off site returns run.abort() today, signalling nothing to the queue worker; "
             "changing that is a behaviour change and needs its own decision"
         )
+        assert not any(
+            isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "finish"
+            for handler in one_off_handlers
+            for n in ast.walk(handler)
+        ), "the one-off failure path must post no message"

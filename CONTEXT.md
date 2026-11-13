@@ -110,7 +110,7 @@ _Avoid_: Old code, Mylar code
 
 The one module under `comicarr/app/` allowed to import a given Legacy module. It exposes typed functions to modern callers and hides Mylar3 calling conventions such as status strings and queues. Putting a module behind its seam does not require rewriting it.
 
-_Avoid_: Facade (reserved for the legacy `PostProcessor` class being retired), wrapper, adapter (reserved for download and torrent clients)
+_Avoid_: Facade (reserved for the retired legacy `PostProcessor` class), wrapper, adapter (reserved for download and torrent clients)
 
 ## Series add
 

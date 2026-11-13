@@ -30,11 +30,11 @@ from sqlalchemy import create_engine, select
 
 import comicarr
 from comicarr import rsscheck
-from comicarr.postprocessor import PostProcessor
 from comicarr.tables import comics, metadata
+from tests.fakes import folder_request
 
 
-def _make_pp(comicid):
+def _process(comicid):
     lock = MagicMock()
     lock.locked.return_value = False
     config = MagicMock()
@@ -42,41 +42,33 @@ def _make_pp(comicid):
     config.IGNORE_SEARCH_WORDS = []
     config.PRE_SCRIPTS = None
     with patch.object(comicarr, "APILOCK", lock), patch.object(comicarr, "CONFIG", config):
-        return PostProcessor(
-            nzb_name="Chapter 1.cbz",
-            nzb_folder="/tmp/downloads",
-            comicid=comicid,
-            queue=MagicMock(),
-            apicall=True,
-        )
+        return folder_request.process("Chapter 1.cbz", "/tmp/downloads", comicid=comicid, apicall=True)
 
 
 class TestPostProcessingRoutesBothProviders:
     @pytest.mark.parametrize("comicid", ("md-abc123", "mal-161890"))
     def test_manga_ids_reach_the_manga_path(self, comicid):
-        pp = _make_pp(comicid)
-
         with (
-            patch.object(pp, "_process_manga", return_value=None) as process_manga,
-            patch("comicarr.postprocessor.db") as mock_db,
+            patch(
+                "comicarr.app.downloads.postprocess_pipeline.process_manga_download", return_value=None
+            ) as process_manga,
+            patch("comicarr.app.downloads.postprocess_pipeline.db") as mock_db,
         ):
             mock_db.select_one.return_value = {"ComicID": comicid, "ContentType": "manga"}
-            pp.Process()
+            _process(comicid)
 
         process_manga.assert_called_once()
 
     def test_a_comicvine_id_still_does_not(self):
-        pp = _make_pp("12345")
-
         with (
-            patch.object(pp, "_process_manga") as process_manga,
+            patch("comicarr.app.downloads.postprocess_pipeline.process_manga_download") as process_manga,
             patch("comicarr.postprocessor.filechecker") as filechecker,
-            patch("comicarr.postprocessor.db") as mock_db,
+            patch("comicarr.app.downloads.postprocess_pipeline.db") as mock_db,
         ):
             mock_db.select_one.return_value = {"ComicID": "12345"}
             filechecker.FileChecker.return_value.listFiles.return_value = {"comiccount": 0, "comiclist": []}
             try:
-                pp.Process()
+                _process("12345")
             except Exception:
                 pass
 

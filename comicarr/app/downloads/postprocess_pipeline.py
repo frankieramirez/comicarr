@@ -2226,13 +2226,18 @@ def process_download(request: PostProcessRequest, *, match: Callable, deps: Post
 def process_folder_matches(run: PostProcessRun, deps: PostProcessItemDeps, matches):
     """Place what a folder scan matched, in the order the legacy rules did.
 
-    Arc-only files go first. A scan the rules ended stops there; otherwise
-    each snatched download is processed, then the library matches.
+    Arc-only files go first, then the snatch lookup the matcher handed back
+    runs. A scan the rules ended stops there; otherwise each snatched
+    download is processed, then the library matches.
     """
     library = [m.values for m in matches.library]
     arc_only = [m.values for m in matches.arc_only]
-    if place_arc_only_matches(run, deps, arc_only) is not None:
-        return
+    if matches.exit is None:
+        if place_arc_only_matches(run, deps, arc_only) is not None:
+            return
+        if matches.find_snatched is not None:
+            matches = matches.find_snatched(run.log)
+            run.log = matches.log
     if matches.exit == "abort":
         return
     if matches.exit is not None:

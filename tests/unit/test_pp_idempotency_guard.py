@@ -20,7 +20,7 @@ Covers the U4 contract:
     ({nzb_name, nzb_folder, failed, issueid, comicid, apicall}) — never
     `download_info`/`ddl`/provider/hash. It is identical on both paths.
   * That exact canonical key is threaded through `postprocessing._post_process` ->
-    `PostProcessor` so U3's `moved`/`post_processed` markers advance the SAME
+    the post-processing run so U3's `moved`/`post_processed` markers advance the SAME
     journal row this claim advanced (single-derivation invariant), not an
     orphan row.
   * A journal read/write failure inside the guard does NOT crash the worker —
@@ -41,9 +41,10 @@ from sqlalchemy import select
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.downloads import journal, postprocessing, service
+from comicarr.app.downloads.postprocess_pipeline import _JOURNAL
 from comicarr.db import get_engine, shutdown_engine
-from comicarr.postprocessor import PostProcessor
 from comicarr.tables import metadata, pipeline_journal
+from tests.fakes import folder_request
 
 
 @pytest.fixture(autouse=True)
@@ -350,26 +351,19 @@ def test_threaded_canonical_key_is_what_pp_markers_use():
     captured_pp = {}
 
     def _factory(item):
-        # Build a real PostProcessor threaded with the canonical key, like
+        # Build a real PostProcessRun threaded with the canonical key, like
         # the production execution adapter does, and drive its U3 markers.
-        mock_apilock = MagicMock()
-        mock_apilock.locked.return_value = False
-        cfg = MagicMock()
-        cfg.FILE_OPTS = "move"
-        cfg.IGNORE_SEARCH_WORDS = []
-        with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", cfg):
-            pp = PostProcessor(
-                nzb_name="Saga.001.cbz",
-                nzb_folder="/tmp/dl",
-                comicid="C1",
-                issueid="Ithr",
-                queue=MagicMock(spec=queuelib.Queue),
-                journal_release_key=item.get("journal_release_key"),
-            )
+        pp = folder_request.folder_run(
+            nzb_name="Saga.001.cbz",
+            nzb_folder="/tmp/dl",
+            comicid="C1",
+            issueid="Ithr",
+            journal_release_key=item.get("journal_release_key"),
+        )
         captured_pp["pp"] = pp
         # The PP markers (moved/post_processed) advance the threaded row.
-        pp._journal_pp("moved", issueid="Ithr")
-        pp._journal_pp("post_processed", issueid="Ithr")
+        pp.journal("moved", issue_id="Ithr")
+        pp.journal("post_processed", issue_id="Ithr")
         return None
 
     q = queuelib.Queue()
@@ -379,9 +373,9 @@ def test_threaded_canonical_key_is_what_pp_markers_use():
         service.postprocess_main(q)
 
     pp = captured_pp["pp"]
-    # The PostProcessor prefers the threaded canonical key over re-derivation.
-    assert pp.journal_release_key == canonical
-    assert pp._journal_release_key(issueid="Ithr") == canonical
+    # The run prefers the threaded canonical key over re-derivation.
+    assert pp.context.canonical_release_key == canonical
+    assert _JOURNAL.release_key(pp.context, issue_id="Ithr") == canonical
     # The markers advanced the SAME row the claim advanced (no orphan row).
     assert len(_rows(pipeline_journal)) == 1
     assert _stage_of(canonical) == "post_processed"
@@ -389,23 +383,16 @@ def test_threaded_canonical_key_is_what_pp_markers_use():
 
 def test_unjournaled_pp_falls_back_to_rederivation():
     """When no canonical key is threaded (manual/API/ComicRN PP with no
-    journal row), the PostProcessor falls back to its U3 re-derivation — a
+    journal row), the run falls back to its U3 re-derivation — a
     safe monotonic no-op worst case, backward compatible with U3 behavior."""
-    mock_apilock = MagicMock()
-    mock_apilock.locked.return_value = False
-    cfg = MagicMock()
-    cfg.FILE_OPTS = "move"
-    cfg.IGNORE_SEARCH_WORDS = []
-    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", cfg):
-        pp = PostProcessor(
-            nzb_name="Saga.001.cbz",
-            nzb_folder="/tmp/dl",
-            comicid="C1",
-            issueid="Iman",
-            queue=MagicMock(spec=queuelib.Queue),
-            # journal_release_key omitted (default None) — unjournaled PP
-        )
-    assert pp.journal_release_key is None
+    pp = folder_request.folder_run(
+        nzb_name="Saga.001.cbz",
+        nzb_folder="/tmp/dl",
+        comicid="C1",
+        issueid="Iman",
+        # journal_release_key omitted (default None) — unjournaled PP
+    )
+    assert pp.context.canonical_release_key is None
     # Falls back to the U3 derivation over in-scope identity fields.
     expected = journal.derive_release_key(
         {
@@ -416,7 +403,7 @@ def test_unjournaled_pp_falls_back_to_rederivation():
             "ddl": False,
         }
     )
-    assert pp._journal_release_key(issueid="Iman") == expected
+    assert _JOURNAL.release_key(pp.context, issue_id="Iman") == expected
 
 
 # ---------------------------------------------------------------------------
@@ -490,25 +477,18 @@ def test_end_to_end_key_continuity_one_row_whole_lifecycle():
     def _factory(item):
         threaded = item.get("journal_release_key")
         captured["threaded"] = threaded
-        # Build a real PostProcessor threaded with the propagated key (as
+        # Build a real PostProcessRun threaded with the propagated key (as
         # postprocessing._post_process does) and drive its U3 moved/post_processed markers.
-        mock_apilock = MagicMock()
-        mock_apilock.locked.return_value = False
-        cfg = MagicMock()
-        cfg.FILE_OPTS = "move"
-        cfg.IGNORE_SEARCH_WORDS = []
-        with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", cfg):
-            pp = PostProcessor(
-                nzb_name="Bone.012.cbz",
-                nzb_folder="/tmp/dl",
-                comicid="C1",
-                issueid="Ie2e",
-                queue=MagicMock(spec=queuelib.Queue),
-                journal_release_key=threaded,
-            )
-        captured["marker_key"] = pp._journal_release_key(issueid="Ie2e")
-        pp._journal_pp("moved", issueid="Ie2e")
-        pp._journal_pp("post_processed", issueid="Ie2e")
+        pp = folder_request.folder_run(
+            nzb_name="Bone.012.cbz",
+            nzb_folder="/tmp/dl",
+            comicid="C1",
+            issueid="Ie2e",
+            journal_release_key=threaded,
+        )
+        captured["marker_key"] = _JOURNAL.release_key(pp.context, issue_id="Ie2e")
+        pp.journal("moved", issue_id="Ie2e")
+        pp.journal("post_processed", issue_id="Ie2e")
         return None
 
     q = queuelib.Queue()

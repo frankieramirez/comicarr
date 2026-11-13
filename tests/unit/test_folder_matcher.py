@@ -18,14 +18,16 @@ the pipeline, so they pin the inherited rules rather than describe new ones.
 import pathlib
 import time
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
+from sqlalchemy import select
 
 import comicarr
 from comicarr import db
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.tables import annuals, comics, issues, metadata, storyarcs
-from tests.fakes import pipeline
+from tests.fakes import folder_request, pipeline
 
 
 @pytest.fixture(autouse=True)
@@ -86,6 +88,9 @@ def _scan(folder):
         refresh_series=refreshed.extend,
         rename=lambda src, dst: pathlib.Path(src).replace(dst),
     )
+    assert matches.exit is None
+    if matches.find_snatched is not None:
+        matches = matches.find_snatched(matches.log)
     assert matches.exit is None
     return {
         "library": [(m.comic_id, m.issue_id, m.issue_number, m.location) for m in matches.library],
@@ -200,7 +205,11 @@ def test_a_manga_chapter_matches_its_chapter_row(tmp_path):
     series_root = tmp_path / "library" / pipeline.MANGA_SERIES
     series_root.mkdir(parents=True)
     with db.get_engine().begin() as conn:
-        conn.execute(comics.insert().values(**pipeline.manga_series_row(series_root, LatestDate="2021-01-10", intLatestIssue=10000)))
+        conn.execute(
+            comics.insert().values(
+                **pipeline.manga_series_row(series_root, LatestDate="2021-01-10", intLatestIssue=10000)
+            )
+        )
         for row in pipeline.manga_chapter_rows():
             conn.execute(issues.insert().values(**row))
     path = _download(tmp_path, "%s c010.cbz" % pipeline.MANGA_SERIES)
@@ -212,3 +221,131 @@ def test_a_manga_chapter_matches_its_chapter_row(tmp_path):
         "arc_only": [],
         "one_off": [],
     }
+
+
+def _arc_row(**overrides):
+    row = dict(
+        StoryArcID="arc-1",
+        IssueArcID="arc-1_issue",
+        StoryArc="Zero Year",
+        ComicName="Batman",
+        DynamicComicName="batman",
+        ComicID="other-series",
+        IssueID="other-issue",
+        IssueNumber="24",
+        Int_IssueNumber=24000,
+        IssueName="Zero Year",
+        ReadingOrder=1,
+        Status="Wanted",
+        IssueDate="2013-10-01",
+        ReleaseDate="2013-09-11",
+        SeriesYear="2011",
+        Publisher="DC Comics",
+        IssuePublisher="DC Comics",
+        IssueYEAR="2013",
+        TotalIssues=12,
+        Type="Print",
+        Volume="v2",
+        Manual=None,
+    )
+    row.update(overrides)
+    return row
+
+
+def _processed(folder):
+    with (
+        patch("comicarr.updater.foundsearch"),
+        patch("comicarr.app.notifications.service"),
+    ):
+        return folder_request.process("Manual Run", folder)
+
+
+def test_a_manual_scan_places_a_library_match_in_its_series_folder(tmp_path, library):
+    path = _download(tmp_path, pipeline.FILENAME)
+
+    messages = _processed(path.parent)
+
+    assert messages[-1]["mode"] == "stop"
+    assert (library / pipeline.FILENAME).exists()
+    row = db.select_one(select(issues).where(issues.c.IssueID == pipeline.ISSUE_ID))
+    assert row["Status"] == "Downloaded"
+
+
+def test_a_manual_scan_copies_an_arc_only_file_into_its_arc_folder(tmp_path, library, monkeypatch):
+    monkeypatch.setattr(comicarr.CONFIG, "STORYARCDIR", True)
+    monkeypatch.setattr(comicarr.CONFIG, "COPY2ARCDIR", True)
+    monkeypatch.setattr(comicarr.CONFIG, "ARC_FILEOPS", "copy", raising=False)
+    with db.get_engine().begin() as conn:
+        conn.execute(storyarcs.insert().values(**_arc_row()))
+    path = _download(tmp_path, "Batman 024 (2013).cbz")
+
+    _processed(path.parent)
+
+    row = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == "arc-1_issue"))
+    assert row["Status"] == "Downloaded"
+    assert row["Location"] is not None
+    placed = pathlib.Path(row["Location"])
+    assert placed.exists()
+    assert placed.parent != path.parent
+    assert "Zero Year" in str(placed.parent)
+
+
+def test_only_the_facade_imports_the_folder_matcher_module():
+    import ast
+
+    root = pathlib.Path(__file__).resolve().parents[2]
+    source = (root / "comicarr" / "postprocessor.py").read_text(encoding="utf-8")
+    assert "class PostProcessor" not in source
+    assert "class FolderCheck" not in source
+    importers = set()
+    for path in (root / "comicarr").rglob("*.py"):
+        if "_vendor" in path.parts:
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import) and any(a.name == "comicarr.postprocessor" for a in node.names):
+                importers.add(path.relative_to(root).as_posix())
+            elif isinstance(node, ast.ImportFrom) and (
+                node.module == "comicarr.postprocessor"
+                or (node.module == "comicarr" and any(a.name == "postprocessor" for a in node.names))
+            ):
+                importers.add(path.relative_to(root).as_posix())
+    assert importers == {"comicarr/app/downloads/postprocessing.py"}
+
+
+def test_the_snatch_lookup_runs_after_the_arc_only_files_are_placed(tmp_path, monkeypatch):
+    """Placing an arc-only file can complete its snatch, so the lookup waits."""
+    from comicarr import postprocessor
+    from comicarr.app.downloads import postprocess_pipeline
+
+    order = []
+    monkeypatch.setattr(postprocess_pipeline, "place_arc_only_matches", lambda run, deps, arc_only: order.append("arc"))
+    monkeypatch.setattr(
+        postprocess_pipeline, "dispatch_library_matches", lambda run, deps, library, arc_only: order.append("library")
+    )
+
+    def matched(**fields):
+        values = dict(
+            library=(),
+            arc_only=(),
+            snatched=(),
+            exit=None,
+            nzb_folder=str(tmp_path),
+            issue_id=None,
+            issue_arc_id=None,
+            comic_id=None,
+            log="matched\n",
+        )
+        values.update(fields)
+        return postprocessor.FolderMatches(**values)
+
+    def find_snatched(log):
+        order.append("snatch")
+        return matched(log=log + "looked up\n")
+
+    run = folder_request.folder_run("Manual Run", tmp_path)
+    run.log = "matched\n"
+    run.narrate("placed")
+    postprocess_pipeline.process_folder_matches(run, None, matched(find_snatched=find_snatched))
+
+    assert order == ["arc", "snatch", "library"]
+    assert run.log == "matched\nplaced\nlooked up\n"

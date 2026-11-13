@@ -8,25 +8,24 @@
 #  (at your option) any later version.
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import comicarr
-from comicarr.postprocessor import PostProcessor
+from tests.fakes import folder_request
+
+
+class _Request:
+    """One request's inputs; the folder is read off the run the pipeline built."""
+
+    def __init__(self, name, folder, ddl):
+        self.name = name
+        self.folder = str(folder)
+        self.ddl = ddl
+        self.nzb_folder = None
 
 
 def _processor(folder, *, ddl=False, name="Saga.001", config, use_sab=0, use_nzbget=0):
-    queue = MagicMock()
-    queue.put.return_value = "queued"
-    apilock = MagicMock()
-    apilock.locked.return_value = False
-    with (
-        patch.object(comicarr, "APILOCK", apilock),
-        patch.object(comicarr, "CONFIG", config),
-        patch.object(comicarr, "USE_SABNZBD", use_sab),
-        patch.object(comicarr, "USE_NZBGET", use_nzbget),
-    ):
-        processor = PostProcessor(name, str(folder), comicid="md-saga", queue=queue, ddl=ddl)
-    return processor, queue
+    return _Request(name, folder, ddl), None
 
 
 def _config(tmp_path, **overrides):
@@ -43,15 +42,18 @@ def _config(tmp_path, **overrides):
 
 
 def _run(processor, config, *, use_sab=0, use_nzbget=0):
+    def manga_branch(run, _deps):
+        processor.nzb_folder = run.nzb_folder
+
     with (
         patch.object(comicarr, "CONFIG", config),
         patch.object(comicarr, "USE_SABNZBD", use_sab),
         patch.object(comicarr, "USE_NZBGET", use_nzbget),
-        patch.object(processor, "_process_manga", return_value="manga") as manga,
-        patch("comicarr.postprocessor.db") as mock_db,
+        patch("comicarr.app.downloads.postprocess_pipeline.process_manga_download", side_effect=manga_branch) as manga,
+        patch("comicarr.app.downloads.postprocess_pipeline.db") as mock_db,
     ):
         mock_db.select_one.return_value = {"ComicID": "md-saga", "ContentType": "manga"}
-        result = processor.Process()
+        result = folder_request.process(processor.name, processor.folder, comicid="md-saga", ddl=processor.ddl)
     return result, manga
 
 
@@ -61,11 +63,10 @@ def test_sab_resolution_prefers_configured_job_directory(tmp_path):
     resolved.mkdir(parents=True)
     processor, _queue = _processor(tmp_path / "incoming", config=config, use_sab=1)
 
-    result, manga = _run(processor, config, use_sab=1)
+    _result, manga = _run(processor, config, use_sab=1)
 
-    assert result == "manga"
+    manga.assert_called_once()
     assert processor.nzb_folder == str(resolved)
-    manga.assert_called_once_with()
 
 
 def test_sab_resolution_keeps_passed_folder_when_job_is_nested_there(tmp_path):
@@ -74,9 +75,9 @@ def test_sab_resolution_keeps_passed_folder_when_job_is_nested_there(tmp_path):
     (incoming / "Saga.001").mkdir(parents=True)
     processor, _queue = _processor(incoming, config=config, use_sab=1)
 
-    result, _manga = _run(processor, config, use_sab=1)
+    _result, manga = _run(processor, config, use_sab=1)
 
-    assert result == "manga"
+    manga.assert_called_once()
     assert processor.nzb_folder == str(incoming)
 
 
@@ -87,21 +88,20 @@ def test_sab_resolution_falls_back_to_incoming_basename(tmp_path):
     resolved.mkdir(parents=True)
     processor, _queue = _processor(incoming, config=config, use_sab=1)
 
-    result, _manga = _run(processor, config, use_sab=1)
+    _result, manga = _run(processor, config, use_sab=1)
 
-    assert result == "manga"
+    manga.assert_called_once()
     assert processor.nzb_folder == str(resolved)
 
 
 def test_missing_sab_paths_stop_before_processing(tmp_path):
     config = _config(tmp_path)
-    processor, queue = _processor(tmp_path / "missing", config=config, use_sab=1)
+    processor, _queue = _processor(tmp_path / "missing", config=config, use_sab=1)
 
     result, manga = _run(processor, config, use_sab=1)
 
-    assert result == "queued"
-    assert processor.valreturn[-1]["mode"] == "stop"
-    queue.put.assert_called_once_with(processor.valreturn)
+    assert len(result) == 1
+    assert result[-1]["mode"] == "stop"
     manga.assert_not_called()
 
 
@@ -111,9 +111,9 @@ def test_nzbget_resolution_preserves_existing_override_order(tmp_path):
     sab_path.mkdir(parents=True)
     processor, _queue = _processor(tmp_path / "incoming", config=config, use_sab=1, use_nzbget=1)
 
-    result, _manga = _run(processor, config, use_sab=1, use_nzbget=1)
+    _result, manga = _run(processor, config, use_sab=1, use_nzbget=1)
 
-    assert result == "manga"
+    manga.assert_called_once()
     assert processor.nzb_folder == str(tmp_path / "nzbget" / "Saga.001")
 
 
@@ -124,12 +124,12 @@ def test_manual_and_ddl_runs_skip_downloader_path_resolution(tmp_path):
     ddl_folder = tmp_path / "ddl"
     ddl, _queue = _processor(ddl_folder, ddl=True, config=config, use_sab=1, use_nzbget=1)
 
-    manual_result, _manga = _run(manual, config, use_sab=1, use_nzbget=1)
-    ddl_result, _manga = _run(ddl, config, use_sab=1, use_nzbget=1)
+    _manual_result, manual_manga = _run(manual, config, use_sab=1, use_nzbget=1)
+    _ddl_result, ddl_manga = _run(ddl, config, use_sab=1, use_nzbget=1)
 
-    assert manual_result == "manga"
+    manual_manga.assert_called_once()
     assert manual.nzb_folder == str(manual_folder)
-    assert ddl_result == "manga"
+    ddl_manga.assert_called_once()
     assert ddl.nzb_folder == str(ddl_folder)
 
 
@@ -137,10 +137,10 @@ def test_disabled_downloaders_do_not_require_config_for_manga_branch(tmp_path):
     config = _config(tmp_path)
     processor, _queue = _processor(tmp_path / "incoming", config=config)
 
-    result, manga = _run(processor, None)
+    # Only the folder-matching setting; no downloader option is present.
+    _result, manga = _run(processor, SimpleNamespace(IGNORE_SEARCH_WORDS=[]))
 
-    assert result == "manga"
-    manga.assert_called_once_with()
+    manga.assert_called_once()
 
 
 def test_nzbget_resolution_finds_download_under_category_subdirectory(tmp_path):
@@ -155,9 +155,9 @@ def test_nzbget_resolution_finds_download_under_category_subdirectory(tmp_path):
     resolved.mkdir(parents=True)
     processor, _queue = _processor(tmp_path / "incoming", config=config, use_nzbget=1)
 
-    result, _manga = _run(processor, config, use_nzbget=1)
+    _result, manga = _run(processor, config, use_nzbget=1)
 
-    assert result == "manga"
+    manga.assert_called_once()
     assert processor.nzb_folder == str(resolved)
 
 
@@ -169,9 +169,9 @@ def test_nzbget_resolution_prefers_uncategorised_path_when_it_exists(tmp_path):
     (tmp_path / "nzbget" / "Comics" / "Saga.001").mkdir(parents=True)
     processor, _queue = _processor(tmp_path / "incoming", config=config, use_nzbget=1)
 
-    result, _manga = _run(processor, config, use_nzbget=1)
+    _result, manga = _run(processor, config, use_nzbget=1)
 
-    assert result == "manga"
+    manga.assert_called_once()
     assert processor.nzb_folder == str(plain)
 
 
@@ -180,9 +180,9 @@ def test_nzbget_resolution_without_category_keeps_plain_join(tmp_path):
     config = _config(tmp_path, NZBGET_CATEGORY=None)
     processor, _queue = _processor(tmp_path / "incoming", config=config, use_nzbget=1)
 
-    result, _manga = _run(processor, config, use_nzbget=1)
+    _result, manga = _run(processor, config, use_nzbget=1)
 
-    assert result == "manga"
+    manga.assert_called_once()
     assert processor.nzb_folder == str(tmp_path / "nzbget" / "Saga.001")
 
 
@@ -200,7 +200,7 @@ def test_nzbget_resolution_keeps_plain_join_when_neither_path_exists(tmp_path):
     config = _config(tmp_path, NZBGET_CATEGORY="Comics")
     processor, _queue = _processor(tmp_path / "incoming", config=config, use_nzbget=1)
 
-    result, _manga = _run(processor, config, use_nzbget=1)
+    _result, manga = _run(processor, config, use_nzbget=1)
 
-    assert result == "manga"
+    manga.assert_called_once()
     assert processor.nzb_folder == str(tmp_path / "nzbget" / "Saga.001")

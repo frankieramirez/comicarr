@@ -86,9 +86,8 @@ The C3 discriminator is ALWAYS the `moved` marker, never a file probe:
 ------------------------------------------------------------------------
 """
 
-import queue as queuelib
 import types
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import insert, select
@@ -96,10 +95,11 @@ from sqlalchemy import insert, select
 import comicarr
 from comicarr import postprocessor
 from comicarr.app.downloads import journal
+from comicarr.app.downloads.postprocess_pipeline import _JOURNAL, process_manga_download
 from comicarr.db import get_engine, shutdown_engine
-from comicarr.postprocessor import PostProcessor
 from comicarr.tables import comics, issues, metadata, nzblog, pipeline_journal
 from tests.conftest import placement_result
+from tests.fakes import folder_request
 
 
 @pytest.fixture(autouse=True)
@@ -145,21 +145,19 @@ def _stage_of(key):
 
 
 def _make_pp(nzb_name="Saga.001.cbz", nzb_folder="/tmp/dl", comicid="C1", issueid="I1", journal_release_key=None):
-    mock_apilock = MagicMock()
-    mock_apilock.locked.return_value = False
-    cfg = MagicMock()
-    cfg.FILE_OPTS = "move"
-    cfg.IGNORE_SEARCH_WORDS = []
-    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", cfg):
-        pp = PostProcessor(
-            nzb_name=nzb_name,
-            nzb_folder=nzb_folder,
-            comicid=comicid,
-            issueid=issueid,
-            queue=MagicMock(spec=queuelib.Queue),
-            journal_release_key=journal_release_key,
-        )
+    pp = folder_request.folder_run(
+        nzb_name=nzb_name,
+        nzb_folder=nzb_folder,
+        comicid=comicid,
+        issueid=issueid,
+        journal_release_key=journal_release_key,
+    )
     return pp
+
+
+def _process_manga(run):
+    """Run the manga branch with the real legacy collaborators, read now."""
+    return process_manga_download(run, postprocessor.pipeline_deps())
 
 
 def test_completion_with_null_arc_name_preserves_other_arc_anchors():
@@ -175,10 +173,11 @@ def test_completion_with_null_arc_name_preserves_other_arc_anchors():
                 {"IssueID": "SA1", "SARC": "Other arc"},
             ],
         )
-    pp = _make_pp(issueid="A1", journal_release_key=key)
-    pp.issuearcid = "A1"
+    run = folder_request.folder_run(
+        "Saga.001.cbz", "/tmp/dl", "A1", comicid="C1", issuearcid="A1", journal_release_key=key
+    )
 
-    complete(pp._journal_context(), issue_arc_id="A1", anchor_ids=("SA1",), arc_scope=None)
+    complete(run.context, issue_arc_id="A1", anchor_ids=("SA1",), arc_scope=None)
 
     assert [(row["IssueID"], row["SARC"]) for row in _rows(nzblog)] == [("SA1", "Other arc")]
     assert _stage_of(key) == journal.POST_PROCESSED
@@ -214,7 +213,7 @@ def _seed_manga(comicid="md-csm", issueid="md-csm-ch165"):
 
 
 def test_characterization_manga_marker_ordering_around_destructive_move(tmp_path, monkeypatch):
-    """Region C (real _process_manga): post_processing STRICTLY before the
+    """Region C (real process_manga_download): post_processing STRICTLY before the
     per-file destructive fileop; moved STRICTLY after it; post_processed last.
     Pins the U3 bracket — unchanged by U9 (only nzblog<->post_processed
     atomicity changes)."""
@@ -242,7 +241,7 @@ def test_characterization_manga_marker_ordering_around_destructive_move(tmp_path
         patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
         patch.object(journal, "record_transition", side_effect=_spy),
     ):
-        pp._process_manga()
+        _process_manga(pp)
 
     assert seen[0] == "post_processing"
     assert seen.index("post_processing") < seen.index("__fileop__")
@@ -268,31 +267,31 @@ def test_characterization_manga_failed_move_stays_at_post_processing(tmp_path, m
     monkeypatch.setattr(postprocessor, "place", _boom_fileop)
 
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
-        pp._process_manga()
+        _process_manga(pp)
 
-    release_rk = pp._journal_release_key()
+    release_rk = _JOURNAL.release_key(pp.context)
     assert _stage_of(release_rk) == "post_processing"
-    chapter_rk = pp._journal_release_key(issueid="md-csm-ch165")
+    chapter_rk = _JOURNAL.release_key(pp.context, issue_id="md-csm-ch165")
     assert _stage_of(chapter_rk) != "post_processed"
     assert _stage_of(chapter_rk) != "moved"
 
 
 def test_characterization_marker_helper_lifecycle_monotonic():
-    """The shared _journal_pp helper used at EVERY region advances
+    """The shared PostProcessRun.journal helper used at EVERY region advances
     post_processing -> moved -> post_processed monotonically on one row, and a
     regressing write is a no-op. Pins the cross-site mechanism."""
     pp = _make_pp(issueid="ICHR")
-    rk = pp._journal_release_key(issueid="ICHR")
+    rk = _JOURNAL.release_key(pp.context, issue_id="ICHR")
 
-    pp._journal_pp("post_processing", issueid="ICHR")
+    pp.journal("post_processing", issue_id="ICHR")
     assert _stage_of(rk) == "post_processing"
-    pp._journal_pp("moved", issueid="ICHR")
+    pp.journal("moved", issue_id="ICHR")
     assert _stage_of(rk) == "moved"
-    pp._journal_pp("post_processed", issueid="ICHR")
+    pp.journal("post_processed", issue_id="ICHR")
     assert _stage_of(rk) == "post_processed"
 
     # Regressing write rejected by the monotonic guard.
-    pp._journal_pp("post_processing", issueid="ICHR")
+    pp.journal("post_processing", issue_id="ICHR")
     assert _stage_of(rk) == "post_processed"
 
 
@@ -301,14 +300,14 @@ def test_characterization_additive_markers_swallow_failure_inert():
     (conn is None) still swallow a journal failure and never abort PP."""
     pp = _make_pp(issueid="ISW")
     with patch.object(journal, "record_transition", side_effect=RuntimeError("boom")):
-        pp._journal_pp("post_processing", issueid="ISW")  # must not raise
-        pp._journal_pp("moved", issueid="ISW")  # must not raise
+        pp.journal("post_processing", issue_id="ISW")  # must not raise
+        pp.journal("moved", issue_id="ISW")  # must not raise
     assert _rows(pipeline_journal) == []
 
 
 # ===========================================================================
 # U9 BEHAVIOR CHANGE — nzblog-delete + journal post_processed atomic in ONE
-# explicit begin() block (the C3 DB-fact set). conn-mode _journal_pp.
+# explicit begin() block (the C3 DB-fact set). conn-mode journal transition.
 # ===========================================================================
 
 
@@ -319,20 +318,20 @@ def test_journal_pp_conn_mode_cocommits_with_nzblog_delete():
     advances the row to post_processed atomically with the nzblog row going
     away."""
     pp = _make_pp(issueid="IAT1")
-    rk = pp._journal_release_key(issueid="IAT1")
+    rk = _JOURNAL.release_key(pp.context, issue_id="IAT1")
 
     with get_engine().begin() as conn:
         conn.execute(insert(nzblog).values(IssueID="IAT1", NZBName="Saga.001.cbz"))
 
-    pp._journal_pp("post_processing", issueid="IAT1")
-    pp._journal_pp("moved", issueid="IAT1")
+    pp.journal("post_processing", issue_id="IAT1")
+    pp.journal("moved", issue_id="IAT1")
     assert _stage_of(rk) == "moved"
     assert any(r["IssueID"] == "IAT1" for r in _rows(nzblog))
 
     # The C3 block: nzblog-delete + journal post_processed, one transaction.
     with get_engine().begin() as conn:
         conn.execute(nzblog.delete().where(nzblog.c.IssueID == "IAT1"))
-        pp._journal_pp("post_processed", issueid="IAT1", conn=conn)
+        _JOURNAL.transition(pp.context, "post_processed", issue_id="IAT1", conn=conn)
 
     assert _stage_of(rk) == "post_processed"
     assert not any(r["IssueID"] == "IAT1" for r in _rows(nzblog))
@@ -344,18 +343,18 @@ def test_journal_pp_conn_mode_failure_rolls_back_nzblog_delete():
     still says `moved`. This is the exact AE2 window U9 closes; it must be
     UNREACHABLE."""
     pp = _make_pp(issueid="IAT2")
-    rk = pp._journal_release_key(issueid="IAT2")
+    rk = _JOURNAL.release_key(pp.context, issue_id="IAT2")
 
     with get_engine().begin() as conn:
         conn.execute(insert(nzblog).values(IssueID="IAT2", NZBName="Saga.002.cbz"))
-    pp._journal_pp("post_processing", issueid="IAT2")
-    pp._journal_pp("moved", issueid="IAT2")
+    pp.journal("post_processing", issue_id="IAT2")
+    pp.journal("moved", issue_id="IAT2")
 
     with patch.object(journal, "record_transition", side_effect=RuntimeError("journal down in C3 block")):
         with pytest.raises(RuntimeError, match="journal down in C3 block"):
             with get_engine().begin() as conn:
                 conn.execute(nzblog.delete().where(nzblog.c.IssueID == "IAT2"))
-                pp._journal_pp("post_processed", issueid="IAT2", conn=conn)
+                _JOURNAL.transition(pp.context, "post_processed", issue_id="IAT2", conn=conn)
 
     # Block rolled back: nzblog row survives AND journal stays at `moved`.
     # There is NO reachable state with nzblog deleted + journal < post_processed.
@@ -371,13 +370,13 @@ def test_conn_mode_does_not_swallow_unlike_additive_marker():
 
     # additive (conn=None) -> swallowed
     with patch.object(journal, "record_transition", side_effect=RuntimeError("x")):
-        pp._journal_pp("post_processing", issueid="ICON")  # no raise
+        pp.journal("post_processing", issue_id="ICON")  # no raise
 
     # conn-mode -> propagates
     with patch.object(journal, "record_transition", side_effect=RuntimeError("x")):
         with pytest.raises(RuntimeError):
             with get_engine().begin() as conn:
-                pp._journal_pp("post_processed", issueid="ICON", conn=conn)
+                _JOURNAL.transition(pp.context, "post_processed", issue_id="ICON", conn=conn)
 
 
 # ===========================================================================
@@ -393,17 +392,17 @@ def test_ae2_crash_between_nzblog_and_status_is_recognized_pp_in_flight():
     finished PP via the journal marker — NOT re-drive it as a fresh
     obligation, and WITHOUT any file probe."""
     pp = _make_pp(issueid="IAE2")
-    rk = pp._journal_release_key(issueid="IAE2")
+    rk = _JOURNAL.release_key(pp.context, issue_id="IAE2")
     with get_engine().begin() as conn:
         conn.execute(insert(nzblog).values(IssueID="IAE2", NZBName="Saga.AE2.cbz"))
 
-    pp._journal_pp("post_processing", issueid="IAE2")
-    pp._journal_pp("moved", issueid="IAE2")
+    pp.journal("post_processing", issue_id="IAE2")
+    pp.journal("moved", issue_id="IAE2")
 
     # C3 block commits.
     with get_engine().begin() as conn:
         conn.execute(nzblog.delete().where(nzblog.c.IssueID == "IAE2"))
-        pp._journal_pp("post_processed", issueid="IAE2", conn=conn)
+        _JOURNAL.transition(pp.context, "post_processed", issue_id="IAE2", conn=conn)
 
     # ...then a crash BEFORE the separate foundsearch Status txn (never ran).
     # Authoritative done-check: journal terminal => finished, not re-driven.
@@ -422,12 +421,12 @@ def test_inline_status_site_status_committed_before_block_still_recognized():
     block, the row is `moved` -> finalizer finishes DB facts only (no
     re-import); after the block it is terminal."""
     pp = _make_pp(issueid="IINL")
-    rk = pp._journal_release_key(issueid="IINL")
+    rk = _JOURNAL.release_key(pp.context, issue_id="IINL")
     with get_engine().begin() as conn:
         conn.execute(insert(nzblog).values(IssueID="IINL", NZBName="Saga.INL.cbz"))
 
-    pp._journal_pp("post_processing", issueid="IINL")
-    pp._journal_pp("moved", issueid="IINL")
+    pp.journal("post_processing", issue_id="IINL")
+    pp.journal("moved", issue_id="IINL")
 
     # Inline Status upsert commits FIRST (its own txn) — model storyarcs/issues.
     with get_engine().begin() as conn:
@@ -444,7 +443,7 @@ def test_inline_status_site_status_committed_before_block_still_recognized():
     # The C3 block then completes the DB facts atomically.
     with get_engine().begin() as conn:
         conn.execute(nzblog.delete().where(nzblog.c.IssueID == "IINL"))
-        pp._journal_pp("post_processed", issueid="IINL", conn=conn)
+        _JOURNAL.transition(pp.context, "post_processed", issue_id="IINL", conn=conn)
     assert _stage_of(rk) == "post_processed"
 
 
@@ -459,14 +458,14 @@ def test_crash_at_post_processing_vs_moved_distinguishable_from_journal_alone():
     distinguishable PURELY from the journal stage — never a filesystem
     probe (undecidable in copy/hardlink/softlink modes)."""
     pp_a = _make_pp(issueid="ICR_PP")
-    rk_a = pp_a._journal_release_key(issueid="ICR_PP")
-    pp_a._journal_pp("post_processing", issueid="ICR_PP")
+    rk_a = _JOURNAL.release_key(pp_a.context, issue_id="ICR_PP")
+    pp_a.journal("post_processing", issue_id="ICR_PP")
     # crash here — move never ran.
 
     pp_b = _make_pp(issueid="ICR_MV")
-    rk_b = pp_b._journal_release_key(issueid="ICR_MV")
-    pp_b._journal_pp("post_processing", issueid="ICR_MV")
-    pp_b._journal_pp("moved", issueid="ICR_MV")
+    rk_b = _JOURNAL.release_key(pp_b.context, issue_id="ICR_MV")
+    pp_b.journal("post_processing", issue_id="ICR_MV")
+    pp_b.journal("moved", issue_id="ICR_MV")
     # crash here — move committed, nzblog/journal-terminal not.
 
     stage_a = _stage_of(rk_a)
@@ -497,11 +496,11 @@ def test_moved_marker_set_even_when_source_still_present_copy_mode():
     the discriminator does not depend on source/destination filesystem
     state."""
     pp = _make_pp(issueid="ICOPY")
-    rk = pp._journal_release_key(issueid="ICOPY")
-    pp._journal_pp("post_processing", issueid="ICOPY")
+    rk = _JOURNAL.release_key(pp.context, issue_id="ICOPY")
+    pp.journal("post_processing", issue_id="ICOPY")
     # Source intentionally still "present" (copy mode) — marker is purely the
     # success signal, not a probe result.
-    pp._journal_pp("moved", issueid="ICOPY")
+    pp.journal("moved", issue_id="ICOPY")
     assert _stage_of(rk) == journal.MOVED
 
 
@@ -519,13 +518,13 @@ def test_story_arc_primary_then_secondary_each_bracketed_no_partial_unrecognized
     unrecognized — replay sees `moved` and finishes DB facts only, never a
     fresh re-import."""
     pp = _make_pp(issueid="IARC")
-    rk = pp._journal_release_key(issueid="IARC")
+    rk = _JOURNAL.release_key(pp.context, issue_id="IARC")
     with get_engine().begin() as conn:
         conn.execute(insert(nzblog).values(IssueID="IARC", NZBName="Saga.ARC.cbz"))
 
-    pp._journal_pp("post_processing", issueid="IARC")
+    pp.journal("post_processing", issue_id="IARC")
     # primary placement succeeds:
-    pp._journal_pp("moved", issueid="IARC")
+    pp.journal("moved", issue_id="IARC")
     # crash BEFORE the secondary COPY2ARCDIR placement / its second nzblog
     # block / terminal facts.
     assert _stage_of(rk) == journal.MOVED
@@ -543,14 +542,14 @@ def test_story_arc_secondary_nzblog_delete_also_atomic_with_journal():
     its journal advance must also live in an explicit begin() block (atomic).
     Model both nzblog deletes co-committing with the terminal marker."""
     pp = _make_pp(issueid="IARC2")
-    rk = pp._journal_release_key(issueid="IARC2")
+    rk = _JOURNAL.release_key(pp.context, issue_id="IARC2")
     with get_engine().begin() as conn:
         conn.execute(insert(nzblog).values(IssueID="IARC2", NZBName="Saga.ARC2.cbz"))
         conn.execute(insert(nzblog).values(IssueID="SIARC2", NZBName="Saga.ARC2.arc"))
 
-    pp._journal_pp("post_processing", issueid="IARC2")
-    pp._journal_pp("moved", issueid="IARC2")  # primary
-    pp._journal_pp("moved", issueid="IARC2")  # secondary (monotonic no-op, fine)
+    pp.journal("post_processing", issue_id="IARC2")
+    pp.journal("moved", issue_id="IARC2")  # primary
+    pp.journal("moved", issue_id="IARC2")  # secondary (monotonic no-op, fine)
 
     # Primary nzblog block.
     with get_engine().begin() as conn:
@@ -558,7 +557,7 @@ def test_story_arc_secondary_nzblog_delete_also_atomic_with_journal():
     # Secondary (COPY2ARCDIR) nzblog block co-commits the terminal marker.
     with get_engine().begin() as conn:
         conn.execute(nzblog.delete().where(nzblog.c.IssueID == "SIARC2"))
-        pp._journal_pp("post_processed", issueid="IARC2", conn=conn)
+        _JOURNAL.transition(pp.context, "post_processed", issue_id="IARC2", conn=conn)
 
     assert _stage_of(rk) == "post_processed"
     assert _rows(nzblog) == []
@@ -575,8 +574,8 @@ def test_move_failure_writes_no_moved_no_terminal_stage_stays_post_processing():
     intact). The `moved` marker is the SOLE discriminator — its absence ==
     're-drive in full'."""
     pp = _make_pp(issueid="IMVF")
-    rk = pp._journal_release_key(issueid="IMVF")
-    pp._journal_pp("post_processing", issueid="IMVF")
+    rk = _JOURNAL.release_key(pp.context, issue_id="IMVF")
+    pp.journal("post_processing", issue_id="IMVF")
     # place would have raised here -> the code returns BEFORE the
     # `moved` marker and BEFORE the nzblog/post_processed block. Nothing
     # terminal is written.
@@ -597,7 +596,7 @@ def test_real_process_next_nzblog_and_post_processed_committed_atomically(tmp_pa
     failure inside that block BOTH roll back (nzblog row survives, journal not
     terminal). Parametrization-style coverage of the primary site."""
     # Drive the helper-as-used-in-Region-D contract directly against the
-    # reordered begin() block shape (real PostProcessor, real journal, real
+    # reordered begin() block shape (real PostProcessRun, real journal, real
     # nzblog table) — full Process_next needs extensive series fixtures, so we
     # exercise the exact reordered DB-fact block the site now runs.
     canonical = journal.derive_release_key({"issueid": "IRP", "comicid": "C1", "nzbname": "Saga.RP.cbz"})
@@ -606,12 +605,12 @@ def test_real_process_next_nzblog_and_post_processed_committed_atomically(tmp_pa
     with get_engine().begin() as conn:
         conn.execute(insert(nzblog).values(IssueID="IRP", NZBName="Saga.RP.cbz"))
 
-    pp._journal_pp("post_processing", issueid="IRP")
-    pp._journal_pp("moved", issueid="IRP")
+    pp.journal("post_processing", issue_id="IRP")
+    pp.journal("moved", issue_id="IRP")
 
     with get_engine().begin() as conn:
         conn.execute(nzblog.delete().where(nzblog.c.IssueID == "IRP"))
-        pp._journal_pp("post_processed", issueid="IRP", conn=conn)
+        _JOURNAL.transition(pp.context, "post_processed", issue_id="IRP", conn=conn)
 
     assert _stage_of(canonical) == "post_processed"
     assert not any(r["IssueID"] == "IRP" for r in _rows(nzblog))

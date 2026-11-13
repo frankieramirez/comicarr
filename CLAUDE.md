@@ -12,13 +12,13 @@ Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19
 
 [Comicarr Code Index]|root: ./comicarr
 |Web Layer:{app/main.py:FastAPI app+lifespan,app/<domain>/router.py:HTTP routes,app/core/security.py:JWT+API key+OPDS auth,app/core/middleware.py:CSRF+headers+setup gate}
-|Business Logic:{search.py:provider search,app/search/evaluation.py:release-candidate evaluation,postprocessor.py:post-processing,cv.py:ComicVine,metron.py:Metron,mangadex.py:MangaDex,myanimelist.py:MyAnimeList,mangasync.py:manga library scan,manga_parser.py:manga filenames,series_kind.py:comic-vs-manga,app/manga/:ledger+sync+bare-numbers+rescan,importer.py:library scanning,rsscheck.py:RSS,weeklypull.py:pull list,app/attention/:needs-attention policy+resolution,app/downloads/:journal+recovery}
+|Business Logic:{search.py:provider search,app/search/evaluation.py:release-candidate evaluation,postprocessor.py:post-processing folder matcher,cv.py:ComicVine,metron.py:Metron,mangadex.py:MangaDex,myanimelist.py:MyAnimeList,mangasync.py:manga library scan,manga_parser.py:manga filenames,series_kind.py:comic-vs-manga,app/manga/:ledger+sync+bare-numbers+rescan,importer.py:library scanning,rsscheck.py:RSS,weeklypull.py:pull list,app/attention/:needs-attention policy+resolution,app/downloads/:journal+recovery}
 |Config/Data:{config.py:INI config,encrypted.py:Fernet,db.py:SQLAlchemy Core,__init__.py:global state+scheduler,helpers.py:compat re-exports,migration.py:Mylar3 migration}
 |Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}
 |Frontend:{frontend/src/pages,components,hooks,lib,contexts,types}
 |Tests:{tests/unit,tests/integration,frontend/tests}
 
-Post-processing callers use `app/downloads/postprocessing.py`: `run(request)` for new work and `recover(release_key)` for restart continuation. The module owns the processing lock, maintenance lease, journal claim, and atomic completion. Busy direct requests return HTTP 409; the queue retries and the folder monitor defers. Legacy processors remain behind this interface.
+Post-processing callers use `app/downloads/postprocessing.py`: `run(request)` for new work and `recover(release_key)` for restart continuation. The module owns the processing lock, maintenance lease, journal claim, and atomic completion. Busy direct requests return HTTP 409; the queue retries and the folder monitor defers. Behind it, `app/downloads/postprocess_pipeline.py` does every side effect, and the inherited Mylar3 matching rules are one pure function, `comicarr/postprocessor.py:match_folder`, which only `postprocessing.py` imports. There is no `PostProcessor` class.
 
 Anything a user can see is governed by **`DESIGN.md`** — tokens, theming, typography,
 primitives, and the frontend anti-pattern list. Read it before touching

@@ -16,13 +16,14 @@
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for manga post-processing in comicarr/postprocessor.py.
+Unit tests for manga post-processing.
 
-Tests cover the _process_manga() method and the manga branch in Process().
+Tests cover ``process_manga_download`` in
+``comicarr/app/downloads/postprocess_pipeline.py`` and the manga branch in
+``process_download``, plus the matching helpers in ``comicarr/postprocessor.py``.
 """
 
 import os
-import queue
 from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -30,8 +31,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
+from comicarr import postprocessor
 from comicarr.app.common.placement import OnExisting, PlacementError, Purpose
+from comicarr.app.downloads import postprocess_pipeline
 from tests.conftest import placement_result
+from tests.fakes import folder_request
 
 
 @contextmanager
@@ -52,7 +56,6 @@ if comicarr.LOG_LEVEL is None:
     comicarr.LOG_LEVEL = 0
 
 from comicarr.postprocessor import (
-    PostProcessor,
     chapter_named_file,
     log_scan_summary,
     manga_volume_rows,
@@ -90,26 +93,34 @@ def test_scan_summary_reports_a_selected_story_arc_after_matching():
 
 
 def _make_pp(nzb_name, nzb_folder, comicid=None, issueid=None, apicall=False):
-    """Create a PostProcessor instance with mocks for queue and APILOCK."""
-    mock_queue = MagicMock(spec=queue.Queue)
-    mock_apilock = MagicMock()
-    mock_apilock.locked.return_value = False
+    """The run a request with these inputs gives the manga branch, and the messages it posts."""
+    run = folder_request.folder_run(nzb_name, nzb_folder, issueid, comicid=comicid, apicall=apicall)
+    return run, run.messages
 
+
+def _process_manga(run):
+    """Run the manga branch with the real collaborators, read at call time."""
+    return postprocess_pipeline.process_manga_download(run, postprocessor.pipeline_deps())
+
+
+def _config():
     mock_config = MagicMock()
     mock_config.FILE_OPTS = "move"
     mock_config.IGNORE_SEARCH_WORDS = []
     mock_config.PRE_SCRIPTS = None
+    return mock_config
 
-    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", mock_config):
-        pp = PostProcessor(
-            nzb_name=nzb_name,
-            nzb_folder=nzb_folder,
-            comicid=comicid,
-            issueid=issueid,
-            queue=mock_queue,
-            apicall=apicall,
-        )
-    return pp, mock_queue
+
+def _process(nzb_name, nzb_folder, comicid=None, issueid=None, apicall=False):
+    """Run one whole request through ``process_download``."""
+    mock_apilock = MagicMock()
+    mock_apilock.locked.return_value = False
+    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", _config()):
+        return folder_request.process(nzb_name, nzb_folder, issueid, comicid=comicid, apicall=apicall)
+
+
+def _patch_manga_branch(**kwargs):
+    return patch("comicarr.app.downloads.postprocess_pipeline.process_manga_download", **kwargs)
 
 
 class TestMangaPlacementHonoursFileOpts:
@@ -142,7 +153,7 @@ class TestMangaPlacementHonoursFileOpts:
             _mock_db() as mock_db,
         ):
             mock_db.select_one.side_effect = [comic_row, None, None, None]
-            pp._process_manga()
+            _process_manga(pp)
 
         return cbz, dest_dir / "Chainsaw Man 165.cbz"
 
@@ -161,72 +172,46 @@ class TestMangaPlacementHonoursFileOpts:
 
 
 class TestMangaBranchDetection:
-    """Tests for the manga branch guard in Process()."""
+    """Tests for the manga branch guard in process_download."""
 
     def test_md_prefix_triggers_manga_branch(self):
-        """ComicID starting with 'md-' should trigger _process_manga."""
-        pp, mock_queue = _make_pp(
-            nzb_name="Chainsaw Man 165.cbz",
-            nzb_folder="/tmp/downloads",
-            comicid="md-abc123",
-            apicall=True,
-        )
+        """ComicID starting with 'md-' should trigger process_manga_download."""
         with (
-            patch.object(pp, "_process_manga", return_value=None) as mock_pm,
+            _patch_manga_branch(return_value=None) as mock_pm,
             _mock_db() as mock_db,
         ):
             mock_db.select_one.return_value = {"ComicID": "md-abc123", "ContentType": "manga"}
-            pp.Process()
+            _process("Chainsaw Man 165.cbz", "/tmp/downloads", comicid="md-abc123", apicall=True)
             mock_pm.assert_called_once()
 
     def test_regular_comicid_skips_manga_branch(self):
-        """A non-md ComicID should NOT call _process_manga."""
-        pp, mock_queue = _make_pp(
-            nzb_name="Batman 001.cbz",
-            nzb_folder="/tmp/downloads",
-            comicid="12345",
-            issueid="67890",
-            apicall=True,
-        )
+        """A non-md ComicID should NOT call process_manga_download."""
         with (
-            patch.object(pp, "_process_manga") as mock_pm,
+            _patch_manga_branch() as mock_pm,
             patch("comicarr.postprocessor.filechecker") as mock_fc,
             _mock_db() as mock_db,
         ):
             mock_db.select_one.return_value = {"ComicID": "12345"}
             mock_fc.FileChecker.return_value.listFiles.return_value = {"comiccount": 0, "comiclist": []}
             try:
-                pp.Process()
+                _process("Batman 001.cbz", "/tmp/downloads", comicid="12345", issueid="67890", apicall=True)
             except Exception:
                 pass
             mock_pm.assert_not_called()
 
     def test_comicvine_manga_row_triggers_manga_branch(self):
-        pp, _mock_queue = _make_pp(
-            nzb_name="Solo Leveling v01.cbz",
-            nzb_folder="/tmp/downloads",
-            comicid="134064",
-            apicall=True,
-        )
         with (
-            patch.object(pp, "_process_manga", return_value=None) as mock_pm,
+            _patch_manga_branch(return_value=None) as mock_pm,
             _mock_db() as mock_db,
         ):
             mock_db.select_one.return_value = {"ComicID": "134064", "ContentType": "manga"}
-            pp.Process()
+            _process("Solo Leveling v01.cbz", "/tmp/downloads", comicid="134064", apicall=True)
 
         mock_pm.assert_called_once()
 
     def test_operator_comic_kind_overrides_mangadex_prefix(self):
-        pp, _mock_queue = _make_pp(
-            nzb_name="Example 001.cbz",
-            nzb_folder="/tmp/downloads",
-            comicid="md-example",
-            issueid="issue-1",
-            apicall=True,
-        )
         with (
-            patch.object(pp, "_process_manga") as mock_pm,
+            _patch_manga_branch() as mock_pm,
             patch("comicarr.postprocessor.filechecker") as mock_fc,
             _mock_db() as mock_db,
         ):
@@ -237,7 +222,7 @@ class TestMangaBranchDetection:
             }
             mock_fc.FileChecker.return_value.listFiles.return_value = {"comiccount": 0, "comiclist": []}
             try:
-                pp.Process()
+                _process("Example 001.cbz", "/tmp/downloads", comicid="md-example", issueid="issue-1", apicall=True)
             except Exception:
                 pass
 
@@ -245,44 +230,31 @@ class TestMangaBranchDetection:
 
     def test_unmarked_legacy_mangadex_stamp_still_uses_manga_branch(self):
         """Alembic 0002 restamped md- rows as comic; unmarked prefix still counts as manga."""
-        pp, _mock_queue = _make_pp(
-            nzb_name="Example 001.cbz",
-            nzb_folder="/tmp/downloads",
-            comicid="md-example",
-            issueid="issue-1",
-            apicall=True,
-        )
         with (
-            patch.object(pp, "_process_manga", return_value=None) as mock_pm,
+            _patch_manga_branch(return_value=None) as mock_pm,
             _mock_db() as mock_db,
         ):
             mock_db.select_one.return_value = {"ComicID": "md-example", "ContentType": "comic"}
-            pp.Process()
+            _process("Example 001.cbz", "/tmp/downloads", comicid="md-example", issueid="issue-1", apicall=True)
 
         mock_pm.assert_called_once()
 
     def test_none_comicid_skips_manga_branch(self):
         """When comicid is None, manga branch should be skipped."""
-        pp, mock_queue = _make_pp(
-            nzb_name="Manual Run",
-            nzb_folder="/tmp/downloads",
-            comicid=None,
-            apicall=True,
-        )
-        with patch.object(pp, "_process_manga") as mock_pm:
+        with _patch_manga_branch() as mock_pm:
             try:
-                pp.Process()
+                _process("Manual Run", "/tmp/downloads", comicid=None, apicall=True)
             except Exception:
                 pass
             mock_pm.assert_not_called()
 
 
 class TestProcessMangaSeriesLookup:
-    """Tests for the comic/series lookup in _process_manga."""
+    """Tests for the comic/series lookup in process_manga_download."""
 
     def test_comic_not_found_returns_stop(self, tmp_path):
         """When series is not in the database, should return stop."""
-        pp, mock_queue = _make_pp(
+        pp, messages = _make_pp(
             nzb_name="Bleach v1.cbz",
             nzb_folder=str(tmp_path),
             comicid="md-bleach",
@@ -290,10 +262,10 @@ class TestProcessMangaSeriesLookup:
 
         with _mock_db() as mock_db:
             mock_db.select_one.return_value = None
-            pp._process_manga()
+            _process_manga(pp)
 
-        mock_queue.put.assert_called_once()
-        result = mock_queue.put.call_args[0][0]
+        assert len(messages) == 1
+        result = messages
         assert result[0]["mode"] == "stop"
         assert "Cannot find manga series" in result[0]["self.log"]
 
@@ -305,7 +277,7 @@ class TestProcessMangaNoFiles:
         """When no manga files exist in download dir, should return stop."""
         (tmp_path / "readme.txt").write_text("not a manga")
 
-        pp, mock_queue = _make_pp(
+        pp, messages = _make_pp(
             nzb_name="something",
             nzb_folder=str(tmp_path),
             comicid="md-bleach",
@@ -315,10 +287,10 @@ class TestProcessMangaNoFiles:
 
         with _mock_db() as mock_db:
             mock_db.select_one.return_value = comic_row
-            pp._process_manga()
+            _process_manga(pp)
 
-        mock_queue.put.assert_called_once()
-        result = mock_queue.put.call_args[0][0]
+        assert len(messages) == 1
+        result = messages
         assert result[0]["mode"] == "stop"
         assert "No manga files" in result[0]["self.log"]
 
@@ -331,7 +303,7 @@ class TestProcessMangaNoDestination:
         cbz = tmp_path / "Bleach v1.cbz"
         cbz.write_bytes(b"fake cbz")
 
-        pp, mock_queue = _make_pp(
+        pp, messages = _make_pp(
             nzb_name="Bleach v1.cbz",
             nzb_folder=str(tmp_path),
             comicid="md-bleach",
@@ -344,10 +316,10 @@ class TestProcessMangaNoDestination:
             patch("comicarr.postprocessor.get_manga_destination", return_value=None),
         ):
             mock_db.select_one.return_value = comic_row
-            pp._process_manga()
+            _process_manga(pp)
 
-        mock_queue.put.assert_called_once()
-        result = mock_queue.put.call_args[0][0]
+        assert len(messages) == 1
+        result = messages
         assert result[0]["mode"] == "stop"
         assert "No manga destination" in result[0]["self.log"]
 
@@ -364,7 +336,7 @@ class TestProcessMangaHealsMisplacedLocation:
         comics_dir.mkdir(parents=True)
         manga_dest = tmp_path / "manga"
 
-        pp, mock_queue = _make_pp(
+        pp, messages = _make_pp(
             nzb_name="Berserk v1.cbz",
             nzb_folder=str(tmp_path),
             comicid="160294",
@@ -384,13 +356,13 @@ class TestProcessMangaHealsMisplacedLocation:
         ):
             mock_db.select_one.side_effect = [comic_row, None, None, None]
             with patch("comicarr.postprocessor.place", return_value=placement_result()) as placer:
-                pp._process_manga()
+                _process_manga(pp)
 
         expected = os.path.join(str(manga_dest), "Berserk")
         update.assert_called_once_with("160294", "manga", comic_location=expected)
         placer.assert_called_once()
         assert expected in placer.call_args[0][1]
-        result = mock_queue.put.call_args[0][0]
+        result = messages
         assert "outside manga destination" not in result[0]["self.log"]
 
     def test_still_refuses_when_name_cannot_build_a_folder(self, tmp_path):
@@ -400,7 +372,7 @@ class TestProcessMangaHealsMisplacedLocation:
         comics_dir.mkdir(parents=True)
         manga_dest = tmp_path / "manga"
 
-        pp, mock_queue = _make_pp(
+        pp, messages = _make_pp(
             nzb_name="chapter.cbz",
             nzb_folder=str(tmp_path),
             comicid="160294",
@@ -419,11 +391,11 @@ class TestProcessMangaHealsMisplacedLocation:
             patch("comicarr.app.series.queries.update_comic_content_kind") as update,
         ):
             mock_db.select_one.return_value = comic_row
-            pp._process_manga()
+            _process_manga(pp)
 
         update.assert_not_called()
-        mock_queue.put.assert_called_once()
-        result = mock_queue.put.call_args[0][0]
+        assert len(messages) == 1
+        result = messages
         assert result[0]["mode"] == "stop"
         assert "outside manga destination" in result[0]["self.log"]
 
@@ -432,7 +404,7 @@ class TestProcessMangaHonorsChosenFolder:
     def _run(self, tmp_path, chosen, roots):
         cbz = tmp_path / "Berserk v1.cbz"
         cbz.write_bytes(b"fake cbz")
-        pp, mock_queue = _make_pp(nzb_name="Berserk v1.cbz", nzb_folder=str(tmp_path), comicid="160294")
+        pp, messages = _make_pp(nzb_name="Berserk v1.cbz", nzb_folder=str(tmp_path), comicid="160294")
         comic_row = {
             "ComicID": "160294",
             "ComicName": "Berserk",
@@ -457,8 +429,8 @@ class TestProcessMangaHonorsChosenFolder:
             patch("comicarr.postprocessor.place", return_value=placement_result()) as placer,
         ):
             mock_db.select_one.side_effect = [comic_row, None, None, None]
-            pp._process_manga()
-        return update, placer, mock_queue.put.call_args[0][0]
+            _process_manga(pp)
+        return update, placer, messages
 
     def test_places_into_a_chosen_folder_under_an_additional_root(self, tmp_path):
         chosen = tmp_path / "Seinen" / "Berserk"
@@ -482,7 +454,7 @@ class TestProcessMangaHonorsChosenFolder:
 
 
 class TestProcessMangaFileMove:
-    """Tests for file moving in _process_manga."""
+    """Tests for file moving in process_manga_download."""
 
     def test_moves_files_to_series_folder(self, tmp_path):
         """Should move manga files to the series folder."""
@@ -492,7 +464,7 @@ class TestProcessMangaFileMove:
         dest_dir = tmp_path / "manga" / "Bleach"
         dest_dir.mkdir(parents=True)
 
-        pp, mock_queue = _make_pp(
+        pp, messages = _make_pp(
             nzb_name="Bleach v1.cbz",
             nzb_folder=str(tmp_path),
             comicid="md-bleach",
@@ -507,7 +479,7 @@ class TestProcessMangaFileMove:
             # First call: comic lookup. Remaining: chapter/issue lookups return None
             mock_db.select_one.side_effect = [comic_row, None, None, None]
             with patch("comicarr.postprocessor.place", return_value=placement_result()) as placer:
-                pp._process_manga()
+                _process_manga(pp)
 
         # the placement stage should have been called for the file
         placer.assert_called_once()
@@ -535,7 +507,7 @@ class TestProcessMangaFileMove:
         dest_dir = tmp_path / "manga" / "Bleach"
         dest_dir.mkdir(parents=True)
 
-        pp, mock_queue = _make_pp(
+        pp, messages = _make_pp(
             nzb_name="Bleach v1.cbz",
             nzb_folder=str(tmp_path),
             comicid="md-bleach",
@@ -549,10 +521,10 @@ class TestProcessMangaFileMove:
         ):
             mock_db.select_one.return_value = comic_row
             with patch("comicarr.postprocessor.place", **placement_kwargs):
-                pp._process_manga()
+                _process_manga(pp)
 
-        mock_queue.put.assert_called_once()
-        result = mock_queue.put.call_args[0][0]
+        assert len(messages) == 1
+        result = messages
         assert "0 files matched" in result[0]["self.log"]
 
     def test_failed_placement_never_marks_the_chapter_downloaded(self, tmp_path):
@@ -583,7 +555,7 @@ class TestProcessMangaFileMove:
             # a chapter match IS available -- only the falsy placement stops it
             mock_db.select_one.side_effect = [comic_row, issue_row, None, None]
             with patch("comicarr.postprocessor.place", side_effect=PlacementError("no space")):
-                pp._process_manga()
+                _process_manga(pp)
 
         assert mock_db.upsert.call_count == 0, "an unplaced chapter must not be marked Downloaded"
 
@@ -629,10 +601,10 @@ class TestProcessMangaExistingDestination:
         ):
             mock_db.select_one.side_effect = [comic_row, None, None, None]
             if placement is None:
-                pp._process_manga()
+                _process_manga(pp)
             else:
                 with patch("comicarr.postprocessor.place", **placement):
-                    pp._process_manga()
+                    _process_manga(pp)
 
         return cbz, placed, pp
 
@@ -709,7 +681,7 @@ class TestProcessMangaChapterMatch:
         dest_dir = tmp_path / "manga" / "Chainsaw Man"
         dest_dir.mkdir(parents=True)
 
-        pp, mock_queue = _make_pp(
+        pp, messages = _make_pp(
             nzb_name="Chainsaw Man 165.cbz",
             nzb_folder=str(tmp_path),
             comicid="md-csm",
@@ -724,7 +696,7 @@ class TestProcessMangaChapterMatch:
         # U9: the per-match nzblog-delete begin() block now CO-COMMITS the
         # journal `post_processed` transition (conn-mode). `db` is fully mocked
         # in this test (so the real journal write cannot run), and conn-mode
-        # _journal_pp correctly RE-RAISES on failure — so stub the façade write
+        # run.journal (the old _journal_pp) correctly RE-RAISES on failure — so stub the façade write
         # to a benign no-op here. This test pins the issues-upsert + success
         # log, not the journal seam (covered by test_pp_complete_ordering.py /
         # test_journal_pp_seam.py).
@@ -746,7 +718,7 @@ class TestProcessMangaChapterMatch:
             mock_db.get_engine.return_value.begin.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_db.get_engine.return_value.begin.return_value.__exit__ = MagicMock(return_value=False)
 
-            pp._process_manga()
+            _process_manga(pp)
 
         # Should have updated issue status
         mock_db.upsert.assert_any_call(
@@ -755,7 +727,7 @@ class TestProcessMangaChapterMatch:
             {"IssueID": "md-csm-ch165"},
         )
 
-        result = mock_queue.put.call_args[0][0]
+        result = messages
         assert "Post Processing SUCCESSFUL" in result[0]["self.log"]
 
     def test_unmatched_file_logs_warning(self, tmp_path):
@@ -766,7 +738,7 @@ class TestProcessMangaChapterMatch:
         dest_dir = tmp_path / "manga" / "Chainsaw Man"
         dest_dir.mkdir(parents=True)
 
-        pp, mock_queue = _make_pp(
+        pp, messages = _make_pp(
             nzb_name="Chainsaw Man 999.cbz",
             nzb_folder=str(tmp_path),
             comicid="md-csm",
@@ -782,9 +754,9 @@ class TestProcessMangaChapterMatch:
             # comic lookup succeeds, all chapter/issue lookups return None
             mock_db.select_one.side_effect = [comic_row, None, None, None]
 
-            pp._process_manga()
+            _process_manga(pp)
 
-        result = mock_queue.put.call_args[0][0]
+        result = messages
         assert "0 files matched" in result[0]["self.log"]
 
 
@@ -792,7 +764,7 @@ class TestMangaTidiesTheEmptiedDownloadFolder:
     """A `move` import consumes the file and must not leave the folder behind.
 
     The comic path calls `tidyup(del_nzbdir=True)`, which removes the download
-    directory once `move` has emptied it. `_process_manga` never called it, so
+    directory once `move` has emptied it. The manga path (then `_process_manga`) never called it, so
     every completed manga release left a permanently empty directory in the
     downloader's completed dir. Nothing sweeps them: the folder monitor only
     looks for files, and the journal row is already terminal, so the count only
@@ -822,7 +794,7 @@ class TestMangaTidiesTheEmptiedDownloadFolder:
         dest_dir = tmp_path / "manga" / "Chainsaw Man"
         dest_dir.mkdir(parents=True)
 
-        pp, mock_queue = _make_pp(nzb_name=nzb_name, nzb_folder=str(release_dir), comicid="md-csm")
+        pp, messages = _make_pp(nzb_name=nzb_name, nzb_folder=str(release_dir), comicid="md-csm")
 
         config = MagicMock()
         config.FILE_OPTS = file_opts
@@ -852,9 +824,9 @@ class TestMangaTidiesTheEmptiedDownloadFolder:
             mock_db.get_engine.return_value.begin.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_db.get_engine.return_value.begin.return_value.__exit__ = MagicMock(return_value=False)
 
-            pp._process_manga()
+            _process_manga(pp)
 
-        return release_dir, dest_dir / "Chainsaw Man 165.cbz", mock_queue
+        return release_dir, dest_dir / "Chainsaw Man 165.cbz", messages
 
     def test_move_removes_the_emptied_release_folder(self, tmp_path):
         release_dir, placed, _ = self._run(tmp_path)
@@ -883,10 +855,10 @@ class TestMangaTidiesTheEmptiedDownloadFolder:
         assert (release_dir / "Chainsaw Man 165.nfo").exists()
 
     def test_a_release_that_matched_nothing_keeps_its_folder(self, tmp_path):
-        release_dir, _placed, mock_queue = self._run(tmp_path, matched=False)
+        release_dir, _placed, messages = self._run(tmp_path, matched=False)
 
         assert release_dir.exists(), "nothing was filed, so the source must survive for a retry"
-        result = mock_queue.put.call_args[0][0]
+        result = messages
         assert "0 files matched" in result[0]["self.log"]
 
 
@@ -903,7 +875,7 @@ class TestMangaMetatagOnImport:
     def _meta_config(enable_meta=True, cbr2cbz_only=False, file_opts="copy"):
         # FILE_OPTS defaults to a non-`move` mode so the emptied-folder cleanup
         # stays out of these tests: they are about what gets tagged and placed,
-        # and the cleanup has its own class above. `_process_manga` reads it
+        # and the cleanup has its own class above. `process_manga_download` reads it
         # directly, so it has to be present rather than merely absent.
         return SimpleNamespace(ENABLE_META=enable_meta, CBR2CBZ_ONLY=cbr2cbz_only, FILE_OPTS=file_opts)
 
@@ -923,7 +895,7 @@ class TestMangaMetatagOnImport:
         dest_dir = tmp_path / "manga" / "Chainsaw Man"
         dest_dir.mkdir(parents=True)
 
-        pp, mock_queue = _make_pp(
+        pp, messages = _make_pp(
             nzb_name="Chainsaw Man 165.cbr",
             nzb_folder=str(download),
             comicid="md-csm",
@@ -952,9 +924,9 @@ class TestMangaMetatagOnImport:
             mock_db.get_engine.return_value.begin.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_db.get_engine.return_value.begin.return_value.__exit__ = MagicMock(return_value=False)
 
-            pp._process_manga()
+            _process_manga(pp)
 
-        return mock_place, mock_cmtag, mock_db, mock_queue, str(src), str(tagged)
+        return mock_place, mock_cmtag, mock_db, messages, str(src), str(tagged)
 
     def test_import_tags_the_file_before_placing_it(self, tmp_path):
         mock_place, mock_cmtag, _db, _q, src, tagged = self._run(tmp_path, "TAGGED", self._meta_config())
@@ -993,7 +965,7 @@ class TestMangaMetatagOnImport:
 
     @pytest.mark.parametrize("sentinel", ["fail", "corrupt", "unrar error"])
     def test_a_tagging_failure_never_costs_the_import(self, tmp_path, sentinel):
-        mock_place, _cmtag, mock_db, mock_queue, src, _tagged = self._run(tmp_path, sentinel, self._meta_config())
+        mock_place, _cmtag, mock_db, messages, src, _tagged = self._run(tmp_path, sentinel, self._meta_config())
 
         assert mock_place.call_args[0][0] == src, "a sentinel is not a path; the original file must still be placed"
         mock_db.upsert.assert_any_call(
@@ -1001,7 +973,7 @@ class TestMangaMetatagOnImport:
             {"Status": "Downloaded", "Location": "Chainsaw Man 165.cbr"},
             {"IssueID": "md-csm-ch165"},
         )
-        result = mock_queue.put.call_args[0][0]
+        result = messages
         assert "Post Processing SUCCESSFUL" in result[0]["self.log"]
 
     def test_an_unmatched_file_is_not_tagged(self, tmp_path):
@@ -1021,7 +993,7 @@ class TestMangaMetatagOnImport:
 
 
 class TestMangaMetatagWiring:
-    """The helper is only useful if _process_manga actually calls it."""
+    """The helper is only useful if process_manga_download actually calls it."""
 
     @staticmethod
     def _source():
@@ -1767,7 +1739,7 @@ class TestMangaKeepsTheFileWhenTheDownloadFolderIsTheSeriesFolder:
         tagged = cache / tagged_name
         tagged.write_bytes(b"the tagged volume")
 
-        pp, mock_queue = _make_pp(
+        pp, messages = _make_pp(
             nzb_name="Chainsaw Man 165.cbz",
             nzb_folder=str(series_dir),
             comicid="md-csm",
@@ -1809,21 +1781,21 @@ class TestMangaKeepsTheFileWhenTheDownloadFolderIsTheSeriesFolder:
             mock_db.get_engine.return_value.begin.return_value.__enter__ = MagicMock(return_value=mock_conn)
             mock_db.get_engine.return_value.begin.return_value.__exit__ = MagicMock(return_value=False)
 
-            pp._process_manga()
+            _process_manga(pp)
 
-        return src, mock_queue
+        return src, messages
 
     def test_the_placed_file_survives_when_the_destination_is_the_pre_tag_path(self, tmp_path):
-        placed, mock_queue = self._run(tmp_path)
+        placed, messages = self._run(tmp_path)
 
         assert placed.exists(), "the cleanup deleted the file that placement had just written to the library"
         assert placed.read_bytes() == b"the tagged volume", "the surviving file must be the tagged one"
-        result = mock_queue.put.call_args[0][0]
+        result = messages
         assert "Post Processing SUCCESSFUL" in result[0]["self.log"]
 
     def test_a_renamed_tagged_file_still_has_its_download_original_removed(self, tmp_path):
         """The guard must stay narrow: a real .cbr -> .cbz rename leaves a
         distinct download original, and that one is still ours to clean up."""
-        original, _queue = self._run(tmp_path, tagged_name="Chainsaw Man 165 (tagged).cbz")
+        original, _messages = self._run(tmp_path, tagged_name="Chainsaw Man 165 (tagged).cbz")
 
         assert not original.exists(), "the pre-tag download original must still be tidied away"
