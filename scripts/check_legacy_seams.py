@@ -135,7 +135,7 @@ FOUNDATIONS_ALLOWLIST = {
         "#1209 moves Series add behind app/series/add.py",
     ),
     ("comicarr/app/system/service.py", "notifiers"): (
-        "notifier test buttons build each notifiers class",
+        "notify_ddl_stuck builds each notifiers class to report a stuck DDL download",
         "#1202 moves notifications behind app/notifications/service.py and deletes notifiers.py",
     ),
     ("comicarr/app/weekly/service.py", "importer"): (
