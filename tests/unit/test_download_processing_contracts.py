@@ -227,7 +227,7 @@ def test_failed_download_is_not_required_to_sit_under_a_postprocess_root(tmp_pat
     assert command["nzb_folder"] == str(interdir_parent.resolve())
 
     # Every explicit truthy form the command boundary accepts, normalized to a
-    # real bool. process.Process.post_process() rewrites only the string forms
+    # real bool. postprocessing._post_process() rewrites only the string forms
     # and then branches on `failed is False` / `is True`, so an integer 1 left
     # as-is would match neither branch: no PostProcessor, no FailedProcessor,
     # and the item silently does nothing.

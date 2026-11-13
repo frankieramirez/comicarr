@@ -14,7 +14,8 @@ import pytest
 import requests
 
 import comicarr
-from comicarr import logger, maintenance, process, sabnzbd
+from comicarr import logger, maintenance, sabnzbd
+from comicarr.app.downloads import postprocessing
 from comicarr.app.search import commands
 
 
@@ -56,12 +57,14 @@ def test_failed_download_retry_uses_durable_search_command(monkeypatch, annchk, 
         raising=False,
     )
 
-    process.Process(
-        "Saga 001.cbz",
-        "/downloads/Saga",
-        failed=True,
-        download_info={"id": "nzo-1", "provider": "sabnzbd"},
-    ).post_process()
+    postprocessing._post_process(
+        {
+            "nzb_name": "Saga 001.cbz",
+            "nzb_folder": "/downloads/Saga",
+            "failed": True,
+            "download_info": {"id": "nzo-1", "provider": "sabnzbd"},
+        }
+    )
 
     assert observed == [
         (

@@ -9,7 +9,7 @@ recovery paths have migrated.
 
 | Entry point | First-party callers | Observable result |
 |---|---|---|
-| `PostProcessor.Process()` | `comicarr.process`, `comicarr.app.downloads.service`, tests | queue/API status, library file, issue state, notifications, cleanup |
+| `PostProcessor.Process()` | `comicarr.app.downloads.postprocessing`, tests | queue/API status, library file, issue state, notifications, cleanup |
 | `PostProcessor.Process_next()` | `Process()` and focused tests | one resolved issue processed or an error/status string |
 | `PostProcessor._process_manga()` | `Process()` and focused tests | chapter file moved, issue state updated, journal advanced |
 | Manual folder processing | `comicarr.app.common.filesystem`, `FolderCheck` | eligible files processed without deleting the selected root |
@@ -135,7 +135,7 @@ inherited matching rules, and moving it under `comicarr/app/` would mean either
 rewriting it or weakening the modern lint lane. Neither is worth doing before
 1.0.
 
-Stages 1 to 6 have landed. The sequence continues:
+Stages 1 to 7 have landed. The sequence continues:
 
 4. Database reconciliation stage (landed, see above).
 5. Cleanup and notification stages (landed, see above).
@@ -152,6 +152,18 @@ Stages 1 to 6 have landed. The sequence continues:
    from the payload alone: at `post_processing` it copies from the library
    file, at `moved` it only records `arc_destination`. The download is never
    re-processed for it.
+7. Orchestration (landed). `comicarr/process.py` is deleted. The retry loop
+   is `_post_process` in `app/downloads/postprocessing.py`: the folder is
+   processed, a failed download goes to `FailedProcessor` unchanged, and a
+   download outside its folder is processed again as a manual run.
+   `FailedProcessor` is reached through `run_failed_processor` and
+   `terminalize_unhandled_failed_download` in `app/downloads/service.py`,
+   which already held that crossing. `PostProcessResult` now carries
+   `outcome` (`completed`, `failed`, `deferred` or `nothing`) and
+   `fail_reason` next to `status`, which keeps its old values so the 409,
+   queue-retry and monitor-deferral contracts are unchanged. The `mode`
+   messages still exist inside the class and are read in one place,
+   `_run_processor`; they go with the class in stage 8.
 7. Orchestration: the loop in `process.py` moves into
    `app/downloads/postprocessing.py` and `process.py` is deleted.
    `FailedProcessor` is called from there unchanged.

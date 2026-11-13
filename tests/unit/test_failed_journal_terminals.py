@@ -192,7 +192,7 @@ def test_process_failed_auto_stamps_retried_off_band():
 
 def test_handling_disabled_process_terminalizes_open_stage(monkeypatch):
     """FAILED_DOWNLOAD_HANDLING off still terminalizes so OPEN_STAGES drain."""
-    from comicarr import process as process_mod
+    from comicarr.app.downloads import postprocessing
 
     issueid = "1003"
     provider = "sabnzbd"
@@ -210,16 +210,19 @@ def test_handling_disabled_process_terminalizes_open_stage(monkeypatch):
     band_before = len(_band_rows())
     open_before = len(journal.read_open())
 
-    p = process_mod.Process(
-        nzbname,
-        "/downloads/Batman",
-        failed=True,
-        issueid=issueid,
-        comicid="C-bat",
-        download_info={"id": "nzo-bat", "provider": provider},
-        journal_release_key=key,
+    result = postprocessing._post_process(
+        {
+            "nzb_name": nzbname,
+            "nzb_folder": "/downloads/Batman",
+            "failed": True,
+            "issueid": issueid,
+            "comicid": "C-bat",
+            "download_info": {"id": "nzo-bat", "provider": provider},
+            "journal_release_key": key,
+        }
     )
-    p.post_process()
+    assert result.outcome == postprocessing.FAILED
+    assert result.fail_reason == failed_mod.FAIL_REASON_NO_AUTO_HANDLING
 
     row = _row(key)
     assert row["stage"] == journal.FAILED

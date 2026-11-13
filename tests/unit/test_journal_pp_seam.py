@@ -820,7 +820,7 @@ def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path
     #     the whole point of P1: per-file `moved` was removed so the shared
     #     row stays `post_processing` on a mid-loop crash and the finalizer
     #     re-imports the remaining chapters instead of skipping them. We mock
-    #     process.Process so the unit test asserts the routing decision
+    #     postprocessing._post_process so the unit test asserts the routing decision
     #     without running a full real PP (the end-to-end re-drive is covered
     #     by the integration AE suite). -------------------------------------
     row = journal.read_one(rkey)

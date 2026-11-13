@@ -37,7 +37,6 @@ REASONS_PATH = ROOT / "comicarr" / "app" / "attention" / "_policy.py"
 SCAN_GLOBS = (
     "comicarr/app/**/*.py",
     "comicarr/failed.py",
-    "comicarr/process.py",
 )
 
 SKIP_DIR_NAMES = {"_vendor", "__pycache__", ".venv", "node_modules"}

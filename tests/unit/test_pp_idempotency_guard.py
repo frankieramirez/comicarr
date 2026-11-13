@@ -14,12 +14,12 @@ Covers the U4 contract:
   * `postprocess_main` claims a release ATOMICALLY at PP-item dequeue via a
     single conditional monotonic advance `downloaded -> post_processing`
     (a compare-and-set, NOT a read-then-process). Exactly one of N concurrent
-    callers wins; every loser drops the item with no second `process.Process`.
+    callers wins; every loser drops the item with no second `postprocessing._post_process`.
   * The release_key is computed ONCE from ONLY the field intersection
-    guaranteed on BOTH the 8-arg and 2-arg `process.Process` paths
+    guaranteed on BOTH the 8-arg and 2-arg `postprocessing._post_process` paths
     ({nzb_name, nzb_folder, failed, issueid, comicid, apicall}) — never
     `download_info`/`ddl`/provider/hash. It is identical on both paths.
-  * That exact canonical key is threaded through `process.Process` ->
+  * That exact canonical key is threaded through `postprocessing._post_process` ->
     `PostProcessor` so U3's `moved`/`post_processed` markers advance the SAME
     journal row this claim advanced (single-derivation invariant), not an
     orphan row.
@@ -117,8 +117,8 @@ def _pp_item(issueid="I1", comicid="C1", nzb_name="Saga.001.cbz", **extra):
 
 def _run_postprocess_main(items):
     """Drive postprocess_main over a fixed list of items then exit. Returns
-    the list of journal_release_key values each constructed process.Process
-    received (i.e. the items that WON the claim and reached process.Process)."""
+    the list of journal_release_key values each postprocessing._post_process call
+    received (i.e. the items that WON the claim and reached postprocessing._post_process)."""
     processed_keys = []
 
     def _fake_execute(item):
@@ -143,11 +143,11 @@ def _run_postprocess_main(items):
 def test_first_wins_claim_second_identical_is_dropped():
     """First PP item for a key wins the claim and processes; a second
     identical item loses the advance and is dropped — no second
-    process.Process. (AE3)"""
+    postprocessing._post_process. (AE3)"""
     item = _pp_item(issueid="I1")
     processed = _run_postprocess_main([item, dict(item)])
 
-    assert len(processed) == 1  # only the winner reached process.Process
+    assert len(processed) == 1  # only the winner reached postprocessing._post_process
     rkey = journal.derive_release_key({"issueid": "I1", "comicid": "C1", "nzbname": "Saga.001.cbz"})
     assert processed[0] == rkey
     assert _stage_of(rkey) == "post_processing"
@@ -184,7 +184,7 @@ def test_claim_is_cas_not_read_then_process():
         t1.join(timeout=15)
         t2.join(timeout=15)
 
-    # Exactly one thread reached process.Process — the CAS winner.
+    # Exactly one thread reached postprocessing._post_process — the CAS winner.
     assert len(results) == 1
     assert results[0] == rkey
     assert _stage_of(rkey) == "post_processing"
@@ -219,7 +219,7 @@ def test_duplicate_after_post_processing_or_moved_is_dropped(preset_stage):
 
     processed = _run_postprocess_main([_pp_item(issueid="Iwin")])
 
-    assert processed == []  # never reached process.Process
+    assert processed == []  # never reached postprocessing._post_process
     assert _stage_of(rkey) == preset_stage  # not regressed
 
 
@@ -241,7 +241,7 @@ def test_duplicate_after_terminal_failed_is_dropped():
 
 def test_release_key_identical_on_8arg_and_2arg_paths():
     """The canonical release_key depends ONLY on the field intersection
-    guaranteed on both the 8-arg and 2-arg process.Process paths
+    guaranteed on both the 8-arg and 2-arg postprocessing._post_process paths
     ({nzb_name, nzb_folder, failed, issueid, comicid, apicall}) — NOT on
     download_info / ddl. An 8-arg item (full keys) and a 2-arg-shaped item
     (no download_info, no ddl — the API producer shape) with the same
@@ -267,7 +267,7 @@ def test_release_key_identical_on_8arg_and_2arg_paths():
 
     # And the guard itself produces that key for the 2-arg-shaped item. The
     # API-producer shape has no `download_info`/`ddl`, so the 8-arg
-    # construction raises KeyError BEFORE process.Process is reached and the
+    # construction raises KeyError BEFORE postprocessing._post_process is reached and the
     # guard's 2-arg fallback path is taken — the canonical key is computed
     # ONCE (before either construction) and threaded into the 2-arg retry.
     captured = []
@@ -294,7 +294,7 @@ def test_release_key_identical_on_8arg_and_2arg_paths():
 
 def test_journal_failure_in_guard_does_not_crash_falls_through():
     """A journal read/write FAILURE inside the guard must NOT crash the PP
-    worker — it is caught, logged, and the item still reaches process.Process
+    worker — it is caught, logged, and the item still reaches postprocessing._post_process
     (where the existing Status guard is the defense-in-depth fallback). The
     threaded key is None so PP markers fall back to re-derivation."""
     processed = []
@@ -325,7 +325,7 @@ def test_journal_failure_in_guard_does_not_crash_falls_through():
 def test_new_release_with_no_journal_row_wins_and_is_not_skipped():
     """A genuinely new release (no prior journal row): the conditional
     advance inserts-if-absent and returns True (it wins) — it must proceed to
-    process.Process, NOT be skipped."""
+    postprocessing._post_process, NOT be skipped."""
     rkey = journal.derive_release_key({"issueid": "Inew", "comicid": "C1", "nzbname": "Saga.001.cbz"})
     assert _journal_row(rkey) is None  # no row exists beforehand
 
@@ -491,7 +491,7 @@ def test_end_to_end_key_continuity_one_row_whole_lifecycle():
         threaded = item.get("journal_release_key")
         captured["threaded"] = threaded
         # Build a real PostProcessor threaded with the propagated key (as
-        # process.Process does) and drive its U3 moved/post_processed markers.
+        # postprocessing._post_process does) and drive its U3 moved/post_processed markers.
         mock_apilock = MagicMock()
         mock_apilock.locked.return_value = False
         cfg = MagicMock()

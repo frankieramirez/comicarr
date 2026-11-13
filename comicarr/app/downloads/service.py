@@ -2099,6 +2099,74 @@ def _cdh_terminalize_no_auto_handling(item, nzstat, known_nzb_id):
         return False
 
 
+def run_failed_processor(item):
+    """Hand a failed download to ``FailedProcessor`` and return its message, or None."""
+    import queue
+
+    from comicarr import failed as failed_mod
+
+    info = item["download_info"]
+    messages = queue.Queue()
+    failed_mod.FailedProcessor(
+        nzb_name=item["nzb_name"],
+        nzb_folder=item["nzb_folder"],
+        queue=messages,
+        prov=info["provider"],
+        id=info["id"],
+        issueid=item.get("issueid"),
+        comicid=item.get("comicid"),
+        journal_release_key=item.get("journal_release_key"),
+    ).Process()
+    return None if messages.empty() else messages.get_nowait()
+
+
+def terminalize_unhandled_failed_download(item):
+    """Close the journal for a failed download that failed handling leaves alone.
+
+    Prefer the claim key; fall back under the release-key rules from
+    ``download_info`` and the issue identity. Returns the fail reason written,
+    or None when no release key resolves.
+    """
+    from comicarr import failed as failed_mod
+
+    info = item.get("download_info") if isinstance(item.get("download_info"), dict) else {}
+    issueid = item.get("issueid") or info.get("issueid")
+    provider = info.get("provider")
+    nzbname = item.get("nzb_name") or info.get("nzbname")
+    download_hash = info.get("hash")
+    rkey = failed_mod.resolve_failed_release_key(
+        journal_release_key=item.get("journal_release_key"),
+        issueid=issueid,
+        provider=provider,
+        nzbname=nzbname,
+        hash=download_hash,
+        discriminant=info or None,
+    )
+    if rkey is None:
+        logger.fdebug(
+            "[DOWNLOADS-PP] journal terminalize skipped, release_key not resolvable "
+            "(issueid=%s provider=%s)" % (issueid, provider)
+        )
+        return None
+    failed_mod.terminalize_failed_download(
+        rkey,
+        failed_mod.FAIL_REASON_NO_AUTO_HANDLING,
+        status=None,
+        issueid=issueid,
+        provider=provider,
+        nzbname=nzbname,
+        hash=download_hash,
+        payload={
+            "issueid": issueid,
+            "comicid": item.get("comicid") or info.get("comicid"),
+            "provider": provider,
+            "nzbname": nzbname,
+            "failed": True,
+        },
+    )
+    return failed_mod.FAIL_REASON_NO_AUTO_HANDLING
+
+
 def _cdh_prepare_failed_job(item, nzstat):
     """Fill name/location/download_info so the success+failed PP path can retry."""
     ident = _cdh_job_identity(item, nzstat)
