@@ -26,7 +26,8 @@ ADR-0005 sorts the root-level ``comicarr/*.py`` modules into three groups:
 - **Deferred legacy**: every other root module. Today's imports from
   ``comicarr/app/`` are baselined; new ones fail.
 
-Routers carry a stricter rule: a ``router.py`` imports no root module outside
+Routers carry a stricter rule: a ``router.py``, and any module of the MCP tool
+layer under ``comicarr/app/mcp/``, imports no root module outside
 Infrastructure, seam or not.
 
 The scan is an AST walk, so function-local and relative imports count. It also
@@ -61,6 +62,9 @@ PACKAGE_DIR = "comicarr"
 SCAN_DIR = "comicarr/app"
 
 SKIP_DIR_NAMES = {"__pycache__"}
+
+# The MCP tool layer follows the router rule, with no allowlist (ADR-0005).
+MCP_DIR = "comicarr/app/mcp/"
 
 INFRASTRUCTURE = frozenset({"logger", "db", "tables", "config", "encrypted", "helpers", "series_kind"})
 
@@ -307,7 +311,7 @@ def _classify(rel: str, module: str) -> str | None:
     """Allowlist a crossing belongs to, or None when the rule permits it."""
     if module in INFRASTRUCTURE:
         return None
-    if rel.rsplit("/", 1)[-1] == "router.py":
+    if rel.rsplit("/", 1)[-1] == "router.py" or rel.startswith(MCP_DIR):
         return "router"
     if module in SEAMS:
         return None if rel in SEAMS[module] else "foundations"

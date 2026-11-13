@@ -108,6 +108,11 @@ def test_router_importing_deferred_legacy_fails(guard, tmp_path, monkeypatch):
     assert guard.main() == 1
 
 
+def test_mcp_tool_layer_follows_the_router_rule(guard, tmp_path, monkeypatch):
+    _tree(guard, monkeypatch, tmp_path, {"comicarr/app/mcp/tools.py": "from comicarr import search\n"})
+    assert guard.main() == 1
+
+
 def test_router_importing_a_seamed_module_fails_even_from_a_seam_path(guard, tmp_path, monkeypatch):
     # Being a router wins: the deferred or foundations allowlists do not cover it.
     _tree(
