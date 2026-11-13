@@ -307,9 +307,9 @@ def change_series_location(ctx, comic_id, folder, *, move_files=False):
                 if emptied and emptied not in still_holding and not _overlaps(emptied, target):
                     _remove_if_empty(emptied)
 
-        from comicarr import updater
+        from comicarr.app.series import rescan as series_rescan
 
-        updater.forceRescan(comic_id)
+        series_rescan.rescan_series(comic_id)
 
     result = {
         "success": error is None,

@@ -636,7 +636,7 @@ class TestAutoImportWritesMetadata:
                 "get_comic_for_import",
                 return_value={"ComicName": "Batman", "ComicLocation": str(target_directory)},
             ),
-            patch("comicarr.updater.forceRescan"),
+            patch("comicarr.app.series.rescan.rescan_series"),
             patch("comicarr.cmtag.run", return_value=cmtag_return) as mock_cmtag,
         ):
             ok = importinbox._finalize_auto_import_group(

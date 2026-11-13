@@ -254,10 +254,10 @@ def _rollback_moves(placed, series_id: str, *, reconcile: bool) -> list[str]:
             errors.append("%s -> %s: %s" % (destination_path, source_path, e))
 
     if reconcile:
-        from comicarr import updater
+        from comicarr.app.series import rescan as series_rescan
 
         try:
-            updater.forceRescan(series_id)
+            series_rescan.rescan_series(series_id)
         except Exception as e:
             errors.append("series reconciliation failed: %s" % e)
     if errors:
@@ -266,7 +266,7 @@ def _rollback_moves(placed, series_id: str, *, reconcile: bool) -> list[str]:
 
 
 def _move_and_rescan(move_plan, series_id: str, config):
-    from comicarr import updater
+    from comicarr.app.series import rescan as series_rescan
 
     placed = []
     for source_path, destination_path in move_plan:
@@ -294,7 +294,7 @@ def _move_and_rescan(move_plan, series_id: str, config):
         placed.append((source_path, result))
 
     try:
-        updater.forceRescan(series_id)
+        series_rescan.rescan_series(series_id)
     except Exception as e:
         rollback_errors = _rollback_moves(placed, series_id, reconcile=True)
         message = "Failed to rescan imported series %s: %s" % (series_id, e)
@@ -305,7 +305,7 @@ def _move_and_rescan(move_plan, series_id: str, config):
 
 
 def _archive_and_rescan(rows: Sequence[dict], series_id: str) -> None:
-    from comicarr import updater
+    from comicarr.app.series import rescan as series_rescan
 
     archive_directories = []
     for row in rows:
@@ -316,8 +316,8 @@ def _archive_and_rescan(rows: Sequence[dict], series_id: str) -> None:
     try:
         for archive_directory in archive_directories:
             logger.fdebug("[IMPORT-MATCH] Archiving import directory in place: %s" % archive_directory)
-            updater.forceRescan(series_id, archive=archive_directory)
-        updater.forceRescan(series_id)
+            series_rescan.rescan_series(series_id, archive=archive_directory)
+        series_rescan.rescan_series(series_id)
     except Exception as e:
         raise _fail("Failed to rescan imported series %s: %s" % (series_id, e), phase="rescan") from e
 
@@ -455,11 +455,11 @@ def _tag_imported_files(pending: _PendingTagging) -> None:
     if not renamed:
         return
     try:
-        from comicarr import updater
+        from comicarr.app.series import rescan as series_rescan
 
         for archive_directory in archive_directories:
-            updater.forceRescan(series_id, archive=archive_directory)
-        updater.forceRescan(series_id)
+            series_rescan.rescan_series(series_id, archive=archive_directory)
+        series_rescan.rescan_series(series_id)
     except Exception as e:
         logger.warn("[IMPORT-MATCH] Rescan after metatag rename failed for %s: %s" % (series_id, e))
 

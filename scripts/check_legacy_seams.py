@@ -93,17 +93,12 @@ SEAMS = {
 # --------------------------------------------------------------------------
 FOUNDATIONS_ALLOWLIST = {
     ("comicarr/app/downloads/service.py", "updater"): (
-        "dupecheck calls dbUpdate and forceRescan; snatch bookkeeping calls nzblog and foundsearch",
-        "#1205, #1206 and #1207 move these callers onto app/series/rescan.py, "
-        "app/downloads/snatch_record.py and app/series/refresh.py",
+        "dupecheck calls dbUpdate; snatch bookkeeping calls nzblog and foundsearch",
+        "#1206 and #1207 move these callers onto app/downloads/snatch_record.py and app/series/refresh.py",
     ),
     ("comicarr/app/imports/finalization.py", "importer"): (
         "manual import adds a missing series with addComictoDB",
         "#1209 moves Series add behind app/series/add.py",
-    ),
-    ("comicarr/app/imports/finalization.py", "updater"): (
-        "rescans the series after files are placed (forceRescan)",
-        "#1205 moves forceRescan callers onto app/series/rescan.py",
     ),
     ("comicarr/app/manga/sync.py", "importer"): (
         "adds manga series with addMangaToDB and addMangaToDB_MAL",
@@ -113,10 +108,6 @@ FOUNDATIONS_ALLOWLIST = {
         "runs mangaCheck and mangadexNewChapterCheck",
         "#1204 puts RSS checking behind app/search/rss.py",
     ),
-    ("comicarr/app/metadata/service.py", "updater"): (
-        "rescans the series after a metadata change (forceRescan)",
-        "#1205 moves forceRescan callers onto app/series/rescan.py",
-    ),
     ("comicarr/app/search/service.py", "importer"): (
         "queues a series add on importer_thread",
         "#1209 moves Series add behind app/series/add.py",
@@ -124,10 +115,6 @@ FOUNDATIONS_ALLOWLIST = {
     ("comicarr/app/search/service.py", "rsscheckit"): (
         "force RSS check runs rsscheckit.tehMain",
         "#1204 puts RSS checking behind app/search/rss.py",
-    ),
-    ("comicarr/app/series/location.py", "updater"): (
-        "rescans the series after a folder move (forceRescan)",
-        "#1205 moves forceRescan callers onto app/series/rescan.py",
     ),
     ("comicarr/app/series/service.py", "importer"): (
         "queues adds and refreshes on importer_thread and refresh_thread",

@@ -21,8 +21,9 @@ import requests
 from PIL import Image
 
 import comicarr
-from comicarr import db, getimage, logger, updater
+from comicarr import db, getimage, logger
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.series import rescan as series_rescan
 
 
 def search_comics(
@@ -453,7 +454,7 @@ def _do_manual_metatag(issueid, comicid=None, group=False):
 
     if fail is False:
         if group is False:
-            updater.forceRescan(comicid)
+            series_rescan.rescan_series(comicid)
         try:
             from comicarr.app.activity.producers import emit_tag_activity
 
@@ -487,7 +488,7 @@ def _thread_bulk_meta(comicinfo, issueinfo):
     """Worker thread for bulk metatag. Extracted from WebInterface.thread_that_bulk_meta."""
     for ginfo in issueinfo:
         _do_manual_metatag(ginfo["IssueID"], group=True)
-    updater.forceRescan(comicinfo["ComicID"])
+    series_rescan.rescan_series(comicinfo["ComicID"])
     logger.info(
         "[SERIES-METATAGGER][%s (%s)] Finished (re)tagging of metadata for selected issues."
         % (comicinfo["ComicName"], comicinfo["ComicYear"])
@@ -579,7 +580,7 @@ def _thread_group_meta(comicinfo, issueinfo):
     """Worker thread for group metatag. Extracted from WebInterface.thread_that_meta."""
     for ginfo in issueinfo:
         _do_manual_metatag(ginfo["IssueID"], group=True)
-    updater.forceRescan(comicinfo["ComicID"])
+    series_rescan.rescan_series(comicinfo["ComicID"])
     logger.info(
         "[SERIES-METATAGGER][%s (%s)] Finished complete series (re)tagging of metadata."
         % (comicinfo["ComicName"], comicinfo["ComicYear"])
