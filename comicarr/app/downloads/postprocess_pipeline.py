@@ -9,13 +9,27 @@
 
 """Restart-safe stages used by the legacy post-processing facade."""
 
+import json
 import os
+import re
+import shlex
 import shutil
-from dataclasses import dataclass
+import subprocess
+import sys
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any
 
-from comicarr import logger
+from sqlalchemy import and_, or_, select
+
+from comicarr import db, helpers, logger
+from comicarr.app.common.numbers import zero_suppression_prefix
+from comicarr.app.common.placement import OnExisting, Outcome, Purpose
+from comicarr.app.common.redaction import redacted_traceback
 from comicarr.app.downloads import journal
+from comicarr.app.downloads.pp_commands import safe_walk
+from comicarr.app.manga.ledger import normalize_volume_number
+from comicarr.tables import annuals, comics, issues, snatched, storyarcs
 
 
 @dataclass(frozen=True)
@@ -622,3 +636,1459 @@ class PostProcessNotifyStage:
             )
         if config.MATRIX_ENABLED:
             n.MATRIX().notify(title, prline2, module=module)
+
+
+# ---------------------------------------------------------------------------
+# Per-item processing: one matched comic issue, or one manga download.
+# ---------------------------------------------------------------------------
+
+COMPLETED = "completed"
+STOPPED = "stopped"
+RETRY = "retry"
+ABORTED = "aborted"
+
+DEFAULT_EXTENSIONS = (".cbr", ".cbz", ".pdf", ".cb7")
+
+
+@dataclass(frozen=True)
+class PostProcessItemDeps:
+    """The legacy collaborators a per-item run calls, passed in by the facade.
+
+    ADR-0005 keeps the Deferred legacy modules (``cmtag``, ``filechecker``,
+    ``getimage``, ``weeklypull``) and ``updater`` out of ``comicarr/app/``, so
+    the facade hands over the functions themselves.
+    """
+
+    place: Callable
+    tag_file: Callable
+    validate_directory: Callable
+    set_permissions: Callable
+    weekly_check: Callable
+    totals: Callable
+    foundsearch: Callable
+    extract_cover: Callable
+    manga_destination: Callable
+
+
+@dataclass(frozen=True)
+class PostProcessComicMatch:
+    """One library issue (or annual) a downloaded file was matched to.
+
+    ``manual`` is the folder matcher's row for the file when one was matched
+    from a folder scan; without it the file is found in ``nzb_folder``.
+    """
+
+    comic_id: str
+    issue_id: str
+    issue_number: str | None
+    manual: dict | None = None
+    position: str | None = None
+
+
+@dataclass(frozen=True)
+class PostProcessItemResult:
+    """How a per-item run ended.
+
+    ``queued`` says whether the run's messages go to the caller's queue; a few
+    legacy failure paths return without signalling it, and still do.
+    """
+
+    outcome: str
+    queued: bool
+    issue_id: str | None = None
+    placed_path: str | None = None
+
+
+@dataclass
+class PostProcessRun:
+    """The state one post-processing request carries across its items.
+
+    ``log`` and ``messages`` are the legacy narration string and the list the
+    queue consumer reads (``{"self.log": ..., "mode": ...}`` entries).
+    """
+
+    context: PostProcessContext
+    nzb_name: str
+    nzb_folder: str
+    module: str = "[POST-PROCESSING]"
+    extensions: tuple = DEFAULT_EXTENSIONS
+    log: str = ""
+    failed_files: int = 0
+    messages: list = field(default_factory=list)
+
+    def narrate(self, message):
+        self.log += message + "\n"
+
+    def finish(self, mode, outcome=None, **extra):
+        entry = {"self.log": self.log, "mode": mode}
+        entry.update(extra)
+        self.messages.append(entry)
+        if outcome is None:
+            outcome = {"stop": STOPPED, "fail": RETRY}.get(mode, STOPPED)
+        return PostProcessItemResult(outcome, True, issue_id=extra.get("issueid"))
+
+    def abort(self):
+        return PostProcessItemResult(ABORTED, False)
+
+    def journal(self, stage, *, issue_id=None, issue_arc_id=None, payload=None):
+        return _JOURNAL.transition(self.context, stage, issue_id=issue_id, issue_arc_id=issue_arc_id, payload=payload)
+
+    def tidy(self, odir=None, del_nzbdir=False, sub_path=None, cacheonly=False, filename=None):
+        import comicarr
+
+        config = comicarr.CONFIG
+        PostProcessCleanupStage(narrate=self.narrate).tidy(
+            PostProcessCleanupContext(
+                nzb_folder=self.nzb_folder,
+                nzb_name=self.nzb_name,
+                issue_id=self.context.issue_id,
+                file_opts=config.FILE_OPTS,
+                enable_meta=config.ENABLE_META,
+                ddl_location=getattr(config, "DDL_LOCATION", None),
+                log_module=self.module,
+            ),
+            odir,
+            del_nzbdir=del_nzbdir,
+            sub_path=sub_path,
+            cacheonly=cacheonly,
+            filename=filename,
+        )
+
+    def log_placement_failure(self, operation, src, dst, error):
+        logger.error(
+            "%s Failed to %s %s to %s (release=%s, issue=%s)\n%s"
+            % (
+                self.module,
+                operation,
+                src,
+                dst,
+                self.context.canonical_release_key,
+                self.context.issue_id,
+                redacted_traceback(error),
+            )
+        )
+
+
+_JOURNAL = PostProcessJournalStage()
+
+
+def run_script(kind, run, nzb_name, nzb_folder, filename, path, seriesmetadata):
+    """Run the configured pre (``kind="pre"``) or extra script for one file."""
+    import comicarr
+
+    config = comicarr.CONFIG
+    if kind == "pre":
+        script, shell_location, label, text = config.PRE_SCRIPTS, config.PRE_SHELL_LOCATION, "pre", False
+    else:
+        script, shell_location, label, text = config.EXTRA_SCRIPTS, config.ES_SHELL_LOCATION, "extra", True
+    name = "PRE_SCRIPTS" if kind == "pre" else "EXTRA_SCRIPTS"
+    logger.fdebug("initiating %s script detection." % label)
+    run.narrate("initiating %s script detection." % label)
+    logger.fdebug("comicarr.%s : %s" % (name, script))
+    run.narrate("comicarr.%s : %s" % (name, script))
+    with open(script, "r") as f:
+        first_line = f.readline()
+
+    if script.endswith(".sh"):
+        shell_cmd = re.sub("#!", "", first_line).strip()
+        if shell_cmd == "" or shell_cmd is None:
+            shell_cmd = "/bin/bash"
+    elif shell_location is not None:
+        if "powershell" in os.path.basename(shell_location.lower()):
+            shell_cmd = "%s -%s" % (shell_location, "File")
+        else:
+            shell_cmd = shell_location
+    else:
+        shell_cmd = sys.executable
+
+    script_name = shell_cmd + " " + str(script)
+    logger.fdebug("%s script detected...enabling: %s" % (label, script_name))
+    script_cmd = shlex.split(script_name, posix=False) + [
+        str(nzb_name),
+        str(nzb_folder),
+        str(filename),
+        str(path),
+        json.dumps(seriesmetadata),
+    ]
+    logger.fdebug("cmd to be executed: %s" % (script_cmd,))
+    run.narrate("cmd to be executed: %s" % (script_cmd,))
+
+    logger.fdebug("Executing command %s" % (script_cmd,))
+    logger.fdebug("Absolute path to script: %s" % (script_cmd[0],))
+    try:
+        p = subprocess.Popen(
+            script_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=comicarr.PROG_DIR, text=text
+        )
+        out, _err = p.communicate()
+        logger.fdebug("Script result: %s" % (out,))
+        run.narrate("Script result: %s" % (out,))
+    except OSError:
+        logger.warn("Unable to run %s_script: %s" % (label, script_cmd))
+        run.narrate("Unable to run %s_script: %s" % (label, script_cmd))
+
+
+def _notify(run, deps, completion, *, series, issue_year, issue_number, placed_path, issue_id):
+    # No completion attempt on this path means legacy behaviour: notify.
+    completed = True if completion is None else bool(completion.recorded)
+    PostProcessNotifyStage(extract_cover=deps.extract_cover).notify(
+        PostProcessNotification(
+            series=series,
+            issue_year=issue_year,
+            issue_number=issue_number,
+            placed_path=placed_path,
+            issue_id=issue_id,
+            log_module=run.module,
+        ),
+        completed=completed,
+    )
+
+
+_ISSUE_SUFFIXES = (
+    ("au", " AU"),
+    ("ai", " AI"),
+    ("inh", ".INH"),
+    ("now", ".NOW"),
+    ("bey", ".BEY"),
+    ("mu", ".MU"),
+    ("hu", ".HU"),
+    ("deaths", ".DEATHS"),
+)
+
+
+def _split_issue_suffix(issuenum):
+    """Strip a known issue-number suffix: ``"5AU"`` -> ``("5", " AU")``."""
+    import comicarr
+
+    lowered = issuenum.lower()
+    for marker, suffix in _ISSUE_SUFFIXES:
+        if marker in lowered and issuenum[:1].isdigit():
+            if marker == "now" and "!" in issuenum:
+                issuenum = re.sub(r"\!", "", issuenum)
+            return re.sub("[^0-9]", "", issuenum), suffix
+    for symbol, value in (("\xbd", "0.5"), ("\xbc", "0.25"), ("\xbe", "0.75"), ("∞", "infinity")):
+        if symbol in issuenum:
+            return value, "None"
+    issue_except = "None"
+    exceptionmatch = [x for x in comicarr.ISSUE_EXCEPTIONS if x.lower() in issuenum.lower()]
+    if exceptionmatch:
+        logger.fdebug("[FILECHECKER] We matched on : " + str(exceptionmatch))
+        for x in exceptionmatch:
+            issuenum = re.sub("[^0-9]", "", issuenum)
+            issue_except = x
+    return issuenum, issue_except
+
+
+def _pretty_issue_number(run, issuenum, issue_except):
+    """The zero-padded issue number for the filename, or None if unusable.
+
+    Returns ``(prettycomiss, issueno)``; ``prettycomiss`` is ``False`` when the
+    number cannot be read at all, which ends the item without a queue signal.
+    """
+    import comicarr
+
+    module = run.module
+    iss_decval = None
+    if "." in issuenum:
+        iss_find = issuenum.find(".")
+        iss_b4dec = issuenum[:iss_find]
+        if iss_b4dec == "":
+            iss_b4dec = "0"
+        iss_decval = issuenum[iss_find + 1 :]
+        if iss_decval.endswith("."):
+            iss_decval = iss_decval[:-1]
+        if int(iss_decval) == 0:
+            iss = iss_b4dec
+            issueno = str(iss)
+            run.narrate("Issue Number: %s" % issueno)
+            logger.fdebug("%s Issue Number: %s" % (module, issueno))
+        else:
+            if len(iss_decval) == 1:
+                iss = iss_b4dec + "." + iss_decval
+            else:
+                iss = iss_b4dec + "." + iss_decval.rstrip("0")
+            issueno = iss_b4dec
+            run.narrate("Issue Number: %s" % iss)
+            logger.fdebug("%s Issue Number: %s" % (module, iss))
+    else:
+        iss = issuenum
+        issueno = iss
+
+    zeroadd = zero_suppression_prefix(comicarr.CONFIG.ZERO_LEVEL, comicarr.CONFIG.ZERO_LEVEL_N)
+    logger.fdebug("%s Zero Suppression set to : %s" % (module, comicarr.CONFIG.ZERO_LEVEL_N))
+
+    prettycomiss = None
+    if issueno.isalpha():
+        logger.fdebug("issue detected as an alpha.")
+        prettycomiss = str(issueno)
+    else:
+        try:
+            x = float(issueno)
+            if x < 0:
+                logger.info("%s I've encountered a negative issue #: %s. Trying to accomodate" % (module, issueno))
+                prettycomiss = "-%s%s" % (zeroadd, issueno[1:])
+            elif x >= 0:
+                pass
+            else:
+                raise ValueError
+        except ValueError:
+            logger.warn(
+                "Unable to properly determine issue number [%s] - you should probably log this on github for help."
+                % issueno
+            )
+            return False, issueno
+
+    if all([prettycomiss is None, len(str(issueno)) > 0]):
+        if int(issueno) < 10:
+            logger.fdebug("issue detected less than 10")
+            prettycomiss = _padded(zeroadd, iss, issueno, iss_decval)
+        elif int(issueno) >= 10 and int(issueno) < 100:
+            logger.fdebug("issue detected greater than 10, but less than 100")
+            if zeroadd == "00":
+                zeroadd = "0"
+            prettycomiss = _padded(zeroadd, iss, issueno, iss_decval)
+        else:
+            logger.fdebug("issue detected greater than 100")
+            if "." in iss and int(iss_decval) > 0:
+                issueno = str(iss)
+            prettycomiss = str(issueno)
+        if issue_except != "None":
+            prettycomiss = str(prettycomiss) + issue_except
+        logger.fdebug(
+            "%s Zero level supplement set to %s. Issue will be set as : %s"
+            % (module, comicarr.CONFIG.ZERO_LEVEL_N, prettycomiss)
+        )
+    elif len(str(issueno)) == 0:
+        prettycomiss = str(issueno)
+        logger.fdebug("issue length error - cannot determine length. Defaulting to None: %s " % prettycomiss)
+    return prettycomiss, issueno
+
+
+def _padded(zeroadd, iss, issueno, iss_decval):
+    if "." in iss:
+        if int(iss_decval) > 0:
+            return str(zeroadd) + str(iss)
+        return str(zeroadd) + str(int(issueno))
+    return str(zeroadd) + str(iss)
+
+
+def _names_an_arc(ml):
+    """Whether the match row carries an ``IssueArcID`` key at all.
+
+    The legacy test was a bare ``ml["IssueArcID"]`` lookup, so a row with the
+    key set to None still looked its issue up in the watched arcs.
+    """
+    try:
+        ml["IssueArcID"]
+    except Exception:
+        return False
+    return True
+
+
+def _arc_memberships(ml):
+    """The watched-arc rows the matched issue belongs to (legacy lookup)."""
+    arcsforever = db.select_all(
+        select(storyarcs).where(and_(storyarcs.c.ComicID == ml["ComicID"], storyarcs.c.IssueID == ml["IssueID"]))
+    )
+    if not arcsforever:
+        id_arcsforever = db.select_one(
+            select(storyarcs.c.IssueID).where(
+                and_(storyarcs.c.IssueArcID == ml["IssueArcID"], storyarcs.c.ComicID == ml["ComicID"])
+            )
+        )
+        if not id_arcsforever:
+            logger.warn(
+                "Unable to locate IssueID within givin Story Arc. Ensure everything is up-to-date (refreshed) for the Arc."
+            )
+        else:
+            arcsforever = db.select_all(select(storyarcs).where(storyarcs.c.IssueID == id_arcsforever["IssueID"]))
+    return arcsforever or []
+
+
+def _arc_payload(run, membership, library_file):
+    return {
+        "mode": "story_arc",
+        "arc_copy": True,
+        "issueid": membership.issue_arc_id,
+        "issuearcid": membership.issue_arc_id,
+        "comicid": run.context.comic_id,
+        "nzb_name": run.nzb_name,
+        "library_file": library_file,
+        "story_arc": membership.story_arc,
+        "story_arc_id": membership.story_arc_id,
+        "reading_order": membership.reading_order,
+        "publisher": membership.publisher,
+    }
+
+
+def _arc_context(context, issue_arc_id):
+    """The journal context for one arc copy: its own arc-scoped key."""
+    key = _JOURNAL.release_key(context, issue_arc_id=issue_arc_id)
+    return PostProcessContext(
+        issue_id=None,
+        issue_arc_id=issue_arc_id,
+        comic_id=context.comic_id,
+        nzb_name=context.nzb_name,
+        nzb_folder=context.nzb_folder,
+        api_call=context.api_call,
+        ddl=context.ddl,
+        canonical_release_key=key,
+        log_module=context.log_module,
+    )
+
+
+def _claim_arc_copies(run, ml, library_file):
+    """Record each arc copy as owed before the library issue completes.
+
+    The claim carries what recovery needs to make the copy from the library
+    file, so a restart after the library placement finishes the copy without
+    placing the issue again.
+    """
+    from comicarr.app.storyarcs import ArcMembership
+
+    claims = []
+    for row in _arc_memberships(ml):
+        membership = ArcMembership.from_row(row)
+        arc_context = _arc_context(run.context, membership.issue_arc_id)
+        _JOURNAL.transition(
+            arc_context,
+            journal.POST_PROCESSING,
+            issue_arc_id=membership.issue_arc_id,
+            payload=_arc_payload(run, membership, library_file),
+        )
+        claims.append((membership, arc_context))
+    return claims
+
+
+def finish_arc_copy(context, membership, library_file, *, config=None, place=None, destination=None, log=logger):
+    """Make (or, after ``moved``, just record) one arc copy and complete it.
+
+    ``destination`` is given when recovery finds the copy already made. Raises
+    ``ArcCopyError`` when the copy fails; the arc row is then left owed.
+    """
+    from comicarr.app.downloads._postprocess_completion import complete
+    from comicarr.app.storyarcs import copy_issue_to_arc
+
+    payload = None
+    if destination is None:
+        result = copy_issue_to_arc(library_file, membership, config=config, place=place)
+        destination = result.destination
+        if result.operation is not None:
+            payload = {
+                "mode": "story_arc",
+                "arc_copy": True,
+                "issueid": membership.issue_arc_id,
+                "issuearcid": membership.issue_arc_id,
+                "library_file": library_file,
+                "arc_destination": destination,
+            }
+            _JOURNAL.transition(context, journal.MOVED, issue_arc_id=membership.issue_arc_id, payload=payload)
+    completion = complete(
+        context,
+        issue_arc_id=membership.issue_arc_id,
+        anchor_ids=("S" + str(membership.issue_arc_id),),
+        arc_scope=membership.story_arc,
+        database=db,
+    )
+    ctrl = {"IssueArcID": membership.issue_arc_id}
+    values = {"Status": "Downloaded", "Location": destination}
+    log.fdebug("writing: %s -- %s" % (values, ctrl))
+    db.upsert("storyarcs", values, ctrl)
+    log.fdebug("%s [%s] Post-Processing completed for: %s" % (context.log_module, membership.story_arc, destination))
+    return completion
+
+
+def recover_arc_copy(release_key, row, payload, *, config=None):
+    """Finish an owed arc copy from the journal row alone.
+
+    The library issue is already placed, so this never touches the download:
+    at ``post_processing`` it makes the copy from ``library_file``, at
+    ``moved`` it only records the copy ``arc_destination`` names.
+    """
+    from comicarr.app.storyarcs import ArcMembership
+
+    payload = payload or {}
+    issue_arc_id = payload.get("issuearcid") or row.get("issueid")
+    membership = ArcMembership(
+        story_arc=payload.get("story_arc"),
+        story_arc_id=payload.get("story_arc_id"),
+        issue_arc_id=issue_arc_id,
+        reading_order=payload.get("reading_order"),
+        publisher=payload.get("publisher"),
+    )
+    if membership.story_arc is None:
+        arc_row = db.select_one(select(storyarcs).where(storyarcs.c.IssueArcID == str(issue_arc_id)))
+        if arc_row is not None:
+            membership = ArcMembership.from_row(arc_row)
+    context = PostProcessContext(
+        issue_id=None,
+        issue_arc_id=issue_arc_id,
+        comic_id=payload.get("comicid"),
+        nzb_name=payload.get("nzb_name") or "",
+        nzb_folder=payload.get("nzb_folder") or "",
+        api_call=False,
+        ddl=False,
+        canonical_release_key=release_key,
+        log_module="[POST-PROCESSING][RECOVERY]",
+    )
+    destination = payload.get("arc_destination") if row.get("stage") == journal.MOVED else None
+    return finish_arc_copy(context, membership, payload.get("library_file"), config=config, destination=destination)
+
+
+def _copy_to_arcs(run, deps, ml, claims, dst):
+    """The legacy arc branch, now through ``copy_issue_to_arc``.
+
+    Returns a result when the item must end here, else None. A folder that
+    cannot be made stops the item; a failed copy returns without signalling
+    the queue, as it always has.
+    """
+    import comicarr
+    from comicarr.app.storyarcs import ArcCopyError, ArcFolderError
+
+    module = run.module
+    try:
+        logger.info("Watchlist Story Arc match detected.")
+        logger.info(ml)
+        for membership, arc_context in claims:
+            if comicarr.CONFIG.COPY2ARCDIR is True:
+                logger.info(
+                    "%s[%s] %s into the arc folder for %s"
+                    % (module, comicarr.CONFIG.ARC_FILEOPS.upper(), dst, membership.story_arc)
+                )
+            try:
+                finish_arc_copy(arc_context, membership, dst, place=deps.place)
+            except ArcFolderError as e:
+                logger.warn(
+                    "%s Error trying to validate/create directory. Aborting this process at this time." % module
+                )
+                logger.fdebug("%s %s" % (module, e))
+                return run.finish("stop")
+            except ArcCopyError as e:
+                run.log_placement_failure(
+                    comicarr.CONFIG.ARC_FILEOPS, dst, "the %s arc folder" % membership.story_arc, e
+                )
+                return run.abort()
+            logger.fdebug("%s IssueArcID: %s" % (module, ml["IssueArcID"]))
+    except Exception as e:
+        logger.error("error encountered: %s" % e)
+    return None
+
+
+def process_comic_issue(match: PostProcessComicMatch, run: PostProcessRun, deps: PostProcessItemDeps):
+    """Post-process one file matched to a library issue or annual.
+
+    Runs the stages in their legacy order: journal claim, tagging, placement
+    (``moved``), cleanup, completion, reconciliation, the owed arc copies,
+    weekly/extra-script hooks and the notification. A restart re-enters
+    through the journal: see the post-processing migration map.
+    """
+    import comicarr
+
+    comicid = match.comic_id
+    issueid = match.issue_id
+    issuenumOG = match.issue_number
+    ml = match.manual
+    stat = match.position if match.position is not None else " [1/1]"
+    module = run.module
+    config = comicarr.CONFIG
+
+    annchk = "no"
+    comicnzb = db.select_one(select(comics).where(comics.c.ComicID == comicid))
+    issuenzb = db.select_one(
+        select(issues).where(
+            and_(issues.c.IssueID == issueid, issues.c.ComicID == comicid, issues.c.ComicName.isnot(None))
+        )
+    )
+    if ml is not None and config.SNATCHEDTORRENT_NOTIFY:
+        snatchnzb = db.select_one(
+            select(snatched).where(
+                and_(
+                    snatched.c.IssueID == issueid,
+                    snatched.c.ComicID == comicid,
+                    or_(
+                        snatched.c.Provider == "TPSE",
+                        snatched.c.Provider == "DEM",
+                        snatched.c.Provider == "WWT",
+                        snatched.c.Provider == "32P",
+                    ),
+                    snatched.c.Status == "Snatched",
+                )
+            )
+        )
+        if snatchnzb is None:
+            logger.fdebug("%s Was not snatched as a torrent. Using manual post-processing." % module)
+        else:
+            logger.fdebug(
+                "%s Was downloaded from %s. Enabling torrent manual post-processing completion notification."
+                % (module, snatchnzb["Provider"])
+            )
+    if issuenzb is None:
+        issuenzb = db.select_one(
+            select(annuals).where(
+                and_(annuals.c.IssueID == issueid, annuals.c.ComicID == comicid, annuals.c.Deleted != 1)
+            )
+        )
+        annchk = "yes"
+    display_name = issuenzb["ComicName"] if annchk == "no" else issuenzb["ReleaseComicName"]
+    logger.info(
+        "%s %s Starting Post-Processing for %s issue: %s" % (module, stat, display_name, issuenzb["Issue_Number"])
+    )
+    logger.fdebug("%s issueid: %s" % (module, issueid))
+    logger.fdebug("%s issuenumOG: %s" % (module, issuenumOG))
+    issuenum, issue_except = _split_issue_suffix(issuenzb["Issue_Number"])
+
+    prettycomiss, _issueno = _pretty_issue_number(run, issuenum, issue_except)
+    if prettycomiss is False:
+        return run.abort()
+
+    if annchk == "yes":
+        run.narrate("Annual detected.")
+    logger.fdebug("%s Pretty Comic Issue is : %s" % (module, prettycomiss))
+    issueyear = issuenzb["IssueDate"][:4]
+    run.narrate("Issue Year: %s" % issueyear)
+    logger.fdebug("%s Issue Year : %s" % (module, issueyear))
+    month = issuenzb["IssueDate"][5:7].replace("-", "").strip()
+    month_name = helpers.fullmonth(month)
+    if month_name is None:
+        month_name = "None"
+    publisher = comicnzb["ComicPublisher"]
+    run.narrate("Publisher: %s" % publisher)
+    logger.fdebug("%s Publisher: %s" % (module, publisher))
+    agerating = comicnzb["AgeRating"]
+    series = comicnzb["ComicName"]
+    if annchk == "yes":
+        series = issuenzb["ReleaseComicName"]
+    run.narrate("Series: %s" % series)
+    logger.fdebug("%s Series: %s" % (module, series))
+    if comicnzb["AlternateFileName"] is None or comicnzb["AlternateFileName"] == "None":
+        seriesfilename = series
+    else:
+        seriesfilename = comicnzb["AlternateFileName"]
+        logger.fdebug(
+            "%s Alternate File Naming has been enabled for this series. Will rename series to : %s"
+            % (module, seriesfilename)
+        )
+    seriesyear = comicnzb["ComicYear"]
+    run.narrate("Year: %s" % seriesyear)
+    logger.fdebug("%s Year: %s" % (module, seriesyear))
+    comlocation = comicnzb["ComicLocation"]
+    run.narrate("Comic Location: %s" % comlocation)
+    logger.fdebug("%s Comic Location: %s" % (module, comlocation))
+    comversion = comicnzb["ComicVersion"]
+    run.narrate("Comic Version: %s" % comversion)
+    logger.fdebug("%s Comic Version: %s" % (module, comversion))
+    if comversion is None:
+        comversion = "None"
+    if comversion == "None":
+        chunk_f_f = re.sub(r"\$VolumeN", "", config.FILE_FORMAT)
+        chunk_file_format = re.compile(r"\s+").sub(" ", chunk_f_f)
+        run.narrate("No version # found for series - tag will not be available for renaming.")
+        logger.fdebug("%s No version # found for series, removing from filename" % module)
+        logger.fdebug("%s New format is now: %s" % (module, chunk_file_format))
+    else:
+        chunk_file_format = config.FILE_FORMAT
+
+    if annchk == "no":
+        chunk_f_f = re.sub(r"\$Annual", "", chunk_file_format)
+        chunk_file_format = re.compile(r"\s+").sub(" ", chunk_f_f)
+        logger.fdebug("%s Not an annual - removing from filename parameters" % module)
+        logger.fdebug("%s New format: %s" % (module, chunk_file_format))
+    else:
+        logger.fdebug("%s Chunk_file_format is: %s" % (module, chunk_file_format))
+        if "$Annual" not in chunk_file_format:
+            prettycomiss = "Annual %s" % prettycomiss
+            logger.fdebug("%s prettycomiss: %s" % (module, prettycomiss))
+
+    ofilename = None
+    odir = None
+    ext = None
+
+    if ml is None:
+        found_root = False
+        for root, _dirnames, filenames in safe_walk(run.nzb_folder):
+            for filename in filenames:
+                if filename.lower().endswith(run.extensions):
+                    odir = root
+                    found_root = True
+                    logger.fdebug("%s odir (root): %s" % (module, odir))
+                    ofilename = filename
+                    logger.fdebug("%s ofilename: %s" % (module, ofilename))
+                    _path, ext = os.path.splitext(ofilename)
+        if not found_root:
+            # The legacy body read an unbound ``odir`` here and recovered in
+            # its exception handler; this is that recovery.
+            logger.error(
+                "%s unable to set root folder. Forcing it due to some error above most likely: no file found in %s"
+                % (module, run.nzb_folder)
+            )
+            if os.path.isfile(run.nzb_folder) and run.nzb_folder.lower().endswith(run.extensions):
+                import ntpath
+
+                odir, ofilename = ntpath.split(run.nzb_folder)
+                _path, ext = os.path.splitext(ofilename)
+            else:
+                odir = run.nzb_folder
+        elif odir is None:
+            logger.fdebug("%s No root folder set." % module)
+            odir = run.nzb_folder
+
+        if ofilename is None:
+            run.narrate("Unable to locate a valid cbr/cbz file. Aborting post-processing for this filename.")
+            logger.error(
+                "%s unable to locate a valid cbr/cbz file. Aborting post-processing for this filename." % module
+            )
+            run.failed_files += 1
+            return run.finish("stop")
+        logger.fdebug("%s odir: %s" % (module, odir))
+        logger.fdebug("%s ofilename: %s" % (module, ofilename))
+
+    pcheck = "fail"
+
+    if ml is None:
+        subpath = odir
+        orig_filename = ofilename
+        crcvalue = helpers.crc(os.path.join(odir, ofilename))
+    else:
+        subpath, orig_filename = os.path.split(ml["ComicLocation"])
+        crcvalue = helpers.crc(ml["ComicLocation"])
+
+    if config.ENABLE_PRE_SCRIPTS:
+        seriesmetadata = {
+            "name": series,
+            "comicyear": seriesyear,
+            "comicid": comicid,
+            "issueid": issueid,
+            "issueyear": issueyear,
+            "issue": issuenum,
+            "publisher": publisher,
+        }
+        run_script("pre", run, run.nzb_name, run.nzb_folder, orig_filename, subpath, seriesmetadata)
+
+    if any([config.ENABLE_META, config.CBR2CBZ_ONLY]):
+        run.narrate("Metatagging enabled - proceeding...")
+        logger.fdebug("%s Metatagging enabled - proceeding..." % module)
+        pcheck = "pass"
+        vol_label = seriesyear if config.CMTAG_START_YEAR_AS_VOLUME else comversion
+
+        pre_cmtag_info = None
+        try:
+            from comicarr.app.ai.enrichment import _read_comicinfo
+
+            if ml is None:
+                pre_cmtag_info = _read_comicinfo(os.path.join(odir, ofilename))
+            else:
+                pre_cmtag_info = _read_comicinfo(ml["ComicLocation"])
+        except Exception as e:
+            logger.fdebug("[POST-PROCESS] Could not read pre-cmtag ComicInfo.xml: %s" % e)
+
+        try:
+            order_the_read = db.select_all(
+                select(storyarcs.c.StoryArc, storyarcs.c.ReadingOrder).where(
+                    and_(storyarcs.c.IssueID == issueid, storyarcs.c.ComicID == comicid)
+                )
+            )
+            readingorder = None
+            if order_the_read is not None:
+                readingorder = [(rd["StoryArc"], rd["ReadingOrder"]) for rd in order_the_read]
+            logger.fdebug("readingorder: %s" % (readingorder))
+
+            if ml is None:
+                pcheck = deps.tag_file(
+                    run.nzb_folder,
+                    issueid=issueid,
+                    comversion=vol_label,
+                    filename=os.path.join(odir, ofilename),
+                    readingorder=readingorder,
+                    agerating=agerating,
+                )
+            else:
+                pcheck = deps.tag_file(
+                    run.nzb_folder,
+                    issueid=issueid,
+                    comversion=vol_label,
+                    manual="yes",
+                    filename=ml["ComicLocation"],
+                    readingorder=readingorder,
+                    agerating=agerating,
+                )
+        except ImportError:
+            logger.fdebug(
+                "%s comictaggerlib not found on system. Ensure the bundled vendor package is available at comicarr/_vendor/comictaggerlib/"
+                % module
+            )
+            logger.fdebug("%s continuing with PostProcessing, but I am not using metadata." % module)
+            pcheck = "fail"
+
+        if pcheck == "fail":
+            run.narrate(
+                "Unable to write metadata successfully - check comicarr.log file. Attempting to continue without tagging..."
+            )
+            logger.fdebug(
+                "%s Unable to write metadata successfully - check comicarr.log file. Attempting to continue without tagging..."
+                % module
+            )
+            run.failed_files += 1
+        elif any([pcheck == "unrar error", pcheck == "corrupt"]):
+            if ml is not None:
+                run.narrate(
+                    "This is a corrupt archive - whether CRC errors or it's incomplete. Marking as BAD, and not post-processing."
+                )
+                logger.error(
+                    "%s This is a corrupt archive - whether CRC errors or it is incomplete. Marking as BAD, and not post-processing."
+                    % module
+                )
+                run.failed_files += 1
+                return run.finish("stop")
+            run.narrate(
+                "This is a corrupt archive - whether CRC errors or it's incomplete. Marking as BAD, and retrying a different copy."
+            )
+            logger.error(
+                "%s This is a corrupt archive - whether CRC errors or it is incomplete. Marking as BAD, and retrying a different copy."
+                % module
+            )
+            return run.finish(
+                "fail",
+                issueid=issueid,
+                comicid=comicid,
+                comicname=comicnzb["ComicName"],
+                issuenumber=issuenzb["Issue_Number"],
+                annchk=annchk,
+            )
+        elif pcheck.startswith("file not found"):
+            filename_in_error = pcheck.split("||")[1]
+            run.narrate(
+                "The file cannot be found in the location provided [%s]. Please verify it exists, and re-run if necessary. Aborting."
+                % filename_in_error
+            )
+            logger.error(
+                "%s The file cannot be found in the location provided [%s]. Please verify it exists, and re-run if necessary. Aborting"
+                % (module, filename_in_error)
+            )
+            run.failed_files += 1
+            return run.finish("stop")
+        else:
+            odir = os.path.split(pcheck)[0]
+            ofilename = os.path.split(pcheck)[1]
+            ext = os.path.splitext(ofilename)[1]
+            run.narrate("Sucessfully wrote metadata to .cbz - Continuing..")
+            logger.info("%s Sucessfully wrote metadata to .cbz (%s) - Continuing.." % (module, ofilename))
+            _enrich(pcheck, issueid, pre_cmtag_info)
+
+    file_values = {
+        "$Series": seriesfilename,
+        "$Issue": prettycomiss,
+        "$Year": issueyear,
+        "$series": series.lower(),
+        "$Publisher": publisher,
+        "$publisher": publisher.lower(),
+        "$VolumeY": "V" + str(seriesyear),
+        "$VolumeN": comversion,
+        "$monthname": month_name,
+        "$month": month,
+        "$Annual": "Annual",
+    }
+
+    if ml:
+        if pcheck == "fail":
+            odir, ofilename = os.path.split(ml["ComicLocation"])
+            orig_filename = ofilename
+        elif pcheck:
+            pass
+        else:
+            odir, orig_filename = os.path.split(ml["ComicLocation"])
+        logger.fdebug("%s ofilename: %s" % (module, ofilename))
+        if any([ofilename == odir, ofilename == odir[:-1], ofilename == ""]):
+            run.narrate(
+                "There was a problem deciphering the filename/directory - please verify that the filename : [%s] exists in location [%s]. Aborting."
+                % (ofilename, odir)
+            )
+            logger.error(
+                module
+                + " There was a problem deciphering the filename/directory - please verify that the filename : [%s] exists in location [%s]. Aborting."
+                % (ofilename, odir)
+            )
+            run.failed_files += 1
+            return run.finish("stop")
+        logger.fdebug("%s odir: %s" % (module, odir))
+        logger.fdebug("%s ofilename: %s" % (module, ofilename))
+        ext = os.path.splitext(ofilename)[1]
+        logger.fdebug("%s ext: %s" % (module, ext))
+
+    if ofilename is None or ofilename == "":
+        logger.error(
+            "%s Aborting PostProcessing - the filename does not exist in the location given. Make sure that %s exists and is the correct location."
+            % (module, run.nzb_folder)
+        )
+        run.failed_files += 1
+        return run.finish("stop")
+
+    run.narrate("Original Filename: %s [%s]" % (orig_filename, ext))
+    logger.fdebug("%s Original Filename: %s [%s]" % (module, orig_filename, ext))
+
+    if config.FILE_FORMAT == "" or not config.RENAME_FILES:
+        run.narrate("Rename Files isn't enabled...keeping original filename.")
+        logger.fdebug("%s Rename Files is not enabled - keeping original filename." % module)
+        if ofilename.lower().endswith(run.extensions):
+            nfilename = ofilename[:-4]
+        else:
+            nfilename = ofilename
+    else:
+        nfilename = helpers.replace_all(chunk_file_format, file_values)
+        if config.REPLACE_SPACES:
+            nfilename = nfilename.replace(" ", config.REPLACE_CHAR)
+    nfilename = re.sub("[\\,\\:\\?\"']", "", nfilename)
+    nfilename = re.sub(r"[\/\*]", "-", nfilename)
+    if ml is not None and ml["ForcedMatch"] is True:
+        nfilename = _strip_forced_issueid(nfilename)
+
+    run.narrate("New Filename: %s" % nfilename)
+    logger.fdebug("%s New Filename: %s" % (module, nfilename))
+
+    src = os.path.join(odir, ofilename)
+    if not deps.validate_directory(comlocation, True, module=module):
+        logger.warn("%s Error trying to validate/create directory. Aborting this process at this time." % module)
+        run.failed_files += 1
+        return run.finish("stop")
+
+    if config.LOWERCASE_FILENAMES:
+        dst = os.path.join(comlocation, (nfilename + ext).lower())
+    else:
+        dst = os.path.join(comlocation, (nfilename + ext.lower()))
+    run.narrate("Source: %s" % src)
+    run.narrate("Destination: %s" % dst)
+    logger.fdebug("%s Source: %s" % (module, src))
+    logger.fdebug("%s Destination: %s" % (module, dst))
+
+    run.journal(journal.POST_PROCESSING, issue_id=issueid)
+
+    if ml is None:
+        downtype = "True"
+        logger.fdebug("%s self.nzb_folder: %s" % (module, run.nzb_folder))
+        logger.fdebug("%s odir: %s" % (module, odir))
+        logger.fdebug("%s ofilename: %s" % (module, ofilename))
+        logger.fdebug("%s nfilename: %s" % (module, nfilename + ext))
+        _log_rename(module, config, odir, ofilename, nfilename + ext, os.path.join(odir, nfilename + ext))
+        try:
+            run.narrate("[%s] %s - to - %s" % (config.FILE_OPTS, src, dst))
+            if helpers.get_free_space(comlocation) is False:
+                if all([pcheck is not None, pcheck != "fail"]):
+                    run.tidy(odir, True, cacheonly=True)
+                raise OSError
+            deps.place(src, dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED)
+        except Exception as e:
+            run.narrate("Failed to %s %s - check log for exact error." % (config.FILE_OPTS, src))
+            run.narrate("Post-Processing ABORTED.")
+            run.log_placement_failure(config.FILE_OPTS, src, dst, e)
+            logger.error("%s Post-Processing ABORTED" % module)
+            return run.finish("stop")
+
+        run.journal(journal.MOVED, issue_id=issueid)
+
+        if any([config.FILE_OPTS == "move", config.FILE_OPTS == "copy"]):
+            run.tidy(odir, True, filename=os.path.basename(orig_filename))
+    else:
+        downtype = "PP"
+        _log_rename(
+            module,
+            config,
+            odir,
+            ofilename,
+            nfilename + ext,
+            os.path.join(odir, run.nzb_folder, str(nfilename + ext)),
+        )
+        logger.fdebug("%s odir src : %s" % (module, src))
+        logger.fdebug("%s[%s] %s ... to ... %s" % (module, config.FILE_OPTS, src, dst))
+        try:
+            if helpers.get_free_space(comlocation) is False:
+                if all([pcheck != "fail", pcheck is not None]):
+                    run.tidy(odir, True, cacheonly=True)
+                raise OSError
+            deps.place(src, dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED)
+        except Exception as e:
+            run.log_placement_failure(config.FILE_OPTS, src, dst, e)
+            logger.error("%s Post-Processing ABORTED." % module)
+            run.failed_files += 1
+            return run.finish("stop")
+        logger.info("%s %s successful to : %s" % (module, config.FILE_OPTS, dst))
+
+        run.journal(journal.MOVED, issue_id=issueid)
+
+        if any([config.FILE_OPTS == "move", config.FILE_OPTS == "copy"]):
+            run.tidy(odir, True, subpath, filename=os.path.basename(orig_filename))
+
+    _enforce_permissions(module, config, deps, dst)
+
+    arc_claims = []
+    if _names_an_arc(ml):
+        try:
+            arc_claims = _claim_arc_copies(run, ml, dst)
+        except Exception as e:
+            logger.error("error encountered: %s" % e)
+
+    from comicarr.app.downloads._postprocess_completion import complete
+
+    completion = complete(run.context, issue_id=issueid, anchor_ids=(issueid,), database=db)
+
+    PostProcessReconcileStage(totals=deps.totals, foundsearch=deps.foundsearch).reconcile(
+        PostProcessPlacedItem(
+            comic_id=comicid,
+            issue_id=issueid,
+            kind=ISSUE if annchk == "no" else ANNUAL,
+            placed_path=dst,
+            download_type=downtype,
+            crc=crcvalue,
+            log_module=module,
+        )
+    )
+
+    dispiss = "#%s" % issuenumOG
+    if annchk != "no" and any(word in issuenzb["ReleaseComicName"].lower() for word in ("annual", "special")):
+        series = issuenzb["ReleaseComicName"]
+    logger.fdebug("[%s][annchk:%s] issue to update: %s" % (series, annchk, dispiss))
+
+    if arc_claims:
+        ended = _copy_to_arcs(run, deps, ml, arc_claims, dst)
+        if ended is not None:
+            return ended
+
+    if config.WEEKFOLDER or config.SEND2READ:
+        deps.weekly_check(comicid, issuenum, file=(nfilename + ext), path=dst, module=module, issueid=issueid)
+
+    if config.ENABLE_EXTRA_SCRIPTS:
+        seriesmetadata = {
+            "seriesmeta": [
+                {
+                    "name": series,
+                    "comicyear": seriesyear,
+                    "comicid": comicid,
+                    "issueid": issueid,
+                    "issueyear": issueyear,
+                    "issue": issuenum,
+                    "publisher": publisher,
+                }
+            ]
+        }
+        run_script("extra", run, run.nzb_name, run.nzb_folder, nfilename + ext, dst, seriesmetadata)
+
+    _notify(
+        run,
+        deps,
+        completion,
+        series=series,
+        issue_year=issueyear,
+        issue_number=dispiss,
+        placed_path=dst,
+        issue_id=issueid,
+    )
+
+    logger.info("%s Post-Processing completed for: %s %s" % (module, series, dispiss))
+    run.narrate("Post Processing SUCCESSFUL! ")
+
+    run.journal(journal.POST_PROCESSED, issue_id=issueid)
+
+    run.finish("stop", COMPLETED, issueid=issueid, comicid=comicid)
+    return PostProcessItemResult(COMPLETED, True, issue_id=issueid, placed_path=dst)
+
+
+def _enrich(pcheck, issueid, pre_cmtag_info):
+    try:
+        from comicarr.app.ai.enrichment import enrich_metadata
+
+        enriched_count = enrich_metadata(cbz_path=pcheck, issue_id=issueid)
+        if enriched_count > 0:
+            logger.fdebug("[POST-PROCESS] AI enriched %d metadata fields" % enriched_count)
+    except Exception as e:
+        logger.error("[POST-PROCESS] AI enrichment error: %s" % e)
+
+    try:
+        from comicarr.app.ai.enrichment import _read_comicinfo
+        from comicarr.app.ai.reconciliation import reconcile_metadata
+
+        post_cmtag_info = _read_comicinfo(pcheck)
+        reconciled_count = reconcile_metadata(
+            cbz_path=pcheck,
+            issue_id=issueid,
+            pre_cmtag_info=pre_cmtag_info,
+            post_cmtag_info=post_cmtag_info,
+        )
+        if reconciled_count > 0:
+            logger.fdebug("[POST-PROCESS] AI reconciled %d metadata fields" % reconciled_count)
+    except Exception as e:
+        logger.error("[POST-PROCESS] AI reconciliation error: %s" % e)
+
+
+def _strip_forced_issueid(nfilename):
+    xyb = nfilename.find("[__")
+    if xyb != -1:
+        yyb = nfilename.find("__]", xyb)
+        if yyb != -1:
+            rem_issueid = nfilename[xyb + 3 : yyb]
+            logger.fdebug("issueid: %s" % rem_issueid)
+            two_add = re.sub(r"\s+", "", nfilename[yyb + 3 :]).strip()
+            if any([two_add == "", two_add == " "]):
+                nfilename = "%s" % nfilename[:xyb].strip()
+            else:
+                nfilename = "%s %s" % (nfilename[:xyb].strip(), two_add)
+            logger.fdebug("issueid information [%s] removed successfully: %s" % (rem_issueid, nfilename))
+    return nfilename
+
+
+def _log_rename(module, config, odir, ofilename, new_name, shown_target):
+    if not config.RENAME_FILES:
+        return
+    if ofilename != new_name:
+        logger.fdebug("%s Renaming %s ..to.. %s" % (module, os.path.join(odir, ofilename), shown_target))
+    else:
+        logger.fdebug("%s Filename is identical as original, not renaming." % module)
+
+
+def _enforce_permissions(module, config, deps, dst):
+    import comicarr
+
+    if not config.ENFORCE_PERMS:
+        return
+    if comicarr.OS_DETECT != "windows":
+        deps.set_permissions(dst.rstrip())
+        return
+    try:
+        permission = int(config.CHMOD_FILE, 8)
+        os.umask(0)
+        os.chmod(dst.rstrip(), permission)
+    except OSError:
+        logger.error(
+            "%s Failed to change file permissions. Ensure that the user running Comicarr has proper permissions to change permissions in : %s"
+            % (module, dst)
+        )
+        logger.fdebug("%s Continuing post-processing but unable to change file permissions in %s" % (module, dst))
+
+
+def match_manga_issue(comic_id, parsed):
+    """Return the ledger row a parsed manga file belongs to, or None.
+
+    A pure lookup over ``parsed`` and this series' issue rows: it reads the
+    database and nothing else, so it can be answered before the file is
+    placed. That ordering matters -- tagging needs the IssueID, and tagging
+    has to happen while the file is still at its download location.
+
+    Chapter first, then volume: a chapter number is the more specific claim,
+    and a volume-numbered file has no chapter number to offer.
+    """
+    if parsed is None:
+        return None
+
+    matching = None
+
+    if parsed.get("chapter_number") is not None:
+        ch_num = parsed["chapter_number"]
+        ch_str = "%g" % ch_num
+        matching = db.select_one(
+            select(issues).where(and_(issues.c.ComicID == comic_id, issues.c.ChapterNumber == ch_str))
+        )
+        if matching is None:
+            matching = db.select_one(
+                select(issues).where(and_(issues.c.ComicID == comic_id, issues.c.Issue_Number == ch_str))
+            )
+            if matching is None and ch_str != str(ch_num):
+                matching = db.select_one(
+                    select(issues).where(and_(issues.c.ComicID == comic_id, issues.c.Issue_Number == str(ch_num)))
+                )
+
+    if matching is None and parsed.get("volume_number") is not None:
+        vol_str = str(parsed["volume_number"])
+        matching = db.select_one(
+            select(issues).where(and_(issues.c.ComicID == comic_id, issues.c.VolumeNumber == vol_str))
+        )
+        if matching is None:
+            # The equality above is a string comparison between two sources
+            # that write the same volume differently: the parser turns `v01`
+            # into int 1, so it asks for '1', while MangaDex stores
+            # str(chapter.volume) and can hold '01'. Compare through the ledger
+            # rule, which already owns what a volume number means.
+            for row in db.select_all(
+                select(issues).where(and_(issues.c.ComicID == comic_id, issues.c.VolumeNumber.isnot(None)))
+            ):
+                wanted = normalize_volume_number(vol_str)
+                if wanted is not None and normalize_volume_number(row.get("VolumeNumber")) == wanted:
+                    matching = row
+                    break
+
+    return matching
+
+
+def metatag_manga_file(run, deps, filepath, issueid):
+    """Write metadata into a manga file before it is placed.
+
+    Tagging can rename the file (a .cbr is rebuilt as a .cbz), so the caller
+    places whatever this returns: the tagged file on success, the original
+    path otherwise. Tagging is best effort; a metadata failure must not cost
+    the import, exactly as it does not on the comic path.
+    """
+    import comicarr
+
+    module = run.module
+
+    # Same condition the comic path uses (ENABLE_META or CBR2CBZ_ONLY), read
+    # defensively: a process without configuration loaded places the file
+    # untagged rather than failing the import over it.
+    config = comicarr.CONFIG
+    if config is None:
+        return filepath
+    if not (getattr(config, "ENABLE_META", False) or getattr(config, "CBR2CBZ_ONLY", False)):
+        return filepath
+
+    try:
+        pcheck = deps.tag_file(run.nzb_folder, issueid=issueid, filename=filepath)
+    except ImportError:
+        logger.fdebug(
+            "%s comictaggerlib not found on system. Ensure the bundled vendor package is available at comicarr/_vendor/comictaggerlib/"
+            % module
+        )
+        return filepath
+    except Exception as e:
+        logger.error("%s [MANGA] Metatagging raised for %s [%s]" % (module, filepath, e))
+        return filepath
+
+    # The tagger returns a path on success and a sentinel string otherwise
+    # ("fail", "corrupt", "unrar error", "file not found||<path>"). Requiring
+    # an existing file rather than enumerating the sentinels means a new
+    # sentinel degrades to "not tagged" instead of placing a bogus path.
+    if not isinstance(pcheck, str) or not os.path.isfile(pcheck):
+        logger.warn(
+            "%s [MANGA] Unable to write metadata to %s [%s] - placing it untagged."
+            % (module, os.path.basename(filepath), pcheck)
+        )
+        return filepath
+
+    if pcheck != filepath:
+        logger.info(
+            "%s [MANGA] Wrote metadata: %s -> %s" % (module, os.path.basename(filepath), os.path.basename(pcheck))
+        )
+    else:
+        logger.info("%s [MANGA] Wrote metadata to %s" % (module, os.path.basename(pcheck)))
+    return pcheck
+
+
+def tidy_manga_folder(run, nzb_dir):
+    """Remove a download folder that ``move`` has emptied.
+
+    The ``move`` / ``Manual Run`` guards keep manga from asking cleanup to
+    touch an operator-chosen folder, and cleanup still refuses to delete a
+    directory that is not empty. The config is read through ``getattr``: this
+    is the last thing a manga import does, and it must never turn a successful
+    import into an exception.
+    """
+    import comicarr
+
+    if getattr(comicarr.CONFIG, "FILE_OPTS", None) != "move" or run.nzb_name == "Manual Run":
+        return
+    run.tidy(nzb_dir, True)
+
+
+def process_manga_download(run: PostProcessRun, deps: PostProcessItemDeps):
+    """Post-process a downloaded manga release for ``run.context.comic_id``.
+
+    Routes the files to the series folder under the manga destination,
+    matches each to a chapter or volume through the manga filename parser,
+    and marks the matched rows Downloaded.
+    """
+    import comicarr
+
+    module = run.module
+    comic_id = run.context.comic_id
+
+    comicnzb = db.select_one(select(comics).where(comics.c.ComicID == comic_id))
+    if not comicnzb:
+        run.narrate("Cannot find manga series in database: %s" % comic_id)
+        logger.error("%s Cannot find manga series: %s" % (module, comic_id))
+        return run.finish("stop")
+
+    series_name = comicnzb["ComicName"]
+    logger.info("%s Processing manga download for: %s" % (module, series_name))
+
+    nzb_dir = run.nzb_folder
+    if not nzb_dir or not os.path.isdir(nzb_dir):
+        if run.nzb_name and os.path.isdir(run.nzb_name):
+            nzb_dir = run.nzb_name
+        else:
+            run.narrate("Download directory not found")
+            logger.error("%s Download directory not found: %s" % (module, nzb_dir))
+            return run.finish("stop")
+
+    manga_files = []
+    for root, _dirs, files in safe_walk(nzb_dir):
+        for f in files:
+            if any(f.lower().endswith(ext) for ext in run.extensions):
+                manga_files.append(os.path.join(root, f))
+
+    manga_files.sort()
+
+    if not manga_files:
+        run.narrate("No manga files found in download directory")
+        logger.warn("%s No manga files in: %s" % (module, nzb_dir))
+        return run.finish("stop")
+
+    manga_dest = deps.manga_destination()
+    if not manga_dest:
+        run.narrate("No manga destination directory configured")
+        logger.error("%s No manga destination configured" % module)
+        return run.finish("stop")
+
+    from comicarr.app.series.service import persist_manga_location_if_needed
+
+    series_folder, _repointed = persist_manga_location_if_needed(comicnzb, manga_dest)
+    if not series_folder:
+        series_folder = comicnzb.get("ComicLocation") or os.path.join(manga_dest, helpers.filesafe(series_name))
+    if comicnzb.get("ComicLocation") != series_folder:
+        comicnzb = dict(comicnzb)
+        comicnzb["ComicLocation"] = series_folder
+
+    from comicarr.app.common.library_roots import is_strict_library_descendant
+    from comicarr.app.series.location import is_location_override
+
+    if is_location_override(comicnzb):
+        if not is_strict_library_descendant(series_folder, comicarr.CONFIG):
+            run.narrate("Chosen series folder is outside the allowed library roots — refusing to write")
+            logger.error("%s Chosen series folder %s is outside the allowed library roots" % (module, series_folder))
+            return run.finish("stop")
+    elif not os.path.realpath(series_folder).startswith(os.path.realpath(manga_dest)):
+        run.narrate("Series folder is outside manga destination — refusing to write")
+        logger.error("%s Series folder %s is outside manga destination %s" % (module, series_folder, manga_dest))
+        return run.finish("stop")
+
+    if not os.path.isdir(series_folder):
+        try:
+            os.makedirs(series_folder, exist_ok=True)
+            logger.fdebug("%s Created manga series directory: %s" % (module, series_folder))
+        except OSError as e:
+            logger.warn("%s Failed to create directory %s: %s" % (module, series_folder, e))
+            run.narrate("Failed to create manga series directory")
+            return run.finish("stop")
+
+    run.journal(journal.POST_PROCESSING)
+
+    processed = 0
+    last_matched_issueid = None
+    matched_issueids = []
+    from comicarr.app.manga.parse import parse_in_series_context
+
+    sibling_names = [os.path.basename(path) for path in manga_files]
+    series_issues = db.select_all(select(issues).where(issues.c.ComicID == comic_id))
+    reconcile = PostProcessReconcileStage(totals=deps.totals, foundsearch=deps.foundsearch)
+    for filepath in manga_files:
+        filename = os.path.basename(filepath)
+        parsed = parse_in_series_context(
+            filename,
+            series=comicnzb,
+            filenames=sibling_names,
+            series_name=series_name,
+            issues=series_issues,
+        )
+        run.narrate("Found manga file: %s" % filename)
+
+        if not os.path.realpath(filepath).startswith(os.path.realpath(nzb_dir)):
+            logger.warning("%s Skipping file outside download directory: %s" % (module, filepath))
+            continue
+
+        # Resolve the ledger row first: the tagger needs the IssueID, and
+        # tagging happens here, at the download location, because it can
+        # rename the file -- so the name that gets placed is the tagged one.
+        matching = match_manga_issue(comic_id, parsed)
+
+        # Kept so the download original can be tidied after placement: the
+        # tagger copies into CACHE_DIR and returns the CACHE path, so what
+        # placement consumes is the copy, not the download.
+        pre_tag_path = filepath
+
+        if matching is not None:
+            # Best effort: a row without an IssueID cannot be tagged, but it
+            # can still be placed and marked, so this must not raise.
+            try:
+                tag_issueid = matching["IssueID"]
+            except (KeyError, TypeError, IndexError):
+                tag_issueid = None
+            if tag_issueid is not None:
+                filepath = metatag_manga_file(run, deps, filepath, tag_issueid)
+                filename = os.path.basename(filepath)
+
+        dst = os.path.join(series_folder, filename)
+
+        try:
+            placement = deps.place(filepath, dst, Purpose.SERIES, on_existing=OnExisting.DISPLACE)
+        except Exception as e:
+            run.log_placement_failure("place", filepath, dst, e)
+            run.narrate("Failed to move/copy manga file: %s" % filename)
+            continue
+
+        if placement.outcome is Outcome.ALREADY_PLACED:
+            logger.fdebug("%s Manga file already placed, skipping placement: %s" % (module, filename))
+        else:
+            logger.info("%s Placed manga file: %s -> %s" % (module, filename, series_folder))
+
+        # Under FILE_OPTS = move, placement consumed the TAGGED copy out of the
+        # cache, so the download original is still there and the next pass
+        # picks it up again. Remove it per file rather than through cleanup,
+        # which works on the whole folder and would take files this run has
+        # not placed yet. Skipped when tagging produced no new path, and when
+        # the series folder is the download folder and tagging kept the name:
+        # the file at pre_tag_path is then the one just placed. realpath rather
+        # than samefile, because dst need not exist here.
+        if (
+            filepath != pre_tag_path
+            and getattr(comicarr.CONFIG, "FILE_OPTS", None) == "move"
+            and os.path.realpath(pre_tag_path) != os.path.realpath(dst)
+            and os.path.isfile(pre_tag_path)
+        ):
+            try:
+                os.remove(pre_tag_path)
+                logger.fdebug("%s Removed the pre-tag download original: %s" % (module, pre_tag_path))
+            except OSError as e:
+                logger.warn(
+                    "%s Unable to remove the pre-tag download original %s [%s] -- it will be re-processed"
+                    % (module, pre_tag_path, e)
+                )
+
+        run.journal(journal.POST_PROCESSING)
+
+        if matching:
+            issueid = matching["IssueID"]
+            reconcile.reconcile(
+                PostProcessPlacedItem(
+                    comic_id=comic_id,
+                    issue_id=issueid,
+                    kind=MANGA,
+                    placed_path=dst,
+                    log_module=module,
+                )
+            )
+            logger.info("%s Matched and marked downloaded: %s (IssueID: %s)" % (module, filename, issueid))
+            run.narrate("Matched to chapter IssueID: %s" % issueid)
+
+            matched_issueids.append(issueid)
+
+            last_matched_issueid = issueid
+            processed += 1
+        else:
+            logger.warn("%s Unable to match %s to any chapter for %s" % (module, filename, series_name))
+
+    if processed > 0:
+        reconcile.recount_series(comic_id)
+
+    if processed > 0:
+        run.narrate("Post Processing SUCCESSFUL! %d file(s) processed" % processed)
+    else:
+        run.narrate("Manga post-processing complete: 0 files matched to chapters")
+    logger.info("%s Manga post-processing complete for %s: %d files" % (module, series_name, processed))
+
+    if processed > 0:
+        from comicarr.app.downloads._postprocess_completion import complete
+
+        run.journal(journal.MOVED, issue_id=last_matched_issueid)
+        complete(run.context, issue_id=last_matched_issueid, anchor_ids=tuple(matched_issueids), database=db)
+        tidy_manga_folder(run, nzb_dir)
+
+    extra = {"comicid": comic_id}
+    if last_matched_issueid:
+        extra["issueid"] = last_matched_issueid
+    run.finish("stop", COMPLETED if processed > 0 else STOPPED, **extra)
+    return PostProcessItemResult(
+        COMPLETED if processed > 0 else STOPPED, True, issue_id=last_matched_issueid, placed_path=None
+    )

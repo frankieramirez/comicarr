@@ -59,6 +59,10 @@ class ArcCopyError(OSError):
     """The arc copy did not happen; the library file is untouched."""
 
 
+class ArcFolderError(ArcCopyError):
+    """The arc folder could not be validated or created."""
+
+
 def reading_order_prefix(reading_order) -> str:
     """``7`` -> ``007``, ``42`` -> ``042``, ``123`` -> ``123``."""
     return str(reading_order).zfill(3) if int(reading_order) <= 99 else str(reading_order)
@@ -72,6 +76,7 @@ def copy_issue_to_arc(
     config=None,
     free_space=None,
     create_directory=None,
+    place=None,
 ) -> ArcCopyResult:
     """Make the arc folder's copy of ``library_file`` for one arc membership.
 
@@ -79,8 +84,9 @@ def copy_issue_to_arc(
     ``STORYARC_LOCATION`` (the grab-bag folder when only ``COPY2ARCDIR`` is
     set), the operation from ``ARC_FILEOPS`` and
     ``ARC_FILEOPS_SOFTLINK_RELATIVE``, and the filename gains the reading-order
-    prefix when ``READ2FILENAME`` is on. Raises ``ArcCopyError`` when the folder
-    cannot be made, the disk is full, or placement fails.
+    prefix when ``READ2FILENAME`` is on. Raises ``ArcFolderError`` when the
+    folder cannot be made, and ``ArcCopyError`` when the disk is full or
+    placement fails.
     """
     from comicarr import helpers
     from comicarr.app.storyarcs import service
@@ -93,6 +99,8 @@ def copy_issue_to_arc(
         free_space = helpers.get_free_space
     if create_directory is None:
         create_directory = service.ensure_arc_directory
+    if place is None:
+        place = placement.place
 
     if config.COPY2ARCDIR is not True:
         return ArcCopyResult(library_file, None, None)
@@ -101,7 +109,7 @@ def copy_issue_to_arc(
         span_years = service.spantheyears(membership.story_arc_id)
     arc_folder = service.arcformat(membership.story_arc, span_years, membership.publisher, config=config)
     if not arc_folder or not create_directory(arc_folder):
-        raise ArcCopyError(f"Unable to validate or create the story-arc folder {arc_folder}")
+        raise ArcFolderError(f"Unable to validate or create the story-arc folder {arc_folder}")
 
     filename = os.path.basename(library_file)
     if config.READ2FILENAME:
@@ -111,9 +119,9 @@ def copy_issue_to_arc(
     if free_space(arc_folder) is False:
         raise ArcCopyError(f"Not enough free space in {arc_folder}")
     try:
-        result = placement.place(
+        result = place(
             library_file, destination, placement.Purpose.ARC, on_existing=placement.OnExisting.UNGUARDED, config=config
         )
-    except OSError as e:
+    except Exception as e:
         raise ArcCopyError(str(e)) from e
     return ArcCopyResult(result.destination, result.effective_mode, result.outcome)
