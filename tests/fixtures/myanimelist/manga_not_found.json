@@ -1,0 +1,15 @@
+{
+  "request": {
+    "method": "GET",
+    "host": "api.myanimelist.net",
+    "path": "/v2/manga/999999999",
+    "params": {
+      "fields": "id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,rank,popularity,num_volumes,num_chapters,status,genres,authors{first_name,last_name},media_type,pictures"
+    }
+  },
+  "status_code": 404,
+  "body": {
+    "message": "",
+    "error": "not_found"
+  }
+}
