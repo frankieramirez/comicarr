@@ -416,6 +416,20 @@ class TestComicScan:
         assert result["series_matched"] == 0
         assert len(result["errors"]) == 0  # Error captured in scan_results, not fatal
         assert result["scan_results"][0]["error"] is not None
+        assert "API unreachable" not in result["scan_results"][0]["error"]
+
+    def test_series_error_keeps_exception_text_out_of_progress(self, comicsync, _mock_globals):
+        """CodeQL #323/#324: the progress payload reaches the browser, so it carries a generic error."""
+        with (
+            patch("os.path.isdir", return_value=True),
+            patch.object(comicsync, "_collect_series_files", return_value={"Batman": ["/comics/Batman/001.cbz"]}),
+            patch.object(comicsync, "_load_existing_series", side_effect=RuntimeError("/secret/path leaked")),
+        ):
+            result = comicsync.comicScan("/comics")
+
+        payload = repr(comicsync.get_scan_progress()) + repr(result)
+        assert "/secret/path" not in payload
+        assert comicsync.COMIC_SCAN_PROGRESS["errors"]
 
     def test_concurrent_scan_rejected(self, comicsync):
         comicsync._SCAN_LOCK.acquire()

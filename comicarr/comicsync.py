@@ -28,6 +28,7 @@ import os
 import re
 import threading
 import time
+import traceback
 
 from sqlalchemy import select
 
@@ -51,6 +52,12 @@ COMIC_SCAN_RESULTS = None
 COMIC_SCAN_ID = None
 
 _SCAN_LOCK = threading.Lock()
+
+# Scan payloads reach the browser, so they carry these generic messages. The
+# exception and its traceback go to the server log instead.
+_SERIES_SCAN_ERROR = "Could not process this series. See the server log for details."
+_FATAL_SCAN_ERROR = "The scan stopped on an error. See the server log for details."
+_IMPORT_ERROR = "Import failed. See the server log for details."
 
 
 def comicScan(scan_dir=None):
@@ -125,16 +132,18 @@ def comicScan(scan_dir=None):
                     results["series_reconciled"] += 1
                     COMIC_SCAN_PROGRESS["series_reconciled"] += 1
             except Exception as e:
-                logger.error("[COMIC-SCAN] Error processing series '%s': %s" % (series_name, e))
+                logger.error(
+                    "[COMIC-SCAN] Error processing series '%s': %s\n%s" % (series_name, e, traceback.format_exc())
+                )
                 error_entry = {
                     "series_name": series_name,
                     "file_count": len(files),
                     "matched": False,
-                    "error": str(e),
+                    "error": _SERIES_SCAN_ERROR,
                 }
                 results["scan_results"].append(error_entry)
-                results["errors"].append({"series": series_name, "error": str(e)})
-                COMIC_SCAN_PROGRESS["errors"].append(str(e))
+                results["errors"].append({"series": series_name, "error": _SERIES_SCAN_ERROR})
+                COMIC_SCAN_PROGRESS["errors"].append(_SERIES_SCAN_ERROR)
 
             COMIC_SCAN_PROGRESS["processed_files"] += len(files)
 
@@ -146,10 +155,10 @@ def comicScan(scan_dir=None):
             % (results["series_reconciled"], results["series_matched"], results["series_found"])
         )
     except Exception as e:
-        logger.error("[COMIC-SCAN] Fatal error during scan: %s" % e)
+        logger.error("[COMIC-SCAN] Fatal error during scan: %s\n%s" % (e, traceback.format_exc()))
         results["status"] = "error"
-        results["errors"].append({"series": "scan", "error": str(e)})
-        COMIC_SCAN_PROGRESS["errors"].append(str(e))
+        results["errors"].append({"series": "scan", "error": _FATAL_SCAN_ERROR})
+        COMIC_SCAN_PROGRESS["errors"].append(_FATAL_SCAN_ERROR)
     finally:
         COMIC_SCAN_STATUS = "completed" if results["status"] != "error" else "error"
         COMIC_SCAN_PROGRESS["current_series"] = None
@@ -311,7 +320,7 @@ def _match_series(series_name, files, existing_series):
         )
     except Exception as e:
         logger.error("[COMIC-SCAN] ComicVine search failed for '%s': %s" % (series_name, e))
-        result["error"] = "ComicVine search failed: %s" % str(e)
+        result["error"] = "ComicVine search failed. See the server log for details."
         return result
 
     if not search_results:
@@ -413,8 +422,8 @@ def import_selected_series(selected_ids, scan_id):
                 continue
             imported += 1
         except Exception as e:
-            logger.error("[COMIC-SCAN] Failed to import %s: %s" % (comic_id, e))
-            errors.append({"comicid": comic_id, "error": str(e)})
+            logger.error("[COMIC-SCAN] Failed to import %s: %s\n%s" % (comic_id, e, traceback.format_exc()))
+            errors.append({"comicid": comic_id, "error": _IMPORT_ERROR})
 
     if not errors:
         COMIC_SCAN_RESULTS = None
