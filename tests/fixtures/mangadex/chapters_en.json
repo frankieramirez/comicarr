@@ -1,0 +1,641 @@
+{
+  "request": {
+    "method": "GET",
+    "host": "api.mangadex.org",
+    "path": "/chapter",
+    "params": {
+      "manga": "be7fd0c5-209a-440c-b20d-8b611be1310c",
+      "translatedLanguage[]": "en",
+      "limit": "100",
+      "offset": "0",
+      "order[chapter]": "asc",
+      "includes[]": "scanlation_group"
+    }
+  },
+  "status_code": 200,
+  "body": {
+    "result": "ok",
+    "response": "collection",
+    "data": [
+      {
+        "id": "4605b34b-f506-44b2-9fe1-dbe3fb20ba8f",
+        "type": "chapter",
+        "attributes": {
+          "volume": "1",
+          "chapter": "1",
+          "title": "Nice to Meet You, I Am Sorry.",
+          "translatedLanguage": "en",
+          "externalUrl": null,
+          "isUnavailable": false,
+          "publishAt": "2018-03-22T19:20:16+00:00",
+          "readableAt": "2018-03-22T19:20:16+00:00",
+          "createdAt": "2018-03-22T19:20:16+00:00",
+          "updatedAt": "2018-03-22T19:20:16+00:00",
+          "version": 1,
+          "pages": 21
+        },
+        "relationships": [
+          {
+            "id": "fa2b0dd9-a27d-4adf-b5f0-576a2640fece",
+            "type": "scanlation_group",
+            "attributes": {
+              "name": "keydriven",
+              "altNames": [],
+              "locked": false,
+              "website": "https://keydriven.wordpress.com/",
+              "ircServer": null,
+              "ircChannel": null,
+              "discord": null,
+              "contactEmail": null,
+              "description": null,
+              "twitter": null,
+              "mangaUpdates": null,
+              "focusedLanguages": [
+                "en"
+              ],
+              "official": false,
+              "verified": false,
+              "inactive": false,
+              "publishDelay": null,
+              "exLicensed": false,
+              "createdAt": "2021-04-19T21:45:59+00:00",
+              "updatedAt": "2023-09-23T16:14:29+00:00",
+              "version": 2
+            }
+          },
+          {
+            "id": "be7fd0c5-209a-440c-b20d-8b611be1310c",
+            "type": "manga"
+          },
+          {
+            "id": "16d7dd6f-6860-451d-8854-7feabbff20e2",
+            "type": "user"
+          }
+        ]
+      },
+      {
+        "id": "bc026f41-ac01-446c-a6d7-2ccbcc6ae34c",
+        "type": "chapter",
+        "attributes": {
+          "volume": "1",
+          "chapter": "2",
+          "title": "Do Your Best...Let's Do Our Best...I'll Try My Best",
+          "translatedLanguage": "en",
+          "externalUrl": null,
+          "isUnavailable": false,
+          "publishAt": "2018-03-22T19:20:39+00:00",
+          "readableAt": "2018-03-22T19:20:39+00:00",
+          "createdAt": "2018-03-22T19:20:39+00:00",
+          "updatedAt": "2018-03-22T19:20:39+00:00",
+          "version": 1,
+          "pages": 18
+        },
+        "relationships": [
+          {
+            "id": "fa2b0dd9-a27d-4adf-b5f0-576a2640fece",
+            "type": "scanlation_group",
+            "attributes": {
+              "name": "keydriven",
+              "altNames": [],
+              "locked": false,
+              "website": "https://keydriven.wordpress.com/",
+              "ircServer": null,
+              "ircChannel": null,
+              "discord": null,
+              "contactEmail": null,
+              "description": null,
+              "twitter": null,
+              "mangaUpdates": null,
+              "focusedLanguages": [
+                "en"
+              ],
+              "official": false,
+              "verified": false,
+              "inactive": false,
+              "publishDelay": null,
+              "exLicensed": false,
+              "createdAt": "2021-04-19T21:45:59+00:00",
+              "updatedAt": "2023-09-23T16:14:29+00:00",
+              "version": 2
+            }
+          },
+          {
+            "id": "be7fd0c5-209a-440c-b20d-8b611be1310c",
+            "type": "manga"
+          },
+          {
+            "id": "16d7dd6f-6860-451d-8854-7feabbff20e2",
+            "type": "user"
+          }
+        ]
+      },
+      {
+        "id": "bb9780a2-c442-4001-a021-e69e7f6f5a4c",
+        "type": "chapter",
+        "attributes": {
+          "volume": "1",
+          "chapter": "3",
+          "title": "Thank You for the Meal",
+          "translatedLanguage": "en",
+          "externalUrl": null,
+          "isUnavailable": false,
+          "publishAt": "2018-03-22T19:21:02+00:00",
+          "readableAt": "2018-03-22T19:21:02+00:00",
+          "createdAt": "2018-03-22T19:21:02+00:00",
+          "updatedAt": "2018-03-22T19:21:02+00:00",
+          "version": 1,
+          "pages": 18
+        },
+        "relationships": [
+          {
+            "id": "fa2b0dd9-a27d-4adf-b5f0-576a2640fece",
+            "type": "scanlation_group",
+            "attributes": {
+              "name": "keydriven",
+              "altNames": [],
+              "locked": false,
+              "website": "https://keydriven.wordpress.com/",
+              "ircServer": null,
+              "ircChannel": null,
+              "discord": null,
+              "contactEmail": null,
+              "description": null,
+              "twitter": null,
+              "mangaUpdates": null,
+              "focusedLanguages": [
+                "en"
+              ],
+              "official": false,
+              "verified": false,
+              "inactive": false,
+              "publishDelay": null,
+              "exLicensed": false,
+              "createdAt": "2021-04-19T21:45:59+00:00",
+              "updatedAt": "2023-09-23T16:14:29+00:00",
+              "version": 2
+            }
+          },
+          {
+            "id": "be7fd0c5-209a-440c-b20d-8b611be1310c",
+            "type": "manga"
+          },
+          {
+            "id": "16d7dd6f-6860-451d-8854-7feabbff20e2",
+            "type": "user"
+          }
+        ]
+      },
+      {
+        "id": "b06a2b96-0183-460a-b3d9-c77c610a2171",
+        "type": "chapter",
+        "attributes": {
+          "volume": "1",
+          "chapter": "4",
+          "title": "Let Me Hear",
+          "translatedLanguage": "en",
+          "externalUrl": null,
+          "isUnavailable": false,
+          "publishAt": "2018-03-22T19:21:27+00:00",
+          "readableAt": "2018-03-22T19:21:27+00:00",
+          "createdAt": "2018-03-22T19:21:27+00:00",
+          "updatedAt": "2018-03-22T19:21:27+00:00",
+          "version": 1,
+          "pages": 20
+        },
+        "relationships": [
+          {
+            "id": "fa2b0dd9-a27d-4adf-b5f0-576a2640fece",
+            "type": "scanlation_group",
+            "attributes": {
+              "name": "keydriven",
+              "altNames": [],
+              "locked": false,
+              "website": "https://keydriven.wordpress.com/",
+              "ircServer": null,
+              "ircChannel": null,
+              "discord": null,
+              "contactEmail": null,
+              "description": null,
+              "twitter": null,
+              "mangaUpdates": null,
+              "focusedLanguages": [
+                "en"
+              ],
+              "official": false,
+              "verified": false,
+              "inactive": false,
+              "publishDelay": null,
+              "exLicensed": false,
+              "createdAt": "2021-04-19T21:45:59+00:00",
+              "updatedAt": "2023-09-23T16:14:29+00:00",
+              "version": 2
+            }
+          },
+          {
+            "id": "be7fd0c5-209a-440c-b20d-8b611be1310c",
+            "type": "manga"
+          },
+          {
+            "id": "16d7dd6f-6860-451d-8854-7feabbff20e2",
+            "type": "user"
+          }
+        ]
+      },
+      {
+        "id": "5bc90415-4a21-4dbe-b32c-e093390fa99a",
+        "type": "chapter",
+        "attributes": {
+          "volume": "1",
+          "chapter": "5",
+          "title": "The Worst",
+          "translatedLanguage": "en",
+          "externalUrl": null,
+          "isUnavailable": false,
+          "publishAt": "2018-03-22T19:21:48+00:00",
+          "readableAt": "2018-03-22T19:21:48+00:00",
+          "createdAt": "2018-03-22T19:21:48+00:00",
+          "updatedAt": "2018-03-22T19:21:48+00:00",
+          "version": 1,
+          "pages": 18
+        },
+        "relationships": [
+          {
+            "id": "fa2b0dd9-a27d-4adf-b5f0-576a2640fece",
+            "type": "scanlation_group",
+            "attributes": {
+              "name": "keydriven",
+              "altNames": [],
+              "locked": false,
+              "website": "https://keydriven.wordpress.com/",
+              "ircServer": null,
+              "ircChannel": null,
+              "discord": null,
+              "contactEmail": null,
+              "description": null,
+              "twitter": null,
+              "mangaUpdates": null,
+              "focusedLanguages": [
+                "en"
+              ],
+              "official": false,
+              "verified": false,
+              "inactive": false,
+              "publishDelay": null,
+              "exLicensed": false,
+              "createdAt": "2021-04-19T21:45:59+00:00",
+              "updatedAt": "2023-09-23T16:14:29+00:00",
+              "version": 2
+            }
+          },
+          {
+            "id": "be7fd0c5-209a-440c-b20d-8b611be1310c",
+            "type": "manga"
+          },
+          {
+            "id": "16d7dd6f-6860-451d-8854-7feabbff20e2",
+            "type": "user"
+          }
+        ]
+      },
+      {
+        "id": "b50cb7b5-1e3a-4226-9101-5c4d9d980d8e",
+        "type": "chapter",
+        "attributes": {
+          "volume": "1",
+          "chapter": "6",
+          "title": "Shino Kayo",
+          "translatedLanguage": "en",
+          "externalUrl": null,
+          "isUnavailable": false,
+          "publishAt": "2018-03-22T19:22:19+00:00",
+          "readableAt": "2018-03-22T19:22:19+00:00",
+          "createdAt": "2018-03-22T19:22:19+00:00",
+          "updatedAt": "2018-03-22T19:22:19+00:00",
+          "version": 1,
+          "pages": 20
+        },
+        "relationships": [
+          {
+            "id": "fa2b0dd9-a27d-4adf-b5f0-576a2640fece",
+            "type": "scanlation_group",
+            "attributes": {
+              "name": "keydriven",
+              "altNames": [],
+              "locked": false,
+              "website": "https://keydriven.wordpress.com/",
+              "ircServer": null,
+              "ircChannel": null,
+              "discord": null,
+              "contactEmail": null,
+              "description": null,
+              "twitter": null,
+              "mangaUpdates": null,
+              "focusedLanguages": [
+                "en"
+              ],
+              "official": false,
+              "verified": false,
+              "inactive": false,
+              "publishDelay": null,
+              "exLicensed": false,
+              "createdAt": "2021-04-19T21:45:59+00:00",
+              "updatedAt": "2023-09-23T16:14:29+00:00",
+              "version": 2
+            }
+          },
+          {
+            "id": "be7fd0c5-209a-440c-b20d-8b611be1310c",
+            "type": "manga"
+          },
+          {
+            "id": "16d7dd6f-6860-451d-8854-7feabbff20e2",
+            "type": "user"
+          }
+        ]
+      },
+      {
+        "id": "c90356fb-f802-46be-953b-21f7b6b2fb20",
+        "type": "chapter",
+        "attributes": {
+          "volume": "1",
+          "chapter": "7",
+          "title": "Let's Practice A Little Harder",
+          "translatedLanguage": "en",
+          "externalUrl": null,
+          "isUnavailable": false,
+          "publishAt": "2018-03-22T19:22:38+00:00",
+          "readableAt": "2018-03-22T19:22:38+00:00",
+          "createdAt": "2018-03-22T19:22:38+00:00",
+          "updatedAt": "2018-03-22T19:22:38+00:00",
+          "version": 1,
+          "pages": 20
+        },
+        "relationships": [
+          {
+            "id": "fa2b0dd9-a27d-4adf-b5f0-576a2640fece",
+            "type": "scanlation_group",
+            "attributes": {
+              "name": "keydriven",
+              "altNames": [],
+              "locked": false,
+              "website": "https://keydriven.wordpress.com/",
+              "ircServer": null,
+              "ircChannel": null,
+              "discord": null,
+              "contactEmail": null,
+              "description": null,
+              "twitter": null,
+              "mangaUpdates": null,
+              "focusedLanguages": [
+                "en"
+              ],
+              "official": false,
+              "verified": false,
+              "inactive": false,
+              "publishDelay": null,
+              "exLicensed": false,
+              "createdAt": "2021-04-19T21:45:59+00:00",
+              "updatedAt": "2023-09-23T16:14:29+00:00",
+              "version": 2
+            }
+          },
+          {
+            "id": "be7fd0c5-209a-440c-b20d-8b611be1310c",
+            "type": "manga"
+          },
+          {
+            "id": "16d7dd6f-6860-451d-8854-7feabbff20e2",
+            "type": "user"
+          }
+        ]
+      },
+      {
+        "id": "49b508ed-2395-4c07-af16-c222dede3db9",
+        "type": "chapter",
+        "attributes": {
+          "volume": "1",
+          "chapter": "8",
+          "title": "Tell Me Why, Or I´ll Never Know.",
+          "translatedLanguage": "en",
+          "externalUrl": null,
+          "isUnavailable": false,
+          "publishAt": "2018-03-22T19:23:09+00:00",
+          "readableAt": "2018-03-22T19:23:09+00:00",
+          "createdAt": "2018-03-22T19:23:09+00:00",
+          "updatedAt": "2021-05-17T02:39:43+00:00",
+          "version": 2,
+          "pages": 20
+        },
+        "relationships": [
+          {
+            "id": "fa2b0dd9-a27d-4adf-b5f0-576a2640fece",
+            "type": "scanlation_group",
+            "attributes": {
+              "name": "keydriven",
+              "altNames": [],
+              "locked": false,
+              "website": "https://keydriven.wordpress.com/",
+              "ircServer": null,
+              "ircChannel": null,
+              "discord": null,
+              "contactEmail": null,
+              "description": null,
+              "twitter": null,
+              "mangaUpdates": null,
+              "focusedLanguages": [
+                "en"
+              ],
+              "official": false,
+              "verified": false,
+              "inactive": false,
+              "publishDelay": null,
+              "exLicensed": false,
+              "createdAt": "2021-04-19T21:45:59+00:00",
+              "updatedAt": "2023-09-23T16:14:29+00:00",
+              "version": 2
+            }
+          },
+          {
+            "id": "be7fd0c5-209a-440c-b20d-8b611be1310c",
+            "type": "manga"
+          },
+          {
+            "id": "16d7dd6f-6860-451d-8854-7feabbff20e2",
+            "type": "user"
+          }
+        ]
+      },
+      {
+        "id": "586a361e-d93b-45b4-a129-e1bbcba58325",
+        "type": "chapter",
+        "attributes": {
+          "volume": "1",
+          "chapter": "9",
+          "title": "It´s Been... A Long Time",
+          "translatedLanguage": "en",
+          "externalUrl": null,
+          "isUnavailable": false,
+          "publishAt": "2018-03-22T19:23:44+00:00",
+          "readableAt": "2018-03-22T19:23:44+00:00",
+          "createdAt": "2018-03-22T19:23:44+00:00",
+          "updatedAt": "2021-05-17T02:39:55+00:00",
+          "version": 2,
+          "pages": 20
+        },
+        "relationships": [
+          {
+            "id": "fa2b0dd9-a27d-4adf-b5f0-576a2640fece",
+            "type": "scanlation_group",
+            "attributes": {
+              "name": "keydriven",
+              "altNames": [],
+              "locked": false,
+              "website": "https://keydriven.wordpress.com/",
+              "ircServer": null,
+              "ircChannel": null,
+              "discord": null,
+              "contactEmail": null,
+              "description": null,
+              "twitter": null,
+              "mangaUpdates": null,
+              "focusedLanguages": [
+                "en"
+              ],
+              "official": false,
+              "verified": false,
+              "inactive": false,
+              "publishDelay": null,
+              "exLicensed": false,
+              "createdAt": "2021-04-19T21:45:59+00:00",
+              "updatedAt": "2023-09-23T16:14:29+00:00",
+              "version": 2
+            }
+          },
+          {
+            "id": "be7fd0c5-209a-440c-b20d-8b611be1310c",
+            "type": "manga"
+          },
+          {
+            "id": "16d7dd6f-6860-451d-8854-7feabbff20e2",
+            "type": "user"
+          }
+        ]
+      },
+      {
+        "id": "60f2dfbd-809c-49ec-a35d-da45924e3a79",
+        "type": "chapter",
+        "attributes": {
+          "volume": "1",
+          "chapter": "10",
+          "title": "The 45th Cultural Festival",
+          "translatedLanguage": "en",
+          "externalUrl": null,
+          "isUnavailable": false,
+          "publishAt": "2018-03-22T19:24:50+00:00",
+          "readableAt": "2018-03-22T19:24:50+00:00",
+          "createdAt": "2018-03-22T19:24:50+00:00",
+          "updatedAt": "2018-03-22T19:24:50+00:00",
+          "version": 1,
+          "pages": 21
+        },
+        "relationships": [
+          {
+            "id": "fa2b0dd9-a27d-4adf-b5f0-576a2640fece",
+            "type": "scanlation_group",
+            "attributes": {
+              "name": "keydriven",
+              "altNames": [],
+              "locked": false,
+              "website": "https://keydriven.wordpress.com/",
+              "ircServer": null,
+              "ircChannel": null,
+              "discord": null,
+              "contactEmail": null,
+              "description": null,
+              "twitter": null,
+              "mangaUpdates": null,
+              "focusedLanguages": [
+                "en"
+              ],
+              "official": false,
+              "verified": false,
+              "inactive": false,
+              "publishDelay": null,
+              "exLicensed": false,
+              "createdAt": "2021-04-19T21:45:59+00:00",
+              "updatedAt": "2023-09-23T16:14:29+00:00",
+              "version": 2
+            }
+          },
+          {
+            "id": "be7fd0c5-209a-440c-b20d-8b611be1310c",
+            "type": "manga"
+          },
+          {
+            "id": "16d7dd6f-6860-451d-8854-7feabbff20e2",
+            "type": "user"
+          }
+        ]
+      },
+      {
+        "id": "27a1c992-681a-4969-9c47-87fa3c6422a1",
+        "type": "chapter",
+        "attributes": {
+          "volume": "1",
+          "chapter": "11",
+          "title": "",
+          "translatedLanguage": "en",
+          "externalUrl": null,
+          "isUnavailable": false,
+          "publishAt": "2018-03-22T19:25:24+00:00",
+          "readableAt": "2018-03-22T19:25:24+00:00",
+          "createdAt": "2018-03-22T19:25:24+00:00",
+          "updatedAt": "2018-03-22T19:25:24+00:00",
+          "version": 1,
+          "pages": 21
+        },
+        "relationships": [
+          {
+            "id": "fa2b0dd9-a27d-4adf-b5f0-576a2640fece",
+            "type": "scanlation_group",
+            "attributes": {
+              "name": "keydriven",
+              "altNames": [],
+              "locked": false,
+              "website": "https://keydriven.wordpress.com/",
+              "ircServer": null,
+              "ircChannel": null,
+              "discord": null,
+              "contactEmail": null,
+              "description": null,
+              "twitter": null,
+              "mangaUpdates": null,
+              "focusedLanguages": [
+                "en"
+              ],
+              "official": false,
+              "verified": false,
+              "inactive": false,
+              "publishDelay": null,
+              "exLicensed": false,
+              "createdAt": "2021-04-19T21:45:59+00:00",
+              "updatedAt": "2023-09-23T16:14:29+00:00",
+              "version": 2
+            }
+          },
+          {
+            "id": "be7fd0c5-209a-440c-b20d-8b611be1310c",
+            "type": "manga"
+          },
+          {
+            "id": "16d7dd6f-6860-451d-8854-7feabbff20e2",
+            "type": "user"
+          }
+        ]
+      }
+    ],
+    "limit": 100,
+    "offset": 0,
+    "total": 11
+  }
+}
