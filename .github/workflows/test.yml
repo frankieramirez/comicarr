@@ -155,6 +155,13 @@ jobs:
           DATABASE_URL: ${{ matrix.database_url }}
         run: uv run pytest tests/integration/test_support_bundle_dialects.py -q
 
+      # SQLite runs the whole matrix in Backend Tests; servers run the four dialect rows.
+      - name: Upgrade matrix
+        if: matrix.dialect != 'sqlite'
+        env:
+          DATABASE_URL: ${{ matrix.database_url }}
+        run: uv run pytest tests/integration/test_upgrade_matrix.py -q -rx
+
       - name: Check adopted schema
         env:
           DATABASE_URL: ${{ matrix.database_url }}

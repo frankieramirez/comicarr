@@ -122,7 +122,8 @@ sab_category = comics
 
 # Runs inside the extracted tag, with that tag's comicarr package (and its
 # bundled ``lib/``, for releases that had one) first on the path. argv:
-# data directory, then the expected revision or "legacy".
+# data directory, the expected revision or "legacy", and optionally a database
+# URL (default: comicarr.db in the data directory).
 ERA_SCRIPT = """
 import os
 import sys
@@ -134,6 +135,7 @@ import comicarr.maintenance
 from comicarr import config as config_module
 
 data_dir, revision = sys.argv[1], sys.argv[2]
+url = sys.argv[3] if len(sys.argv) > 3 else "sqlite:///" + os.path.join(data_dir, "comicarr.db")
 comicarr.DATA_DIR = data_dir
 comicarr.PROG_DIR = "."
 comicarr.maintenance.Maintenance.backup_files = lambda self, **kwargs: True
@@ -150,7 +152,7 @@ else:
     from sqlalchemy import create_engine
     from comicarr.app.core.schema import upgrade_database
 
-    engine = create_engine("sqlite:///" + os.path.join(data_dir, "comicarr.db"))
+    engine = create_engine(url)
     print(upgrade_database(engine))
     engine.dispose()
 """
@@ -508,17 +510,48 @@ def _run_release(tag, python, script, args, tree):
     return result.stdout.strip().splitlines()[-1]
 
 
-def _build_comicarr(name, tree, data_dir):
+def _build_comicarr(name, tree, data_dir, url=None):
     tag, revision = ROWS[name]
     _extract_tag(tag, tree)
     config_source = (tree / "comicarr" / "config.py").read_text(encoding="utf-8")
     config_version = re.search(r"self\.newconfig = (\d+)", config_source).group(1)
     (data_dir / "config.ini").write_text(CONFIG_OVERRIDES.format(config_version=config_version), encoding="utf-8")
     expected = revision or "legacy"
-    reached = _run_release(tag, sys.executable, ERA_SCRIPT, [str(data_dir), expected], tree)
+    args = [str(data_dir), expected, *([url] if url else [])]
+    reached = _run_release(tag, sys.executable, ERA_SCRIPT, args, tree)
     if reached != expected:
         raise SystemExit("%s upgraded to %s, expected %s" % (tag, reached, expected))
     return data_dir / "comicarr.db"
+
+
+def build_release_database(name, url):
+    """Create one Alembic-era row directly in the database at ``url`` and seed it.
+
+    PostgreSQL and MySQL rows are built this way at test time rather than from
+    committed SQL: the release's own code creates the schema on that dialect.
+    """
+
+    from sqlalchemy import MetaData, create_engine
+
+    if ROWS[name][1] is None:
+        raise ValueError("%s predates Alembic and is SQLite only" % name)
+    with tempfile.TemporaryDirectory(prefix="upgrade-matrix-") as scratch:
+        scratch = Path(scratch)
+        (scratch / "tree").mkdir()
+        (scratch / "data").mkdir()
+        _build_comicarr(name, scratch / "tree", scratch / "data", url)
+    engine = create_engine(url)
+    try:
+        reflected = MetaData()
+        reflected.reflect(bind=engine)
+        with engine.begin() as connection:
+            for seed in SEED:
+                table = reflected.tables[seed.table]
+                for row in seed.rows:
+                    values = {column: value for column, value in row.items() if column in table.c}
+                    connection.execute(table.insert().values(**values))
+    finally:
+        engine.dispose()
 
 
 def _mylar_python(scratch):
