@@ -9,6 +9,7 @@
 
 """End-to-end acquisition stage contracts with fake external boundaries."""
 
+import os
 import queue
 import time
 from types import SimpleNamespace
@@ -17,7 +18,7 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
+from comicarr import db, importer
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
@@ -25,6 +26,7 @@ from comicarr.app.core.context import AppContext
 from comicarr.app.downloads import handoff, journal, postprocessing, recovery
 from comicarr.app.series import service as series_service
 from comicarr.tables import acquisition_run_items, acquisition_runs, comics, issues, metadata, nzblog, pipeline_journal
+from tests.fakes import manga as manga_fake
 from tests.fakes import pipeline
 from tests.fakes import sabnzbd as sab_fake
 from tests.fakes.nzbget import FakeNzbget
@@ -1022,3 +1024,243 @@ def test_manga_downloaded_volume_leaves_the_blended_frontier(manga):
 def _manga_detail():
     detail = series_service.get_comic_detail(_ctx(), pipeline.MANGA_ID)
     return detail["issues"], detail["summary"]
+
+
+# ---------------------------------------------------------------------------
+# Manga added from recorded answers. Each scenario adds its series through
+# the real importer against FakeMangaDex and FakeMyAnimeList, which answer with responses recorded from
+# both services (tests/fixtures/mangadex/, tests/fixtures/myanimelist/), then
+# runs the handoff, monitor and post-processing against FakeSabnzbd.
+# ---------------------------------------------------------------------------
+
+MD_COMIC_ID = "md-" + manga_fake.MANGADEX_ID
+MAL_COMIC_ID = "mal-" + manga_fake.MAL_ID
+
+
+@pytest.fixture
+def recorded(tmp_path, monkeypatch):
+    from comicarr import helpers, mangadex
+
+    sab = FakeSabnzbd().install(monkeypatch)
+    mangadex_api = manga_fake.FakeMangaDex().install(monkeypatch)
+    mal_api = manga_fake.FakeMyAnimeList().install(monkeypatch)
+    local_complete = tmp_path / "sab" / "complete"
+    local_complete.mkdir(parents=True)
+    library = tmp_path / "manga"
+    library.mkdir()
+    monkeypatch.setattr(
+        comicarr,
+        "CONFIG",
+        pipeline.default_config(
+            MANGADEX_ENABLED=True,
+            MAL_ENABLED=True,
+            MAL_CLIENT_ID=mal_api.client_id,
+            MANGA_DESTINATION_DIR=str(library),
+            CREATE_FOLDERS=True,
+            CACHE_DIR=str(tmp_path / "cache"),
+            SAB_HOST=sab.host,
+            SAB_APIKEY=sab.apikey,
+            SAB_CATEGORY=sab.category,
+            SAB_VERSION=sab_fake.VERSION,
+            SAB_MOVING_DELAY=0,
+            SAB_CLIENT_POST_PROCESSING=True,
+            SAB_DIRECTORY=str(local_complete),
+            MANUAL_PP_FOLDER=str(tmp_path / "downloads"),
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
+    monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
+    monkeypatch.setattr(comicarr, "NZB_QUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr(comicarr, "COMICSORT", helpers.ComicSort(sequence="startup"), raising=False)
+    monkeypatch.setattr("comicarr.mangadex._rate_limit", lambda: None)
+    monkeypatch.setattr("comicarr.myanimelist._rate_limit", lambda: None)
+    monkeypatch.setattr("comicarr.sabnzbd.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("comicarr.app.downloads.service.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr(
+        "comicarr.postprocessor.time", SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _seconds: None)
+    )
+    mangadex.clear_cache()
+    return SimpleNamespace(
+        sab=sab, mangadex=mangadex_api, mal=mal_api, local_complete=local_complete, library=library, tmp=tmp_path
+    )
+
+
+def _grab_chapter(recorded, comic_id, number, source="Digital", want=True):
+    """A search result for one chapter goes to SABnzbd, finishes, and is post-processed."""
+    if want:
+        pipeline.want_recorded_chapter(comic_id, number)
+    _response, item = pipeline.send_recorded_chapter(recorded.tmp, comic_id, number, source)
+    [nzo_id] = [nzo for nzo, job in recorded.sab.jobs.items() if job["state"] == "Queued"]
+    name, filename = pipeline.recorded_release(number, source)
+    archive = pipeline.write_download(recorded.local_complete / recorded.sab.category / name / filename)
+    recorded.sab.complete(nzo_id, str(archive))
+    assert pipeline.monitor_sab(item)["status"] is True
+    return pipeline.post_process_next()
+
+
+def _assert_chapter_in_library(comic_id, number):
+    series = pipeline.series_row(comic_id)
+    _name, filename = pipeline.recorded_release(number)
+    placed = os.path.join(series["ComicLocation"], filename)
+    assert os.path.isfile(placed)
+    chapter = pipeline.chapters_by_number(comic_id)[str(number)]
+    assert chapter["Status"] == "Downloaded"
+    assert chapter["Location"] == filename
+    key = pipeline.recorded_release_key(comic_id, number)
+    assert journal.read_one(key)["stage"] == journal.POST_PROCESSED
+    return placed
+
+
+def _add_events(comic_id):
+    from comicarr.app.activity import service as activity_service
+
+    timeline = activity_service.get_timeline(scope_type="series", scope_id=comic_id)
+    events = timeline["results"]
+    return [event for event in events if event.get("activity") == "add"]
+
+
+def test_mangadex_ledger_sync_heals_an_empty_ledger(recorded):
+    """A series row left with no chapters is rebuilt from MangaDex, then a chapter lands."""
+    from comicarr.app.manga import sync
+
+    with db.get_engine().begin() as conn:
+        conn.execute(
+            comics.insert().values(
+                ComicID=MD_COMIC_ID, ComicName=pipeline.RECORDED_SERIES, Status="Active", ContentType="manga"
+            )
+        )
+    assert [row["ComicID"] for row in sync.empty_ledger_series()] == [MD_COMIC_ID]
+
+    assert sync.heal_empty_ledgers() == 1
+
+    assert sync.empty_ledger_series() == []
+    chapters = pipeline.chapters_by_number(MD_COMIC_ID)
+    assert sorted(chapters, key=float) == recorded.mangadex.chapter_numbers()
+    assert {row["VolumeNumber"] for row in chapters.values()} == {"1"}
+    assert pipeline.series_row(MD_COMIC_ID)["Total"] == 11
+    assert _grab_chapter(recorded, MD_COMIC_ID, 3).status == "processed"
+    _assert_chapter_in_library(MD_COMIC_ID, 3)
+
+
+def test_mal_sourced_series_reaches_the_library(recorded):
+    """MAL supplies the metadata, MangaDex the chapters, and a chapter grab lands in the series."""
+    result = importer.addMangaToDB_MAL(MAL_COMIC_ID)
+
+    assert result["status"] == "complete"
+    series = pipeline.series_row(MAL_COMIC_ID)
+    assert series["MetadataSource"] == "mal"
+    assert series["MalID"] == manga_fake.MAL_ID
+    assert series["MangaDexID"] == manga_fake.MANGADEX_ID
+    assert len(pipeline.chapters_by_number(MAL_COMIC_ID)) == 11
+    assert any(call["path"] == "/v2/manga/%s" % manga_fake.MAL_ID for call in recorded.mal.calls)
+    assert _grab_chapter(recorded, MAL_COMIC_ID, 5).status == "processed"
+    _assert_chapter_in_library(MAL_COMIC_ID, 5)
+
+
+def test_manga_chapter_is_placed_in_its_series_folder(recorded):
+    assert importer.addMangaToDB(MD_COMIC_ID)["status"] == "complete"
+
+    assert _grab_chapter(recorded, MD_COMIC_ID, 3).status == "processed"
+
+    placed = _assert_chapter_in_library(MD_COMIC_ID, 3)
+    assert os.path.dirname(placed) == str(recorded.library / "Shino-chan Cant Say Her Name (2011)")
+    others = {
+        number: row["Status"] for number, row in pipeline.chapters_by_number(MD_COMIC_ID).items() if number != "3"
+    }
+    assert set(others.values()) == {"Skipped"}
+    assert not (recorded.local_complete / recorded.sab.category / pipeline.recorded_release(3)[0]).exists()
+
+
+def test_manga_duplicate_guard_refuses_the_same_work_from_mal(recorded):
+    """A MangaDex series whose MAL link is 49017 blocks adding MAL 49017 a second time."""
+    assert importer.addMangaToDB(MD_COMIC_ID)["status"] == "complete"
+
+    refused = importer.addMangaToDB_MAL(MAL_COMIC_ID)
+
+    assert refused["status"] == "duplicate"
+    assert refused["comicid"] == MD_COMIC_ID
+    assert pipeline.series_row(MAL_COMIC_ID) is None
+    assert pipeline.chapters_by_number(MAL_COMIC_ID) == {}
+    [event] = [event for event in _add_events(MAL_COMIC_ID) if event.get("status") == "failed"]
+    assert MD_COMIC_ID in str(event.get("reason_detail"))
+    assert _grab_chapter(recorded, MD_COMIC_ID, 3).status == "processed"
+    _assert_chapter_in_library(MD_COMIC_ID, 3)
+
+
+def test_manga_second_release_of_an_owned_chapter_is_not_sent(recorded):
+    """Once a chapter is in the library, another release of it never reaches the client."""
+    assert importer.addMangaToDB(MD_COMIC_ID)["status"] == "complete"
+    assert _grab_chapter(recorded, MD_COMIC_ID, 3).status == "processed"
+    placed = _assert_chapter_in_library(MD_COMIC_ID, 3)
+    jobs_before = dict(recorded.sab.jobs)
+
+    with pytest.raises(handoff.HandoffReservationError, match="library still holds this issue"):
+        pipeline.send_recorded_chapter(recorded.tmp, MD_COMIC_ID, 3, "Scan")
+
+    assert recorded.sab.jobs == jobs_before
+    assert [call for call in recorded.sab.calls if call["mode"] == "addfile"][1:] == []
+    assert [name for name in os.listdir(os.path.dirname(placed)) if " c003 " in name] == [os.path.basename(placed)]
+    assert pipeline.chapters_by_number(MD_COMIC_ID)["3"]["Status"] == "Downloaded"
+
+
+def test_manga_rss_grabs_and_places_a_wanted_chapter(recorded, monkeypatch):
+    """The scheduled manga RSS pass matches an rssdb row, hands it to SABnzbd, and it lands."""
+    from comicarr.rsscheck import mangaCheck
+    from comicarr.tables import rssdb
+    from tests.fakes.newznab import FakeNewznab
+
+    indexer = FakeNewznab().install(monkeypatch)
+    monkeypatch.setattr(comicarr.CONFIG, "NEWZNAB", True)
+    monkeypatch.setattr(comicarr.CONFIG, "EXTRA_NEWZNABS", [indexer.config_entry()])
+    monkeypatch.setattr(comicarr.CONFIG, "ENABLE_RSS", True)
+    assert importer.addMangaToDB(MD_COMIC_ID)["status"] == "complete"
+    with db.get_engine().begin() as conn:
+        conn.execute(comics.update().where(comics.c.ComicID == MD_COMIC_ID).values(MonitorMode="chapters"))
+    issue_id = pipeline.want_recorded_chapter(MD_COMIC_ID, 3)
+    name, filename = pipeline.recorded_release(3)
+    title = filename[: -len(".cbz")]
+    link = indexer.publish("shino-c003", title, filename)
+    with db.get_engine().begin() as conn:
+        conn.execute(
+            rssdb.insert().values(
+                Title=title, Link=link, Pubdate="Fri, 13 Nov 2026 10:00:00 +0000", Site=indexer.name, Size="4096"
+            )
+        )
+
+    mangaCheck()
+
+    [nzo_id] = recorded.sab.jobs
+    job = recorded.sab.jobs[nzo_id]
+    assert job["category"] == recorded.sab.category
+    item = comicarr.NZB_QUEUE.get_nowait()
+    assert item["issueid"] == issue_id
+    archive = pipeline.write_download(recorded.local_complete / recorded.sab.category / job["name"] / filename)
+    recorded.sab.complete(nzo_id, str(archive))
+    assert pipeline.monitor_sab(item)["status"] is True
+    assert pipeline.post_process_next().status == "processed"
+    series = pipeline.series_row(MD_COMIC_ID)
+    assert os.path.isfile(os.path.join(series["ComicLocation"], filename))
+    assert pipeline.chapters_by_number(MD_COMIC_ID)["3"]["Status"] == "Downloaded"
+
+
+def test_manga_add_failure_is_narrated_in_activity(recorded, monkeypatch):
+    """An add MangaDex cannot answer tells the operator why, through the activity channel."""
+    from comicarr.app.search.service import add_manga
+
+    monkeypatch.setattr("comicarr.importer.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr(comicarr, "ADD_LIST", queue.Queue(), raising=False)
+    monkeypatch.setattr(comicarr, "ISSUE_WATCH_LIST", queue.Queue(), raising=False)
+    monkeypatch.setattr(comicarr, "MASS_ADD", None, raising=False)
+    missing = "md-" + manga_fake.MISSING_MANGADEX_ID
+
+    queued = add_manga(AppContext(config=comicarr.CONFIG), manga_fake.MISSING_MANGADEX_ID)
+    comicarr.MASS_ADD.join(timeout=30)
+
+    assert queued["success"] is True and queued["comicid"] == missing
+    assert not comicarr.MASS_ADD.is_alive()
+    [event] = [event for event in _add_events(missing) if event.get("status") == "failed"]
+    assert "MangaDex details fetch failed" in str(event.get("reason_detail"))
+    assert any(call["path"] == "/manga/%s" % manga_fake.MISSING_MANGADEX_ID for call in recorded.mangadex.calls)
+    assert pipeline.chapters_by_number(missing) == {}

@@ -297,3 +297,65 @@ def manga_issues() -> dict[str, dict]:
 
     rows = db.select_all(select(issues).where(issues.c.ComicID == MANGA_ID))
     return {row["IssueID"]: row for row in rows}
+
+
+# -- manga added from recorded MangaDex / MyAnimeList answers ----------------
+# These scenarios add their series through the real importer against
+# tests/fakes/manga.py, so the ledger under test is the one Comicarr builds
+# from what those services really sent.
+
+RECORDED_SERIES = "Shino-chan Can't Say Her Name"
+
+
+def recorded_release(number, source="Digital") -> tuple[str, str]:
+    """The release name and archive filename an indexer offers for one chapter."""
+    padded = "%03d" % int(number)
+    return (
+        "Shino-chan.Cant.Say.Her.Name.c%s.2018.%s" % (padded, source),
+        "%s c%s (2018) (%s).cbz" % (RECORDED_SERIES, padded, source),
+    )
+
+
+def recorded_chapter_id(comic_id, number) -> str:
+    return "%s-ch%s" % (comic_id, number)
+
+
+def want_recorded_chapter(comic_id, number) -> str:
+    from comicarr import db
+    from comicarr.tables import issues
+
+    issue_id = recorded_chapter_id(comic_id, number)
+    with db.get_engine().begin() as conn:
+        conn.execute(issues.update().where(issues.c.IssueID == issue_id).values(Status="Wanted"))
+    return issue_id
+
+
+def send_recorded_chapter(tmp_path, comic_id, number, source="Digital"):
+    """Hand one chapter release to SABnzbd as ``search.py`` does; return (response, monitor item)."""
+    name, _filename = recorded_release(number, source)
+    return send_to_sab(
+        cached_nzb(tmp_path, name),
+        name,
+        issueid=recorded_chapter_id(comic_id, number),
+        comicid=comic_id,
+        series=RECORDED_SERIES,
+    )
+
+
+def recorded_release_key(comic_id, number, source="Digital"):
+    return release_key(recorded_release(number, source)[0], recorded_chapter_id(comic_id, number))
+
+
+def series_row(comic_id) -> dict:
+    from comicarr import db
+    from comicarr.tables import comics
+
+    return db.select_one(comics.select().where(comics.c.ComicID == comic_id))
+
+
+def chapters_by_number(comic_id) -> dict:
+    """Chapter number -> issue row, for one series."""
+    from comicarr import db
+    from comicarr.tables import issues
+
+    return {row["Issue_Number"]: row for row in db.select_all(issues.select().where(issues.c.ComicID == comic_id))}

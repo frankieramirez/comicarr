@@ -61,12 +61,6 @@ COVERAGE_TARGET = 80.0
 # (table, scenario, column) -> the build ticket that will fill the cell.
 # Shrink-only: a filled cell must leave this list in the same change.
 PENDING = {
-    ("Manga", "MangaDex ledger sync heals an empty ledger", "pipeline"): 1222,
-    ("Manga", "MAL-sourced series", "pipeline"): 1222,
-    ("Manga", "Chapter placement in post-processing", "pipeline"): 1222,
-    ("Manga", "Duplicate guard", "pipeline"): 1222,
-    ("Manga", "Manga RSS", "pipeline"): 1222,
-    ("Manga", "Add-manga failure narration", "pipeline"): 1222,
 }
 
 # Group -> (module paths relative to the repo root, line-coverage floor in percent).
