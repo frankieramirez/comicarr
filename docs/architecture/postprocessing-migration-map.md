@@ -92,6 +92,18 @@ completed journal stages rather than repeating irreversible file work.
    never conflicts), so the stage skips an item whose row already records the
    placed file; a re-run after a restart writes nothing.
 5. Cleanup and notification stages after durable completion.
+   **Landed as `PostProcessCleanupStage` and `PostProcessNotifyStage` in
+   `app/downloads/postprocess_pipeline.py`.** Cleanup takes a
+   `PostProcessCleanupContext` and removes download files and folders only
+   when `FILE_OPTS` is `move`, keeps the `mega` DDL folder, and empties the
+   metadata cache folder only when tagging made one. A cleanup failure is
+   narrated and logged, never raised, so it cannot touch the journal or the
+   library. The facade still calls it where `tidyup` ran, after `moved`, so
+   its order against the journal is unchanged. Notification goes through
+   `app/notifications/service.py` and replaces `sendnotify`. It sends only
+   when the caller's own `complete()` call wrote `post_processed`, so a
+   re-run after a restart sends nothing. The cover reader is passed in by the
+   facade, so the stage imports no legacy module.
 
 Each stage must retain focused success, expected-failure, and
 side-effect/idempotency coverage before the next extraction begins.
@@ -122,11 +134,10 @@ inherited matching rules, and moving it under `comicarr/app/` would mean either
 rewriting it or weakening the modern lint lane. Neither is worth doing before
 1.0.
 
-Stages 1 to 4 above have landed. The sequence continues:
+Stages 1 to 5 above have landed. The sequence continues:
 
 4. Database reconciliation stage (landed, see above).
-5. Cleanup and notification stages. Notification goes through
-   `app/notifications/service.py`, replacing `sendnotify`.
+5. Cleanup and notification stages (landed, see above).
 6. Per-item processing: `Process_next` and `_process_manga` become pipeline
    functions in `app/downloads/postprocess_pipeline.py`. The story-arc copy
    becomes `copy_issue_to_arc` in `app/storyarcs/`, called from here with its

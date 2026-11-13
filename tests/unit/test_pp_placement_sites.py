@@ -174,7 +174,7 @@ def _drive_process_next(library, monkeypatch, *, config=None, place=None, ml=Non
         patch.object(comicarr, "CONFIG", config or Config()),
         patch("comicarr.updater.totals"),
         patch("comicarr.updater.foundsearch"),
-        patch.object(postprocessor, "notifiers", MagicMock()),
+        patch("comicarr.app.notifications.service", MagicMock()),
     ):
         pp.Process_next("C1", "I1", "1", ml=ml)
 
@@ -400,7 +400,7 @@ def _drive_nzb_or_oneoff(library, monkeypatch, *, config=None, place=None, tinfo
         patch("comicarr.updater.totals"),
         patch("comicarr.updater.foundsearch"),
         patch.object(postprocessor.db, "upsert"),
-        patch.object(postprocessor, "notifiers", MagicMock()),
+        patch("comicarr.app.notifications.service", MagicMock()),
     ):
         pp.nzb_or_oneoff_pp(tinfo=tinfo)
 
