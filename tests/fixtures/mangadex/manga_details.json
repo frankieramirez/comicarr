@@ -1,0 +1,219 @@
+{
+  "request": {
+    "method": "GET",
+    "host": "api.mangadex.org",
+    "path": "/manga/be7fd0c5-209a-440c-b20d-8b611be1310c",
+    "params": {
+      "includes[]": [
+        "cover_art",
+        "author",
+        "artist",
+        "tag"
+      ]
+    }
+  },
+  "status_code": 200,
+  "body": {
+    "result": "ok",
+    "response": "entity",
+    "data": {
+      "id": "be7fd0c5-209a-440c-b20d-8b611be1310c",
+      "type": "manga",
+      "attributes": {
+        "title": {
+          "en": "Shino-chan Can't Say Her Name"
+        },
+        "altTitles": [
+          {
+            "fr": "Shino ne sait pas dire son nom"
+          },
+          {
+            "en": "Shino Can't Say Her Name"
+          },
+          {
+            "tr": "Shino Kendi Adını Söyleyemiyor"
+          },
+          {
+            "pt": "Shino Não Consegue Dizer Seu Próprio Nome"
+          },
+          {
+            "ja": "志乃ちゃんは自分の名前が言えない"
+          },
+          {
+            "ja-ro": "Shino-chan wa Jibun no Namae ga Ienai"
+          }
+        ],
+        "description": {
+          "en": "\"I can't say my own name,\" says Ooshima Shino. When she enters high school, she makes her first friend. Communication full of nothing but awkwardness begins. Suitable words always come to mind after some delay. But adolescence can turn even a klutz into a star… right?"
+        },
+        "isLocked": false,
+        "links": {
+          "al": "79017",
+          "ap": "shino-cant-say-her-name",
+          "kt": "6569",
+          "mu": "3i7yfjx",
+          "mal": "49017",
+          "raw": "https://denpa.pub/manga/shino-cant-say-her-name"
+        },
+        "officialLinks": null,
+        "originalLanguage": "ja",
+        "lastVolume": "1",
+        "lastChapter": "11",
+        "publicationDemographic": null,
+        "status": "completed",
+        "year": 2011,
+        "contentRating": "safe",
+        "tags": [
+          {
+            "id": "b9af3a63-f058-46de-a9a0-e0c13906197a",
+            "type": "tag",
+            "attributes": {
+              "name": {
+                "en": "Drama"
+              },
+              "description": {},
+              "group": "genre",
+              "version": 1
+            },
+            "relationships": []
+          },
+          {
+            "id": "caaa44eb-cd40-4177-b930-79d3ef2afe87",
+            "type": "tag",
+            "attributes": {
+              "name": {
+                "en": "School Life"
+              },
+              "description": {},
+              "group": "theme",
+              "version": 1
+            },
+            "relationships": []
+          },
+          {
+            "id": "e197df38-d0e7-43b5-9b09-2842d0c326dd",
+            "type": "tag",
+            "attributes": {
+              "name": {
+                "en": "Web Comic"
+              },
+              "description": {},
+              "group": "format",
+              "version": 1
+            },
+            "relationships": []
+          },
+          {
+            "id": "e5301a23-ebd9-49dd-a0cb-2add944c7fe9",
+            "type": "tag",
+            "attributes": {
+              "name": {
+                "en": "Slice of Life"
+              },
+              "description": {},
+              "group": "genre",
+              "version": 1
+            },
+            "relationships": []
+          },
+          {
+            "id": "f42fbf9e-188a-447b-9fdc-f19dc1e4d685",
+            "type": "tag",
+            "attributes": {
+              "name": {
+                "en": "Music"
+              },
+              "description": {},
+              "group": "theme",
+              "version": 1
+            },
+            "relationships": []
+          }
+        ],
+        "state": "published",
+        "chapterNumbersResetOnNewVolume": false,
+        "createdAt": "2018-07-10T01:23:30+00:00",
+        "updatedAt": "2025-11-15T21:54:35+00:00",
+        "version": 9,
+        "availableTranslatedLanguages": [
+          "de",
+          "ar",
+          "fr",
+          "en"
+        ],
+        "latestUploadedChapter": "6d75357b-7398-4dce-96b5-97030d009675"
+      },
+      "relationships": [
+        {
+          "id": "ac27ae52-3ed1-4784-9885-f2985b6a602f",
+          "type": "author",
+          "attributes": {
+            "name": "Oshimi Shuuzou",
+            "imageUrl": null,
+            "biography": {
+              "en": "**Name In Native Language:** 押見修造\n\nWorked as an assistant for [Muraoka Yuu](https://mangadex.org/author/66ee6210-719a-4c17-9971-b0e774464efc)."
+            },
+            "twitter": "https://twitter.com/shuzo_oshimi",
+            "pixiv": null,
+            "melonBook": null,
+            "fanBox": null,
+            "booth": null,
+            "namicomi": null,
+            "nicoVideo": null,
+            "skeb": null,
+            "fantia": null,
+            "tumblr": null,
+            "youtube": null,
+            "weibo": null,
+            "naver": null,
+            "website": null,
+            "createdAt": "2021-04-19T21:59:45+00:00",
+            "updatedAt": "2025-05-04T15:45:54+00:00",
+            "version": 3
+          }
+        },
+        {
+          "id": "ac27ae52-3ed1-4784-9885-f2985b6a602f",
+          "type": "artist",
+          "attributes": {
+            "name": "Oshimi Shuuzou",
+            "imageUrl": null,
+            "biography": {
+              "en": "**Name In Native Language:** 押見修造\n\nWorked as an assistant for [Muraoka Yuu](https://mangadex.org/author/66ee6210-719a-4c17-9971-b0e774464efc)."
+            },
+            "twitter": "https://twitter.com/shuzo_oshimi",
+            "pixiv": null,
+            "melonBook": null,
+            "fanBox": null,
+            "booth": null,
+            "namicomi": null,
+            "nicoVideo": null,
+            "skeb": null,
+            "fantia": null,
+            "tumblr": null,
+            "youtube": null,
+            "weibo": null,
+            "naver": null,
+            "website": null,
+            "createdAt": "2021-04-19T21:59:45+00:00",
+            "updatedAt": "2025-05-04T15:45:54+00:00",
+            "version": 3
+          }
+        },
+        {
+          "id": "2e7bbacc-7ba0-420b-a859-e4f6d842207d",
+          "type": "cover_art",
+          "attributes": {
+            "description": "",
+            "volume": "1",
+            "fileName": "44e77547-9df3-4f1f-ada3-fdaf61e1befa.jpg",
+            "locale": "ja",
+            "createdAt": "2024-05-11T11:00:00+00:00",
+            "updatedAt": "2024-05-11T11:00:00+00:00",
+            "version": 1
+          }
+        }
+      ]
+    }
+  }
+}

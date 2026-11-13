@@ -1,0 +1,58 @@
+{
+  "request": {
+    "method": "GET",
+    "host": "api.myanimelist.net",
+    "path": "/v2/manga/49017",
+    "params": {
+      "fields": "id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,rank,popularity,num_volumes,num_chapters,status,genres,authors{first_name,last_name},media_type,pictures"
+    }
+  },
+  "status_code": 200,
+  "body": {
+    "id": 49017,
+    "title": "Shino-chan wa Jibun no Namae ga Ienai",
+    "main_picture": {
+      "medium": "https://cdn.myanimelist.net/images/manga/2/181384.jpg",
+      "large": "https://cdn.myanimelist.net/images/manga/2/181384l.jpg"
+    },
+    "alternative_titles": {
+      "synonyms": [
+        "Shino-chan Cannot Say Her Own Name"
+      ],
+      "en": "Shino Can't Say Her Name",
+      "ja": "志乃ちゃんは自分の名前が言えない"
+    },
+    "start_date": "2011-12-21",
+    "end_date": "2012-10-17",
+    "synopsis": "High school can be a stressful time for many young people. The change means a new commute, new friends, new courses...new teachers. For Shino Oshima the change could have meant an opportunity to blossom into adulthood. Unfortunately, things go wrong on her first day - she fails to even say her name during her homeroom introduction. From then on Shino is a part-mute part-stuttering mess. Ostracized and afraid she struggles to find her place in this new world... But thankfully for her, she finds her voice through music and some unexpected new frienemies.\n\n(Source: Denpa)",
+    "mean": 6.59,
+    "rank": 16943,
+    "popularity": 2046,
+    "num_volumes": 1,
+    "num_chapters": 11,
+    "status": "finished",
+    "genres": [
+      {
+        "id": 23,
+        "name": "School"
+      }
+    ],
+    "authors": [
+      {
+        "node": {
+          "id": 6579,
+          "first_name": "Shuuzou",
+          "last_name": "Oshimi"
+        },
+        "role": "Story & Art"
+      }
+    ],
+    "media_type": "manga",
+    "pictures": [
+      {
+        "medium": "https://cdn.myanimelist.net/images/manga/2/181384.jpg",
+        "large": "https://cdn.myanimelist.net/images/manga/2/181384l.jpg"
+      }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "request": {
+    "method": "GET",
+    "host": "api.myanimelist.net",
+    "path": "/v2/manga/49017",
+    "params": {
+      "fields": "id,title"
+    }
+  },
+  "status_code": 400,
+  "body": {
+    "message": "Invalid client id",
+    "error": "bad_request"
+  }
+}
