@@ -130,7 +130,7 @@ def test_direct_processing_returns_http_conflict_while_owned(tmp_path, monkeypat
 
 
 def test_folder_monitor_defers_when_processing_is_busy(tmp_path, monkeypatch):
-    from comicarr.postprocessor import FolderCheck
+    from comicarr.app.downloads.folder_monitor import FolderCheck
 
     monkeypatch.setattr(comicarr, "IMPORTLOCK", False)
     lock = threading.Lock()

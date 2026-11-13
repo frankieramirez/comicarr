@@ -18,7 +18,7 @@ Covers the U3 contract:
   * The PP-complete sites write `post_processing` (before the destructive
     move), `moved` (after place / fileop success, before tidyup)
     and `post_processed` (after) — verified end-to-end on the manga path and
-    via the PostProcessor `_journal_pp` helper for the other sites.
+    via the `PostProcessRun.journal` helper for the other sites.
   * The façade is monotonic: a second `downloaded` after `post_processed` is
     a logged no-op; the PP failure path never writes `post_processed`.
 
@@ -38,11 +38,11 @@ import comicarr
 from comicarr import postprocessor
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.downloads import journal, postprocessing, service
-from comicarr.app.downloads.postprocess_pipeline import PostProcessRun
+from comicarr.app.downloads.postprocess_pipeline import _JOURNAL, PostProcessRun, process_manga_download
 from comicarr.db import get_engine, shutdown_engine
-from comicarr.postprocessor import PostProcessor
 from comicarr.tables import comics, ddl_info, issues, metadata, pipeline_journal
 from tests.conftest import placement_result
+from tests.fakes import folder_request
 
 
 @pytest.fixture(autouse=True)
@@ -353,21 +353,19 @@ def test_ddl_complete_journal_failure_quarantines_artifact_without_resubmission(
 # ---------------------------------------------------------------------------
 
 
-def _make_pp(nzb_name="Saga.001.cbz", nzb_folder="/tmp/dl", comicid="C1", issueid="I1"):
-    mock_apilock = MagicMock()
-    mock_apilock.locked.return_value = False
-    cfg = MagicMock()
-    cfg.FILE_OPTS = "move"
-    cfg.IGNORE_SEARCH_WORDS = []
-    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", cfg):
-        pp = PostProcessor(
-            nzb_name=nzb_name,
-            nzb_folder=nzb_folder,
-            comicid=comicid,
-            issueid=issueid,
-            queue=MagicMock(spec=queuelib.Queue),
-        )
-    return pp
+def _make_pp(nzb_name="Saga.001.cbz", nzb_folder="/tmp/dl", comicid="C1", issueid="I1", journal_release_key=None):
+    return folder_request.folder_run(
+        nzb_name=nzb_name,
+        nzb_folder=nzb_folder,
+        comicid=comicid,
+        issueid=issueid,
+        journal_release_key=journal_release_key,
+    )
+
+
+def _process_manga(run):
+    """Run the manga branch with the real legacy collaborators, read now."""
+    return process_manga_download(run, postprocessor.pipeline_deps())
 
 
 @pytest.mark.parametrize(
@@ -375,15 +373,15 @@ def _make_pp(nzb_name="Saga.001.cbz", nzb_folder="/tmp/dl", comicid="C1", issuei
     [journal.POST_PROCESSING, journal.MOVED, journal.POST_PROCESSED],
 )
 def test_pp_marker_helper_writes_each_stage(stage):
-    """The PostProcessor._journal_pp helper (used at every PP-complete site)
+    """The PostProcessRun.journal helper (used at every PP-complete site)
     writes each PP stage and reaches the requested stage."""
     pp = _make_pp(issueid="IH1")
     # Drive the lattice in order so a later stage is reachable.
     for s in (journal.POST_PROCESSING, journal.MOVED, journal.POST_PROCESSED):
-        pp._journal_pp(s, issueid="IH1")
+        pp.journal(s, issue_id="IH1")
         if s == stage:
             break
-    rkey = pp._journal_release_key(issueid="IH1")
+    rkey = _JOURNAL.release_key(pp.context, issue_id="IH1")
     assert _stage_of(rkey) == stage
 
 
@@ -391,22 +389,22 @@ def test_pp_markers_full_lifecycle_ordering():
     """post_processing -> moved -> post_processed advances the same row in
     order (the additive bracket around the destructive move)."""
     pp = _make_pp(issueid="IL1")
-    rkey = pp._journal_release_key(issueid="IL1")
+    rkey = _JOURNAL.release_key(pp.context, issue_id="IL1")
 
-    pp._journal_pp("post_processing", issueid="IL1")
+    pp.journal("post_processing", issue_id="IL1")
     assert _stage_of(rkey) == "post_processing"
-    pp._journal_pp("moved", issueid="IL1")
+    pp.journal("moved", issue_id="IL1")
     assert _stage_of(rkey) == "moved"
-    pp._journal_pp("post_processed", issueid="IL1")
+    pp.journal("post_processed", issue_id="IL1")
     assert _stage_of(rkey) == "post_processed"
 
 
 def test_pp_marker_helper_swallows_failure_inert():
-    """A journal failure inside _journal_pp must never propagate (additive /
+    """A journal failure inside PostProcessRun.journal must never propagate (additive /
     inert) — PP must continue."""
     pp = _make_pp(issueid="IE1")
     with patch.object(journal, "record_transition", side_effect=RuntimeError("boom")):
-        pp._journal_pp("post_processing", issueid="IE1")  # must not raise
+        pp.journal("post_processing", issue_id="IE1")  # must not raise
     assert _rows(pipeline_journal) == []
 
 
@@ -440,37 +438,36 @@ def test_secondary_arc_write_advances_arc_row_not_primary_claimed_row():
     terminalize the ARC row (whose own "S<IssueArcID>" nzblog entry is being
     deleted), NOT the primary claimed ISSUE row.
 
-    With a threaded U4 release_key present, a `_journal_pp(...,
+    With a threaded U4 release_key present, a `run.journal(...,
     issuearcid=...)` write must re-derive an ARC-scoped key (anchored on the
     arc id, matching the arc's durable snatched row IssueID==IssueArcID) and
     advance that distinct row — leaving the primary threaded row untouched.
     The PRIMARY path (no explicit issuearcid) must still return the single
     threaded key, preserving the U4 single-derivation invariant."""
     threaded = "I1|nzbprov"  # the canonical key from postprocess_main's claim
-    pp = _make_pp(issueid="I1", comicid="C1")
-    pp.journal_release_key = threaded
+    pp = _make_pp(issueid="I1", comicid="C1", journal_release_key=threaded)
 
     # Primary path: no explicit arc override → returns the threaded key
     # (U4 single-derivation invariant intact).
-    assert pp._journal_release_key() == threaded
-    assert pp._journal_release_key(issueid="I1") == threaded
+    assert _JOURNAL.release_key(pp.context) == threaded
+    assert _JOURNAL.release_key(pp.context, issue_id="I1") == threaded
 
     # Secondary story-arc write: explicit issuearcid → re-derived ARC key,
     # distinct from the primary threaded key.
-    arc_key = pp._journal_release_key(issuearcid="ARC9")
+    arc_key = _JOURNAL.release_key(pp.context, issue_arc_id="ARC9")
     assert arc_key != threaded
     assert arc_key == journal.release_key("ARC9", "")
 
     # Drive the primary row to terminal on the threaded key.
-    pp._journal_pp("post_processing", issueid="I1")
-    pp._journal_pp("moved", issueid="I1")
-    pp._journal_pp("post_processed", issueid="I1")
+    pp.journal("post_processing", issue_id="I1")
+    pp.journal("moved", issue_id="I1")
+    pp.journal("post_processed", issue_id="I1")
     assert _stage_of(threaded) == "post_processed"
 
     # The secondary arc write advances the ARC row, NOT the primary row.
-    pp._journal_pp("post_processing", issuearcid="ARC9")
-    pp._journal_pp("moved", issuearcid="ARC9")
-    pp._journal_pp("post_processed", issuearcid="ARC9")
+    pp.journal("post_processing", issue_arc_id="ARC9")
+    pp.journal("moved", issue_arc_id="ARC9")
+    pp.journal("post_processed", issue_arc_id="ARC9")
     assert _stage_of(arc_key) == "post_processed"
 
     # Two distinct rows — the primary claimed row was never advanced by the
@@ -501,7 +498,7 @@ def _seed_manga(comicid="md-csm", issueid="md-csm-ch165"):
 
 
 def test_manga_pp_writes_processing_moved_processed_in_order(tmp_path, monkeypatch):
-    """Real _process_manga run: post_processing before the move, moved after
+    """Real process_manga_download run: post_processing before the move, moved after
     the per-file fileop success, post_processed at the terminal end — in
     order, on one row."""
     _seed_manga()
@@ -532,7 +529,7 @@ def test_manga_pp_writes_processing_moved_processed_in_order(tmp_path, monkeypat
         patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
         patch.object(PostProcessRun, "journal", _spy),
     ):
-        pp._process_manga()
+        _process_manga(pp)
 
     # post_processing strictly before the destructive fileop; moved strictly
     # after it. Terminal completion is now owned by the post-processing module.
@@ -541,7 +538,7 @@ def test_manga_pp_writes_processing_moved_processed_in_order(tmp_path, monkeypat
     assert seen.index("__fileop__") < seen.index("moved")
     assert moved_calls  # the move actually happened
 
-    rkey = pp._journal_release_key(issueid="md-csm-ch165")
+    rkey = _JOURNAL.release_key(pp.context, issue_id="md-csm-ch165")
     # Terminal post_processed keyed on the matched chapter IssueID.
     assert _stage_of(rkey) == "post_processed"
 
@@ -564,13 +561,13 @@ def test_manga_pp_failure_path_does_not_write_post_processed(tmp_path, monkeypat
     monkeypatch.setattr(postprocessor, "place", _boom_fileop)
 
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
-        pp._process_manga()
+        _process_manga(pp)
 
     # No file matched/processed → the per-chapter release_key never reached
     # post_processed; the release-level row stays at post_processing.
-    chapter_key = pp._journal_release_key(issueid="md-csm-ch165")
+    chapter_key = _JOURNAL.release_key(pp.context, issue_id="md-csm-ch165")
     assert _stage_of(chapter_key) != "post_processed"
-    release_key = pp._journal_release_key()
+    release_key = _JOURNAL.release_key(pp.context)
     assert _stage_of(release_key) == "post_processing"
 
 
@@ -607,20 +604,13 @@ def test_manga_multichapter_shared_key_not_terminalized_midloop(tmp_path, monkey
     (src / "Chainsaw Man 166.cbz").write_bytes(b"c2")
     (tmp_path / "manga" / "Chainsaw Man").mkdir(parents=True)
 
-    mock_apilock = MagicMock()
-    mock_apilock.locked.return_value = False
-    cfg = MagicMock()
-    cfg.FILE_OPTS = "move"
-    cfg.IGNORE_SEARCH_WORDS = []
-    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", cfg):
-        pp = PostProcessor(
-            nzb_name="Chainsaw Man Pack",
-            nzb_folder=str(src),
-            comicid=comicid,
-            issueid=None,
-            queue=MagicMock(spec=queuelib.Queue),
-            journal_release_key=rkey,
-        )
+    pp = folder_request.folder_run(
+        nzb_name="Chainsaw Man Pack",
+        nzb_folder=str(src),
+        comicid=comicid,
+        issueid=None,
+        journal_release_key=rkey,
+    )
 
     # Crash AFTER the first chapter is moved+matched but BEFORE the loop
     # finishes (so the post-loop terminal write never runs). We interrupt by
@@ -642,7 +632,7 @@ def test_manga_multichapter_shared_key_not_terminalized_midloop(tmp_path, monkey
 
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
         with pytest.raises(KeyboardInterrupt):
-            pp._process_manga()
+            _process_manga(pp)
 
     # The shared release_key row must NOT be terminal — chapter 1's match must
     # not have written `post_processed` on the shared key. Replay sees a
@@ -693,20 +683,13 @@ def test_manga_multichapter_per_file_marker_is_post_processing_not_moved(tmp_pat
         (src / ("Vinland %s.cbz" % ch)).write_bytes(b"c")
     (tmp_path / "manga" / "Vinland").mkdir(parents=True)
 
-    mock_apilock = MagicMock()
-    mock_apilock.locked.return_value = False
-    cfg = MagicMock()
-    cfg.FILE_OPTS = "move"
-    cfg.IGNORE_SEARCH_WORDS = []
-    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", cfg):
-        pp = PostProcessor(
-            nzb_name="Vinland Pack",
-            nzb_folder=str(src),
-            comicid=comicid,
-            issueid=None,
-            queue=MagicMock(spec=queuelib.Queue),
-            journal_release_key=rkey,
-        )
+    pp = folder_request.folder_run(
+        nzb_name="Vinland Pack",
+        nzb_folder=str(src),
+        comicid=comicid,
+        issueid=None,
+        journal_release_key=rkey,
+    )
 
     seen = []
     real_pp = PostProcessRun.journal
@@ -728,7 +711,7 @@ def test_manga_multichapter_per_file_marker_is_post_processing_not_moved(tmp_pat
         patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
         patch.object(PostProcessRun, "journal", _spy),
     ):
-        pp._process_manga()
+        _process_manga(pp)
 
     # Three fileops, no per-file `moved` interleaved with them — only
     # `post_processing` per file.
@@ -775,22 +758,14 @@ def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path
     (src / "Gantz 2.cbz").write_bytes(b"c2")
     (tmp_path / "manga" / "Gantz").mkdir(parents=True)
 
-    mock_apilock = MagicMock()
-    mock_apilock.locked.return_value = False
-    cfg = MagicMock()
-    cfg.FILE_OPTS = "move"
-    cfg.IGNORE_SEARCH_WORDS = []
-
     def _build_pp():
-        with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", cfg):
-            return PostProcessor(
-                nzb_name="Gantz Pack",
-                nzb_folder=str(src),
-                comicid=comicid,
-                issueid=None,
-                queue=MagicMock(spec=queuelib.Queue),
-                journal_release_key=rkey,
-            )
+        return folder_request.folder_run(
+            nzb_name="Gantz Pack",
+            nzb_folder=str(src),
+            comicid=comicid,
+            issueid=None,
+            journal_release_key=rkey,
+        )
 
     # --- pass 1: crash on the 2nd fileop (real move so chapter 1's source
     #     file is gone afterwards) -------------------------------------------
@@ -809,7 +784,7 @@ def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path
     monkeypatch.setattr(postprocessor, "place", _crashing_fileop)
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
         with pytest.raises(KeyboardInterrupt):
-            pp1._process_manga()
+            _process_manga(pp1)
 
     assert _stage_of(rkey) == "post_processing"
     assert not (src / "Gantz 1.cbz").exists()  # chapter 1 moved
@@ -869,20 +844,13 @@ def test_manga_multichapter_terminalizes_once_after_full_loop(tmp_path, monkeypa
     (src / "Berserk 2.cbz").write_bytes(b"c2")
     (tmp_path / "manga" / "Berserk").mkdir(parents=True)
 
-    mock_apilock = MagicMock()
-    mock_apilock.locked.return_value = False
-    cfg = MagicMock()
-    cfg.FILE_OPTS = "move"
-    cfg.IGNORE_SEARCH_WORDS = []
-    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", cfg):
-        pp = PostProcessor(
-            nzb_name="Berserk Pack",
-            nzb_folder=str(src),
-            comicid=comicid,
-            issueid=None,
-            queue=MagicMock(spec=queuelib.Queue),
-            journal_release_key=rkey,
-        )
+    pp = folder_request.folder_run(
+        nzb_name="Berserk Pack",
+        nzb_folder=str(src),
+        comicid=comicid,
+        issueid=None,
+        journal_release_key=rkey,
+    )
 
     def _fileop(s, d, *a, **k):
         import shutil
@@ -893,7 +861,7 @@ def test_manga_multichapter_terminalizes_once_after_full_loop(tmp_path, monkeypa
     monkeypatch.setattr(postprocessor, "place", _fileop)
 
     with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
-        pp._process_manga()
+        _process_manga(pp)
 
     assert _stage_of(rkey) == "post_processed"
     # Both matched chapters' nzblog rows deleted in the post-loop atomic block.
@@ -904,7 +872,7 @@ def test_pp_failure_before_terminal_leaves_row_at_post_processing():
     """Generic PP error path: a row that reached post_processing but whose
     move failed must NOT be advanced to post_processed (stays for replay)."""
     pp = _make_pp(issueid="IF1")
-    rkey = pp._journal_release_key(issueid="IF1")
-    pp._journal_pp("post_processing", issueid="IF1")
+    rkey = _JOURNAL.release_key(pp.context, issue_id="IF1")
+    pp.journal("post_processing", issue_id="IF1")
     # Move failed → no `moved`/`post_processed` written.
     assert _stage_of(rkey) == "post_processing"

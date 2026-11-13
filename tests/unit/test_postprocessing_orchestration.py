@@ -18,9 +18,8 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr import failed as failed_mod
-from comicarr import postprocessor
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
-from comicarr.app.downloads import journal, postprocessing
+from comicarr.app.downloads import journal, postprocess_pipeline, postprocessing
 from comicarr.app.search import commands
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import metadata, pipeline_journal
@@ -55,21 +54,21 @@ def isolated_db(tmp_path, monkeypatch):
 
 @pytest.fixture
 def processor_runs(monkeypatch):
-    """Script the folder processor: each run posts the next queued message."""
+    """Script the folder pipeline: each run returns the next queued message."""
     runs = []
     script = []
 
-    class FakeProcessor:
-        def __init__(self, nzb_name, nzb_folder, issueid=None, *, queue, journal_release_key=None, **kwargs):
-            runs.append({"nzb_name": nzb_name, "issueid": issueid, "journal_release_key": journal_release_key})
-            self.queue = queue
+    def process_download(request, *, match, deps):
+        runs.append(
+            {
+                "nzb_name": request.nzb_name,
+                "issueid": request.issue_id,
+                "journal_release_key": request.journal_release_key,
+            }
+        )
+        return script.pop(0) if script else None
 
-        def Process(self):
-            message = script.pop(0) if script else None
-            if message is not None:
-                self.queue.put(message)
-
-    monkeypatch.setattr(postprocessor, "PostProcessor", FakeProcessor)
+    monkeypatch.setattr(postprocess_pipeline, "process_download", process_download)
     return runs, script
 
 

@@ -81,11 +81,11 @@ def test_downloading_a_snatched_pull_issue_marks_the_pull_row(fresh_db):
 
 
 def test_post_processing_a_one_off_marks_its_pull_row(fresh_db):
-    from comicarr import postprocessor
+    from comicarr.app.downloads import postprocess_pipeline
 
     _seed_pull_issue(fresh_db, "Snatched")
 
-    postprocessor.mark_pull_row_downloaded("1194150")
+    postprocess_pipeline.mark_pull_row_downloaded("1194150")
 
     assert _pull_row()["STATUS"] == "Downloaded"
     assert len(db.select_all(select(weekly))) == 1

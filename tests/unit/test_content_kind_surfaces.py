@@ -9,7 +9,6 @@
 
 """Operator content kind must agree across sync, dashboard, and post-processing."""
 
-import queue
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -22,9 +21,9 @@ from comicarr.app.core.context import AppContext
 from comicarr.app.dashboard import queries as dashboard_queries
 from comicarr.app.manga.sync import list_active_manga_series
 from comicarr.app.series import service as series_service
-from comicarr.postprocessor import PostProcessor
 from comicarr.series_kind import manga_sql_clause
 from comicarr.tables import comics, metadata
+from tests.fakes import folder_request
 
 
 @pytest.fixture
@@ -63,36 +62,28 @@ def _seed_row(**overrides):
     return row
 
 
-def _make_pp(comicid):
-    mock_queue = MagicMock(spec=queue.Queue)
-    mock_apilock = MagicMock()
-    mock_apilock.locked.return_value = False
+def _config():
     mock_config = MagicMock()
     mock_config.FILE_OPTS = "move"
     mock_config.IGNORE_SEARCH_WORDS = []
     mock_config.PRE_SCRIPTS = None
-    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", mock_config):
-        return PostProcessor(
-            nzb_name="Example 001.cbz",
-            nzb_folder="/tmp/downloads",
-            comicid=comicid,
-            issueid="issue-1",
-            queue=mock_queue,
-            apicall=True,
-        )
+    return mock_config
 
 
 def _postprocess_uses_manga_branch(row):
-    pp = _make_pp(row["ComicID"])
+    mock_apilock = MagicMock()
+    mock_apilock.locked.return_value = False
     with (
-        patch.object(pp, "_process_manga", return_value=None) as process_manga,
+        patch.object(comicarr, "APILOCK", mock_apilock),
+        patch.object(comicarr, "CONFIG", _config()),
+        patch("comicarr.app.downloads.postprocess_pipeline.process_manga_download", return_value=None) as process_manga,
         patch("comicarr.postprocessor.filechecker") as filechecker,
-        patch("comicarr.postprocessor.db") as mock_db,
+        patch("comicarr.app.downloads.postprocess_pipeline.db") as mock_db,
     ):
         mock_db.select_one.return_value = row
         filechecker.FileChecker.return_value.listFiles.return_value = {"comiccount": 0, "comiclist": []}
         try:
-            pp.Process()
+            folder_request.process("Example 001.cbz", "/tmp/downloads", "issue-1", comicid=row["ComicID"], apicall=True)
         except Exception:
             pass
     return process_manga.called

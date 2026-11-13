@@ -1,18 +1,21 @@
 # Post-processing migration map
 
-This map records the compatibility contract for strangling
-`comicarr.postprocessor.PostProcessor` one restart-safe stage at a time. The
-legacy class remains the public facade until its callers and operational
-recovery paths have migrated.
+This map records how `comicarr.postprocessor.PostProcessor` was strangled one
+restart-safe stage at a time. All eight stages have landed: the class is
+gone, and `comicarr.app.downloads.postprocessing` is the only entry point.
 
 ## Entry points and callers
 
 | Entry point | First-party callers | Observable result |
 |---|---|---|
-| `PostProcessor.Process()` | `comicarr.app.downloads.postprocessing`, tests | queue/API status, library file, issue state, notifications, cleanup |
-| `PostProcessor.Process_next()` | `Process()` and focused tests | one resolved issue processed or an error/status string |
-| `PostProcessor._process_manga()` | `Process()` and focused tests | chapter file moved, issue state updated, journal advanced |
-| Manual folder processing | `comicarr.app.common.filesystem`, `FolderCheck` | eligible files processed without deleting the selected root |
+| `postprocessing.run` / `recover` | download queue, API, folder monitor, restart recovery | `PostProcessResult`: status, outcome, fail reason |
+| `postprocess_pipeline.process_download` | `postprocessing._run_processor` | library file, issue state, notifications, cleanup |
+| `postprocessor.match_folder` | `process_download` (passed in by the facade) | typed `FolderMatches`; no side effects |
+| `process_comic_issue` / `process_manga_download` | `process_download` and focused tests | one issue processed, or a manga download's chapters |
+| Folder monitor | `app/downloads/folder_monitor.FolderCheck` | each monitored folder sent to `postprocessing.run` as a manual run |
+
+Until stage 8 the table read `PostProcessor.Process()`, `Process_next()` and
+`_process_manga()`; the contract below is what those methods kept.
 
 ## Inputs, outputs, and collaborators
 
@@ -135,7 +138,7 @@ inherited matching rules, and moving it under `comicarr/app/` would mean either
 rewriting it or weakening the modern lint lane. Neither is worth doing before
 1.0.
 
-Stages 1 to 7 have landed. The sequence continues:
+All eight stages have landed:
 
 4. Database reconciliation stage (landed, see above).
 5. Cleanup and notification stages (landed, see above).
@@ -161,15 +164,24 @@ Stages 1 to 7 have landed. The sequence continues:
    which already held that crossing. `PostProcessResult` now carries
    `outcome` (`completed`, `failed`, `deferred` or `nothing`) and
    `fail_reason` next to `status`, which keeps its old values so the 409,
-   queue-retry and monitor-deferral contracts are unchanged. The `mode`
-   messages still exist inside the class and are read in one place,
-   `_run_processor`; they go with the class in stage 8.
-7. Orchestration: the loop in `process.py` moves into
-   `app/downloads/postprocessing.py` and `process.py` is deleted.
-   `FailedProcessor` is called from there unchanged.
-8. Folder matching: the body of `Process()` becomes the typed function
-   described above, the class is deleted, and `FolderCheck` calls
-   `postprocessing.run`.
+   queue-retry and monitor-deferral contracts are unchanged.
+8. Folder matching (landed). The class is deleted. The body of `Process()`
+   is `match_folder` in `comicarr/postprocessor.py`: it returns
+   `FolderMatches`, whose `library` holds `LibraryIssueMatch` and whose
+   `arc_only` holds `ArcOnlyMatch`, plus the downloads identified from what
+   was snatched and how the rules ended the request. It moves no files,
+   writes no rows and sends nothing. Its two old side effects, stripping a
+   forced `[__issueid__]` tag and refreshing a series with incomplete dates,
+   are the `rename` and `refresh_series` callables its caller passes. The
+   pipeline does the rest in `process_download`, in the old order: arc-only
+   files are placed first (`place_arc_only_matches`), then each snatched
+   download (`process_snatched_match`), then the library matches
+   (`dispatch_library_matches`). There is no queue any more:
+   `process_download` returns the `mode` entries the run posted, and
+   `_run_processor` is the only reader. `FolderCheck` lives in
+   `app/downloads/folder_monitor.py` and calls `postprocessing.run`.
+   Characterization tests in `tests/unit/test_folder_matcher.py` were
+   recorded against the old `Process()` first and still pass.
 
 The deprecated story-arc paths (`storyarc-oneoff`, `storyarc-folder-match`, see
 the [Foundations plan](foundations-plan.md#4-story-arc-file-handling)) travel

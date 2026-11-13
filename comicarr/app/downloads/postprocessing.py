@@ -82,31 +82,24 @@ def _run_processor(item, *, outside=False):
     outside the folder it was given: the folder is processed again as a
     manual run with no issue identity.
     """
-    import queue
-
     from comicarr import postprocessor
+    from comicarr.app.downloads.postprocess_pipeline import PostProcessRequest, process_download
 
-    messages = queue.Queue()
     if outside:
-        processor = postprocessor.PostProcessor(
-            "Manual Run",
-            item["nzb_folder"],
-            queue=messages,
-            journal_release_key=item.get("journal_release_key"),
+        request = PostProcessRequest(
+            "Manual Run", item["nzb_folder"], journal_release_key=item.get("journal_release_key")
         )
     else:
-        processor = postprocessor.PostProcessor(
+        request = PostProcessRequest(
             item["nzb_name"],
             item["nzb_folder"],
-            item.get("issueid"),
-            queue=messages,
-            comicid=item.get("comicid"),
-            apicall=item.get("apicall", False),
+            issue_id=item.get("issueid"),
+            comic_id=item.get("comicid"),
+            api_call=item.get("apicall", False),
             ddl=item.get("ddl", False),
             journal_release_key=item.get("journal_release_key"),
         )
-    processor.Process()
-    return None if messages.empty() else messages.get_nowait()
+    return process_download(request, match=postprocessor.match_folder, deps=postprocessor.pipeline_deps())
 
 
 def _ran(message):

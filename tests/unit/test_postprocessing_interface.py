@@ -18,7 +18,7 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
-from comicarr.app.downloads import journal, postprocessing
+from comicarr.app.downloads import journal, postprocess_pipeline, postprocessing
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import comics, issues, metadata, nzblog, pipeline_journal
 
@@ -205,12 +205,12 @@ def test_nested_retry_outside_keeps_canonical_key_and_public_lock(monkeypatch, t
     seen = []
     monkeypatch.setattr(comicarr.CONFIG, "IGNORE_SEARCH_WORDS", [], raising=False)
 
-    def process_once(self):
-        seen.append((self.journal_release_key, self.apicall, apilock.locked()))
+    def process_once(request, *, match, deps):
+        seen.append((request.journal_release_key, request.api_call, apilock.locked()))
         mode = "outside" if len(seen) == 1 else "stop"
-        self.queue.put([{"mode": mode}])
+        return [{"mode": mode}]
 
-    monkeypatch.setattr(comicarr.postprocessor.PostProcessor, "Process", process_once)
+    monkeypatch.setattr(postprocess_pipeline, "process_download", process_once)
     key = "nested-retry-release"
     _insert_journal(key, journal.DOWNLOADED)
 
@@ -457,11 +457,11 @@ def test_recover_stop_rotates_payload_then_quarantines_after_bound(monkeypatch, 
     _insert_journal(key, journal.POST_PROCESSING, payload=_stop_payload(tmp_path))
     calls = []
 
-    def process_stop(self):
-        calls.append(self.journal_release_key)
-        self.queue.put([{"mode": "stop"}])
+    def process_stop(request, *, match, deps):
+        calls.append(request.journal_release_key)
+        return [{"mode": "stop"}]
 
-    monkeypatch.setattr(comicarr.postprocessor.PostProcessor, "Process", process_stop)
+    monkeypatch.setattr(postprocess_pipeline, "process_download", process_stop)
 
     updated = []
     for attempt in range(MAX_RECOVERY_ATTEMPTS):
