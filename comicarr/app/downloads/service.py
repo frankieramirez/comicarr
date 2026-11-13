@@ -30,6 +30,7 @@ from comicarr.app.downloads import postprocessing
 from comicarr.app.downloads import queries as dl_queries
 from comicarr.app.downloads.completed_path import resolve_completed_download_file
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
+from comicarr.app.series import refresh as series_refresh
 from comicarr.app.series import rescan as series_rescan
 from comicarr.downloaders import mediafire, mega, pixeldrain
 from comicarr.tables import annuals, comics, ddl_info, issues, storyarcs, weekly
@@ -862,7 +863,7 @@ def duplicate_filecheck(filename, ComicID=None, IssueID=None, StoryArcID=None, r
             if havechk:
                 if havechk["Have"] > havechk["Total"]:
                     cid = [ComicID]
-                    comicarr.updater.dbUpdate(ComicIDList=cid, calledfrom="dupechk")
+                    series_refresh.refresh_series_metadata(cid, calledfrom="dupechk")
                     return duplicate_filecheck(filename, ComicID, IssueID, StoryArcID)
                 else:
                     if rtnval is not None:
