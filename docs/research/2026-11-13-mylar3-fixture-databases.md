@@ -26,7 +26,7 @@ Comicarr's reader is tolerant by design. `comicarr/migration.py` copies the 16 t
 1. Check out a pinned tag in a throwaway Python 3 environment with that tag's `requirements.txt`.
 2. Point Mylar3 at an empty data directory and let `dbcheck()` create the schema by starting `Mylar.py --nolaunch --datadir <dir>` and stopping it after startup. Calling `dbcheck()` directly after setting only `DB_FILE` does not work: `CONFIG` is `None` at import, and `dbcheck()` reads `CONFIG.DYNAMIC_UPDATE`.
 3. Insert a small synthetic library with plain SQL: a few comics, their issues and annuals, a story arc, a snatched row, a failed row and a weekly row, using made-up IDs and names.
-4. Commit the resulting `.db` files plus the generator script, so they can be rebuilt.
+4. Export each database to SQL text (`sqlite3 <name>.db .dump > <name>.sql`) and commit the `.sql` files plus the generator script, so they can be reviewed and rebuilt.
 
 Three fixtures cover the range: **v0.4.0** (oldest, no `mylar_info`), **v0.6.9** (mid-range, `mylar_info` present, before the 2022 additions), and **v0.8.3** (current). The generator is headless and needs no network beyond fetching the tag.
 
