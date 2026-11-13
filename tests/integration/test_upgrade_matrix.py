@@ -81,6 +81,19 @@ def _params():
         yield pytest.param(row, id=row.name, marks=marks)
 
 
+# Process-global worker queues, which lifespan shutdown fills with "exit".
+_WORKER_QUEUES = (
+    "SNATCHED_QUEUE",
+    "NZB_QUEUE",
+    "PP_QUEUE",
+    "SEARCH_QUEUE",
+    "DDL_QUEUE",
+    "RETURN_THE_NZBQUEUE",
+    "ADD_LIST",
+    "REFRESH_QUEUE",
+)
+
+
 def _head_revision():
     return ScriptDirectory.from_config(alembic_config()).get_current_head()
 
@@ -112,6 +125,8 @@ class Install:
             shutil.copyfile(FIXTURES / row.config, self.config_file)
 
         monkeypatch.delenv("DATABASE_URL", raising=False)
+        # An operator maintenance override would hold the gate shut in check 4.
+        monkeypatch.delenv("COMICARR_ACQUISITION_MAINTENANCE", raising=False)
         monkeypatch.setattr(comicarr, "DATA_DIR", str(self.data_dir), raising=False)
         monkeypatch.setattr(comicarr, "PROG_DIR", str(tmp_path), raising=False)
         monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
@@ -121,8 +136,12 @@ class Install:
             "ACQUISITION_SCHEMA_ERROR",
             "ACQUISITION_WORKERS_BLOCKED",
             "ACQUISITION_BLOCK_REASON",
+            "SIGNAL",
         ):
             monkeypatch.setattr(comicarr, name, getattr(comicarr, name, None), raising=False)
+        # Lifespan shutdown puts "exit" on every worker queue the runtime adopts.
+        for name in _WORKER_QUEUES:
+            monkeypatch.setattr(comicarr, name, type(getattr(comicarr, name))(), raising=False)
         monkeypatch.setattr(runtime, "_runtime", None)
         monkeypatch.setattr(
             "comicarr.maintenance.Maintenance.backup_files",
