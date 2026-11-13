@@ -196,6 +196,43 @@ def test_a_download_outside_its_folder_is_retried_as_a_manual_run(tmp_path, proc
     assert failed_runs[0] == []
 
 
+def test_a_fail_message_from_the_outside_rerun_is_failed(tmp_path, processor_runs, failed_runs):
+    _, script = processor_runs
+    script.append([{"self.log": "", "mode": "outside"}])
+    script.append([{"self.log": "rerun", "mode": "fail"}])
+    _downloaded("rk-outside-fail")
+
+    result = postprocessing.run(_item(tmp_path, "rk-outside-fail"))
+
+    assert result.outcome == postprocessing.FAILED
+    assert result.value == [{"self.log": "rerun", "mode": "fail"}]
+    assert failed_runs[0] == [], "the rerun's fail is reported, not handed to failed handling"
+
+
+def test_a_fail_message_on_a_monitor_scan_is_failed(tmp_path, processor_runs):
+    _, script = processor_runs
+    script.append([{"self.log": "", "mode": "fail"}])
+
+    result = postprocessing.run({"nzb_name": "Manual Run", "nzb_folder": str(tmp_path), "source": "monitor"})
+
+    assert result.status == "processed"
+    assert result.outcome == postprocessing.FAILED
+
+
+def test_a_fail_message_keeps_its_log_when_failed_handling_is_off(tmp_path, monkeypatch, processor_runs, failed_runs):
+    monkeypatch.setattr(comicarr.CONFIG, "FAILED_DOWNLOAD_HANDLING", False)
+    _, script = processor_runs
+    script.append([{"self.log": "why it failed", "mode": "fail"}])
+    _downloaded("rk-fail-kept")
+
+    result = postprocessing.run(_item(tmp_path, "rk-fail-kept"))
+
+    assert result.outcome == postprocessing.FAILED
+    assert result.fail_reason == failed_mod.FAIL_REASON_NO_AUTO_HANDLING
+    assert result.value == [{"self.log": "why it failed", "mode": "fail"}]
+    assert failed_runs[0] == []
+
+
 def test_a_processor_that_posts_nothing_has_nothing_to_do(tmp_path, processor_runs):
     _downloaded("rk-quiet")
 

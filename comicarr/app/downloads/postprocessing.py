@@ -10,7 +10,7 @@
 """Own post-processing execution, restart continuation, and completion."""
 
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import wraps
 
 import comicarr
@@ -110,7 +110,11 @@ def _run_processor(item, *, outside=False):
 
 
 def _ran(message):
-    return _Execution(NOTHING) if message is None else _Execution(COMPLETED, value=message)
+    if message is None:
+        return _Execution(NOTHING)
+    if _mode(message) == "fail":
+        return _Execution(FAILED, value=message)
+    return _Execution(COMPLETED, value=message)
 
 
 def _journal_fail_reason(release_key):
@@ -130,18 +134,18 @@ def _handle_failed_download(item):
     from comicarr.app.downloads import service
 
     if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING is not True:
-        logger.warn("Failed Download Handling is not enabled. Leaving Failed Download as-is.")
+        logger.warn("[POST-PROCESSING] Failed Download Handling is not enabled. Leaving Failed Download as-is.")
         return _Execution(FAILED, fail_reason=service.terminalize_unhandled_failed_download(item))
-    logger.info("Initiating Failed Download handling for this download.")
+    logger.info("[POST-PROCESSING] Initiating Failed Download handling for this download.")
     message = service.run_failed_processor(item)
     mode = _mode(message)
     if mode == "retry":
-        logger.info("Attempting to return to search module with " + str(message[0]["issueid"]))
+        logger.info("[POST-PROCESSING] Attempting to return to search module with %s" % message[0]["issueid"])
         from comicarr.app.search.commands import enqueue_failed_download_retry
 
         enqueue_failed_download_retry(message[0])
     elif mode not in (None, "stop"):
-        logger.error("mode is unsupported: %s" % mode)
+        logger.error("[POST-PROCESSING] mode is unsupported: %s" % mode)
     return _Execution(FAILED, value=message, fail_reason=_journal_fail_reason(item.get("journal_release_key")))
 
 
@@ -160,21 +164,23 @@ def _post_process(item):
         execution = _ran(message)
         mode = _mode(message)
         if mode == "fail":
-            logger.info("Initiating Failed Download handling")
+            logger.info("[POST-PROCESSING] Initiating Failed Download handling")
             failed = True
         elif mode == "outside":
             outside = True
         elif mode not in (None, "stop"):
-            logger.error("mode is unsupported: %s" % mode)
+            logger.error("[POST-PROCESSING] mode is unsupported: %s" % mode)
 
     if failed is True:
-        execution = _handle_failed_download(item)
+        handled = _handle_failed_download(item)
+        # Handling that posts no message of its own keeps the processor's.
+        execution = handled if handled.value is not None else replace(handled, value=execution.value)
 
     if outside:
         message = _run_processor(item, outside=True)
         execution = _ran(message)
         if _mode(message) not in (None, "stop", "fail"):
-            logger.error("mode is unsupported: %s" % _mode(message))
+            logger.error("[POST-PROCESSING] mode is unsupported: %s" % _mode(message))
     return execution
 
 
