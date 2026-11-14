@@ -6,8 +6,8 @@
  * prefix in front of it, the same way OPDS links are built.
  */
 
-/** Filled by the docs ticket (#1313) with the "Connect an agent (MCP)" page. */
-export const MCP_DOCS_URL: string | null = null;
+/** The "Connect an agent (MCP)" page on comicarr.com. */
+export const MCP_DOCS_URL: string | null = "https://comicarr.com/docs/api/mcp";
 
 /** The URL an MCP client connects to: origin, then `HTTP_ROOT`, then `/mcp`. */
 export function mcpEndpointUrl(
