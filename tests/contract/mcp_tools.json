@@ -1,6 +1,86 @@
 [
   {
     "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    },
+    "description": "Add a series to the library by its provider and provider id, as find_series returns them. Returns the series id at once; the add finishes in the background.",
+    "inputSchema": {
+      "properties": {
+        "kind": {
+          "description": "comic or manga; must match the provider.",
+          "enum": [
+            "comic",
+            "manga"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "provider": {
+          "description": "comicvine or metron for comics; mangadex or myanimelist for manga.",
+          "enum": [
+            "comicvine",
+            "metron",
+            "mangadex",
+            "myanimelist"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "provider_id": {
+          "description": "The series id on that provider.",
+          "minLength": 1,
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "want": {
+          "default": false,
+          "description": "Mark every issue Wanted once the series is added.",
+          "title": "Want",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "provider",
+        "provider_id",
+        "kind"
+      ],
+      "title": "add_seriesArguments",
+      "type": "object"
+    },
+    "name": "add_series",
+    "outputSchema": {
+      "properties": {
+        "already_in_library": {
+          "description": "True when the series was already there and nothing was queued.",
+          "title": "Already In Library",
+          "type": "boolean"
+        },
+        "series_id": {
+          "description": "The library's id for the series; get_series reads it.",
+          "title": "Series Id",
+          "type": "string"
+        },
+        "want_queued": {
+          "description": "True when its issues will be marked Wanted once the add finishes.",
+          "title": "Want Queued",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "series_id",
+        "already_in_library",
+        "want_queued"
+      ],
+      "title": "SeriesAdded",
+      "type": "object"
+    },
+    "title": "Add series"
+  },
+  {
+    "annotations": {
       "openWorldHint": false,
       "readOnlyHint": true
     },
@@ -258,6 +338,51 @@
       "type": "object"
     },
     "title": "Pause series"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    },
+    "description": "Re-read one series' metadata and issue list from its provider, in the background.",
+    "inputSchema": {
+      "properties": {
+        "series_id": {
+          "description": "Comicarr's series id, from list_series.",
+          "minLength": 1,
+          "title": "Series Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "series_id"
+      ],
+      "title": "refresh_seriesArguments",
+      "type": "object"
+    },
+    "name": "refresh_series",
+    "outputSchema": {
+      "properties": {
+        "already_queued": {
+          "description": "True when a refresh of this series was already waiting.",
+          "title": "Already Queued",
+          "type": "boolean"
+        },
+        "series_id": {
+          "title": "Series Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "series_id",
+        "already_queued"
+      ],
+      "title": "SeriesRefreshQueued",
+      "type": "object"
+    },
+    "title": "Refresh series"
   },
   {
     "annotations": {

@@ -153,10 +153,27 @@ def addvialist(seriesQueue, issueWantQueue):
         elif issueWantQueue.qsize() > 0:
             time.sleep(1)
             issueItem = issueWantQueue.get(True)
-            markIssueWantedById(issueItem)
+            if isinstance(issueItem, dict) and issueItem.get("series"):
+                markSeriesWanted(issueItem["series"])
+            else:
+                markIssueWantedById(issueItem)
         else:
             seriesQueue.put("exit")
     return False
+
+
+def markSeriesWanted(comicid):
+    """Mark every issue of a series Wanted, once its add has drained.
+
+    Queued by ``series.add.queue_series_wants``; issues already Downloaded,
+    Wanted, Snatched or Failed keep their status.
+    """
+    with db.get_engine().connect() as conn:
+        issue_ids = [row[0] for row in conn.execute(select(issues.c.IssueID).where(issues.c.ComicID == comicid))]
+    if not issue_ids:
+        logger.warning("[MASS-ADD] No issues found to mark Wanted for ComicID %s" % comicid)
+    for issue_id in issue_ids:
+        markIssueWantedById(issue_id)
 
 
 def markIssueWantedById(issueId):

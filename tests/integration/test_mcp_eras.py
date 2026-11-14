@@ -50,8 +50,14 @@ WRITE_CALLS = {
     "search_missing": ({"series_id": "1002"}, lambda out: out["status"] == "noop"),
     # An unknown run proves the tool is wired; a real retry is in test_mcp_search.py.
     "retry_search_run": ({"run_id": "no-such-run"}, lambda out: out["code"] == "not_found"),
+    # Already in the library, so nothing is queued on a real worker.
+    "add_series": (
+        {"provider": "comicvine", "provider_id": "1001", "kind": "comic"},
+        lambda out: out["already_in_library"] is True,
+    ),
+    "refresh_series": ({"series_id": "nope"}, lambda out: out["code"] == "not_found"),
 }
-EXPECTED_ERRORS = {"retry_search_run"}
+EXPECTED_ERRORS = {"retry_search_run", "refresh_series"}
 
 
 @pytest.fixture(autouse=True)

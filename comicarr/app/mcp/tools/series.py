@@ -23,15 +23,19 @@ from comicarr.app.mcp.contracts import (
     IssueStatusChange,
     Limit,
     Offset,
+    Provider,
+    SeriesAdded,
     SeriesId,
     SeriesKind,
     SeriesPage,
+    SeriesRefreshQueued,
     SeriesStatus,
     SeriesStatusChange,
     SeriesSummary,
     paging,
     tool_result,
 )
+from comicarr.app.search import service as search_service
 from comicarr.app.series import service as series_service
 
 ACTOR = "mcp"
@@ -153,3 +157,66 @@ def register(server, get_ctx):
     )
     def resume_series(series_id: SeriesId) -> Annotated[CallToolResult, SeriesStatusChange]:
         return _set_series_status(series_id, "Active", series_service.resume_comic)
+
+    @server.write_tool(
+        name="add_series",
+        title="Add series",
+        description=(
+            "Add a series to the library by its provider and provider id, as find_series returns them. "
+            "Returns the series id at once; the add finishes in the background."
+        ),
+        annotations=ToolAnnotations(
+            read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=True
+        ),
+    )
+    def add_series(
+        provider: Annotated[
+            Provider, Field(description="comicvine or metron for comics; mangadex or myanimelist for manga.")
+        ],
+        provider_id: Annotated[str, Field(min_length=1, description="The series id on that provider.")],
+        kind: Annotated[Literal["comic", "manga"], Field(description="comic or manga; must match the provider.")],
+        want: Annotated[bool, Field(description="Mark every issue Wanted once the series is added.")] = False,
+    ) -> Annotated[CallToolResult, SeriesAdded]:
+        manga_provider = provider in search_service.MANGA_PROVIDERS
+        if manga_provider != (kind == "manga"):
+            raise ContractError(
+                "invalid_argument",
+                "%s is a %s provider; kind must match it." % (provider, "manga" if manga_provider else "comic"),
+            )
+        result = search_service.add_series_from_provider(get_ctx(), provider, provider_id, want=want)
+        if not result.get("success"):
+            if result.get("reason") in ("unavailable", "disabled"):
+                raise ContractError(
+                    "provider_unavailable", result["error"], retryable=result["reason"] == "unavailable"
+                )
+            raise ContractError("invalid_argument", result["error"])
+        added = SeriesAdded(
+            series_id=result["series_id"], already_in_library=result["already"], want_queued=result["want_queued"]
+        )
+        if added.already_in_library:
+            return tool_result(added, "Series %s is already in the library; nothing was added." % added.series_id)
+        activity.emit_series_activity("add", "started", added.series_id, actor=ACTOR)
+        tail = " Its issues will be marked Wanted." if added.want_queued else ""
+        return tool_result(added, "Adding series %s in the background.%s" % (added.series_id, tail))
+
+    @server.write_tool(
+        name="refresh_series",
+        title="Refresh series",
+        description="Re-read one series' metadata and issue list from its provider, in the background.",
+        annotations=ToolAnnotations(
+            read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=True
+        ),
+    )
+    def refresh_series(series_id: SeriesId) -> Annotated[CallToolResult, SeriesRefreshQueued]:
+        ctx = get_ctx()
+        if series_service.get_series_status(ctx, series_id) is None:
+            raise ContractError("not_found", "No series has id %s." % series_id)
+        result = series_service.refresh_comic(ctx, series_id)
+        if not result.get("success"):
+            raise ContractError("busy", "The refresh could not be queued. Try again.", retryable=True)
+        already = "Already queued" in str(result.get("message"))
+        if not already:
+            activity.emit_series_activity("refresh", "started", series_id, actor=ACTOR)
+        queued = SeriesRefreshQueued(series_id=series_id, already_queued=already)
+        verb = "was already queued" if already else "is queued"
+        return tool_result(queued, "A refresh of series %s %s." % (series_id, verb))

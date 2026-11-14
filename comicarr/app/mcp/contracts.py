@@ -118,6 +118,20 @@ class SeriesStatusChange(BaseModel):
     changed: bool = Field(description="False when the series already had this status.")
 
 
+Provider = Literal["comicvine", "metron", "mangadex", "myanimelist"]
+
+
+class SeriesAdded(BaseModel):
+    series_id: str = Field(description="The library's id for the series; get_series reads it.")
+    already_in_library: bool = Field(description="True when the series was already there and nothing was queued.")
+    want_queued: bool = Field(description="True when its issues will be marked Wanted once the add finishes.")
+
+
+class SeriesRefreshQueued(BaseModel):
+    series_id: str
+    already_queued: bool = Field(description="True when a refresh of this series was already waiting.")
+
+
 RunId = Annotated[str, Field(min_length=1, description="A search run id, as a search tool returned it.")]
 
 
