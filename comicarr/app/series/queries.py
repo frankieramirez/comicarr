@@ -568,6 +568,14 @@ def get_comic_status(comic_id):
     return None if row is None else (row["Status"] or "")
 
 
+def is_failed_add_placeholder(comic_id):
+    """True when the row for ``comic_id`` is the placeholder a failed metadata
+    fetch leaves behind (``importer`` names it "Fetch failed, ..."), so a new
+    add should retry rather than report it as already in the library."""
+    row = db.select_one(select(t_comics.c.ComicName).where(t_comics.c.ComicID == str(comic_id)))
+    return row is not None and str(row["ComicName"] or "").startswith("Fetch failed")
+
+
 def find_issue_status_target(issue_id, entity_type=None):
     """Resolve an issue id to its table ('issues' or 'annuals'), or None."""
     normalized = str(entity_type or "").strip().lower()

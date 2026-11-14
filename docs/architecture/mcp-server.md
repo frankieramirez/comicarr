@@ -158,9 +158,11 @@ Decision: [ticket](https://github.com/frankieramirez/comicarr/issues/1248).
   `acquisition.maintenance.acquisition_paused` is the maintenance check.
   `add_series` takes `provider` (`comicvine`, `metron`, `mangadex`,
   `myanimelist`), `provider_id` and `kind`, the shape `find_series` returns,
-  and calls `search.service.add_series_from_provider`. Its `want` flag queues
-  `series.add.queue_series_wants`, which the mass-add worker drains after the
-  add. `add_series` and `refresh_series` write `add.started` and
+  and calls `search.service.add_series_from_provider`. Its `want` flag rides on
+  the queued add, and the mass-add worker marks the series' issues and annuals
+  Wanted right after the add (`importer.markSeriesWanted`). A row left by a
+  failed metadata fetch does not count as already in the library, so a later
+  `add_series` retries it. `add_series` and `refresh_series` write `add.started` and
   `refresh.started` series rows with `actor`.
 - Writes that would start acquisition during maintenance return
   `maintenance`; `retry_post_processing` returns `busy` when the processing

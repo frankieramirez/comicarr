@@ -17,7 +17,7 @@ from comicarr import importer
 from comicarr.app.series import add as series_add
 from comicarr.app.series import location as series_location
 from comicarr.db import get_engine
-from comicarr.tables import activity_events, comics, issues
+from comicarr.tables import activity_events, annuals, comics, issues
 from tests.mcp_harness import KEY, make_app, mcp_client, seed_library, teardown_library
 
 AUTH = {"Authorization": "Bearer " + KEY}
@@ -32,7 +32,8 @@ def _library(tmp_path, monkeypatch):
 
 @pytest.fixture
 def providers(monkeypatch):
-    """Fake the mass-add worker: an add writes the series and two Skipped issues at once."""
+    """Fake the mass-add worker: an add writes the series, two Skipped issues and a
+    Skipped annual at once, then marks them Wanted when the add carries ``want``."""
     added, wanted, refreshed = [], [], []
 
     def queue_adds(series):
@@ -40,8 +41,10 @@ def providers(monkeypatch):
             for watch in series:
                 comic_id = watch["comicid"]
                 added.append(comic_id)
-                if conn.execute(select(comics.c.ComicID).where(comics.c.ComicID == comic_id)).first():
+                existing = conn.execute(select(comics.c.ComicName).where(comics.c.ComicID == comic_id)).first()
+                if existing and not existing[0].startswith("Fetch failed"):
                     continue
+                conn.execute(comics.delete().where(comics.c.ComicID == comic_id))
                 conn.execute(comics.insert().values(ComicID=comic_id, ComicName="New %s" % comic_id, Status="Active"))
                 for n in (1, 2):
                     conn.execute(
@@ -49,14 +52,17 @@ def providers(monkeypatch):
                             IssueID="%s-%d" % (comic_id, n), ComicID=comic_id, Issue_Number=str(n), Status="Skipped"
                         )
                     )
-
-    def queue_wants(comic_ids):
-        for comic_id in comic_ids:
-            wanted.append(comic_id)
-            importer.markSeriesWanted(comic_id)
+                conn.execute(
+                    annuals.insert().values(
+                        IssueID="%s-a1" % comic_id, ComicID=comic_id, Issue_Number="1", Status="Skipped"
+                    )
+                )
+        for watch in series:
+            if watch.get("want"):
+                wanted.append(watch["comicid"])
+                importer.markSeriesWanted(watch["comicid"])
 
     monkeypatch.setattr(series_add, "queue_series_adds", queue_adds)
-    monkeypatch.setattr(series_add, "queue_series_wants", queue_wants)
     monkeypatch.setattr(series_add, "refresh_series", lambda watch: refreshed.extend(w["comicid"] for w in watch))
     monkeypatch.setattr(series_location, "folder_for_new_series", lambda *_a, **_k: None)
     monkeypatch.setattr("comicarr.app.manga.duplicates.find_existing_manga_series", lambda **_k: None, raising=False)
@@ -72,6 +78,12 @@ def _app():
 def _statuses(comic_id):
     with get_engine().connect() as conn:
         rows = conn.execute(select(issues.c.Status).where(issues.c.ComicID == comic_id)).fetchall()
+    return sorted(row[0] for row in rows)
+
+
+def _annual_statuses(comic_id):
+    with get_engine().connect() as conn:
+        rows = conn.execute(select(annuals.c.Status).where(annuals.c.ComicID == comic_id)).fetchall()
     return sorted(row[0] for row in rows)
 
 
@@ -112,6 +124,20 @@ async def test_add_series_with_want_marks_its_issues_wanted(providers):
     assert result.structured_content["want_queued"] is True
     assert providers["wanted"] == ["888"]
     assert _statuses("888") == ["Wanted", "Wanted"]
+    assert _annual_statuses("888") == ["Wanted"]
+
+
+@pytest.mark.asyncio
+async def test_a_series_left_by_a_failed_fetch_is_added_again_not_reported_as_in_the_library(providers):
+    with get_engine().begin() as conn:
+        conn.execute(
+            comics.insert().values(ComicID="555", ComicName="Fetch failed, try refreshing. (555)", Status="Active")
+        )
+    async with mcp_client(_app(), **AUTH) as mcp:
+        result = await mcp.call_tool("add_series", {"provider": "comicvine", "provider_id": "555", "kind": "comic"})
+    assert result.structured_content == {"series_id": "555", "already_in_library": False, "want_queued": False}
+    assert providers["added"] == ["555"]
+    assert _series_count("555") == 1
 
 
 @pytest.mark.asyncio
@@ -164,14 +190,17 @@ async def test_refresh_series_queues_a_known_series_and_refuses_an_unknown_one(p
     assert unknown.is_error and unknown.structured_content["code"] == "not_found"
 
 
-def test_the_mass_add_worker_marks_a_queued_series_wanted_after_its_adds(monkeypatch):
-    """The real worker loop routes a ``{"series": id}`` want to markSeriesWanted."""
+def test_the_mass_add_worker_marks_a_series_wanted_right_after_an_add_that_carries_want(monkeypatch):
+    """The real worker loop runs markSeriesWanted after addComictoDB for an add with ``want``."""
     import queue
 
     calls = []
-    monkeypatch.setattr(importer, "markSeriesWanted", calls.append)
+    monkeypatch.setattr(importer, "addComictoDB", lambda comicid, **_k: calls.append(("add", comicid)))
+    monkeypatch.setattr(importer, "markSeriesWanted", lambda comicid: calls.append(("want", comicid)))
+    monkeypatch.setattr(importer, "_emit_add_activity", lambda *_a, **_k: None, raising=False)
     monkeypatch.setattr(importer.time, "sleep", lambda _s: None)
     series_queue, want_queue = queue.Queue(), queue.Queue()
-    want_queue.put({"series": "1001"})
+    series_queue.put({"comicid": "4050-1001", "comicname": None, "seriesyear": None, "want": True})
+    series_queue.put({"comicid": "1002", "comicname": None, "seriesyear": None})
     importer.addvialist(series_queue, want_queue)
-    assert calls == ["1001"]
+    assert calls == [("add", "4050-1001"), ("want", "1001"), ("add", "1002")]

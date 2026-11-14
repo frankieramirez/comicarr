@@ -73,17 +73,6 @@ def queue_issue_wants(issue_ids: Sequence[str]) -> None:
     importer.issue_watcher_thread(list(issue_ids))
 
 
-def queue_series_wants(comic_ids: Sequence[str]) -> None:
-    """Queue every issue of each series to be marked Wanted after its add drains.
-
-    Shares the issue-want queue with ``queue_issue_wants``: the mass-add worker
-    finishes the queued adds first, so the issues exist when they are marked.
-    """
-    from comicarr import importer
-
-    importer.issue_watcher_thread([{"series": str(comic_id)} for comic_id in comic_ids])
-
-
 def refresh_series(series: Sequence[Mapping[str, Any]]) -> str | None:
     """Record a refresh run for each series dict and hand it to the refresh worker.
 
