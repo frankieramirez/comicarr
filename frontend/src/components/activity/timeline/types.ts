@@ -6,7 +6,14 @@
  */
 
 export type Activity =
-  "search" | "grab" | "download" | "import" | "refresh" | "add" | "tag";
+  | "search"
+  | "grab"
+  | "download"
+  | "import"
+  | "refresh"
+  | "add"
+  | "tag"
+  | "status_change";
 
 /** `retrying` is deliberately absent — #432. */
 export type EventStatus =
@@ -58,6 +65,8 @@ export interface TimelineEvent {
   parent_series_id?: string | null;
   scope_type?: string | null;
   scope_id?: string | null;
+  /** Who asked for the change when it wasn't Comicarr itself (`"mcp"`). */
+  actor?: string | null;
   /** Not on the table; optional future/envelope field for run brackets. */
   counts?: RunCounts | null;
 }

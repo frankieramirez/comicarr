@@ -101,6 +101,23 @@ def tool_error(code: ErrorCode, message: str, retryable: bool = False) -> CallTo
     )
 
 
+SeriesId = Annotated[str, Field(min_length=1, description="Comicarr's series id, from list_series.")]
+IssueId = Annotated[str, Field(min_length=1, description="Comicarr's issue or annual id.")]
+
+
+class IssueStatusChange(BaseModel):
+    issue_id: str
+    entity_type: Literal["issue", "annual"]
+    status: Literal["Wanted", "Skipped"]
+    changed: bool = Field(description="False when the issue already had this status.")
+
+
+class SeriesStatusChange(BaseModel):
+    series_id: str
+    status: Literal["Paused", "Active"]
+    changed: bool = Field(description="False when the series already had this status.")
+
+
 class SeriesSummary(BaseModel):
     series_id: str
     name: str

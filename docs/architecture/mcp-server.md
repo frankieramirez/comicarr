@@ -9,7 +9,10 @@ and links the ticket that holds the reasoning. The build runs under
 Sections 1 to 3 are live, with `list_series` as the only tool
 ([#1302](https://github.com/frankieramirez/comicarr/issues/1302)), and so is
 the section 6 contract
-([#1303](https://github.com/frankieramirez/comicarr/issues/1303)).
+([#1303](https://github.com/frankieramirez/comicarr/issues/1303)). In section
+5, the write switch and the status writes `set_issue_status`, `pause_series`
+and `resume_series` are live
+([#1307](https://github.com/frankieramirez/comicarr/issues/1307)).
 
 Research: [MCP transport, auth and clients](../research/2026-11-13-mcp-transport-auth-clients.md)
 ([ticket](https://github.com/frankieramirez/comicarr/issues/1243)).
@@ -137,6 +140,13 @@ Decision: [ticket](https://github.com/frankieramirez/comicarr/issues/1248).
   rows show "via MCP" through the existing `activity` event.
 - Long-running work returns at once with `run_id` or the series id. No
   progress notifications in 1.0.
+- In code: `ComicarrMCPServer.write_tool` in `comicarr/app/mcp/server.py`
+  registers a write. While `MCP_WRITE_ENABLED` is off, write tools are left
+  out of `tools/list` and a direct call returns `writes_disabled`; the switch
+  is read on every request. Attribution is the `actor` column on
+  `activity_events` (migration `0017_activity_actor`), which the timeline
+  shows as "via MCP". Status writes record a `status_change` row only when
+  the status actually changed.
 - Writes that would start acquisition during maintenance return
   `maintenance`; `retry_post_processing` returns `busy` when the processing
   lock is held.

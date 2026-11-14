@@ -36,6 +36,12 @@ CALLS = {
     "list_series": ({"kind": "manga"}, lambda page: [s["series_id"] for s in page["series"]] == ["md-abc"]),
 }
 
+WRITE_CALLS = {
+    "set_issue_status": ({"issue_id": "5001", "status": "wanted"}, lambda out: out["status"] == "Wanted"),
+    "pause_series": ({"series_id": "1001"}, lambda out: out["status"] == "Paused"),
+    "resume_series": ({"series_id": "1001"}, lambda out: out["status"] == "Active"),
+}
+
 
 @pytest.fixture(autouse=True)
 def _library(tmp_path, monkeypatch):
@@ -52,6 +58,24 @@ async def test_every_tool_answers_in_each_protocol_era(mode, version):
         names = sorted(tool.name for tool in (await mcp.list_tools()).tools)
         assert names == sorted(CALLS), "add a sample call for each new tool to CALLS"
         for name, (arguments, check) in CALLS.items():
+            result = await mcp.call_tool(name, arguments)
+            assert not result.is_error, (name, result.content)
+            assert check(result.structured_content), (name, result.structured_content)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode, version", ERAS)
+async def test_writes_off_then_on_in_each_protocol_era(mode, version):
+    app = make_app(writes=False)
+    async with mcp_client(app, mode=mode, Authorization="Bearer " + KEY) as mcp:
+        assert sorted(tool.name for tool in (await mcp.list_tools()).tools) == sorted(CALLS)
+        refused = await mcp.call_tool("pause_series", {"series_id": "1001"})
+        assert refused.is_error and refused.structured_content["code"] == "writes_disabled"
+
+        app.state.ctx.config.MCP_WRITE_ENABLED = True
+        names = sorted(tool.name for tool in (await mcp.list_tools(cache_mode="refresh")).tools)
+        assert names == sorted({**CALLS, **WRITE_CALLS}), "add a sample call for each new write tool"
+        for name, (arguments, check) in WRITE_CALLS.items():
             result = await mcp.call_tool(name, arguments)
             assert not result.is_error, (name, result.content)
             assert check(result.structured_content), (name, result.structured_content)

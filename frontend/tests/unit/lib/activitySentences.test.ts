@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  actorLabel,
   reasonDetailLine,
   reasonPhrase,
   sentenceFor,
@@ -95,5 +96,35 @@ describe("storyHeadline", () => {
       events: [event({ activity: "grab", status: "succeeded" })],
     };
     expect(storyHeadline(open)).toBe("Grabbed Saga #1");
+  });
+});
+
+describe("status changes", () => {
+  const change = (partial: Partial<TimelineEvent>) =>
+    event({ activity: "status_change", status: "succeeded", ...partial });
+
+  it("reads an issue marked wanted or skipped", () => {
+    expect(sentenceFor(change({ reason_detail: "Wanted" }))).toBe(
+      "Marked Saga #1 wanted",
+    );
+    expect(
+      sentenceFor(change({ subject_type: "annual", reason_detail: "Skipped" })),
+    ).toBe("Marked Saga #1 skipped");
+  });
+
+  it("reads a series paused or resumed", () => {
+    const series = { subject_type: "series", subject_label: "Saga" };
+    expect(sentenceFor(change({ ...series, reason_detail: "Paused" }))).toBe(
+      "Paused Saga",
+    );
+    expect(sentenceFor(change({ ...series, reason_detail: "Active" }))).toBe(
+      "Resumed Saga",
+    );
+  });
+
+  it("names the agent that asked, and nobody for Comicarr's own work", () => {
+    expect(actorLabel(change({ actor: "mcp" }))).toBe("via MCP");
+    expect(actorLabel(change({ actor: null }))).toBeNull();
+    expect(actorLabel(event())).toBeNull();
   });
 });

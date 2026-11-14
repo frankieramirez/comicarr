@@ -204,5 +204,186 @@
       "type": "object"
     },
     "title": "List series"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Stop automatic searching for one series. Its issues keep their status.",
+    "inputSchema": {
+      "properties": {
+        "series_id": {
+          "description": "Comicarr's series id, from list_series.",
+          "minLength": 1,
+          "title": "Series Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "series_id"
+      ],
+      "title": "pause_seriesArguments",
+      "type": "object"
+    },
+    "name": "pause_series",
+    "outputSchema": {
+      "properties": {
+        "changed": {
+          "description": "False when the series already had this status.",
+          "title": "Changed",
+          "type": "boolean"
+        },
+        "series_id": {
+          "title": "Series Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "Paused",
+            "Active"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "series_id",
+        "status",
+        "changed"
+      ],
+      "title": "SeriesStatusChange",
+      "type": "object"
+    },
+    "title": "Pause series"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Restart automatic searching for a paused series.",
+    "inputSchema": {
+      "properties": {
+        "series_id": {
+          "description": "Comicarr's series id, from list_series.",
+          "minLength": 1,
+          "title": "Series Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "series_id"
+      ],
+      "title": "resume_seriesArguments",
+      "type": "object"
+    },
+    "name": "resume_series",
+    "outputSchema": {
+      "properties": {
+        "changed": {
+          "description": "False when the series already had this status.",
+          "title": "Changed",
+          "type": "boolean"
+        },
+        "series_id": {
+          "title": "Series Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "Paused",
+            "Active"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "series_id",
+        "status",
+        "changed"
+      ],
+      "title": "SeriesStatusChange",
+      "type": "object"
+    },
+    "title": "Resume series"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Mark one issue or annual Wanted (Comicarr searches for it) or Skipped (it stops).",
+    "inputSchema": {
+      "properties": {
+        "issue_id": {
+          "description": "Comicarr's issue or annual id.",
+          "minLength": 1,
+          "title": "Issue Id",
+          "type": "string"
+        },
+        "status": {
+          "description": "wanted or skipped.",
+          "enum": [
+            "wanted",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "issue_id",
+        "status"
+      ],
+      "title": "set_issue_statusArguments",
+      "type": "object"
+    },
+    "name": "set_issue_status",
+    "outputSchema": {
+      "properties": {
+        "changed": {
+          "description": "False when the issue already had this status.",
+          "title": "Changed",
+          "type": "boolean"
+        },
+        "entity_type": {
+          "enum": [
+            "issue",
+            "annual"
+          ],
+          "title": "Entity Type",
+          "type": "string"
+        },
+        "issue_id": {
+          "title": "Issue Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "Wanted",
+            "Skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "issue_id",
+        "entity_type",
+        "status",
+        "changed"
+      ],
+      "title": "IssueStatusChange",
+      "type": "object"
+    },
+    "title": "Set issue status"
   }
 ]

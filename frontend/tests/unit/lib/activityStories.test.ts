@@ -220,4 +220,29 @@ describe("subjectHref", () => {
       }),
     ).toBeNull();
   });
+
+  it("keeps a status change out of an open download story", () => {
+    const nodes = buildFeed([
+      event({
+        event_id: 1,
+        created_at: "2026-07-10 12:00:00",
+        activity: "grab",
+        status: "succeeded",
+      }),
+      event({
+        event_id: 2,
+        created_at: "2026-07-10 12:01:00",
+        activity: "status_change",
+        status: "succeeded",
+        reason_detail: "Skipped",
+        actor: "mcp",
+      }),
+    ]);
+    expect(nodes).toHaveLength(2);
+    const [change, grab] = nodes;
+    expect(change.events.map((e) => e.event_id)).toEqual([2]);
+    expect(isOpen(change)).toBe(false);
+    expect(grab.events.map((e) => e.event_id)).toEqual([1]);
+    expect(isOpen(grab)).toBe(true);
+  });
 });

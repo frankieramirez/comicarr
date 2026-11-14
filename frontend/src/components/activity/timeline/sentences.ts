@@ -89,6 +89,30 @@ function runSentence(event: TimelineEvent): string {
   return "Search finished";
 }
 
+const ACTOR_LABELS: Record<string, string> = {
+  mcp: "via MCP",
+};
+
+/** "via MCP" when an agent asked for the change; null for Comicarr's own work. */
+export function actorLabel(event: TimelineEvent): string | null {
+  if (!event.actor) return null;
+  return ACTOR_LABELS[event.actor] ?? `via ${event.actor}`;
+}
+
+/** An operator-requested status change; `reason_detail` carries the new status. */
+function statusChangeSentence(event: TimelineEvent): string {
+  const label = event.subject_label;
+  const status = event.reason_detail;
+  if (event.subject_type === "series") {
+    if (status === "Paused") return `Paused ${label}`;
+    if (status === "Active") return `Resumed ${label}`;
+  } else {
+    if (status === "Wanted") return `Marked ${label} wanted`;
+    if (status === "Skipped") return `Marked ${label} skipped`;
+  }
+  return status ? `Set ${label} to ${status}` : `Changed ${label}`;
+}
+
 /**
  * Voice rule (#426): Comicarr is the implicit subject; failures read
  * "Couldn't ⟨verb⟩", never "⟨Noun⟩ failed".
@@ -97,6 +121,7 @@ export function sentenceFor(event: TimelineEvent): string {
   const label = event.subject_label;
 
   if (event.subject_type === "run") return runSentence(event);
+  if (event.activity === "status_change") return statusChangeSentence(event);
 
   switch (`${event.activity}.${event.status}`) {
     case "search.no_match":

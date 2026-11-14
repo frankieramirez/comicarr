@@ -39,7 +39,9 @@ from comicarr.app.core.runtime import get_runtime_if_initialized
 from comicarr.db import get_engine
 from comicarr.tables import activity_events
 
-ACTIVITIES = frozenset({"search", "grab", "download", "import", "refresh", "add", "tag"})
+ACTIVITIES = frozenset({"search", "grab", "download", "import", "refresh", "add", "tag", "status_change"})
+
+ACTOR_MAX_LENGTH = 32
 
 STATUSES = frozenset(
     {
@@ -115,6 +117,9 @@ LEGAL_CELLS = frozenset(
         ("refresh", "failed", "series"),
         ("refresh", "failed", "issue"),
         ("refresh", "failed", "arc"),
+        ("status_change", "succeeded", "issue"),
+        ("status_change", "succeeded", "annual"),
+        ("status_change", "succeeded", "series"),
         ("add", "started", "series"),
         ("add", "started", "arc"),
         ("add", "succeeded", "series"),
@@ -150,6 +155,7 @@ _PAYLOAD_KEYS = (
     "parent_series_id",
     "scope_type",
     "scope_id",
+    "actor",
 )
 
 
@@ -257,6 +263,7 @@ def record_activity(
     conn=None,
     won: bool = True,
     created_at: str | None = None,
+    actor: str | None = None,
 ) -> dict | None:
     """Insert a narrative activity row and publish after durable commit.
 
@@ -268,6 +275,9 @@ def record_activity(
         commit (call :func:`publish_activity` with the returned payload). Insert
         failures **propagate** on this path so the caller can roll back; only
         the owned-transaction path (``conn=None``) swallows them.
+    actor:
+        Who asked for the change when it was not Comicarr itself, such as
+        ``"mcp"`` for an MCP write. At most ``ACTOR_MAX_LENGTH`` characters.
     won:
         Journal-backed gate. Pass ``record_transition``'s return value. When
         False, this is a full no-op (no insert, no publish).
@@ -308,6 +318,7 @@ def record_activity(
         "parent_series_id": parent_series_id,
         "scope_type": scope_type,
         "scope_id": scope_id,
+        "actor": actor[:ACTOR_MAX_LENGTH] if actor else None,
     }
     if created_at is not None:
         values["created_at"] = created_at

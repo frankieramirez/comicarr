@@ -10,6 +10,7 @@ export {
   storyHasTrouble,
 } from "./stories";
 export {
+  actorLabel,
   reasonDetailLine,
   reasonPhrase,
   runProgress,

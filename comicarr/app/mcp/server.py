@@ -73,9 +73,35 @@ class ComicarrMCPServer(MCPServer):
     An unknown tool stays the SDK's own error result. Rejected arguments become
     ``invalid_argument``; a :class:`ContractError` becomes its own code; any
     other exception becomes ``internal`` and its text stays in the log.
+
+    Write tools register through :meth:`write_tool`. While ``MCP_WRITE_ENABLED``
+    is false (read on every request) they are left out of ``tools/list`` and
+    calling one returns ``writes_disabled``.
     """
 
+    def __init__(self, get_ctx, **kwargs):
+        super().__init__(**kwargs)
+        self._get_ctx = get_ctx
+        self.write_tools = set()
+
+    def write_tool(self, *, name, **kwargs):
+        """Register a write tool; same arguments as :meth:`tool`."""
+        self.write_tools.add(name)
+        return self.tool(name=name, **kwargs)
+
+    def writes_enabled(self):
+        config = self._get_ctx().config
+        return bool(getattr(config, "MCP_WRITE_ENABLED", False)) if config else False
+
+    async def list_tools(self):
+        tools = await super().list_tools()
+        if self.writes_enabled():
+            return tools
+        return [tool for tool in tools if tool.name not in self.write_tools]
+
     async def call_tool(self, name, arguments, context=None):
+        if name in self.write_tools and not self.writes_enabled():
+            return tool_error("writes_disabled", "MCP writes are off. Turn on MCP_WRITE_ENABLED to allow them.")
         try:
             return await super().call_tool(name, arguments, context)
         except UnexpectedToolError as e:
@@ -90,12 +116,12 @@ class ComicarrMCPServer(MCPServer):
             raise
 
 
-def _build_server():
+def _build_server(get_ctx):
     # MCPServer calls logging.basicConfig(), which would give the root logger a
     # stderr handler Comicarr never asked for. Put the root logger back.
     root = logging.getLogger()
     handlers, level = list(root.handlers), root.level
-    server = ComicarrMCPServer(name="comicarr", title="Comicarr", instructions=INSTRUCTIONS)
+    server = ComicarrMCPServer(get_ctx, name="comicarr", title="Comicarr", instructions=INSTRUCTIONS)
     root.handlers[:] = handlers
     root.setLevel(level)
     return server
@@ -141,7 +167,7 @@ class McpEndpoint:
 
     def __init__(self, get_ctx):
         self._get_ctx = get_ctx
-        self.server = _build_server()
+        self.server = _build_server(get_ctx)
         series_tools.register(self.server, get_ctx)
         self._authenticated = None
 

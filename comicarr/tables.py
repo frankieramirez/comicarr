@@ -648,6 +648,7 @@ activity_events = Table(
     Column("parent_series_id", String(255)),
     Column("scope_type", String(32)),
     Column("scope_id", String(255)),
+    Column("actor", String(32)),
 )
 
 pipeline_journal = Table(

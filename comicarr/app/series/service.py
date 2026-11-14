@@ -630,6 +630,20 @@ def update_content_kind(ctx, comic_id, content_type):
     return result
 
 
+def get_series_status(ctx, comic_id):
+    """A series' live Status, or None when it does not exist."""
+    return series_queries.get_comic_status(comic_id)
+
+
+def get_issue_status(ctx, issue_id):
+    """An issue's or annual's live status as ``{"entity_type", "status"}``, or None."""
+    found = series_queries.get_issue_status(issue_id)
+    if found is None:
+        return None
+    table, status = found
+    return {"entity_type": "annual" if table == "annuals" else "issue", "status": status}
+
+
 def pause_comic(ctx, comic_id):
     """Set comic status to Paused."""
     if not series_queries.pause_comic(comic_id):
