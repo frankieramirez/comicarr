@@ -94,7 +94,9 @@ export function buildFeed(events: TimelineEvent[]): FeedNode[] {
     const key = subjectKey(event);
     const current = open.get(key);
 
-    if (current) {
+    // A status change is its own one-line story: it never joins, extends or
+    // retitles a download that happens to be open for the same issue.
+    if (current && event.activity !== "status_change") {
       current.events.push(event);
       if (isTerminal(event)) {
         current.closer = event;

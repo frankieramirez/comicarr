@@ -10,7 +10,7 @@
 
 """The MCP tool contract: names, and the ``tools/list`` snapshot (#1303).
 
-``tests/contract/mcp_tools.json`` records every tool's name, title,
+``tests/contract/mcp_tools.json`` records every tool, writes included, by name, title,
 description, input and output schemas and annotations. Any change to
 ``tools/list`` fails here until the snapshot changes in the same pull request.
 After an intended change, regenerate it and review the diff::
@@ -44,7 +44,7 @@ def verb_problems(names):
 
 
 async def _listed_tools():
-    app = make_app()
+    app = make_app(writes=True)
     async with Client(app.state.mcp.server) as client:
         tools = (await client.list_tools()).tools
     return sorted(

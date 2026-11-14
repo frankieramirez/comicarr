@@ -548,6 +548,26 @@ def update_obligation_intent(issue_id, audit_identity, *, intent, entity_type=No
     }
 
 
+def get_issue_status(issue_id):
+    """Return ``(table, Status)`` for an issue or live annual, or None."""
+    row = db.select_one(select(t_issues.c.Status).where(t_issues.c.IssueID == str(issue_id)))
+    if row is not None:
+        return "issues", row["Status"]
+    row = db.select_one(
+        select(t_annuals.c.Status).where(
+            t_annuals.c.IssueID == str(issue_id),
+            or_(t_annuals.c.Deleted.is_(None), t_annuals.c.Deleted != 1),
+        )
+    )
+    return ("annuals", row["Status"]) if row is not None else None
+
+
+def get_comic_status(comic_id):
+    """Return a series' Status, or None when no series has this id."""
+    row = db.select_one(select(t_comics.c.ComicID, t_comics.c.Status).where(t_comics.c.ComicID == str(comic_id)))
+    return None if row is None else (row["Status"] or "")
+
+
 def find_issue_status_target(issue_id, entity_type=None):
     """Resolve an issue id to its table ('issues' or 'annuals'), or None."""
     normalized = str(entity_type or "").strip().lower()

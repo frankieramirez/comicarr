@@ -21,7 +21,7 @@ import comicarr
 from comicarr.app.main import create_app
 from comicarr.app.system.service import login_rate_limiter
 from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, metadata
+from comicarr.tables import annuals, comics, issues, metadata
 
 KEY = "mcp-test-key-0123456789abcdef"
 CLIENT_IP = "127.0.0.1"
@@ -81,16 +81,27 @@ SERIES = [
 ]
 
 
+ISSUES = [
+    {"IssueID": "5001", "ComicID": "1001", "ComicName": "Saga", "Issue_Number": "66", "Status": "Skipped"},
+    {"IssueID": "5002", "ComicID": "1001", "ComicName": "Saga", "Issue_Number": "65", "Status": "Downloaded"},
+]
+ANNUALS = [
+    {"IssueID": "6001", "ComicID": "1001", "ComicName": "Saga Annual", "Issue_Number": "1", "Status": "Skipped"},
+]
+
+
 def seed_library(tmp_path, monkeypatch):
-    """Point Comicarr at a fresh SQLite DB holding :data:`SERIES`; clear the lockout counter."""
+    """Point Comicarr at a fresh SQLite DB holding :data:`SERIES`, :data:`ISSUES` and
+    :data:`ANNUALS`; clear the lockout counter."""
     monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()
     engine = get_engine()
     metadata.create_all(engine)
     with engine.begin() as conn:
-        for row in SERIES:
-            conn.execute(comics.insert().values(**row))
+        for table, rows in ((comics, SERIES), (issues, ISSUES), (annuals, ANNUALS)):
+            for row in rows:
+                conn.execute(table.insert().values(**row))
     login_rate_limiter().record_success(CLIENT_IP)
 
 
@@ -99,10 +110,10 @@ def teardown_library():
     shutdown_engine()
 
 
-def make_app():
+def make_app(writes=False):
     app = create_app()
     app.state.ctx = types.SimpleNamespace(
-        config=types.SimpleNamespace(MCP_ENABLED=True, MCP_WRITE_ENABLED=False, API_KEY=KEY, ENABLE_HTTPS=False),
+        config=types.SimpleNamespace(MCP_ENABLED=True, MCP_WRITE_ENABLED=writes, API_KEY=KEY, ENABLE_HTTPS=False),
         setup_token=None,
     )
     return app

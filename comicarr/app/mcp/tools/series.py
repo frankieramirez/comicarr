@@ -10,23 +10,31 @@
 
 """Series tools."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from mcp_types import CallToolResult, ToolAnnotations
 from pydantic import Field
 
 from comicarr import series_kind
+from comicarr.app.activity import producers as activity
 from comicarr.app.mcp.contracts import (
+    ContractError,
+    IssueId,
+    IssueStatusChange,
     Limit,
     Offset,
+    SeriesId,
     SeriesKind,
     SeriesPage,
     SeriesStatus,
+    SeriesStatusChange,
     SeriesSummary,
     paging,
     tool_result,
 )
 from comicarr.app.series import service as series_service
+
+ACTOR = "mcp"
 
 
 def _kind(row) -> str:
@@ -78,3 +86,70 @@ def register(server, get_ctx):
         if page.next_offset is not None:
             summary += "; next page at offset %d" % page.next_offset
         return tool_result(page, summary + ".")
+
+    @server.write_tool(
+        name="set_issue_status",
+        title="Set issue status",
+        description="Mark one issue or annual Wanted (Comicarr searches for it) or Skipped (it stops).",
+        annotations=ToolAnnotations(
+            read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=False
+        ),
+    )
+    def set_issue_status(
+        issue_id: IssueId,
+        status: Annotated[Literal["wanted", "skipped"], Field(description="wanted or skipped.")],
+    ) -> Annotated[CallToolResult, IssueStatusChange]:
+        ctx = get_ctx()
+        current = series_service.get_issue_status(ctx, issue_id)
+        if current is None:
+            raise ContractError("not_found", "No issue or annual has id %s." % issue_id)
+        wanted = status.capitalize()
+        changed = current["status"] != wanted
+        # Always write: the service also records operator intent, which can
+        # differ from Status (a Skipped row may still carry search intent).
+        result = series_service.set_issue_status(ctx, issue_id, status, ACTOR, entity_type=current["entity_type"])
+        if not result.get("success"):
+            raise ContractError("not_found", "No issue or annual has id %s." % issue_id)
+        if changed:
+            activity.emit_status_change(current["entity_type"], issue_id, wanted, actor=ACTOR)
+        change = IssueStatusChange(
+            issue_id=issue_id, entity_type=current["entity_type"], status=wanted, changed=changed
+        )
+        verb = "Marked" if changed else "Already"
+        return tool_result(change, "%s %s %s %s." % (verb, current["entity_type"], issue_id, wanted))
+
+    def _set_series_status(series_id, target, write):
+        ctx = get_ctx()
+        current = series_service.get_series_status(ctx, series_id)
+        if current is None:
+            raise ContractError("not_found", "No series has id %s." % series_id)
+        changed = current != target
+        if changed:
+            if not write(ctx, series_id).get("success"):
+                raise ContractError("not_found", "No series has id %s." % series_id)
+            activity.emit_status_change("series", series_id, target, actor=ACTOR)
+        change = SeriesStatusChange(series_id=series_id, status=target, changed=changed)
+        verb = "Series %s is now %s." if changed else "Series %s was already %s."
+        return tool_result(change, verb % (series_id, target))
+
+    series_write = ToolAnnotations(
+        read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=False
+    )
+
+    @server.write_tool(
+        name="pause_series",
+        title="Pause series",
+        description="Stop automatic searching for one series. Its issues keep their status.",
+        annotations=series_write,
+    )
+    def pause_series(series_id: SeriesId) -> Annotated[CallToolResult, SeriesStatusChange]:
+        return _set_series_status(series_id, "Paused", series_service.pause_comic)
+
+    @server.write_tool(
+        name="resume_series",
+        title="Resume series",
+        description="Restart automatic searching for a paused series.",
+        annotations=series_write,
+    )
+    def resume_series(series_id: SeriesId) -> Annotated[CallToolResult, SeriesStatusChange]:
+        return _set_series_status(series_id, "Active", series_service.resume_comic)

@@ -17,7 +17,12 @@ import RelativeTime from "@/components/ui/RelativeTime";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useActivityBand, useActivityTimeline } from "@/hooks/useActivity";
 import { AttentionBand } from "./AttentionBand";
-import { reasonDetailLine, runProgress, storyHeadline } from "./sentences";
+import {
+  actorLabel,
+  reasonDetailLine,
+  runProgress,
+  storyHeadline,
+} from "./sentences";
 import {
   buildFeed,
   clockOf,
@@ -43,7 +48,7 @@ const FILTERS = [
   {
     key: "library",
     label: "Library",
-    activities: ["import", "refresh", "add", "tag"],
+    activities: ["import", "refresh", "add", "tag", "status_change"],
   },
 ] as const;
 
@@ -117,6 +122,11 @@ function Headline({ story }: { story: Story }) {
 function DetailLine({ story }: { story: Story }) {
   const closer = story.closer;
   if (!closer) return null;
+  if (closer.activity === "status_change") {
+    // The new status is already in the sentence; the detail says who asked.
+    const actor = actorLabel(closer);
+    return actor ? <div className="mono-meta truncate">{actor}</div> : null;
+  }
   const line = reasonDetailLine(closer.reason_code, closer.reason_detail);
   if (!line.phrase && !line.detail) return null;
   return (

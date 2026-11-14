@@ -72,7 +72,7 @@ def _issue_subject(issueid, conn=None):
                 )
                 .select_from(annuals.outerjoin(comics, comics.c.ComicID == annuals.c.ComicID))
                 .where(annuals.c.IssueID == sid)
-                .where(annuals.c.Deleted != 1)
+                .where(annuals.c.Deleted.is_(None) | (annuals.c.Deleted != 1))
             ).fetchone()
             if row is None:
                 return None
@@ -286,6 +286,33 @@ def emit_series_activity(
         reason_detail=reason_detail,
         provider=provider,
         parent_series_id=str(comicid),
+    )
+
+
+def emit_status_change(subject_type, subject_id, new_status, *, actor):
+    """Narrate an operator-requested status change: an issue or annual marked
+    Wanted or Skipped, or a series paused or resumed.
+
+    ``new_status`` is the status the subject now has (``Wanted``, ``Paused``…)
+    and lands in ``reason_detail``; ``actor`` says who asked (``"mcp"``).
+    """
+    if subject_type == "series":
+        label = _series_label(subject_id)
+        parent = str(subject_id)
+    else:
+        subject = _issue_subject(subject_id)
+        if subject is None:
+            return None
+        subject_type, subject_id, label, parent = subject
+    return record_activity(
+        "status_change",
+        "succeeded",
+        subject_type,
+        str(subject_id),
+        label,
+        reason_detail=new_status,
+        parent_series_id=parent,
+        actor=actor,
     )
 
 
