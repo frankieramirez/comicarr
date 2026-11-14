@@ -14,7 +14,7 @@ FastAPI application — lifespan, router composition, static file serving.
 import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,6 +22,7 @@ from apscheduler.schedulers.base import SchedulerNotRunningError
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
+from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
 
 from comicarr.app.core.events import EventBus
@@ -37,6 +38,7 @@ from comicarr.app.core.runtime import (
     set_runtime_acquisition_status,
     set_runtime_field,
 )
+from comicarr.app.mcp.server import McpEndpoint
 
 SHUTDOWN_DRAIN_TIMEOUT = 30.0
 
@@ -219,7 +221,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error("[DEPRECATION] Startup deprecation check failed: %s" % e)
 
-    yield
+    mcp = getattr(app.state, "mcp", None)
+    async with mcp.session_manager.run() if mcp is not None else nullcontext():
+        yield
 
     import comicarr
     from comicarr import logger
@@ -390,6 +394,9 @@ def create_app():
     app.include_router(search_router)
     app.include_router(downloads_router)
     app.include_router(opds_router)
+
+    app.state.mcp = McpEndpoint(lambda: app.state.ctx)
+    app.router.routes.append(Route("/mcp", endpoint=app.state.mcp))
 
     frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
     if frontend_dist.is_dir():

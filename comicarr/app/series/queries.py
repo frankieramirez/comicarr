@@ -17,7 +17,7 @@ import json
 
 from sqlalchemy import and_, case, delete, func, literal, or_, select, update
 
-from comicarr import db
+from comicarr import db, series_kind
 from comicarr.app.core.database import paginated_query  # noqa: F401 — re-exported
 from comicarr.tables import acquisition_run_items as t_acquisition_run_items
 from comicarr.tables import annuals as t_annuals
@@ -44,6 +44,7 @@ COMICS_COLUMNS = [
     t_comics.c.DetailURL.label("DetailURL"),
     t_comics.c.ComicLocation.label("ComicLocation"),
     t_comics.c.ContentType.label("ContentType"),
+    t_comics.c.ContentKindSetBy.label("ContentKindSetBy"),
     t_comics.c.AllowPacks.label("AllowPacks"),
     t_comics.c.IgnoreType.label("IgnoreType"),
     t_comics.c.BareNumberMode.label("BareNumberMode"),
@@ -113,10 +114,32 @@ def list_comics():
     return db.select_all(select(*COMICS_COLUMNS).order_by(t_comics.c.ComicSortName))
 
 
-def list_comics_paginated(limit, offset=0):
-    """List comics with pagination."""
+def list_comics_paginated(limit, offset=0, name=None, kind=None, status=None):
+    """List comics with pagination, optionally filtered by name, kind and status.
+
+    ``name`` matches case-insensitively anywhere in the series name. ``kind`` is
+    one of ``series_kind.CONTENT_KINDS``; ``comic`` includes magazines, as
+    :func:`series_kind.comic_sql_clause` does.
+    """
     stmt = select(*COMICS_COLUMNS).order_by(t_comics.c.ComicSortName)
+    if name:
+        stmt = stmt.where(func.lower(t_comics.c.ComicName).contains(name.lower(), autoescape=True))
+    if status:
+        stmt = stmt.where(t_comics.c.Status == status)
+    if kind:
+        stmt = stmt.where(_KIND_CLAUSES[kind]())
     return paginated_query(stmt, limit=limit, offset=offset)
+
+
+_KIND_CLAUSES = {
+    "comic": lambda: series_kind.comic_sql_clause(
+        t_comics.c.ComicID, t_comics.c.ContentType, t_comics.c.ContentKindSetBy
+    ),
+    "manga": lambda: series_kind.manga_sql_clause(
+        t_comics.c.ComicID, t_comics.c.ContentType, t_comics.c.ContentKindSetBy
+    ),
+    "magazine": lambda: series_kind.magazine_sql_clause(t_comics.c.ContentType),
+}
 
 
 def get_comic(comic_id):

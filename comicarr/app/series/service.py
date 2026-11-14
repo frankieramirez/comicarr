@@ -243,10 +243,13 @@ def _remove_comic_location(comic_location):
     return "skipped"
 
 
-def list_comics(ctx, limit=None, offset=None):
-    """List all comics, optionally with pagination."""
+def list_comics(ctx, limit=None, offset=None, name=None, kind=None, status=None):
+    """List all comics, optionally paginated and filtered by name, kind and status.
+
+    Filters apply only with a ``limit``; the unpaginated form lists everything.
+    """
     if limit is not None:
-        paginated = series_queries.list_comics_paginated(limit, offset=offset or 0)
+        paginated = series_queries.list_comics_paginated(limit, offset=offset or 0, name=name, kind=kind, status=status)
         return {
             "comics": [series_queries.with_library_cover_src(row) for row in paginated["results"]],
             "pagination": {

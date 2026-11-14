@@ -4,10 +4,10 @@ The settled design for the MCP server in the Feature-complete milestone of the
 [1.0 roadmap](https://github.com/frankieramirez/comicarr/issues/1184). Each
 section records a decision made on the
 [MCP server design map](https://github.com/frankieramirez/comicarr/issues/1242)
-and links the ticket that holds the reasoning. Nothing here is built yet. Build
-issues are cut once the Foundations seams lane of
-[Build: Foundations](https://github.com/frankieramirez/comicarr/issues/1199)
-merges.
+and links the ticket that holds the reasoning. The build runs under
+[Build: MCP server](https://github.com/frankieramirez/comicarr/issues/1301).
+Sections 1 to 3 are live, with `list_series` as the only tool
+([#1302](https://github.com/frankieramirez/comicarr/issues/1302)).
 
 Research: [MCP transport, auth and clients](../research/2026-11-13-mcp-transport-auth-clients.md)
 ([ticket](https://github.com/frankieramirez/comicarr/issues/1243)).
