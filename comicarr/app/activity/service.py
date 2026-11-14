@@ -46,8 +46,12 @@ class InFlightCancelError(ValueError):
         self.status_code = status_code
 
 
-def cancel_in_flight(kind, item_id=None, release_key=None):
-    """Stop an in-flight run item or journal row into the existing cancelled state."""
+def cancel_in_flight(kind, item_id=None, release_key=None, actor=None):
+    """Stop an in-flight run item or journal row into the existing cancelled state.
+
+    ``actor`` names who asked when it was not the web UI (``"mcp"``); it lands
+    on the run item's ``search.cancelled`` row.
+    """
     kind = str(kind or "").strip().lower()
     if kind == "run":
         if item_id in (None, ""):
@@ -74,6 +78,7 @@ def cancel_in_flight(kind, item_id=None, release_key=None):
                 item["entity_type"],
                 item["entity_id"],
                 label=item.get("entity_id"),
+                actor=actor,
             )
         except Exception as e:
             from comicarr import logger

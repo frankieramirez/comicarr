@@ -81,6 +81,107 @@
   },
   {
     "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Cancel one queued or running search item (kind run, with item_id) or download (kind journal, with release_key), as list_in_flight returns them.",
+    "inputSchema": {
+      "properties": {
+        "item_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The search item's item_id, for kind run.",
+          "title": "Item Id"
+        },
+        "kind": {
+          "description": "run for a search item, journal for a download.",
+          "enum": [
+            "run",
+            "journal"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "release_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The download's release_key, for kind journal.",
+          "title": "Release Key"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "cancel_in_flightArguments",
+      "type": "object"
+    },
+    "name": "cancel_in_flight",
+    "outputSchema": {
+      "properties": {
+        "item_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Item Id"
+        },
+        "kind": {
+          "enum": [
+            "run",
+            "journal"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "release_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Release Key"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "item_id",
+        "release_key",
+        "state"
+      ],
+      "title": "InFlightCancelled",
+      "type": "object"
+    },
+    "title": "Cancel in-flight work"
+  },
+  {
+    "annotations": {
       "openWorldHint": false,
       "readOnlyHint": true
     },
@@ -386,6 +487,141 @@
   },
   {
     "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    },
+    "description": "Act on needs-attention items by release_key: retry the download, search again, or stop wanting the issue. Only the actions an item offers apply to it.",
+    "inputSchema": {
+      "properties": {
+        "action": {
+          "description": "retry, search_again, or stop_wanting (the issue is no longer Wanted).",
+          "enum": [
+            "retry",
+            "search_again",
+            "stop_wanting"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "release_keys": {
+          "description": "Items' release keys.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 25,
+          "minItems": 1,
+          "title": "Release Keys",
+          "type": "array"
+        }
+      },
+      "required": [
+        "action",
+        "release_keys"
+      ],
+      "title": "resolve_attentionArguments",
+      "type": "object"
+    },
+    "name": "resolve_attention",
+    "outputSchema": {
+      "$defs": {
+        "AttentionItemResult": {
+          "properties": {
+            "message": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Message"
+            },
+            "ok": {
+              "title": "Ok",
+              "type": "boolean"
+            },
+            "problem": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Why it was not resolved, when ok is false.",
+              "title": "Problem"
+            },
+            "release_key": {
+              "title": "Release Key",
+              "type": "string"
+            },
+            "run_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The search run a retry or search_again started.",
+              "title": "Run Id"
+            }
+          },
+          "required": [
+            "release_key",
+            "ok",
+            "problem",
+            "message",
+            "run_id"
+          ],
+          "title": "AttentionItemResult",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "action": {
+          "enum": [
+            "retry",
+            "search_again",
+            "stop_wanting"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "failed": {
+          "title": "Failed",
+          "type": "integer"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/$defs/AttentionItemResult"
+          },
+          "title": "Results",
+          "type": "array"
+        },
+        "succeeded": {
+          "title": "Succeeded",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "action",
+        "succeeded",
+        "failed",
+        "results"
+      ],
+      "title": "AttentionResolution",
+      "type": "object"
+    },
+    "title": "Resolve needs-attention items"
+  },
+  {
+    "annotations": {
       "destructiveHint": false,
       "idempotentHint": true,
       "openWorldHint": false,
@@ -437,6 +673,55 @@
       "type": "object"
     },
     "title": "Resume series"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Retry importing one finished download, by the release_key list_in_flight returns. Never takes a folder path.",
+    "inputSchema": {
+      "properties": {
+        "release_key": {
+          "description": "A download's release_key, as list_in_flight returns it.",
+          "minLength": 1,
+          "title": "Release Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "release_key"
+      ],
+      "title": "retry_post_processingArguments",
+      "type": "object"
+    },
+    "name": "retry_post_processing",
+    "outputSchema": {
+      "properties": {
+        "release_key": {
+          "title": "Release Key",
+          "type": "string"
+        },
+        "status": {
+          "description": "processed: done in this call. queued: handed to the post-processing worker.",
+          "enum": [
+            "processed",
+            "queued"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "release_key",
+        "status"
+      ],
+      "title": "PostProcessingRetry",
+      "type": "object"
+    },
+    "title": "Retry post-processing"
   },
   {
     "annotations": {
