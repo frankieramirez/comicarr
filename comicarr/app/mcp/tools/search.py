@@ -8,7 +8,8 @@
 #  (at your option) any later version.
 
 
-"""Search write tools: start a search for one issue or a series, retry a run.
+"""Search tools: find a series on the providers, follow a search run, start a
+search for one issue or a series, retry a run.
 
 The MCP client's approval prompt is the confirmation, so each tool runs the
 browser's preview and confirm ledger in one call, with actor ``mcp`` and a
@@ -16,19 +17,28 @@ session id minted per call. The ledger's fingerprint check still applies.
 """
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 from mcp_types import CallToolResult, ToolAnnotations
+from pydantic import Field
 
+from comicarr import logger, series_kind
 from comicarr.app.acquisition.maintenance import acquisition_paused
 from comicarr.app.activity import producers as activity
 from comicarr.app.mcp.contracts import (
     ContractError,
+    FoundSeries,
+    FoundSeriesPage,
     IssueId,
+    Limit,
+    Offset,
     RunId,
+    SearchRun,
+    SearchRunItem,
     SearchRunRetry,
     SearchStarted,
     SeriesId,
+    paging,
     tool_result,
 )
 from comicarr.app.search import service as search_service
@@ -82,8 +92,146 @@ def _started(result, *, series_id, scope_type, scope_id) -> SearchStarted:
     return started
 
 
+METRON_PREFIX = "metron-"
+RUN_ITEMS_SHOWN = 100
+
+
+def _text(value):
+    if value in (None, ""):
+        return None
+    return str(value)
+
+
+def _int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _provider_id(comic_id):
+    """``(provider, provider_id)`` for a search result's id, in add_series' terms."""
+    comic_id = str(comic_id or "")
+    if comic_id.startswith(METRON_PREFIX):
+        return "metron", comic_id[len(METRON_PREFIX) :]
+    return series_kind.provider_of(comic_id).value, series_kind.strip_prefix(comic_id)
+
+
+def _found(row, kind) -> FoundSeries | None:
+    provider, provider_id = _provider_id(row.get("comicid"))
+    if not provider_id:
+        return None
+    year = _text(row.get("comicyear"))
+    return FoundSeries(
+        provider=provider,
+        provider_id=provider_id,
+        kind=kind,
+        name=str(row.get("name") or ""),
+        year=None if year in (None, "0000") else year,
+        publisher=_text(row.get("publisher")),
+        issues=_int(row.get("issues")),
+        url=_text(row.get("url")),
+        in_library=bool(row.get("in_library")),
+    )
+
+
+def _run(result) -> SearchRun:
+    run, items = result["run"], result.get("items") or []
+    return SearchRun(
+        run_id=str(run["run_id"]),
+        trigger=_text(run.get("trigger")),
+        scope_type=_text(run.get("scope_type")),
+        scope_id=_text(run.get("scope_id")),
+        state=str(run.get("completion_state") or ""),
+        dispatch_state=_text(run.get("dispatch_state")),
+        accepted=int(run.get("accepted_count") or 0),
+        finished=int(run.get("terminal_count") or 0),
+        succeeded=int(run.get("succeeded_count") or 0),
+        no_match=int(run.get("no_match_count") or 0),
+        blocked=int(run.get("blocked_count") or 0),
+        failed=int(run.get("failed_count") or 0),
+        created_at=_text(run.get("created_at")),
+        updated_at=_text(run.get("updated_at")),
+        completed_at=_text(run.get("completed_at")),
+        items_total=len(items),
+        items=[
+            SearchRunItem(
+                entity_type=str(item.get("entity_type") or ""),
+                entity_id=str(item.get("entity_id") or ""),
+                status=str(item.get("attempt_status") or item.get("state") or ""),
+                attempts=int(item.get("attempt_count") or 0),
+                reason=_text(item.get("reason")),
+                updated_at=_text(item.get("updated_at")),
+            )
+            for item in items[:RUN_ITEMS_SHOWN]
+        ],
+    )
+
+
 def register(server, get_ctx):
-    """Add the search write tools to ``server``."""
+    """Add the search tools to ``server``."""
+
+    @server.tool(
+        name="find_series",
+        title="Find a series",
+        description=(
+            "Look a series up on the metadata providers (ComicVine or Metron for comics, MyAnimeList or "
+            "MangaDex for manga) before adding it. Each result carries the provider, provider_id and kind "
+            "add_series takes."
+        ),
+        annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True),
+    )
+    def find_series(
+        name: Annotated[str, Field(min_length=1, max_length=200, description="The series name to look up.")],
+        kind: Annotated[Literal["comic", "manga"], Field(description="comic or manga.")] = "comic",
+        limit: Limit = 25,
+        offset: Offset = 0,
+    ) -> Annotated[CallToolResult, FoundSeriesPage]:
+        ctx = get_ctx()
+        try:
+            if kind == "manga":
+                result = search_service.find_manga(ctx, name, limit=limit, offset=offset)
+            else:
+                result = search_service.find_comic(ctx, name, limit=limit, offset=offset)
+        except Exception as e:
+            logger.warn("[MCP] find_series lookup for %s failed: %r" % (kind, e))
+            raise ContractError(
+                "provider_unavailable", "The metadata provider could not be reached. Try again.", retryable=True
+            ) from e
+        error = result.get("error")
+        if error and "no results" not in error:
+            if "not enabled" in error:
+                raise ContractError("provider_unavailable", "%s. Turn it on in Settings." % error)
+            raise ContractError("invalid_argument", error)
+        found = [item for item in (_found(row, kind) for row in result.get("results") or []) if item]
+        total = (result.get("pagination") or {}).get("total")
+        total = max(int(total), offset + len(found)) if isinstance(total, int) else offset + len(found)
+        page = FoundSeriesPage(results=found, **paging(offset, len(found), total))
+        if not found:
+            return tool_result(page, "No %s series matched %r." % (kind, name))
+        summary = "%d %s series matched; %d already in the library." % (
+            page.total,
+            kind,
+            sum(item.in_library for item in found),
+        )
+        return tool_result(page, summary)
+
+    @server.tool(
+        name="get_search_run",
+        title="Get a search run",
+        description="Progress and outcome of a search run, by the run_id a search tool or list_activity gave.",
+        annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False),
+    )
+    def get_search_run(run_id: RunId) -> Annotated[CallToolResult, SearchRun]:
+        result = search_service.get_run(get_ctx(), run_id)
+        if not result.get("success"):
+            raise ContractError("not_found", "No search run has id %s." % run_id)
+        run = _run(result)
+        return tool_result(
+            run,
+            "Run %s is %s: %d of %d finished, %d found, %d no match."
+            % (run.run_id, run.state, run.finished, run.accepted, run.succeeded, run.no_match),
+        )
 
     @server.write_tool(
         name="search_issue",

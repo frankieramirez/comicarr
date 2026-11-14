@@ -115,6 +115,7 @@ def make_app(writes=False):
     app.state.ctx = types.SimpleNamespace(
         config=types.SimpleNamespace(MCP_ENABLED=True, MCP_WRITE_ENABLED=writes, API_KEY=KEY, ENABLE_HTTPS=False),
         setup_token=None,
+        scheduler=None,
     )
     return app
 

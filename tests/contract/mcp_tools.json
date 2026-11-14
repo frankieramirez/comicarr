@@ -182,6 +182,187 @@
   },
   {
     "annotations": {
+      "openWorldHint": true,
+      "readOnlyHint": true
+    },
+    "description": "Look a series up on the metadata providers (ComicVine or Metron for comics, MyAnimeList or MangaDex for manga) before adding it. Each result carries the provider, provider_id and kind add_series takes.",
+    "inputSchema": {
+      "properties": {
+        "kind": {
+          "default": "comic",
+          "description": "comic or manga.",
+          "enum": [
+            "comic",
+            "manga"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "limit": {
+          "default": 25,
+          "description": "Page size, 1 to 100.",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "name": {
+          "description": "The series name to look up.",
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Items to skip before this page.",
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "find_seriesArguments",
+      "type": "object"
+    },
+    "name": "find_series",
+    "outputSchema": {
+      "$defs": {
+        "FoundSeries": {
+          "properties": {
+            "in_library": {
+              "title": "In Library",
+              "type": "boolean"
+            },
+            "issues": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Issues or chapters the provider lists.",
+              "title": "Issues"
+            },
+            "kind": {
+              "enum": [
+                "comic",
+                "manga"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "provider": {
+              "description": "Pass to add_series with provider_id and kind.",
+              "enum": [
+                "comicvine",
+                "metron",
+                "mangadex",
+                "myanimelist"
+              ],
+              "title": "Provider",
+              "type": "string"
+            },
+            "provider_id": {
+              "title": "Provider Id",
+              "type": "string"
+            },
+            "publisher": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The publisher, or the author for manga.",
+              "title": "Publisher"
+            },
+            "url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Url"
+            },
+            "year": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          "required": [
+            "provider",
+            "provider_id",
+            "kind",
+            "name",
+            "year",
+            "publisher",
+            "issues",
+            "url",
+            "in_library"
+          ],
+          "title": "FoundSeries",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Offset of the next page; null on the last page.",
+          "title": "Next Offset"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/$defs/FoundSeries"
+          },
+          "title": "Results",
+          "type": "array"
+        },
+        "total": {
+          "description": "Items matching the filters, across all pages.",
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "next_offset",
+        "results"
+      ],
+      "title": "FoundSeriesPage",
+      "type": "object"
+    },
+    "title": "Find a series"
+  },
+  {
+    "annotations": {
       "openWorldHint": false,
       "readOnlyHint": true
     },
@@ -500,6 +681,232 @@
       "openWorldHint": false,
       "readOnlyHint": true
     },
+    "description": "Progress and outcome of a search run, by the run_id a search tool or list_activity gave.",
+    "inputSchema": {
+      "properties": {
+        "run_id": {
+          "description": "A search run id, as a search tool returned it.",
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id"
+      ],
+      "title": "get_search_runArguments",
+      "type": "object"
+    },
+    "name": "get_search_run",
+    "outputSchema": {
+      "$defs": {
+        "SearchRunItem": {
+          "properties": {
+            "attempts": {
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "entity_id": {
+              "title": "Entity Id",
+              "type": "string"
+            },
+            "entity_type": {
+              "title": "Entity Type",
+              "type": "string"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            },
+            "status": {
+              "description": "queued, searching, succeeded, no_match, blocked, failed and so on.",
+              "title": "Status",
+              "type": "string"
+            },
+            "updated_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Updated At"
+            }
+          },
+          "required": [
+            "entity_type",
+            "entity_id",
+            "status",
+            "attempts",
+            "reason",
+            "updated_at"
+          ],
+          "title": "SearchRunItem",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "accepted": {
+          "title": "Accepted",
+          "type": "integer"
+        },
+        "blocked": {
+          "title": "Blocked",
+          "type": "integer"
+        },
+        "completed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Completed At"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Created At"
+        },
+        "dispatch_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Dispatch State"
+        },
+        "failed": {
+          "title": "Failed",
+          "type": "integer"
+        },
+        "finished": {
+          "title": "Finished",
+          "type": "integer"
+        },
+        "items": {
+          "description": "At most 100.",
+          "items": {
+            "$ref": "#/$defs/SearchRunItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "items_total": {
+          "title": "Items Total",
+          "type": "integer"
+        },
+        "no_match": {
+          "title": "No Match",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "scope_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Scope Id"
+        },
+        "scope_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Scope Type"
+        },
+        "state": {
+          "description": "How far the run got; completed, partial, blocked and failed are final.",
+          "title": "State",
+          "type": "string"
+        },
+        "succeeded": {
+          "title": "Succeeded",
+          "type": "integer"
+        },
+        "trigger": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Trigger"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Updated At"
+        }
+      },
+      "required": [
+        "run_id",
+        "trigger",
+        "scope_type",
+        "scope_id",
+        "state",
+        "dispatch_state",
+        "accepted",
+        "finished",
+        "succeeded",
+        "no_match",
+        "blocked",
+        "failed",
+        "created_at",
+        "updated_at",
+        "completed_at",
+        "items_total",
+        "items"
+      ],
+      "title": "SearchRun",
+      "type": "object"
+    },
+    "title": "Get a search run"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "description": "One series in the library: status, folder, issue counts, provider pages, and its last released and next announced issue.",
     "inputSchema": {
       "properties": {
@@ -780,6 +1187,693 @@
       "type": "object"
     },
     "title": "Get series"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Whether Comicarr can search and download: each search route's readiness, the indexers, the last check of each download client and metadata provider, and the background jobs with their last and next run.",
+    "inputSchema": {
+      "properties": {},
+      "title": "get_system_healthArguments",
+      "type": "object"
+    },
+    "name": "get_system_health",
+    "outputSchema": {
+      "$defs": {
+        "ConnectionHealth": {
+          "properties": {
+            "checked_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Checked At"
+            },
+            "key": {
+              "title": "Key",
+              "type": "string"
+            },
+            "kind": {
+              "description": "client, indexers, metadata or folder.",
+              "title": "Kind",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "latency_ms": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Latency Ms"
+            },
+            "ok": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The last check's answer; null when never checked since start.",
+              "title": "Ok"
+            },
+            "result": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Result"
+            },
+            "version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          },
+          "required": [
+            "key",
+            "label",
+            "kind",
+            "ok",
+            "result",
+            "checked_at",
+            "latency_ms",
+            "version"
+          ],
+          "title": "ConnectionHealth",
+          "type": "object"
+        },
+        "IndexerHealth": {
+          "properties": {
+            "active": {
+              "description": "False when turned off or temporarily blocked.",
+              "title": "Active",
+              "type": "boolean"
+            },
+            "hits": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hits"
+            },
+            "last_run": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Run"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          "required": [
+            "name",
+            "type",
+            "active",
+            "last_run",
+            "hits"
+          ],
+          "title": "IndexerHealth",
+          "type": "object"
+        },
+        "JobHealth": {
+          "properties": {
+            "job_id": {
+              "title": "Job Id",
+              "type": "string"
+            },
+            "last_error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Error"
+            },
+            "last_failure": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Failure"
+            },
+            "last_run": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Run"
+            },
+            "last_success": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Success"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "next_run": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Next Run"
+            },
+            "result": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "What the last run did, in one line.",
+              "title": "Result"
+            },
+            "status": {
+              "description": "Waiting, Running, Paused and so on.",
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          "required": [
+            "job_id",
+            "name",
+            "status",
+            "next_run",
+            "last_run",
+            "last_success",
+            "last_failure",
+            "last_error",
+            "result"
+          ],
+          "title": "JobHealth",
+          "type": "object"
+        },
+        "RouteHealth": {
+          "properties": {
+            "client": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The download client this route hands releases to.",
+              "title": "Client"
+            },
+            "enabled": {
+              "title": "Enabled",
+              "type": "boolean"
+            },
+            "last_error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Error"
+            },
+            "last_failure": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Failure"
+            },
+            "last_success": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Success"
+            },
+            "ready": {
+              "title": "Ready",
+              "type": "boolean"
+            },
+            "reason": {
+              "description": "ready, or why not, such as client_not_ready or providers_temporarily_blocked.",
+              "title": "Reason",
+              "type": "string"
+            },
+            "route": {
+              "enum": [
+                "ddl",
+                "nzb",
+                "torrent"
+              ],
+              "title": "Route",
+              "type": "string"
+            }
+          },
+          "required": [
+            "route",
+            "enabled",
+            "ready",
+            "reason",
+            "client",
+            "last_success",
+            "last_failure",
+            "last_error"
+          ],
+          "title": "RouteHealth",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "can_search": {
+          "description": "At least one search route is ready.",
+          "title": "Can Search",
+          "type": "boolean"
+        },
+        "connections": {
+          "items": {
+            "$ref": "#/$defs/ConnectionHealth"
+          },
+          "title": "Connections",
+          "type": "array"
+        },
+        "indexers": {
+          "items": {
+            "$ref": "#/$defs/IndexerHealth"
+          },
+          "title": "Indexers",
+          "type": "array"
+        },
+        "jobs": {
+          "items": {
+            "$ref": "#/$defs/JobHealth"
+          },
+          "title": "Jobs",
+          "type": "array"
+        },
+        "maintenance": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Why acquisition is paused for maintenance; null when it is not.",
+          "title": "Maintenance"
+        },
+        "routes": {
+          "items": {
+            "$ref": "#/$defs/RouteHealth"
+          },
+          "title": "Routes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "can_search",
+        "maintenance",
+        "routes",
+        "indexers",
+        "connections",
+        "jobs"
+      ],
+      "title": "SystemHealth",
+      "type": "object"
+    },
+    "title": "Get system health"
+  },
+  {
+    "annotations": {
+      "openWorldHint": true,
+      "readOnlyHint": true
+    },
+    "description": "The industry's releases for this week, or a given week, and which belong to series in the library. A week Comicarr has not stored yet is fetched from the pull-list sources.",
+    "inputSchema": {
+      "properties": {
+        "followed_only": {
+          "default": false,
+          "description": "Only releases of series in the library.",
+          "title": "Followed Only",
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 25,
+          "description": "Page size, 1 to 100.",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Items to skip before this page.",
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "week": {
+          "anyOf": [
+            {
+              "maximum": 53,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Week number, Sunday-based. Give with year; omit both for now.",
+          "title": "Week"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "maximum": 2999,
+              "minimum": 1900,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Four-digit year, with week.",
+          "title": "Year"
+        }
+      },
+      "title": "get_weekly_releasesArguments",
+      "type": "object"
+    },
+    "name": "get_weekly_releases",
+    "outputSchema": {
+      "$defs": {
+        "WeekRef": {
+          "properties": {
+            "week": {
+              "title": "Week",
+              "type": "string"
+            },
+            "year": {
+              "title": "Year",
+              "type": "string"
+            }
+          },
+          "required": [
+            "week",
+            "year"
+          ],
+          "title": "WeekRef",
+          "type": "object"
+        },
+        "WeeklyRelease": {
+          "properties": {
+            "comicvine_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Pass to add_series with provider comicvine when not in the library.",
+              "title": "Comicvine Id"
+            },
+            "format": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Format"
+            },
+            "issue_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The library's issue id, when the issue is known.",
+              "title": "Issue Id"
+            },
+            "issue_number": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Issue Number"
+            },
+            "publisher": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Publisher"
+            },
+            "series_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The library's series id, when the series is followed.",
+              "title": "Series Id"
+            },
+            "series_name": {
+              "title": "Series Name",
+              "type": "string"
+            },
+            "ship_date": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ship Date"
+            },
+            "state": {
+              "enum": [
+                "not_in_library",
+                "in_library",
+                "wanted",
+                "downloaded"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "series_name",
+            "issue_number",
+            "publisher",
+            "ship_date",
+            "format",
+            "comicvine_id",
+            "series_id",
+            "issue_id",
+            "state"
+          ],
+          "title": "WeeklyRelease",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "string"
+        },
+        "followed": {
+          "description": "Releases of series in the library, across all pages.",
+          "title": "Followed",
+          "type": "integer"
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Offset of the next page; null on the last page.",
+          "title": "Next Offset"
+        },
+        "next_week": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WeekRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "previous_week": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WeekRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "releases": {
+          "items": {
+            "$ref": "#/$defs/WeeklyRelease"
+          },
+          "title": "Releases",
+          "type": "array"
+        },
+        "source": {
+          "description": "unavailable: the pull list could not be fetched for this week; try again later.",
+          "enum": [
+            "stored",
+            "fetched",
+            "unavailable"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "start": {
+          "description": "The Sunday the week starts.",
+          "title": "Start",
+          "type": "string"
+        },
+        "total": {
+          "description": "Items matching the filters, across all pages.",
+          "title": "Total",
+          "type": "integer"
+        },
+        "week": {
+          "title": "Week",
+          "type": "string"
+        },
+        "year": {
+          "title": "Year",
+          "type": "string"
+        }
+      },
+      "required": [
+        "total",
+        "next_offset",
+        "week",
+        "year",
+        "start",
+        "end",
+        "source",
+        "followed",
+        "previous_week",
+        "next_week",
+        "releases"
+      ],
+      "title": "WeeklyReleases",
+      "type": "object"
+    },
+    "title": "Get weekly releases"
   },
   {
     "annotations": {

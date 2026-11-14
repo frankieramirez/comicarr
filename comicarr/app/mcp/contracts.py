@@ -458,3 +458,130 @@ class QueuedDownload(BaseModel):
 
 class DownloadQueuePage(Paged):
     downloads: list[QueuedDownload]
+
+
+class WeekRef(BaseModel):
+    week: str
+    year: str
+
+
+class WeeklyRelease(BaseModel):
+    series_name: str
+    issue_number: str | None
+    publisher: str | None
+    ship_date: str | None
+    format: str | None
+    comicvine_id: str | None = Field(description="Pass to add_series with provider comicvine when not in the library.")
+    series_id: str | None = Field(description="The library's series id, when the series is followed.")
+    issue_id: str | None = Field(description="The library's issue id, when the issue is known.")
+    state: Literal["not_in_library", "in_library", "wanted", "downloaded"]
+
+
+class WeeklyReleases(Paged):
+    week: str
+    year: str
+    start: str = Field(description="The Sunday the week starts.")
+    end: str
+    source: Literal["stored", "fetched", "unavailable"] = Field(
+        description="unavailable: the pull list could not be fetched for this week; try again later."
+    )
+    followed: int = Field(description="Releases of series in the library, across all pages.")
+    previous_week: WeekRef | None
+    next_week: WeekRef | None
+    releases: list[WeeklyRelease]
+
+
+class IndexerHealth(BaseModel):
+    name: str
+    type: str | None
+    active: bool = Field(description="False when turned off or temporarily blocked.")
+    last_run: str | None
+    hits: int | None
+
+
+class RouteHealth(BaseModel):
+    route: Literal["ddl", "nzb", "torrent"]
+    enabled: bool
+    ready: bool
+    reason: str = Field(description="ready, or why not, such as client_not_ready or providers_temporarily_blocked.")
+    client: str | None = Field(description="The download client this route hands releases to.")
+    last_success: str | None
+    last_failure: str | None
+    last_error: str | None
+
+
+class ConnectionHealth(BaseModel):
+    key: str
+    label: str
+    kind: str = Field(description="client, indexers, metadata or folder.")
+    ok: bool | None = Field(description="The last check's answer; null when never checked since start.")
+    result: str | None
+    checked_at: str | None
+    latency_ms: float | None
+    version: str | None
+
+
+class JobHealth(BaseModel):
+    job_id: str
+    name: str
+    status: str = Field(description="Waiting, Running, Paused and so on.")
+    next_run: str | None
+    last_run: str | None
+    last_success: str | None
+    last_failure: str | None
+    last_error: str | None
+    result: str | None = Field(description="What the last run did, in one line.")
+
+
+class SystemHealth(BaseModel):
+    can_search: bool = Field(description="At least one search route is ready.")
+    maintenance: str | None = Field(description="Why acquisition is paused for maintenance; null when it is not.")
+    routes: list[RouteHealth]
+    indexers: list[IndexerHealth]
+    connections: list[ConnectionHealth]
+    jobs: list[JobHealth]
+
+
+class FoundSeries(BaseModel):
+    provider: Provider = Field(description="Pass to add_series with provider_id and kind.")
+    provider_id: str
+    kind: Literal["comic", "manga"]
+    name: str
+    year: str | None
+    publisher: str | None = Field(description="The publisher, or the author for manga.")
+    issues: int | None = Field(description="Issues or chapters the provider lists.")
+    url: str | None
+    in_library: bool
+
+
+class FoundSeriesPage(Paged):
+    results: list[FoundSeries]
+
+
+class SearchRunItem(BaseModel):
+    entity_type: str
+    entity_id: str
+    status: str = Field(description="queued, searching, succeeded, no_match, blocked, failed and so on.")
+    attempts: int
+    reason: str | None
+    updated_at: str | None
+
+
+class SearchRun(BaseModel):
+    run_id: str
+    trigger: str | None
+    scope_type: str | None
+    scope_id: str | None
+    state: str = Field(description="How far the run got; completed, partial, blocked and failed are final.")
+    dispatch_state: str | None
+    accepted: int
+    finished: int
+    succeeded: int
+    no_match: int
+    blocked: int
+    failed: int
+    created_at: str | None
+    updated_at: str | None
+    completed_at: str | None
+    items_total: int
+    items: list[SearchRunItem] = Field(description="At most 100.")

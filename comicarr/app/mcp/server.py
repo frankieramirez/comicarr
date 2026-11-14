@@ -47,6 +47,8 @@ from comicarr.app.mcp.tools import library as library_tools
 from comicarr.app.mcp.tools import recovery as recovery_tools
 from comicarr.app.mcp.tools import search as search_tools
 from comicarr.app.mcp.tools import series as series_tools
+from comicarr.app.mcp.tools import system as system_tools
+from comicarr.app.mcp.tools import weekly as weekly_tools
 from comicarr.app.mcp.usage import ToolCallRecorder
 from comicarr.app.system.deprecations import REGISTRY as DEPRECATIONS
 from comicarr.app.system.service import login_rate_limiter
@@ -223,6 +225,8 @@ class McpEndpoint:
         library_tools.register(self.server, get_ctx)
         activity_tools.register(self.server, get_ctx)
         downloads_tools.register(self.server, get_ctx)
+        weekly_tools.register(self.server, get_ctx)
+        system_tools.register(self.server, get_ctx)
         search_tools.register(self.server, get_ctx)
         recovery_tools.register(self.server, get_ctx)
         register_aliases(self.server)

@@ -45,17 +45,17 @@ def _set_last_called(name, seconds_ago):
 async def test_an_alias_returns_the_new_tools_result_and_is_listed_as_deprecated():
     app = make_app()
     server = app.state.mcp.server
-    server.alias("find_series", "list_series")
+    server.alias("list_comics", "list_series")
 
     async with Client(server) as client:
         tools = {tool.name: tool for tool in (await client.list_tools()).tools}
         new = await client.call_tool("list_series", {"kind": "manga"})
-        old = await client.call_tool("find_series", {"kind": "manga"})
+        old = await client.call_tool("list_comics", {"kind": "manga"})
 
     assert not old.is_error
     assert old.structured_content == new.structured_content
     assert [s["series_id"] for s in old.structured_content["series"]] == ["md-abc"]
-    alias = tools["find_series"]
+    alias = tools["list_comics"]
     assert alias.title == "List series (deprecated)"
     assert alias.description.startswith("Deprecated: renamed to list_series, use that instead.")
     assert alias.input_schema == tools["list_series"].input_schema
@@ -80,7 +80,7 @@ async def test_an_alias_of_a_write_tool_follows_the_write_switch():
 def test_an_alias_needs_a_known_target_and_a_free_name():
     server = make_app().state.mcp.server
     with pytest.raises(ValueError):
-        server.alias("find_series", "no_such_tool")
+        server.alias("list_comics", "no_such_tool")
     with pytest.raises(ValueError):
         server.alias("pause_series", "list_series")
 
@@ -139,34 +139,34 @@ async def test_unknown_names_are_not_recorded():
 
 @pytest.mark.asyncio
 async def test_in_use_is_true_after_a_call_and_false_once_the_row_is_older_than_30_days():
-    entry = mcp_tool_rename("find_series", "list_series", announced_in="0.53.0", removable_from="1.0.0")
+    entry = mcp_tool_rename("list_comics", "list_series", announced_in="0.53.0", removable_from="1.0.0")
     app = make_app()
     register_aliases(app.state.mcp.server, [entry])
 
     assert entry.in_use() is False
     async with Client(app.state.mcp.server) as client:
-        await client.call_tool("find_series", {})
+        await client.call_tool("list_comics", {})
     assert entry.in_use() is True
     # The new name's calls are its own; only the old name keeps the entry in use.
     assert _last_called("list_series") is None
 
-    _set_last_called("find_series", 29 * 86400)
+    _set_last_called("list_comics", 29 * 86400)
     assert entry.in_use() is True
-    _set_last_called("find_series", 31 * 86400)
+    _set_last_called("list_comics", 31 * 86400)
     assert entry.in_use() is False
 
 
 def test_an_unreadable_timestamp_is_not_in_use():
-    db.upsert("mcp_tool_calls", {"last_called_at": "yesterday"}, {"tool_name": "find_series"})
-    assert mcp_tool_called_recently("find_series") is False
+    db.upsert("mcp_tool_calls", {"last_called_at": "yesterday"}, {"tool_name": "list_comics"})
+    assert mcp_tool_called_recently("list_comics") is False
 
 
 def test_a_rename_entry_names_both_tools_and_links_its_docs_section():
-    entry = mcp_tool_rename("find_series", "list_series", announced_in="0.53.0", removable_from="1.0.0")
-    assert entry.id == "mcp-tool-find-series"
-    assert entry.name == "The MCP tool find_series"
+    entry = mcp_tool_rename("list_comics", "list_series", announced_in="0.53.0", removable_from="1.0.0")
+    assert entry.id == "mcp-tool-list-comics"
+    assert entry.name == "The MCP tool list_comics"
     assert "list_series" in entry.replacement
-    assert entry.docs_url.endswith("#mcp-tool-find-series")
+    assert entry.docs_url.endswith("#mcp-tool-list-comics")
 
 
 def test_the_live_server_declares_an_alias_for_every_mcp_registry_entry():

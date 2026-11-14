@@ -51,7 +51,14 @@ CALLS = {
     "list_attention": ({}, lambda page: page["total"] == 0 and page["problems"] == []),
     "list_download_history": ({"status": "Failed"}, lambda page: page["downloads"] == []),
     "list_download_queue": ({}, lambda page: page["total"] == 0),
+    # The pull-list fetch is faked to fail, so the week reads as unavailable.
+    "get_weekly_releases": ({}, lambda out: out["source"] == "unavailable" and out["releases"] == []),
+    "get_system_health": ({}, lambda out: out["can_search"] is True and out["jobs"] == []),
+    "find_series": ({"name": "Saga"}, lambda page: [r["provider_id"] for r in page["results"]] == ["1001"]),
+    # An unknown run proves the tool is wired; real runs are in test_mcp_system_reads.py.
+    "get_search_run": ({"run_id": "run-x"}, lambda out: out["code"] == "not_found"),
 }
+EXPECTED_READ_ERRORS = {"get_search_run"}
 
 WRITE_CALLS = {
     "set_issue_status": ({"issue_id": "5001", "status": "wanted"}, lambda out: out["status"] == "Wanted"),
@@ -91,6 +98,11 @@ def _library(tmp_path, monkeypatch):
         "comicarr.app.search.health.get_search_health",
         lambda *_a, **_k: {"viable_route": True, "routes": {"ddl": {"ready": True}, "nzb": {}, "torrent": {}}},
     )
+    monkeypatch.setattr("comicarr.app.weekly.service._fetch_week", lambda *_a: None)
+    monkeypatch.setattr(
+        "comicarr.mb.findComic",
+        lambda *_a, **_k: [{"name": "Saga", "comicyear": "2012", "comicid": "1001", "issues": "66", "haveit": "1001"}],
+    )
     assert ensure_acquisition_schema(get_engine()).ready
     yield
     teardown_library()
@@ -105,7 +117,7 @@ async def test_every_tool_answers_in_each_protocol_era(mode, version):
         assert names == sorted(CALLS), "add a sample call for each new tool to CALLS"
         for name, (arguments, check) in CALLS.items():
             result = await mcp.call_tool(name, arguments)
-            assert not result.is_error, (name, result.content)
+            assert result.is_error == (name in EXPECTED_READ_ERRORS), (name, result.content)
             assert check(result.structured_content), (name, result.structured_content)
 
 
