@@ -1,0 +1,208 @@
+[
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "List the series in the library, filtered by name, kind and status.",
+    "inputSchema": {
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "comic",
+                "manga",
+                "magazine"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "comic (includes magazines), manga or magazine.",
+          "title": "Kind"
+        },
+        "limit": {
+          "default": 25,
+          "description": "Page size, 1 to 100.",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Part of the series name, any case.",
+          "title": "Name"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Items to skip before this page.",
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "Active",
+                "Paused",
+                "Ended",
+                "Loading",
+                "Error"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Series status.",
+          "title": "Status"
+        }
+      },
+      "title": "list_seriesArguments",
+      "type": "object"
+    },
+    "name": "list_series",
+    "outputSchema": {
+      "$defs": {
+        "SeriesSummary": {
+          "properties": {
+            "have": {
+              "description": "Issues on disk.",
+              "title": "Have",
+              "type": "integer"
+            },
+            "kind": {
+              "enum": [
+                "comic",
+                "manga",
+                "magazine"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "latest_issue": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Latest Issue"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "publisher": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Publisher"
+            },
+            "series_id": {
+              "title": "Series Id",
+              "type": "string"
+            },
+            "status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            },
+            "total": {
+              "description": "Issues the series has.",
+              "title": "Total",
+              "type": "integer"
+            },
+            "year": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          "required": [
+            "series_id",
+            "name",
+            "year",
+            "publisher",
+            "kind",
+            "status",
+            "have",
+            "total",
+            "latest_issue"
+          ],
+          "title": "SeriesSummary",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Offset of the next page; null on the last page.",
+          "title": "Next Offset"
+        },
+        "series": {
+          "items": {
+            "$ref": "#/$defs/SeriesSummary"
+          },
+          "title": "Series",
+          "type": "array"
+        },
+        "total": {
+          "description": "Items matching the filters, across all pages.",
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "next_offset",
+        "series"
+      ],
+      "title": "SeriesPage",
+      "type": "object"
+    },
+    "title": "List series"
+  }
+]
