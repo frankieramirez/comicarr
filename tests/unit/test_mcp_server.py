@@ -286,3 +286,36 @@ async def test_the_endpoint_serves_again_after_its_lifespan_restarts(app):
     for _ in range(2):
         async with http(app, Authorization="Bearer " + KEY) as client:
             assert (await client.post("/mcp", json=INIT, headers=STREAM_HEADERS)).status_code == 200
+
+
+def _add_series(**row):
+    from comicarr.db import get_engine
+    from comicarr.tables import comics
+
+    with get_engine().begin() as conn:
+        conn.execute(comics.insert().values(**row))
+
+
+@pytest.mark.asyncio
+async def test_an_accented_name_matches_as_typed_and_case_insensitively_in_ascii(app):
+    _add_series(ComicID="1004", ComicName="Éclair", ComicSortName="Eclair", Status="Ended", ContentType="comic")
+    async with mcp_client(app, Authorization="Bearer " + KEY) as mcp:
+        for typed in ("Éclair", "CLAIR", "clair"):
+            page = (await mcp.call_tool("list_series", {"name": typed})).structured_content
+            assert [s["series_id"] for s in page["series"]] == ["1004"], typed
+
+
+@pytest.mark.asyncio
+async def test_paging_through_tied_sort_names_returns_every_series_once(app):
+    for series_id in ("2003", "2001", "2002"):
+        _add_series(ComicID=series_id, ComicName="Annual", ComicSortName="Annual", ContentType="comic")
+    seen = []
+    async with mcp_client(app, Authorization="Bearer " + KEY) as mcp:
+        offset = 0
+        while offset is not None:
+            page = (
+                await mcp.call_tool("list_series", {"name": "Annual", "limit": 1, "offset": offset})
+            ).structured_content
+            seen += [s["series_id"] for s in page["series"]]
+            offset = page["next_offset"]
+    assert seen == ["2001", "2002", "2003"]

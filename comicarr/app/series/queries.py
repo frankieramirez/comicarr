@@ -117,13 +117,20 @@ def list_comics():
 def list_comics_paginated(limit, offset=0, name=None, kind=None, status=None):
     """List comics with pagination, optionally filtered by name, kind and status.
 
-    ``name`` matches case-insensitively anywhere in the series name. ``kind`` is
+    ``name`` matches anywhere in the series name, ignoring case. SQLite's
+    ``lower()`` folds ASCII only, so the name as typed is also tried, which keeps
+    ``Éclair`` matching ``Éclair`` there. ``kind`` is
     one of ``series_kind.CONTENT_KINDS``; ``comic`` includes magazines, as
     :func:`series_kind.comic_sql_clause` does.
     """
-    stmt = select(*COMICS_COLUMNS).order_by(t_comics.c.ComicSortName)
+    stmt = select(*COMICS_COLUMNS).order_by(t_comics.c.ComicSortName, t_comics.c.ComicID)
     if name:
-        stmt = stmt.where(func.lower(t_comics.c.ComicName).contains(name.lower(), autoescape=True))
+        stmt = stmt.where(
+            or_(
+                func.lower(t_comics.c.ComicName).contains(name.lower(), autoescape=True),
+                t_comics.c.ComicName.contains(name, autoescape=True),
+            )
+        )
     if status:
         stmt = stmt.where(t_comics.c.Status == status)
     if kind:
