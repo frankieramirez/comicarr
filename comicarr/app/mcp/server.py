@@ -33,10 +33,14 @@ from mcp.server import MCPServer
 from mcp.server.auth.middleware.auth_context import AuthContextMiddleware
 from mcp.server.auth.middleware.bearer_auth import BearerAuthBackend, RequireAuthMiddleware
 from mcp.server.auth.provider import AccessToken
+from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 from mcp.server.streamable_http_manager import StreamableHTTPASGIApp
 from mcp.server.transport_security import TransportSecuritySettings
+from pydantic import ValidationError
 from starlette.middleware.authentication import AuthenticationMiddleware
 
+from comicarr import logger
+from comicarr.app.mcp.contracts import ContractError, tool_error
 from comicarr.app.mcp.tools import series as series_tools
 from comicarr.app.system.service import login_rate_limiter
 
@@ -57,12 +61,41 @@ class ApiKeyVerifier:
         return AccessToken(token=token, client_id="api-key", scopes=[])
 
 
+def _argument_problem(error):
+    """Name the rejected fields, never their values: those are the caller's data."""
+    fields = sorted({".".join(str(part) for part in err["loc"]) or "arguments" for err in error.errors()})
+    return "Invalid value for %s." % ", ".join(fields)
+
+
+class ComicarrMCPServer(MCPServer):
+    """MCPServer whose tool failures all carry the contract's ``{code, message, retryable}``.
+
+    An unknown tool stays the SDK's own error result. Rejected arguments become
+    ``invalid_argument``; a :class:`ContractError` becomes its own code; any
+    other exception becomes ``internal`` and its text stays in the log.
+    """
+
+    async def call_tool(self, name, arguments, context=None):
+        try:
+            return await super().call_tool(name, arguments, context)
+        except UnexpectedToolError as e:
+            if isinstance(e.__cause__, ContractError):
+                body = e.__cause__.body
+                return tool_error(body.code, body.message, body.retryable)
+            logger.error("[MCP] Tool %s failed: %r" % (name, e.__cause__))
+            return tool_error("internal", "The tool failed. Details are in the Comicarr log.", retryable=True)
+        except ToolError as e:
+            if isinstance(e.__cause__, ValidationError):
+                return tool_error("invalid_argument", _argument_problem(e.__cause__))
+            raise
+
+
 def _build_server():
     # MCPServer calls logging.basicConfig(), which would give the root logger a
     # stderr handler Comicarr never asked for. Put the root logger back.
     root = logging.getLogger()
     handlers, level = list(root.handlers), root.level
-    server = MCPServer(name="comicarr", title="Comicarr", instructions=INSTRUCTIONS)
+    server = ComicarrMCPServer(name="comicarr", title="Comicarr", instructions=INSTRUCTIONS)
     root.handlers[:] = handlers
     root.setLevel(level)
     return server

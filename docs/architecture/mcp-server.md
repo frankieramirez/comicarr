@@ -7,7 +7,9 @@ section records a decision made on the
 and links the ticket that holds the reasoning. The build runs under
 [Build: MCP server](https://github.com/frankieramirez/comicarr/issues/1301).
 Sections 1 to 3 are live, with `list_series` as the only tool
-([#1302](https://github.com/frankieramirez/comicarr/issues/1302)).
+([#1302](https://github.com/frankieramirez/comicarr/issues/1302)), and so is
+the section 6 contract
+([#1303](https://github.com/frankieramirez/comicarr/issues/1303)).
 
 Research: [MCP transport, auth and clients](../research/2026-11-13-mcp-transport-auth-clients.md)
 ([ticket](https://github.com/frankieramirez/comicarr/issues/1243)).
@@ -164,6 +166,15 @@ Decision: [ticket](https://github.com/frankieramirez/comicarr/issues/1249).
   fails until the snapshot is updated in the same pull request, and a name
   that disappears without a registry entry fails outright. The snapshot is the
   MCP part of the milestone 5 contract.
+- In code: `comicarr/app/mcp/contracts.py` holds `VERBS`, the error codes,
+  `Limit`/`Offset`, the `Paged` output base, `tool_result()`, `tool_error()`
+  and `ContractError`. `ComicarrMCPServer` turns rejected arguments into
+  `invalid_argument` and any unexpected exception into `internal`.
+  `tests/unit/test_mcp_contract.py` holds the snapshot and name checks;
+  regenerate the snapshot with
+  `UPDATE_MCP_SNAPSHOT=1 pytest tests/unit/test_mcp_contract.py`.
+  `tests/integration/test_mcp_eras.py` drives every tool once per protocol
+  era, and a new tool adds its sample call to `CALLS` there.
 
 ## 7. Clients
 

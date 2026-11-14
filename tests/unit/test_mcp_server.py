@@ -13,7 +13,6 @@
 import socket
 import threading
 import time
-import types
 from contextlib import asynccontextmanager
 
 import httpx2
@@ -22,108 +21,21 @@ import uvicorn
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 
-import comicarr
-from comicarr.app.main import create_app
+from comicarr.app.mcp.contracts import ContractError
 from comicarr.app.system.service import login_rate_limiter
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, metadata
-
-KEY = "mcp-test-key-0123456789abcdef"
-INIT = {
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "initialize",
-    "params": {"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": "t", "version": "0"}},
-}
-STREAM_HEADERS = {"Accept": "application/json, text/event-stream"}
-
-SERIES = [
-    {
-        "ComicID": "1001",
-        "ComicName": "Saga",
-        "ComicSortName": "Saga",
-        "ComicYear": "2012",
-        "Status": "Active",
-        "ComicPublisher": "Image",
-        "Have": 60,
-        "Total": 66,
-        "LatestIssue": "66",
-        "ContentType": "comic",
-    },
-    {
-        "ComicID": "md-abc",
-        "ComicName": "Dandadan",
-        "ComicSortName": "Dandadan",
-        "ComicYear": "2021",
-        "Status": "Active",
-        "Have": 10,
-        "Total": 150,
-        "ContentType": "manga",
-    },
-    {
-        "ComicID": "1002",
-        "ComicName": "Paper Girls",
-        "ComicSortName": "Paper Girls",
-        "ComicYear": "2015",
-        "Status": "Paused",
-        "Have": 30,
-        "Total": 30,
-        "ContentType": "comic",
-    },
-    {
-        "ComicID": "1003",
-        "ComicName": "Wired",
-        "ComicSortName": "Wired",
-        "ComicYear": "1993",
-        "Status": "Active",
-        "Have": 1,
-        "Total": 5,
-        "ContentType": "magazine",
-    },
-]
+from tests.mcp_harness import INIT, KEY, STREAM_HEADERS, http, make_app, mcp_client, seed_library, teardown_library
 
 
 @pytest.fixture(autouse=True)
 def _library(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
-    monkeypatch.delenv("DATABASE_URL", raising=False)
-    shutdown_engine()
-    engine = get_engine()
-    metadata.create_all(engine)
-    with engine.begin() as conn:
-        for row in SERIES:
-            conn.execute(comics.insert().values(**row))
-    login_rate_limiter().record_success("127.0.0.1")
-    login_rate_limiter().record_success("testclient")
+    seed_library(tmp_path, monkeypatch)
     yield
-    login_rate_limiter().record_success("127.0.0.1")
-    login_rate_limiter().record_success("testclient")
-    shutdown_engine()
+    teardown_library()
 
 
 @pytest.fixture
 def app():
-    app = create_app()
-    app.state.ctx = types.SimpleNamespace(
-        config=types.SimpleNamespace(MCP_ENABLED=True, MCP_WRITE_ENABLED=False, API_KEY=KEY, ENABLE_HTTPS=False),
-        setup_token=None,
-    )
-    return app
-
-
-@asynccontextmanager
-async def http(app, **headers):
-    async with app.state.mcp.run():
-        transport = httpx2.ASGITransport(app=app, client=("127.0.0.1", 5000))
-        async with httpx2.AsyncClient(transport=transport, base_url="http://testserver", headers=headers) as client:
-            yield client
-
-
-@asynccontextmanager
-async def mcp_client(app, **headers):
-    async with http(app, **headers) as client:
-        async with Client(streamable_http_client("http://testserver/mcp", http_client=client)) as mcp:
-            yield mcp
+    return make_app()
 
 
 @pytest.mark.asyncio
@@ -134,7 +46,7 @@ async def test_tools_list_and_list_series_through_the_sdk_client(app):
         tool = tools[0]
         assert tool.title == "List series"
         assert tool.annotations.read_only_hint is True
-        assert tool.output_schema["required"] == ["series", "total", "next_offset"]
+        assert sorted(tool.output_schema["required"]) == ["next_offset", "series", "total"]
 
         result = await mcp.call_tool("list_series", {})
         assert not result.is_error
@@ -175,8 +87,45 @@ async def test_list_series_filters_and_pages(app):
         named = (await mcp.call_tool("list_series", {"name": "GIRL"})).structured_content
         assert [s["name"] for s in named["series"]] == ["Paper Girls"]
 
-        too_big = await mcp.call_tool("list_series", {"limit": 101})
-        assert too_big.is_error
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "arguments, field",
+    [({"kind": "comics"}, "kind"), ({"status": "Dormant"}, "status"), ({"limit": 101}, "limit")],
+)
+async def test_an_unknown_filter_value_is_invalid_argument(app, arguments, field):
+    async with mcp_client(app, Authorization="Bearer " + KEY) as mcp:
+        result = await mcp.call_tool("list_series", arguments)
+    assert result.is_error
+    assert result.structured_content == {
+        "code": "invalid_argument",
+        "message": "Invalid value for %s." % field,
+        "retryable": False,
+    }
+    assert str(next(iter(arguments.values()))) not in result.content[0].text
+
+
+@pytest.mark.asyncio
+async def test_a_contract_error_keeps_its_code_and_a_crash_is_internal_without_its_text(app):
+    @app.state.mcp.server.tool(name="get_gone")
+    def get_gone() -> str:
+        raise ContractError("not_found", "No series 42.")
+
+    @app.state.mcp.server.tool(name="get_crash")
+    def get_crash() -> str:
+        raise RuntimeError("secret path /srv/comics")
+
+    async with mcp_client(app, Authorization="Bearer " + KEY) as mcp:
+        gone = await mcp.call_tool("get_gone", {})
+        crash = await mcp.call_tool("get_crash", {})
+    assert gone.is_error and gone.structured_content == {
+        "code": "not_found",
+        "message": "No series 42.",
+        "retryable": False,
+    }
+    assert crash.is_error and crash.structured_content["code"] == "internal"
+    assert crash.structured_content["retryable"] is True
+    assert "secret" not in crash.content[0].text and "secret" not in str(crash.structured_content)
 
 
 @pytest.mark.asyncio

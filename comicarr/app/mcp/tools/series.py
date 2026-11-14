@@ -12,11 +12,20 @@
 
 from typing import Annotated
 
-from mcp_types import CallToolResult, TextContent, ToolAnnotations
+from mcp_types import CallToolResult, ToolAnnotations
 from pydantic import Field
 
 from comicarr import series_kind
-from comicarr.app.mcp.contracts import Limit, Offset, SeriesKind, SeriesPage, SeriesSummary, next_offset
+from comicarr.app.mcp.contracts import (
+    Limit,
+    Offset,
+    SeriesKind,
+    SeriesPage,
+    SeriesStatus,
+    SeriesSummary,
+    paging,
+    tool_result,
+)
 from comicarr.app.series import service as series_service
 
 
@@ -55,22 +64,17 @@ def register(server, get_ctx):
     def list_series(
         name: Annotated[str | None, Field(description="Part of the series name, any case.")] = None,
         kind: Annotated[SeriesKind | None, Field(description="comic (includes magazines), manga or magazine.")] = None,
-        status: Annotated[str | None, Field(description="Series status, such as Active, Paused or Ended.")] = None,
+        status: Annotated[SeriesStatus | None, Field(description="Series status.")] = None,
         limit: Limit = 25,
         offset: Offset = 0,
     ) -> Annotated[CallToolResult, SeriesPage]:
         result = series_service.list_comics(get_ctx(), limit=limit, offset=offset, name=name, kind=kind, status=status)
         rows = result["comics"]
-        total = result["pagination"]["total"]
         page = SeriesPage(
             series=[_summary(row) for row in rows],
-            total=total,
-            next_offset=next_offset(offset, len(rows), total),
+            **paging(offset, len(rows), result["pagination"]["total"]),
         )
-        summary = "%d of %d series" % (len(rows), total)
+        summary = "%d of %d series" % (len(rows), page.total)
         if page.next_offset is not None:
             summary += "; next page at offset %d" % page.next_offset
-        return CallToolResult(
-            content=[TextContent(type="text", text=summary + ".")],
-            structured_content=page.model_dump(mode="json"),
-        )
+        return tool_result(page, summary + ".")
