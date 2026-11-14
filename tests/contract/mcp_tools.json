@@ -84,6 +84,825 @@
       "openWorldHint": false,
       "readOnlyHint": true
     },
+    "description": "Why an issue is not here yet: its state, whether automatic search will look for it, what the last search found and rejected, and what was grabbed.",
+    "inputSchema": {
+      "properties": {
+        "issue_id": {
+          "description": "Comicarr's issue or annual id.",
+          "minLength": 1,
+          "title": "Issue Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "issue_id"
+      ],
+      "title": "get_issue_storyArguments",
+      "type": "object"
+    },
+    "name": "get_issue_story",
+    "outputSchema": {
+      "$defs": {
+        "SearchAttempts": {
+          "properties": {
+            "download": {
+              "title": "Download",
+              "type": "integer"
+            },
+            "grab": {
+              "title": "Grab",
+              "type": "integer"
+            },
+            "imported": {
+              "title": "Imported",
+              "type": "integer"
+            },
+            "search": {
+              "title": "Search",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "search",
+            "grab",
+            "download",
+            "imported"
+          ],
+          "title": "SearchAttempts",
+          "type": "object"
+        },
+        "SearchCandidate": {
+          "properties": {
+            "chosen": {
+              "description": "True for the release Comicarr grabbed.",
+              "title": "Chosen",
+              "type": "boolean"
+            },
+            "pack": {
+              "title": "Pack",
+              "type": "boolean"
+            },
+            "provider": {
+              "title": "Provider",
+              "type": "string"
+            },
+            "size_bytes": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Size Bytes"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "provider",
+            "size_bytes",
+            "pack",
+            "chosen"
+          ],
+          "title": "SearchCandidate",
+          "type": "object"
+        },
+        "SearchReason": {
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "count": {
+              "title": "Count",
+              "type": "integer"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "label",
+            "count"
+          ],
+          "title": "SearchReason",
+          "type": "object"
+        },
+        "SearchSummary": {
+          "properties": {
+            "accepted": {
+              "title": "Accepted",
+              "type": "integer"
+            },
+            "candidates": {
+              "description": "Acceptable releases, at most 20.",
+              "items": {
+                "$ref": "#/$defs/SearchCandidate"
+              },
+              "title": "Candidates",
+              "type": "array"
+            },
+            "providers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Providers",
+              "type": "array"
+            },
+            "reasons": {
+              "description": "Why releases were rejected, most common first.",
+              "items": {
+                "$ref": "#/$defs/SearchReason"
+              },
+              "title": "Reasons",
+              "type": "array"
+            },
+            "rejected": {
+              "title": "Rejected",
+              "type": "integer"
+            },
+            "results": {
+              "description": "Releases the providers returned.",
+              "title": "Results",
+              "type": "integer"
+            },
+            "searched_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Searched At"
+            }
+          },
+          "required": [
+            "searched_at",
+            "results",
+            "accepted",
+            "rejected",
+            "providers",
+            "reasons",
+            "candidates"
+          ],
+          "title": "SearchSummary",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "attempts": {
+          "$ref": "#/$defs/SearchAttempts",
+          "description": "Finished searches, grabs, downloads and imports for this issue."
+        },
+        "chosen_release": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The release name last handed to a download client.",
+          "title": "Chosen Release"
+        },
+        "eligibility_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Eligibility Reason"
+        },
+        "eligible": {
+          "title": "Eligible",
+          "type": "boolean"
+        },
+        "entity_type": {
+          "enum": [
+            "issue",
+            "annual"
+          ],
+          "title": "Entity Type",
+          "type": "string"
+        },
+        "issue_id": {
+          "title": "Issue Id",
+          "type": "string"
+        },
+        "last_search": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SearchSummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What the most recent search saw; null if never searched."
+        },
+        "number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Number"
+        },
+        "release_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Release Date"
+        },
+        "series_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Series Id"
+        },
+        "series_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Series Name"
+        },
+        "state": {
+          "enum": [
+            "Wanted",
+            "Missing",
+            "Skipped",
+            "Ignored",
+            "Reserved",
+            "Snatched",
+            "Downloaded",
+            "Archived",
+            "Failed",
+            "Covered",
+            "Unknown"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "issue_id",
+        "entity_type",
+        "series_id",
+        "series_name",
+        "number",
+        "state",
+        "eligible",
+        "eligibility_reason",
+        "release_date",
+        "attempts",
+        "last_search",
+        "chosen_release"
+      ],
+      "title": "IssueStory",
+      "type": "object"
+    },
+    "title": "Get issue story"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "One series in the library: status, folder, issue counts, provider pages, and its last released and next announced issue.",
+    "inputSchema": {
+      "properties": {
+        "series_id": {
+          "description": "Comicarr's series id, from list_series.",
+          "minLength": 1,
+          "title": "Series Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "series_id"
+      ],
+      "title": "get_seriesArguments",
+      "type": "object"
+    },
+    "name": "get_series",
+    "outputSchema": {
+      "$defs": {
+        "IssueCounts": {
+          "properties": {
+            "annuals": {
+              "title": "Annuals",
+              "type": "integer"
+            },
+            "failed": {
+              "title": "Failed",
+              "type": "integer"
+            },
+            "future": {
+              "description": "Monitored issues not released yet.",
+              "title": "Future",
+              "type": "integer"
+            },
+            "in_flight": {
+              "description": "Snatched or reserved, on its way.",
+              "title": "In Flight",
+              "type": "integer"
+            },
+            "issues": {
+              "title": "Issues",
+              "type": "integer"
+            },
+            "missing": {
+              "description": "Not owned, not in flight and not covered by a pack.",
+              "title": "Missing",
+              "type": "integer"
+            },
+            "owned": {
+              "description": "On disk or archived.",
+              "title": "Owned",
+              "type": "integer"
+            },
+            "skipped": {
+              "title": "Skipped",
+              "type": "integer"
+            },
+            "wanted": {
+              "title": "Wanted",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "issues",
+            "annuals",
+            "owned",
+            "wanted",
+            "missing",
+            "in_flight",
+            "skipped",
+            "failed",
+            "future"
+          ],
+          "title": "IssueCounts",
+          "type": "object"
+        },
+        "IssueRef": {
+          "properties": {
+            "issue_id": {
+              "title": "Issue Id",
+              "type": "string"
+            },
+            "number": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Number"
+            },
+            "release_date": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The date Comicarr goes by: release, digital or cover date.",
+              "title": "Release Date"
+            }
+          },
+          "required": [
+            "issue_id",
+            "number",
+            "release_date"
+          ],
+          "title": "IssueRef",
+          "type": "object"
+        },
+        "ProviderLink": {
+          "properties": {
+            "provider": {
+              "title": "Provider",
+              "type": "string"
+            },
+            "url": {
+              "title": "Url",
+              "type": "string"
+            }
+          },
+          "required": [
+            "provider",
+            "url"
+          ],
+          "title": "ProviderLink",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "counts": {
+          "$ref": "#/$defs/IssueCounts"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Description"
+        },
+        "have": {
+          "description": "Issues on disk.",
+          "title": "Have",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "comic",
+            "manga",
+            "magazine"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "last_issue": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IssueRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The most recently released issue."
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The series folder.",
+          "title": "Location"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "next_issue": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IssueRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The next issue to be released, when one is announced."
+        },
+        "providers": {
+          "description": "The series' pages on its metadata providers.",
+          "items": {
+            "$ref": "#/$defs/ProviderLink"
+          },
+          "title": "Providers",
+          "type": "array"
+        },
+        "publisher": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Publisher"
+        },
+        "search_providers": {
+          "description": "Search providers this series uses, in order.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Search Providers",
+          "type": "array"
+        },
+        "series_id": {
+          "title": "Series Id",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Status"
+        },
+        "total": {
+          "description": "Issues the series has.",
+          "title": "Total",
+          "type": "integer"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Year"
+        }
+      },
+      "required": [
+        "series_id",
+        "name",
+        "year",
+        "publisher",
+        "kind",
+        "status",
+        "location",
+        "description",
+        "have",
+        "total",
+        "counts",
+        "providers",
+        "search_providers",
+        "last_issue",
+        "next_issue"
+      ],
+      "title": "SeriesDetail",
+      "type": "object"
+    },
+    "title": "Get series"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "List the issues and annuals of one series, newest first, optionally only those in one state.",
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "default": 25,
+          "description": "Page size, 1 to 100.",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Items to skip before this page.",
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "series_id": {
+          "description": "Comicarr's series id, from list_series.",
+          "minLength": 1,
+          "title": "Series Id",
+          "type": "string"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "enum": [
+                "Wanted",
+                "Missing",
+                "Skipped",
+                "Ignored",
+                "Reserved",
+                "Snatched",
+                "Downloaded",
+                "Archived",
+                "Failed",
+                "Covered",
+                "Unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only issues in this state.",
+          "title": "State"
+        }
+      },
+      "required": [
+        "series_id"
+      ],
+      "title": "list_issuesArguments",
+      "type": "object"
+    },
+    "name": "list_issues",
+    "outputSchema": {
+      "$defs": {
+        "IssueSummary": {
+          "properties": {
+            "eligibility_reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Why it is or is not eligible, such as future or paused.",
+              "title": "Eligibility Reason"
+            },
+            "eligible": {
+              "description": "Automatic search will look for it now.",
+              "title": "Eligible",
+              "type": "boolean"
+            },
+            "entity_type": {
+              "enum": [
+                "issue",
+                "annual"
+              ],
+              "title": "Entity Type",
+              "type": "string"
+            },
+            "in_flight": {
+              "title": "In Flight",
+              "type": "boolean"
+            },
+            "issue_id": {
+              "title": "Issue Id",
+              "type": "string"
+            },
+            "monitored": {
+              "description": "False when Skipped or Ignored: automatic search leaves it alone.",
+              "title": "Monitored",
+              "type": "boolean"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            },
+            "number": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Number"
+            },
+            "owned": {
+              "title": "Owned",
+              "type": "boolean"
+            },
+            "release_date": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Release Date"
+            },
+            "state": {
+              "enum": [
+                "Wanted",
+                "Missing",
+                "Skipped",
+                "Ignored",
+                "Reserved",
+                "Snatched",
+                "Downloaded",
+                "Archived",
+                "Failed",
+                "Covered",
+                "Unknown"
+              ],
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "issue_id",
+            "entity_type",
+            "number",
+            "name",
+            "state",
+            "release_date",
+            "owned",
+            "in_flight",
+            "monitored",
+            "eligible",
+            "eligibility_reason"
+          ],
+          "title": "IssueSummary",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "issues": {
+          "items": {
+            "$ref": "#/$defs/IssueSummary"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Offset of the next page; null on the last page.",
+          "title": "Next Offset"
+        },
+        "series_id": {
+          "title": "Series Id",
+          "type": "string"
+        },
+        "total": {
+          "description": "Items matching the filters, across all pages.",
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "next_offset",
+        "series_id",
+        "issues"
+      ],
+      "title": "IssuePage",
+      "type": "object"
+    },
+    "title": "List issues"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "description": "List the series in the library, filtered by name, kind and status.",
     "inputSchema": {
       "properties": {
@@ -284,6 +1103,370 @@
       "type": "object"
     },
     "title": "List series"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "What is missing: Wanted issues one by one, or grouped by series with how many were searched and not found, are being searched, or are waiting.",
+    "inputSchema": {
+      "properties": {
+        "group_by": {
+          "default": "issue",
+          "description": "issue or series.",
+          "enum": [
+            "issue",
+            "series"
+          ],
+          "title": "Group By",
+          "type": "string"
+        },
+        "limit": {
+          "default": 25,
+          "description": "Page size, 1 to 100.",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Part of the series name or issue number, any case.",
+          "title": "Name"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Items to skip before this page.",
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "series_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only this series. Applies when group_by is issue.",
+          "title": "Series Id"
+        }
+      },
+      "title": "list_wantedArguments",
+      "type": "object"
+    },
+    "name": "list_wanted",
+    "outputSchema": {
+      "$defs": {
+        "LastSearch": {
+          "properties": {
+            "attempts": {
+              "title": "Attempts",
+              "type": "integer"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            },
+            "run_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Id"
+            },
+            "searched_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Searched At"
+            },
+            "state": {
+              "description": "The latest search run item's state, such as no_match, searching or grabbed.",
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "state",
+            "attempts",
+            "reason",
+            "run_id",
+            "searched_at"
+          ],
+          "title": "LastSearch",
+          "type": "object"
+        },
+        "WantedIssue": {
+          "properties": {
+            "issue_id": {
+              "title": "Issue Id",
+              "type": "string"
+            },
+            "last_search": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/LastSearch"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Null when it was never searched."
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            },
+            "number": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Number"
+            },
+            "release_date": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Release Date"
+            },
+            "series_id": {
+              "title": "Series Id",
+              "type": "string"
+            },
+            "series_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Series Name"
+            }
+          },
+          "required": [
+            "issue_id",
+            "series_id",
+            "series_name",
+            "number",
+            "name",
+            "release_date",
+            "last_search"
+          ],
+          "title": "WantedIssue",
+          "type": "object"
+        },
+        "WantedSeries": {
+          "properties": {
+            "eta_hours": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Hours until automatic search reaches the last of them.",
+              "title": "Eta Hours"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "last_searched_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Searched At"
+            },
+            "missing": {
+              "description": "Wanted issues in this series.",
+              "title": "Missing",
+              "type": "integer"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            },
+            "not_found": {
+              "description": "Searched and nothing usable was found.",
+              "title": "Not Found",
+              "type": "integer"
+            },
+            "publisher": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Publisher"
+            },
+            "queued": {
+              "description": "Waiting for automatic search to reach them.",
+              "title": "Queued",
+              "type": "integer"
+            },
+            "searching": {
+              "title": "Searching",
+              "type": "integer"
+            },
+            "series_id": {
+              "title": "Series Id",
+              "type": "string"
+            },
+            "which": {
+              "description": "The Wanted issue numbers, folded, such as #1-12, #20.",
+              "title": "Which",
+              "type": "string"
+            },
+            "year": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          "required": [
+            "series_id",
+            "name",
+            "year",
+            "publisher",
+            "kind",
+            "missing",
+            "which",
+            "not_found",
+            "searching",
+            "queued",
+            "last_searched_at",
+            "eta_hours"
+          ],
+          "title": "WantedSeries",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "group_by": {
+          "enum": [
+            "issue",
+            "series"
+          ],
+          "title": "Group By",
+          "type": "string"
+        },
+        "issues": {
+          "description": "Filled when group_by is issue.",
+          "items": {
+            "$ref": "#/$defs/WantedIssue"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Offset of the next page; null on the last page.",
+          "title": "Next Offset"
+        },
+        "series": {
+          "description": "Filled when group_by is series.",
+          "items": {
+            "$ref": "#/$defs/WantedSeries"
+          },
+          "title": "Series",
+          "type": "array"
+        },
+        "total": {
+          "description": "Items matching the filters, across all pages.",
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "next_offset",
+        "group_by",
+        "issues",
+        "series"
+      ],
+      "title": "WantedPage",
+      "type": "object"
+    },
+    "title": "List wanted issues"
   },
   {
     "annotations": {

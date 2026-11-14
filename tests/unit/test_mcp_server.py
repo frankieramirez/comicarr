@@ -42,8 +42,7 @@ def app():
 async def test_tools_list_and_list_series_through_the_sdk_client(app):
     async with mcp_client(app, Authorization="Bearer " + KEY) as mcp:
         tools = (await mcp.list_tools()).tools
-        assert [t.name for t in tools] == ["list_series"]
-        tool = tools[0]
+        tool = next(t for t in tools if t.name == "list_series")
         assert tool.title == "List series"
         assert tool.annotations.read_only_hint is True
         assert sorted(tool.output_schema["required"]) == ["next_offset", "series", "total"]

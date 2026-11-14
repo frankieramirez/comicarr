@@ -120,15 +120,21 @@ def _log_lines(ctx, issue_id, chosen_name):
     return {"query": queries[0], "lines": lines}
 
 
-def story_details(ctx, issue_id):
-    """Everything the issue page shows beside "What happened"."""
+def story_details(ctx, issue_id, include_log=True):
+    """Everything the issue page shows beside "What happened".
+
+    ``include_log=False`` skips the log search and leaves ``log`` out, for
+    callers that must not expose log lines.
+    """
     issue_id = str(issue_id)
     latest = _latest_journal(issue_id)
     chosen_name = (latest or {}).get("nzbname")
-    return {
+    details = {
         "issue_id": issue_id,
         "attempts": _attempts(issue_id),
         "search": _mark_chosen(search_history.read(issue_id), chosen_name),
         "chosen": chosen_name,
-        "log": _log_lines(ctx, issue_id, chosen_name),
     }
+    if include_log:
+        details["log"] = _log_lines(ctx, issue_id, chosen_name)
+    return details

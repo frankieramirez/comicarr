@@ -301,6 +301,55 @@ def get_comic_detail(ctx, comic_id):
     }
 
 
+ISSUE_DISPLAY_STATES = (
+    "Wanted",
+    "Missing",
+    "Skipped",
+    "Ignored",
+    "Reserved",
+    "Snatched",
+    "Downloaded",
+    "Archived",
+    "Failed",
+    "Covered",
+    "Unknown",
+)
+
+
+def list_series_issues(ctx, comic_id, status=None, limit=25, offset=0):
+    """One page of a series' projected issues and annuals, optionally one display state.
+
+    Returns None when no series has ``comic_id``; otherwise ``{"issues", "total"}``
+    where ``total`` counts every row matching ``status``.
+    """
+    detail = get_comic_detail(ctx, comic_id)
+    if not detail["comic"]:
+        return None
+    rows = detail["issues"] + detail["annuals"]
+    if status:
+        rows = [row for row in rows if row["displayState"] == status]
+    offset = max(0, int(offset or 0))
+    return {"issues": rows[offset : offset + limit], "total": len(rows)}
+
+
+def get_issue_state(ctx, issue_id):
+    """One issue or annual projected like the series page shows it, with its series row; or None."""
+    found = series_queries.get_issue_row(issue_id)
+    if found is None:
+        return None
+    table, row = found
+    comic = series_queries.get_comic(row.get("comicId"))
+    series = comic[0] if comic else {}
+    projected = project_issue_state(
+        row,
+        series_status=series.get("Status"),
+        annual=table == "annuals",
+        series_location=series.get("ComicLocation"),
+        retained_locations=series_locations.retained_locations(series) if series else [],
+    )
+    return {"issue": projected, "series": series or None}
+
+
 def add_comic(ctx, comic_id, folder=None):
     """Add a comic to the watchlist (queued on the mass-add worker)."""
     if comic_id.startswith("4050-"):
