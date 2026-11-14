@@ -87,11 +87,19 @@ def _indexer(row) -> IndexerHealth:
     )
 
 
+# Folder probe results that end in the configured path, and what MCP says instead.
+_FOLDER_RESULTS = (
+    ("Folder not found", "Folder not found"),
+    ("Comicarr can't write to ", "Comicarr can't write to the folder"),
+)
+
+
 def _connection_result(value):
     """The probe's result, without a configured folder path."""
     text = _text(value)
-    if text and text.startswith("Folder not found"):
-        return "Folder not found"
+    for prefix, redacted in _FOLDER_RESULTS:
+        if text and text.startswith(prefix):
+            return redacted
     return text
 
 

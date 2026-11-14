@@ -245,7 +245,21 @@ def test_health_hides_a_bearer_token_and_a_folder_path():
     assert "s3cret" not in _sanitize("401 with Authorization: Bearer s3cret-token")
     assert "s3cret" not in _sanitize("Authorization=Basic s3cret")
     assert _connection_result("Folder not found: /srv/private/ddl") == "Folder not found"
+    assert _connection_result("Comicarr can't write to /srv/private/ddl") == "Comicarr can't write to the folder"
     assert _connection_result("Connected") == "Connected"
+
+
+@pytest.mark.asyncio
+async def test_health_reports_an_unwritable_folder_without_its_path(monkeypatch):
+    from comicarr.app.system import connections
+
+    row = {"key": "ddl_folder", "label": "Direct-download folder", "kind": "folder", "ok": False}
+    row["result"] = "Comicarr can't write to /srv/private/ddl"
+    monkeypatch.setattr(connections, "snapshot", lambda *_a, **_k: [row])
+    health = (await _call("get_system_health", {})).structured_content
+    [folder] = [c for c in health["connections"] if c["key"] == "ddl_folder"]
+    assert (folder["ok"], folder["result"]) == (False, "Comicarr can't write to the folder")
+    assert "/srv/private" not in json.dumps(health)
 
 
 @pytest.mark.asyncio
