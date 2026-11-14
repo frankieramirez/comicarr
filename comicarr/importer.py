@@ -379,7 +379,9 @@ def addComictoDB(
 
     if not comic:
         logger.warn("Error fetching comic. ID for : " + comicid)
-        if dbcomic is None:
+        if dbcomic is None or str(dbcomic.get("ComicName") or "").startswith(("Fetch failed", "Comic ID:")):
+            # A retry of a failed add fails the same way: keep the marker so
+            # the next add retries instead of finding the series "in the library".
             newValueDict = {"ComicName": "Fetch failed, try refreshing. (%s)" % (comicid), "Status": "Active"}
         else:
             if series_status == "Active" or series_status == "Loading":

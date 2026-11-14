@@ -208,3 +208,19 @@ def test_the_mass_add_worker_marks_a_series_wanted_right_after_an_add_that_carri
     series_queue.put({"comicid": "1002", "comicname": None, "seriesyear": None})
     importer.addvialist(series_queue, want_queue)
     assert calls == [("add", "4050-1001"), ("want", "1001"), ("add", "1002")]
+
+
+def test_a_retry_that_fails_again_keeps_the_failed_fetch_marker(monkeypatch):
+    """Two failed fetches in a row through the real addComictoDB leave a row that
+    the next add still treats as retryable."""
+    from types import SimpleNamespace
+
+    import comicarr
+    from comicarr.app.series import queries as series_queries
+
+    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(IMP_PATHS=False), raising=False)
+    monkeypatch.setattr(importer.cv, "getComic", lambda *_a, **_k: None)
+    monkeypatch.setattr(importer.helpers, "ComicSort", lambda *_a, **_k: None)
+    for _attempt in range(2):
+        assert importer.addComictoDB("4321")["status"] == "incomplete"
+        assert series_queries.is_failed_add_placeholder("4321")
