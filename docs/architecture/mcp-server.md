@@ -16,7 +16,10 @@ and `resume_series` are live
 the search writes `search_issue`, `search_missing` and `retry_search_run`
 ([#1308](https://github.com/frankieramirez/comicarr/issues/1308)), and
 `add_series` and `refresh_series`
-([#1309](https://github.com/frankieramirez/comicarr/issues/1309)).
+([#1309](https://github.com/frankieramirez/comicarr/issues/1309)), and the
+recovery writes `retry_post_processing`, `resolve_attention` and
+`cancel_in_flight` ([#1310](https://github.com/frankieramirez/comicarr/issues/1310)):
+every section 5 tool.
 
 Research: [MCP transport, auth and clients](../research/2026-11-13-mcp-transport-auth-clients.md)
 ([ticket](https://github.com/frankieramirez/comicarr/issues/1243)).
@@ -163,7 +166,13 @@ Decision: [ticket](https://github.com/frankieramirez/comicarr/issues/1248).
   Wanted right after the add (`importer.markSeriesWanted`). A row left by a
   failed metadata fetch does not count as already in the library, so a later
   `add_series` retries it. `add_series` and `refresh_series` write `add.started` and
-  `refresh.started` series rows with `actor`.
+  `refresh.started` series rows with `actor`. `retry_post_processing` calls
+  `downloads.service.retry_post_processing`: `postprocessing.recover` for a
+  row already moved or post-processing, the Activity retry queue for a
+  finished download. `resolve_attention` offers `retry`, `search_again` and
+  `stop_wanting` through `attention.resolve`, never `import`, which takes a
+  folder. `cancel_in_flight` passes `actor` to the run item's
+  `search.cancelled` row; a cancelled download's row carries no actor yet.
 - Writes that would start acquisition during maintenance return
   `maintenance`; `retry_post_processing` returns `busy` when the processing
   lock is held.

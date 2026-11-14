@@ -132,6 +132,38 @@ class SeriesRefreshQueued(BaseModel):
     already_queued: bool = Field(description="True when a refresh of this series was already waiting.")
 
 
+ReleaseKey = Annotated[str, Field(min_length=1, description="A download's release_key, as list_in_flight returns it.")]
+
+
+class PostProcessingRetry(BaseModel):
+    release_key: str
+    status: Literal["processed", "queued"] = Field(
+        description="processed: done in this call. queued: handed to the post-processing worker."
+    )
+
+
+class AttentionItemResult(BaseModel):
+    release_key: str
+    ok: bool
+    problem: str | None = Field(description="Why it was not resolved, when ok is false.")
+    message: str | None
+    run_id: str | None = Field(description="The search run a retry or search_again started.")
+
+
+class AttentionResolution(BaseModel):
+    action: Literal["retry", "search_again", "stop_wanting"]
+    succeeded: int
+    failed: int
+    results: list[AttentionItemResult]
+
+
+class InFlightCancelled(BaseModel):
+    kind: Literal["run", "journal"]
+    item_id: int | None
+    release_key: str | None
+    state: str
+
+
 RunId = Annotated[str, Field(min_length=1, description="A search run id, as a search tool returned it.")]
 
 

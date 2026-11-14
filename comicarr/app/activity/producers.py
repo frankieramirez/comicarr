@@ -433,7 +433,7 @@ def emit_tag_activity(
     )
 
 
-def emit_search_cancelled(entity_type, entity_id, *, label=None, reason_code="cancelled_by_operator"):
+def emit_search_cancelled(entity_type, entity_id, *, label=None, reason_code="cancelled_by_operator", actor=None):
     """Operator-stopped in-flight search — ``search.cancelled`` @ issue|annual."""
     if entity_id in (None, ""):
         return None
@@ -445,6 +445,7 @@ def emit_search_cancelled(entity_type, entity_id, *, label=None, reason_code="ca
         str(entity_id),
         label or str(entity_id),
         reason_code=reason_code,
+        actor=actor,
     )
 
 

@@ -155,6 +155,49 @@ def _paginated_activity_response(key, query, **options):
     }
 
 
+def retry_post_processing(release_key):
+    """Retry post-processing of one journaled download, for an approved caller.
+
+    A row that already moved or started post-processing continues through
+    ``postprocessing.recover``, which claims it through the journal. A finished
+    SABnzbd download not yet imported is queued as Activity's own Retry button
+    does. Returns ``{"success", "status", "detail"}`` where ``status`` is
+    ``processed``, ``queued``, ``busy``, ``maintenance``, ``not_found``,
+    ``not_retryable`` or ``failed``.
+    """
+    from comicarr.app.acquisition.maintenance import acquisition_paused
+    from comicarr.app.downloads import journal
+    from comicarr.app.downloads.sab_reconcile import RetryPostProcessError
+    from comicarr.app.downloads.sab_reconcile import retry_postprocess as queue_retry
+
+    key = str(release_key or "").strip()
+    row = journal.read_one(key) if key else None
+    if row is None:
+        return {"success": False, "status": "not_found", "detail": "No download has release key %s." % key}
+    if acquisition_paused(getattr(comicarr, "CONFIG", None)):
+        return {"success": False, "status": "maintenance", "detail": "Post-processing is paused for maintenance."}
+    if row.get("stage") in (journal.MOVED, journal.POST_PROCESSING):
+        result = postprocessing.recover(key)
+        if result.status == "busy":
+            paused = "maintenance" in str(result.detail or "")
+            return {"success": False, "status": "maintenance" if paused else "busy", "detail": result.detail}
+        if result.status == "processed":
+            return {"success": True, "status": "processed", "detail": result.action}
+        if result.status == "ignored":
+            return {"success": False, "status": "not_retryable", "detail": "This download is no longer in flight."}
+        return {"success": False, "status": "failed", "detail": result.detail or "Post-processing failed."}
+    lock = getattr(comicarr, "APILOCK", None)
+    if lock is not None and lock.locked():
+        return {"success": False, "status": "busy", "detail": "Post-processing is busy; retry later."}
+    try:
+        queue_retry(key)
+    except RetryPostProcessError as e:
+        transient = e.status_code == 503 or "already running" in str(e)
+        status = "busy" if transient else "not_retryable"
+        return {"success": False, "status": status, "detail": str(e)}
+    return {"success": True, "status": "queued", "detail": "Queued for post-processing."}
+
+
 def get_history(limit=None, offset=None, search=None, status=None, sort=None, order="desc"):
     """Get searchable, sortable download history, optionally paginated."""
     if limit is not None:
