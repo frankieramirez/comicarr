@@ -112,3 +112,17 @@ describe("Agents (MCP) settings", () => {
     },
   );
 });
+
+describe("Agents (MCP) docs link", () => {
+  it("links to the Connect an agent page", async () => {
+    serveConfig({ mcp_enabled: true, mcp_write_enabled: false });
+    render(<SettingsPage />, {
+      useMemoryRouter: true,
+      route: "/settings?section=agents",
+    });
+    const link = await screen.findByRole("link", {
+      name: "Connect an agent (MCP)",
+    });
+    expect(link.getAttribute("href")).toBe("https://comicarr.com/docs/api/mcp");
+  });
+});

@@ -82,3 +82,7 @@ When you are reproducing a problem, **Settings → Logs → New log** starts a f
 `comicarr.log` so the viewer shows only what happened after you clicked. It asks
 for confirmation first, and the old log is kept as a rotated archive under your
 existing retention settings.
+
+## AI agents (MCP)
+
+Comicarr can serve AI agents such as Claude Code, VS Code, Cursor and Codex at `/mcp`. Turn it on in **Settings → System → Agents (MCP)**. Agents sign in with your API key and can only read unless you also turn on **Allow write tools**. Every change an agent makes shows in **Activity** with **via MCP**. Setup for each client, the tool list and troubleshooting are on [Connect an agent (MCP)](https://comicarr.com/docs/api/mcp).
