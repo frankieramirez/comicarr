@@ -16,6 +16,12 @@ description, input and output schemas and annotations. Any change to
 After an intended change, regenerate it and review the diff::
 
     UPDATE_MCP_SNAPSHOT=1 pytest tests/unit/test_mcp_contract.py
+
+``tests/contract/mcp_tool_names.txt`` lists every name ``tools/list`` has
+published (#1312). Regenerating only adds to it, so a name that disappears
+without an MCP tool entry in the deprecation registry fails here even after
+the snapshot is updated. Delete a line by hand only when its registry entry's
+window has run out and the entry goes too.
 """
 
 import json
@@ -26,9 +32,24 @@ import pytest
 from mcp import Client
 
 from comicarr.app.mcp.contracts import VERBS
+from comicarr.app.system.deprecations import REGISTRY
 from tests.mcp_harness import make_app
 
 SNAPSHOT = Path(__file__).resolve().parents[1] / "contract" / "mcp_tools.json"
+PUBLISHED_NAMES = SNAPSHOT.with_name("mcp_tool_names.txt")
+
+
+def vanished_names(published, listed, registered):
+    """Published names no longer listed and not covered by a registry entry."""
+    return sorted(set(published) - set(listed) - set(registered))
+
+
+def _registered_tool_names(registry=REGISTRY):
+    return {entry.mcp_tool for entry in registry if entry.mcp_tool}
+
+
+def _read_published():
+    return [line.strip() for line in PUBLISHED_NAMES.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def verb_problems(names):
@@ -74,6 +95,28 @@ async def test_tools_list_matches_the_snapshot():
         "tools/list changed. If intended, run UPDATE_MCP_SNAPSHOT=1 pytest tests/unit/test_mcp_contract.py "
         "and commit tests/contract/mcp_tools.json in this pull request."
     )
+
+
+@pytest.mark.asyncio
+async def test_no_published_tool_name_disappears_without_a_registry_entry():
+    listed = [tool["name"] for tool in await _listed_tools()]
+    if os.environ.get("UPDATE_MCP_SNAPSHOT"):
+        names = sorted(set(_read_published()) | set(listed))
+        PUBLISHED_NAMES.write_text("".join(name + "\n" for name in names), encoding="utf-8")
+    published = _read_published()
+    assert vanished_names(published, listed, _registered_tool_names()) == [], (
+        "These MCP tool names left tools/list. Keep each as an alias "
+        "(deprecations.mcp_tool_rename in comicarr/app/system/deprecations.py) for the ADR-0006 window."
+    )
+    assert sorted(set(listed) - set(published)) == [], (
+        "New tool names are missing from tests/contract/mcp_tool_names.txt. "
+        "Run UPDATE_MCP_SNAPSHOT=1 pytest tests/unit/test_mcp_contract.py."
+    )
+
+
+def test_the_vanished_check_fails_a_removed_name_and_passes_a_registered_one():
+    assert vanished_names(["list_series", "get_series"], ["list_series"], set()) == ["get_series"]
+    assert vanished_names(["list_series", "get_series"], ["list_series"], {"get_series"}) == []
 
 
 @pytest.mark.asyncio

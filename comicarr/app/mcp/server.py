@@ -45,6 +45,8 @@ from comicarr.app.mcp.tools import library as library_tools
 from comicarr.app.mcp.tools import recovery as recovery_tools
 from comicarr.app.mcp.tools import search as search_tools
 from comicarr.app.mcp.tools import series as series_tools
+from comicarr.app.mcp.usage import ToolCallRecorder
+from comicarr.app.system.deprecations import REGISTRY as DEPRECATIONS
 from comicarr.app.system.service import login_rate_limiter
 
 INSTRUCTIONS = "Comicarr manages a comic and manga library. Use list_series to see what the library holds."
@@ -80,17 +82,39 @@ class ComicarrMCPServer(MCPServer):
     Write tools register through :meth:`write_tool`. While ``MCP_WRITE_ENABLED``
     is false (read on every request) they are left out of ``tools/list`` and
     calling one returns ``writes_disabled``.
+
+    A renamed tool keeps its old name through :meth:`alias` (ADR-0006). Every
+    call to a known name, old or new, goes through :class:`ToolCallRecorder`.
     """
 
     def __init__(self, get_ctx, **kwargs):
         super().__init__(**kwargs)
         self._get_ctx = get_ctx
         self.write_tools = set()
+        self.aliases = {}
+        self.calls = ToolCallRecorder()
 
     def write_tool(self, *, name, **kwargs):
         """Register a write tool; same arguments as :meth:`tool`."""
         self.write_tools.add(name)
         return self.tool(name=name, **kwargs)
+
+    def alias(self, old_name, new_name):
+        """Keep ``old_name`` callable as a deprecated alias of the tool ``new_name``.
+
+        The alias is listed with the new tool's schemas, a title and description
+        marked deprecated and naming the replacement, and it dispatches to the
+        new tool. It is a write tool when the new one is. Each alias needs an
+        MCP tool entry in the deprecation registry, which
+        ``tests/unit/test_mcp_contract.py`` checks.
+        """
+        if self._tool_manager.get_tool(new_name) is None:
+            raise ValueError("Cannot alias %s to unknown tool %s" % (old_name, new_name))
+        if old_name == new_name or self._tool_manager.get_tool(old_name) is not None or old_name in self.aliases:
+            raise ValueError("%s is already a tool name" % old_name)
+        self.aliases[old_name] = new_name
+        if new_name in self.write_tools:
+            self.write_tools.add(old_name)
 
     def writes_enabled(self):
         config = self._get_ctx().config
@@ -98,15 +122,30 @@ class ComicarrMCPServer(MCPServer):
 
     async def list_tools(self):
         tools = await super().list_tools()
+        by_name = {tool.name: tool for tool in tools}
+        for old_name, new_name in self.aliases.items():
+            target = by_name[new_name]
+            tools.append(
+                target.model_copy(
+                    update={
+                        "name": old_name,
+                        "title": "%s (deprecated)" % (target.title or new_name),
+                        "description": "Deprecated: renamed to %s, use that instead. %s"
+                        % (new_name, target.description or ""),
+                    }
+                )
+            )
         if self.writes_enabled():
             return tools
         return [tool for tool in tools if tool.name not in self.write_tools]
 
     async def call_tool(self, name, arguments, context=None):
+        if name in self.aliases or self._tool_manager.get_tool(name) is not None:
+            self.calls.record(name)
         if name in self.write_tools and not self.writes_enabled():
             return tool_error("writes_disabled", "MCP writes are off. Turn on MCP_WRITE_ENABLED to allow them.")
         try:
-            return await super().call_tool(name, arguments, context)
+            return await super().call_tool(self.aliases.get(name, name), arguments, context)
         except UnexpectedToolError as e:
             if isinstance(e.__cause__, ContractError):
                 body = e.__cause__.body
@@ -128,6 +167,13 @@ def _build_server(get_ctx):
     root.handlers[:] = handlers
     root.setLevel(level)
     return server
+
+
+def register_aliases(server, registry=DEPRECATIONS):
+    """Declare an alias for every renamed MCP tool in the deprecation registry."""
+    for entry in registry:
+        if entry.mcp_tool:
+            server.alias(entry.mcp_tool, entry.mcp_replacement)
 
 
 async def _send_json(send, status, detail):
@@ -175,6 +221,7 @@ class McpEndpoint:
         library_tools.register(self.server, get_ctx)
         search_tools.register(self.server, get_ctx)
         recovery_tools.register(self.server, get_ctx)
+        register_aliases(self.server)
         self._authenticated = None
 
     @asynccontextmanager
