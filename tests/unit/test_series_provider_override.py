@@ -63,6 +63,7 @@ def test_override_survives_a_restart_and_appears_on_the_series_detail(query_db):
     assert detail["searchProviders"] == {
         "available": ["DDL(GetComics)", "MagIndex"],
         "override": {"order": ["MagIndex"], "exclude": ["DDL(GetComics)"]},
+        "effective": ["MagIndex"],
     }
     assert "mag-secret" not in json.dumps(detail["searchProviders"])
 

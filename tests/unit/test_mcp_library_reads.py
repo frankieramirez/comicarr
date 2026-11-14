@@ -15,7 +15,7 @@ import pytest
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.search import search_history
 from comicarr.db import get_engine
-from comicarr.tables import activity_events, issues
+from comicarr.tables import activity_events, annuals, issues
 from tests.mcp_harness import KEY, make_app, mcp_client, seed_library, teardown_library
 
 AUTH = {"Authorization": "Bearer " + KEY}
@@ -92,15 +92,32 @@ async def test_get_series_reports_counts_providers_and_the_last_and_next_issue()
 @pytest.mark.asyncio
 async def test_list_issues_pages_and_filters_by_state():
     first = (await _call("list_issues", {"series_id": "1001", "limit": 2})).structured_content
-    assert [i["issue_id"] for i in first["issues"]] == ["5004", "5001"]  # newest first
+    assert [i["issue_id"] for i in first["issues"]] == ["5004", "5002"]  # newest first
     assert (first["total"], first["next_offset"]) == (4, 2)
     last = (await _call("list_issues", {"series_id": "1001", "limit": 2, "offset": 2})).structured_content
-    assert [i["issue_id"] for i in last["issues"]] == ["5002", "5003"]
+    assert [i["issue_id"] for i in last["issues"]] == ["5003", "5001"]
     assert last["next_offset"] is None
 
     wanted = (await _call("list_issues", {"series_id": "1001", "state": "Wanted"})).structured_content
     assert [(i["issue_id"], i["state"], i["eligible"]) for i in wanted["issues"]] == [("5003", "Wanted", True)]
     assert wanted["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_list_issues_orders_annuals_among_issues_by_release_date():
+    with get_engine().begin() as conn:
+        conn.execute(annuals.update().where(annuals.c.IssueID == "6001").values(ReleaseDate="2023-02-01"))
+    app = make_app()
+    app.state.ctx.config.ANNUALS_ON = True
+    async with mcp_client(app, Authorization=AUTH["Authorization"]) as mcp:
+        page = (await mcp.call_tool("list_issues", {"series_id": "1001"})).structured_content
+    assert [(i["issue_id"], i["entity_type"]) for i in page["issues"]] == [
+        ("5004", "issue"),
+        ("5002", "issue"),
+        ("6001", "annual"),
+        ("5003", "issue"),
+        ("5001", "issue"),
+    ]
 
 
 @pytest.mark.asyncio

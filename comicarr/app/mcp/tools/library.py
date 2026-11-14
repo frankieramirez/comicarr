@@ -61,24 +61,16 @@ def _page_summary(noun, returned, page):
     return summary + "."
 
 
-def _release_date(row):
-    """The first parseable of release, digital and cover date: the date eligibility goes by."""
-    for key in ("releaseDate", "digitalDate", "issueDate"):
-        try:
-            return datetime.date.fromisoformat(str(row.get(key) or "").strip()[:10]).isoformat()
-        except ValueError:
-            continue
-    return None
-
-
 def _issue_ref(row):
-    return IssueRef(issue_id=str(row["id"]), number=_text(row.get("number")), release_date=_release_date(row))
+    return IssueRef(
+        issue_id=str(row["id"]), number=_text(row.get("number")), release_date=series_service.issue_release_date(row)
+    )
 
 
 def _last_and_next(projected, today=None):
     """The latest released issue and the earliest announced one, by the date Comicarr goes by."""
     today = (today or datetime.date.today()).isoformat()
-    dated = [(_release_date(row), row) for row in projected if not row.get("annual")]
+    dated = [(series_service.issue_release_date(row), row) for row in projected if not row.get("annual")]
     released = [pair for pair in dated if pair[0] and pair[0] <= today]
     upcoming = [pair for pair in dated if pair[0] and pair[0] > today]
     last = max(released, key=lambda pair: pair[0])[1] if released else None
@@ -96,7 +88,7 @@ def _issue_summary(row) -> IssueSummary:
         number=_text(row.get("number")),
         name=_text(row.get("name")),
         state=row["displayState"],
-        release_date=_release_date(row),
+        release_date=series_service.issue_release_date(row),
         owned=bool(row.get("owned")),
         in_flight=bool(row.get("inFlight")),
         monitored=bool(row.get("monitored")),
@@ -216,7 +208,7 @@ def register(server, get_ctx):
                 future=summary["future"],
             ),
             providers=[ProviderLink(provider=link["provider"], url=link["url"]) for link in detail["providerLinks"]],
-            search_providers=list((detail.get("searchProviders") or {}).get("available") or []),
+            search_providers=list((detail.get("searchProviders") or {}).get("effective") or []),
             last_issue=last_issue,
             next_issue=next_issue,
         )
@@ -324,7 +316,7 @@ def register(server, get_ctx):
             state=issue["displayState"],
             eligible=bool(issue.get("eligible")),
             eligibility_reason=issue.get("eligibilityReason"),
-            release_date=_release_date(issue),
+            release_date=series_service.issue_release_date(issue),
             attempts=SearchAttempts(
                 search=attempts["search"],
                 grab=attempts["grab"],
