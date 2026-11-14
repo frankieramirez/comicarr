@@ -810,6 +810,13 @@ import_folder_choices = Table(
     Column("chosen_at", String(40), nullable=False),
 )
 
+mcp_tool_calls = Table(
+    "mcp_tool_calls",
+    metadata,
+    Column("tool_name", String(64), primary_key=True, unique=True),
+    Column("last_called_at", String(40), nullable=False),
+)
+
 search_backlog_state = Table(
     "search_backlog_state",
     metadata,
@@ -1172,6 +1179,7 @@ TABLE_MAP = {
     "interactive_search_candidates": interactive_search_candidates,
     "issue_search_history": issue_search_history,
     "import_folder_choices": import_folder_choices,
+    "mcp_tool_calls": mcp_tool_calls,
     "search_backlog_state": search_backlog_state,
     "rss_search_seen": rss_search_seen,
     "acquisition_reconciliation": acquisition_reconciliation,

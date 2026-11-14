@@ -16,14 +16,17 @@ startup, and a row in Activity > Health through ``GET /api/system/deprecations``
 
 from __future__ import annotations
 
+import calendar
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 
 from sqlalchemy import exists, select
 
 import comicarr
 from comicarr import db, logger
-from comicarr.tables import annuals, issues, storyarcs
+from comicarr.tables import annuals, issues, mcp_tool_calls, storyarcs
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,10 @@ class Deprecation:
     replacement: str
     docs_url: str
     in_use: Callable[[], bool]
+    # Set only for a renamed MCP tool: the old name stays callable as an alias
+    # of ``mcp_replacement`` until the entry is removed.
+    mcp_tool: str | None = None
+    mcp_replacement: str | None = None
 
     def as_dict(self) -> dict[str, str]:
         return {
@@ -66,6 +73,44 @@ def _arc_folder_matching_on() -> bool:
     if getattr(comicarr.CONFIG, "STORYARCDIR", False) is not True:
         return False
     return db.select_one(select(storyarcs.c.StoryArcID).limit(1)) is not None
+
+
+MCP_TOOL_IN_USE_DAYS = 30
+
+
+def mcp_tool_called_recently(name: str, days: int = MCP_TOOL_IN_USE_DAYS) -> bool:
+    """True when an agent called the MCP tool ``name`` in the last ``days`` days.
+
+    ``mcp_tool_calls`` is written at most hourly per name, so this can lag a
+    call by up to an hour, which a 30-day window does not notice.
+    """
+    row = db.select_one(select(mcp_tool_calls.c.last_called_at).where(mcp_tool_calls.c.tool_name == name))
+    if row is None:
+        return False
+    try:
+        called = calendar.timegm(time.strptime(row["last_called_at"], "%Y-%m-%dT%H:%M:%SZ"))
+    except (TypeError, ValueError):
+        return False
+    return time.time() - called < days * 86400
+
+
+def mcp_tool_rename(old_name: str, new_name: str, *, announced_in: str, removable_from: str) -> Deprecation:
+    """The registry entry for an MCP tool renamed from ``old_name`` to ``new_name``.
+
+    The server keeps ``old_name`` as a deprecated alias while the entry exists.
+    """
+    anchor = "mcp-tool-" + old_name.replace("_", "-")
+    return Deprecation(
+        id=anchor,
+        name="The MCP tool %s" % old_name,
+        announced_in=announced_in,
+        removable_from=removable_from,
+        replacement="The MCP tool %s, which does the same thing" % new_name,
+        docs_url=DOCS_URL + "#" + anchor,
+        in_use=partial(mcp_tool_called_recently, old_name),
+        mcp_tool=old_name,
+        mcp_replacement=new_name,
+    )
 
 
 REGISTRY: list[Deprecation] = [

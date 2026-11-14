@@ -1,0 +1,12 @@
+add_series
+cancel_in_flight
+list_series
+pause_series
+refresh_series
+resolve_attention
+resume_series
+retry_post_processing
+retry_search_run
+search_issue
+search_missing
+set_issue_status
