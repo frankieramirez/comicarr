@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.52.0
+
+### Minor Changes
+
+- 8ec2eaf: Two story-arc features are now deprecated: downloading an arc issue whose series is not in your library straight into the arc folder, and matching files from a manual folder scan to an arc when their series is not in your library. Both still work, and neither is removed before 1.0.0. Use **Add what's missing** on the story arc instead: it adds the arc's series to your library and marks just the issues the arc needs as Wanted, so they download, import and copy to the arc folder the normal way. If your install uses either feature, Comicarr logs one warning for it at startup. Details are on the [Deprecations page](https://comicarr.com/docs/deprecations).
+
+### Patch Changes
+
+- 16b91a5: Activity → Health now lists any deprecated feature your install still uses, with what to use instead, the earliest release that may remove it, and a link to the details. Installs that use none see nothing new.
+- 1d7d2b5: Importing a Mylar3 library now works when Comicarr runs on PostgreSQL or MySQL. Before, the import wrote to a SQLite file beside the install instead of your configured database, so it reported success and your library stayed empty. The automatic pre-import backup still runs only on SQLite; back up a PostgreSQL or MySQL database with `pg_dump` or `mysqldump` before importing.
+- 16fab61: Restarting Comicarr no longer marks open NZBGet downloads as gone and blocklists them. Comicarr saved NZBGet's job ID as text but NZBGet reports it as a number, so the restart check never found the job. It now matches the job, and a download that is still running is picked up from NZBGet's queue instead of only its history, so monitoring resumes where it left off.
+- 117107c: The SABnzbd connection check in Settings and Activity → Health now says "SABnzbd rejected the API key" when the key is wrong. Before, SABnzbd 5's answer to a wrong key was read as a success, so the check showed Reachable while every grab sent to SABnzbd was refused.
+- 416161d: Library scans no longer show raw error text in the browser. A series that fails during a comic or manga scan, or during import from the scan results, now shows a short message pointing you to the server log, and the log keeps the full error and traceback.
+
 ## 0.51.0
 
 ### Minor Changes
