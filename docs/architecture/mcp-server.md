@@ -202,6 +202,18 @@ Decision: [ticket](https://github.com/frankieramirez/comicarr/issues/1249).
   `UPDATE_MCP_SNAPSHOT=1 pytest tests/unit/test_mcp_contract.py`.
   `tests/integration/test_mcp_eras.py` drives every tool once per protocol
   era, and a new tool adds its sample call to `CALLS` there.
+- Renaming a tool: keep the new tool, and add
+  `mcp_tool_rename(old, new, announced_in=..., removable_from=...)` to
+  `REGISTRY` in `comicarr/app/system/deprecations.py`. The server then lists
+  the old name as an alias with the new tool's schemas, a title and
+  description marked deprecated and naming the replacement, and dispatches it
+  to the new tool (`ComicarrMCPServer.alias`). Its `in_use()` is true while
+  `mcp_tool_calls` shows a call to the old name in the last 30 days;
+  `comicarr/app/mcp/usage.py` writes that row at most once an hour per name.
+  `tests/contract/mcp_tool_names.txt` lists every name ever published, and
+  regenerating the snapshot only adds to it, so a name that leaves
+  `tools/list` without a registry entry fails the contract test. Delete its
+  line by hand when the entry's window ends and the entry goes too.
 
 ## 7. Clients
 

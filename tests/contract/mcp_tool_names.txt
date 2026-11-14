@@ -1,0 +1,9 @@
+add_series
+list_series
+pause_series
+refresh_series
+resume_series
+retry_search_run
+search_issue
+search_missing
+set_issue_status

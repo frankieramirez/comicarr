@@ -69,6 +69,7 @@ _REVISION_INTRODUCED_TABLES = {
     "0015_issue_search_history": frozenset({"issue_search_history"}),
     "0016_import_folder_choices": frozenset({"import_folder_choices"}),
     "0017_activity_actor": frozenset(),
+    "0018_mcp_tool_calls": frozenset({"mcp_tool_calls"}),
 }
 _READINGLIST_TO_STORYARCS_COLUMNS = (
     "StoryArcID",
