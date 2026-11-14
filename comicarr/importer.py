@@ -147,6 +147,10 @@ def addvialist(seriesQueue, issueWantQueue):
                 if item.get("location"):
                     add_kwargs["location"] = item["location"]
                 addComictoDB(item["comicid"], **add_kwargs)
+                if item.get("want"):
+                    # Riding on the add item keeps the want behind its add with
+                    # no second queue for the worker to retire past.
+                    markSeriesWanted(re.sub("^4050-", "", str(item["comicid"])))
             except Exception as e:
                 logger.error("[MASS-ADD] Failed adding %s: %s" % (item["comicid"], e))
                 _emit_add_activity("failed", item["comicid"], comicname=item.get("comicname"), reason_detail=str(e))
@@ -157,6 +161,27 @@ def addvialist(seriesQueue, issueWantQueue):
         else:
             seriesQueue.put("exit")
     return False
+
+
+def markSeriesWanted(comicid):
+    """Mark every issue and annual of a series Wanted, right after its add.
+
+    Run by the mass-add worker for an add queued with ``want``; issues already
+    Downloaded, Wanted, Snatched or Failed keep their status.
+    """
+    issue_ids = [row["IssueID"] for row in db.select_all(select(issues.c.IssueID).where(issues.c.ComicID == comicid))]
+    issue_ids += [
+        row["IssueID"]
+        for row in db.select_all(
+            select(annuals.c.IssueID).where(
+                annuals.c.ComicID == comicid, annuals.c.Deleted.is_(None) | (annuals.c.Deleted != 1)
+            )
+        )
+    ]
+    if not issue_ids:
+        logger.warning("[MASS-ADD] No issues found to mark Wanted for ComicID %s" % comicid)
+    for issue_id in issue_ids:
+        markIssueWantedById(issue_id)
 
 
 def markIssueWantedById(issueId):
@@ -190,7 +215,7 @@ def markIssueWantedById(issueId):
                 )
                 .select_from(annuals.join(comics, annuals.c.ComicID == comics.c.ComicID, isouter=True))
                 .where(annuals.c.IssueID == issueId)
-                .where(annuals.c.Deleted == 0)
+                .where(annuals.c.Deleted.is_(None) | (annuals.c.Deleted != 1))
             )
             issue = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
@@ -354,7 +379,9 @@ def addComictoDB(
 
     if not comic:
         logger.warn("Error fetching comic. ID for : " + comicid)
-        if dbcomic is None:
+        if dbcomic is None or str(dbcomic.get("ComicName") or "").startswith(("Fetch failed", "Comic ID:")):
+            # A retry of a failed add fails the same way: keep the marker so
+            # the next add retries instead of finding the series "in the library".
             newValueDict = {"ComicName": "Fetch failed, try refreshing. (%s)" % (comicid), "Status": "Active"}
         else:
             if series_status == "Active" or series_status == "Loading":

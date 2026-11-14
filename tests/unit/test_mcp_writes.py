@@ -17,7 +17,16 @@ from comicarr.db import get_engine
 from comicarr.tables import activity_events, comics, issues
 from tests.mcp_harness import KEY, make_app, mcp_client, seed_library, teardown_library
 
-WRITES = {"set_issue_status", "pause_series", "resume_series", "search_issue", "search_missing", "retry_search_run"}
+WRITES = {
+    "set_issue_status",
+    "pause_series",
+    "resume_series",
+    "search_issue",
+    "search_missing",
+    "retry_search_run",
+    "add_series",
+    "refresh_series",
+}
 AUTH = {"Authorization": "Bearer " + KEY}
 
 

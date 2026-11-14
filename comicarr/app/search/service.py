@@ -158,7 +158,7 @@ def find_manga(ctx, name, limit=None, offset=None, sort=None):
     return {"error": "Search returned no results"}
 
 
-def add_comic(ctx, comic_id, folder=None):
+def add_comic(ctx, comic_id, folder=None, *, want=False):
     """Add a comic to the watchlist via the Series add seam."""
     from comicarr import metron
     from comicarr.app.series import add as series_add
@@ -184,6 +184,8 @@ def add_comic(ctx, comic_id, folder=None):
         watch = {"comicid": comic_id, "comicname": None, "seriesyear": None}
         if location:
             watch["location"] = location
+        if want:
+            watch["want"] = True
         series_add.queue_series_adds([watch])
     except Exception as e:
         logger.error("[SEARCH] Error adding comic %s: %s" % (comic_id, e))
@@ -195,7 +197,7 @@ def add_comic(ctx, comic_id, folder=None):
     }
 
 
-def add_manga(ctx, manga_id, folder=None):
+def add_manga(ctx, manga_id, folder=None, *, want=False):
     """Queue a manga add on the mass-add thread (same contract as add_comic)."""
     mal_ok = getattr(ctx.config, "MAL_ENABLED", False) and getattr(ctx.config, "MAL_CLIENT_ID", None)
     mdex_ok = getattr(ctx.config, "MANGADEX_ENABLED", False)
@@ -234,6 +236,8 @@ def add_manga(ctx, manga_id, folder=None):
         watch = {"comicid": comic_id, "comicname": None, "seriesyear": None}
         if location:
             watch["location"] = location
+        if want:
+            watch["want"] = True
         series_add.queue_series_adds([watch])
     except Exception as e:
         logger.error("[SEARCH] Error queueing manga %s: %s" % (manga_id, e))
@@ -244,6 +248,73 @@ def add_manga(ctx, manga_id, folder=None):
         "comicid": comic_id,
         "content_type": "manga",
     }
+
+
+COMIC_PROVIDERS = ("comicvine", "metron")
+MANGA_PROVIDERS = ("mangadex", "myanimelist")
+
+
+def add_series_from_provider(ctx, provider, provider_id, *, want=False):
+    """Add a series by provider and provider id, for a caller that already
+    confirmed it (MCP ``add_series``).
+
+    Returns ``{"success": True, "series_id", "already", "want_queued"}``; an
+    existing series is not an error, it is returned with ``already: True`` and
+    nothing is queued. A failure carries ``reason``: ``"unavailable"`` (the provider or the
+    integration cannot be reached or gave no answer), ``"disabled"`` (the manga
+    integration is off) or ``"rejected"`` (anything else, such as
+    a folder Comicarr cannot use), plus ``error``.
+    """
+    from comicarr import metron, series_kind
+    from comicarr.app.series import queries as series_queries
+
+    provider_id = str(provider_id).strip()
+    if provider == "metron":
+        try:
+            cv_id = metron.get_cv_id(metron.METRON_ID_PREFIX + metron.strip_metron_prefix(provider_id))
+        except Exception as e:
+            logger.error("[SEARCH] Metron lookup failed for %s: %s" % (provider_id, e))
+            return {"success": False, "reason": "unavailable", "error": "Metron could not be reached."}
+        if not cv_id:
+            # get_cv_id answers None both for a series with no mapping and for
+            # a failed lookup, so this cannot say which.
+            return {
+                "success": False,
+                "reason": "unavailable",
+                "error": "Metron gave no ComicVine id for series %s: it has none, or Metron "
+                "could not be reached." % provider_id,
+            }
+        provider, provider_id = "comicvine", str(cv_id)
+
+    if provider == "comicvine":
+        series_id = re.sub("^4050-", "", provider_id)
+    elif provider == "mangadex":
+        series_id = series_kind.add_prefix(provider_id, series_kind.SeriesProvider.MANGADEX)
+    else:
+        series_id = series_kind.add_prefix(provider_id, series_kind.SeriesProvider.MYANIMELIST)
+
+    if series_queries.get_comic_status(series_id) is not None and not series_queries.is_failed_add_placeholder(
+        series_id
+    ):
+        return {"success": True, "series_id": series_id, "already": True, "want_queued": False}
+
+    if provider in MANGA_PROVIDERS:
+        result = add_manga(ctx, series_id, want=want)
+        if not result.get("success") and result.get("comicid") and result.get("status") == 409:
+            return {"success": True, "series_id": result["comicid"], "already": True, "want_queued": False}
+        if not result.get("success") and "not enabled" in str(result.get("error")):
+            return {
+                "success": False,
+                "reason": "disabled",
+                "error": "Manga integration is off: turn on MangaDex or MyAnimeList in Settings.",
+            }
+    else:
+        result = add_comic(ctx, series_id, want=want)
+    if not result.get("success"):
+        reason = "rejected" if result.get("status") else "unavailable"
+        return {"success": False, "reason": reason, "error": result.get("error") or "The add was not queued."}
+    series_id = re.sub("^4050-", "", str(result.get("comicid") or series_id))
+    return {"success": True, "series_id": series_id, "already": False, "want_queued": bool(want)}
 
 
 def search_issue(ctx, issue_id, *, trigger="issue_retry", entity_type=None):

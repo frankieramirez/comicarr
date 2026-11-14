@@ -295,6 +295,7 @@ def emit_series_activity(
     reason_code=None,
     reason_detail=None,
     provider=None,
+    actor=None,
 ):
     """Convenience for ``refresh.*`` / ``add.*`` @ series producers."""
     if comicid in (None, ""):
@@ -310,6 +311,7 @@ def emit_series_activity(
         reason_detail=reason_detail,
         provider=provider,
         parent_series_id=str(comicid),
+        actor=actor,
     )
 
 
