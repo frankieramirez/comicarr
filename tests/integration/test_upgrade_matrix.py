@@ -96,7 +96,6 @@ _CURRENT_CONFIG_VERSION = {("General", "config_version"): "19"}
 
 DRIFT_1251 = "https://github.com/frankieramirez/comicarr/issues/1251"
 DRIFT_1252 = "https://github.com/frankieramirez/comicarr/issues/1252"
-MYLAR_IMPORT_1256 = "https://github.com/frankieramirez/comicarr/issues/1256"
 DRIFT_1257 = "https://github.com/frankieramirez/comicarr/issues/1257"
 MYLAR_CONFIG_1254_1255 = (
     "https://github.com/frankieramirez/comicarr/issues/1254 and https://github.com/frankieramirez/comicarr/issues/1255"
@@ -188,16 +187,6 @@ ROWS = (
             },
             xfail={
                 "test_6_config_ini_loads_saves_and_reloads_with_no_key_lost": MYLAR_CONFIG_1254_1255,
-                # The import writes to a SQLite file, so a server database stays empty.
-                **{
-                    "%s@%s" % (check, dialect): MYLAR_IMPORT_1256
-                    for check in (
-                        "test_2_row_counts_are_preserved",
-                        "test_3_statuses_wanted_flags_and_locations_are_unchanged",
-                        "test_4_and_5_app_boots_and_serves_the_seeded_library",
-                    )
-                    for dialect in ("postgresql", "mysql")
-                },
             },
         )
         for name in build.MYLAR_ROWS
