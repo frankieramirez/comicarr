@@ -121,19 +121,28 @@ function Headline({ story }: { story: Story }) {
 
 function DetailLine({ story }: { story: Story }) {
   const closer = story.closer;
-  if (!closer) return null;
-  if (closer.activity === "status_change") {
-    // The new status is already in the sentence; the detail says who asked.
-    const actor = actorLabel(closer);
+  // Who asked, when it wasn't Comicarr: the first event that names an actor.
+  const actor =
+    story.events.map(actorLabel).find((label) => label !== null) ?? null;
+  // A status change already names its new status in the sentence, and run
+  // rows carry their counts as JSON in reason_detail, which the sentence
+  // already says; neither repeats it here.
+  const line =
+    closer && closer.activity !== "status_change"
+      ? reasonDetailLine(
+          closer.reason_code,
+          story.subject_type === "run" ? null : closer.reason_detail,
+        )
+      : null;
+  if (!line?.phrase && !line?.detail) {
     return actor ? <div className="mono-meta truncate">{actor}</div> : null;
   }
-  const line = reasonDetailLine(closer.reason_code, closer.reason_detail);
-  if (!line.phrase && !line.detail) return null;
   return (
     <div className="truncate text-[12px] text-foreground-2">
       {line.phrase}
       {line.rawCode && <span className="mono-meta ml-2">{line.rawCode}</span>}
       {line.detail && <span className="mono-meta ml-2">{line.detail}</span>}
+      {actor && <span className="mono-meta ml-2">{actor}</span>}
     </div>
   );
 }

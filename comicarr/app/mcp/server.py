@@ -41,6 +41,7 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 
 from comicarr import logger
 from comicarr.app.mcp.contracts import ContractError, tool_error
+from comicarr.app.mcp.tools import search as search_tools
 from comicarr.app.mcp.tools import series as series_tools
 from comicarr.app.system.service import login_rate_limiter
 
@@ -169,6 +170,7 @@ class McpEndpoint:
         self._get_ctx = get_ctx
         self.server = _build_server(get_ctx)
         series_tools.register(self.server, get_ctx)
+        search_tools.register(self.server, get_ctx)
         self._authenticated = None
 
     @asynccontextmanager

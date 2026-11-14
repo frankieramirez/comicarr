@@ -118,6 +118,24 @@ class SeriesStatusChange(BaseModel):
     changed: bool = Field(description="False when the series already had this status.")
 
 
+RunId = Annotated[str, Field(min_length=1, description="A search run id, as a search tool returned it.")]
+
+
+class SearchStarted(BaseModel):
+    run_id: str | None = Field(description="Poll this run for progress. Null when nothing was eligible.")
+    series_id: str | None
+    accepted: int = Field(description="Wanted issues the run will search.")
+    status: Literal["accepted", "pending_dispatch", "noop"] = Field(
+        description="pending_dispatch: recorded, and Comicarr hands it to a worker as soon as it can."
+    )
+
+
+class SearchRunRetry(BaseModel):
+    run_id: str
+    dispatched: int = Field(description="Search items handed to a worker by this retry.")
+    pending: int = Field(description="Items still waiting for a worker after this retry.")
+
+
 class SeriesSummary(BaseModel):
     series_id: str
     name: str

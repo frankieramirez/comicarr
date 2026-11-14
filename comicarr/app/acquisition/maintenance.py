@@ -1090,6 +1090,14 @@ class MaintenanceController:
             ]
 
 
+def acquisition_paused(config=None, engine=None):
+    """True while new acquisition must not start: the persistent fence is up
+    or the operator asked for maintenance. Read live, no cached projection."""
+    if _operator_requested(config):
+        return True
+    return MaintenanceController(engine).status().active
+
+
 def _operator_requested(config=None):
     return _truthy(os.environ.get("COMICARR_ACQUISITION_MAINTENANCE")) or bool(
         getattr(config, "ACQUISITION_MAINTENANCE", False)
