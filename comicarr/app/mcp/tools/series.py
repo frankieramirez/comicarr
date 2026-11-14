@@ -105,10 +105,12 @@ def register(server, get_ctx):
             raise ContractError("not_found", "No issue or annual has id %s." % issue_id)
         wanted = status.capitalize()
         changed = current["status"] != wanted
+        # Always write: the service also records operator intent, which can
+        # differ from Status (a Skipped row may still carry search intent).
+        result = series_service.set_issue_status(ctx, issue_id, status, ACTOR, entity_type=current["entity_type"])
+        if not result.get("success"):
+            raise ContractError("not_found", "No issue or annual has id %s." % issue_id)
         if changed:
-            result = series_service.set_issue_status(ctx, issue_id, status, ACTOR, entity_type=current["entity_type"])
-            if not result.get("success"):
-                raise ContractError("not_found", "No issue or annual has id %s." % issue_id)
             activity.emit_status_change(current["entity_type"], issue_id, wanted, actor=ACTOR)
         change = IssueStatusChange(
             issue_id=issue_id, entity_type=current["entity_type"], status=wanted, changed=changed

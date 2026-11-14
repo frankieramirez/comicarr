@@ -11,7 +11,7 @@
 """MCP write tools: the MCP_WRITE_ENABLED switch and the status writes (#1307)."""
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from comicarr.db import get_engine
 from comicarr.tables import activity_events, comics, issues
@@ -97,12 +97,27 @@ async def test_set_issue_status_marks_wanted_records_mcp_activity_and_repeats_as
 
 
 @pytest.mark.asyncio
+async def test_set_issue_status_writes_explicit_intent_even_when_status_already_matches():
+    with get_engine().begin() as conn:
+        conn.execute(update(issues).where(issues.c.IssueID == "5001").values(AcquisitionIntent="policy"))
+    async with mcp_client(make_app(writes=True), **AUTH) as mcp:
+        result = await mcp.call_tool("set_issue_status", {"issue_id": "5001", "status": "skipped"})
+    assert result.structured_content["changed"] is False
+    with get_engine().connect() as conn:
+        intent = conn.execute(select(issues.c.AcquisitionIntent).where(issues.c.IssueID == "5001")).scalar()
+    assert intent == "skipped"
+    assert _activity() == []
+
+
+@pytest.mark.asyncio
 async def test_set_issue_status_reaches_annuals_and_refuses_other_statuses_and_unknown_ids():
     async with mcp_client(make_app(writes=True), **AUTH) as mcp:
         annual = await mcp.call_tool("set_issue_status", {"issue_id": "6001", "status": "wanted"})
         archived = await mcp.call_tool("set_issue_status", {"issue_id": "5001", "status": "archived"})
         missing = await mcp.call_tool("set_issue_status", {"issue_id": "nope", "status": "skipped"})
     assert annual.structured_content["entity_type"] == "annual" and annual.structured_content["changed"]
+    # An annual with Deleted NULL still gets narrated.
+    assert [(r["subject_type"], r["subject_id"]) for r in _activity()] == [("annual", "6001")]
     assert archived.structured_content["code"] == "invalid_argument"
     assert missing.structured_content["code"] == "not_found"
     assert _issue_status("5001") == "Skipped"

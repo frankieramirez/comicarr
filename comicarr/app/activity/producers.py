@@ -72,7 +72,7 @@ def _issue_subject(issueid, conn=None):
                 )
                 .select_from(annuals.outerjoin(comics, comics.c.ComicID == annuals.c.ComicID))
                 .where(annuals.c.IssueID == sid)
-                .where(annuals.c.Deleted != 1)
+                .where(annuals.c.Deleted.is_(None) | (annuals.c.Deleted != 1))
             ).fetchone()
             if row is None:
                 return None
