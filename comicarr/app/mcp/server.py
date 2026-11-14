@@ -41,6 +41,8 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 
 from comicarr import logger
 from comicarr.app.mcp.contracts import ContractError, tool_error
+from comicarr.app.mcp.tools import activity as activity_tools
+from comicarr.app.mcp.tools import downloads as downloads_tools
 from comicarr.app.mcp.tools import library as library_tools
 from comicarr.app.mcp.tools import recovery as recovery_tools
 from comicarr.app.mcp.tools import search as search_tools
@@ -219,6 +221,8 @@ class McpEndpoint:
         self.server = _build_server(get_ctx)
         series_tools.register(self.server, get_ctx)
         library_tools.register(self.server, get_ctx)
+        activity_tools.register(self.server, get_ctx)
+        downloads_tools.register(self.server, get_ctx)
         search_tools.register(self.server, get_ctx)
         recovery_tools.register(self.server, get_ctx)
         register_aliases(self.server)

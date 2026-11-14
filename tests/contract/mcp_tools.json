@@ -786,6 +786,1101 @@
       "openWorldHint": false,
       "readOnlyHint": true
     },
+    "description": "What Comicarr did, newest first: searches, grabs, downloads, imports and series changes. Give series_id or issue_id to see only that series or issue.",
+    "inputSchema": {
+      "properties": {
+        "issue_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only this issue or annual.",
+          "title": "Issue Id"
+        },
+        "limit": {
+          "default": 25,
+          "description": "Page size, 1 to 100.",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Items to skip before this page.",
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "series_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only this series and its issues.",
+          "title": "Series Id"
+        }
+      },
+      "title": "list_activityArguments",
+      "type": "object"
+    },
+    "name": "list_activity",
+    "outputSchema": {
+      "$defs": {
+        "ActivityEvent": {
+          "properties": {
+            "activity": {
+              "description": "What kind of work: search, grab, download, import, series and so on.",
+              "title": "Activity",
+              "type": "string"
+            },
+            "actor": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Who started it: null for Comicarr itself, mcp for an agent.",
+              "title": "Actor"
+            },
+            "at": {
+              "description": "When it happened, ISO 8601.",
+              "title": "At",
+              "type": "string"
+            },
+            "event_id": {
+              "title": "Event Id",
+              "type": "string"
+            },
+            "provider": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            },
+            "reason_code": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason Code"
+            },
+            "reason_detail": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason Detail"
+            },
+            "release_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Release Key"
+            },
+            "run_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The search run, for get_search_run.",
+              "title": "Run Id"
+            },
+            "series_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Series Id"
+            },
+            "status": {
+              "description": "How it went: started, succeeded, failed, no_match and so on.",
+              "title": "Status",
+              "type": "string"
+            },
+            "subject_id": {
+              "title": "Subject Id",
+              "type": "string"
+            },
+            "subject_label": {
+              "title": "Subject Label",
+              "type": "string"
+            },
+            "subject_type": {
+              "description": "issue, annual, series or run.",
+              "title": "Subject Type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "event_id",
+            "at",
+            "activity",
+            "status",
+            "subject_type",
+            "subject_id",
+            "subject_label",
+            "series_id",
+            "reason_code",
+            "reason_detail",
+            "provider",
+            "run_id",
+            "release_key",
+            "actor"
+          ],
+          "title": "ActivityEvent",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "events": {
+          "description": "Newest first.",
+          "items": {
+            "$ref": "#/$defs/ActivityEvent"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Offset of the next page; null on the last page.",
+          "title": "Next Offset"
+        },
+        "total": {
+          "description": "Items matching the filters, across all pages.",
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "next_offset",
+        "events"
+      ],
+      "title": "ActivityPage",
+      "type": "object"
+    },
+    "title": "List activity"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Problems that need the operator, one per series and reason, each with its items and the actions that would clear them.",
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "default": 25,
+          "description": "Page size, 1 to 100.",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Items to skip before this page.",
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "series_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only this series.",
+          "title": "Series Id"
+        }
+      },
+      "title": "list_attentionArguments",
+      "type": "object"
+    },
+    "name": "list_attention",
+    "outputSchema": {
+      "$defs": {
+        "AttentionItem": {
+          "properties": {
+            "actions": {
+              "description": "What the operator can do: retry, search_again, import, stop_wanting.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Actions",
+              "type": "array"
+            },
+            "issue_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Issue Id"
+            },
+            "issue_label": {
+              "title": "Issue Label",
+              "type": "string"
+            },
+            "release_key": {
+              "description": "The attention item id.",
+              "title": "Release Key",
+              "type": "string"
+            },
+            "stage": {
+              "title": "Stage",
+              "type": "string"
+            },
+            "updated_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Updated At"
+            }
+          },
+          "required": [
+            "release_key",
+            "issue_id",
+            "issue_label",
+            "stage",
+            "actions",
+            "updated_at"
+          ],
+          "title": "AttentionItem",
+          "type": "object"
+        },
+        "AttentionProblem": {
+          "properties": {
+            "actions": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Actions",
+              "type": "array"
+            },
+            "count": {
+              "title": "Count",
+              "type": "integer"
+            },
+            "group_key": {
+              "title": "Group Key",
+              "type": "string"
+            },
+            "items": {
+              "items": {
+                "$ref": "#/$defs/AttentionItem"
+              },
+              "title": "Items",
+              "type": "array"
+            },
+            "newest_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Newest At"
+            },
+            "oldest_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Oldest At"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "reason_code": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason Code"
+            },
+            "series_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Series Id"
+            },
+            "series_label": {
+              "title": "Series Label",
+              "type": "string"
+            },
+            "stage": {
+              "title": "Stage",
+              "type": "string"
+            }
+          },
+          "required": [
+            "group_key",
+            "series_id",
+            "series_label",
+            "reason_code",
+            "reason",
+            "stage",
+            "count",
+            "newest_at",
+            "oldest_at",
+            "actions",
+            "items"
+          ],
+          "title": "AttentionProblem",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "items_total": {
+          "description": "Items across every problem, all pages.",
+          "title": "Items Total",
+          "type": "integer"
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Offset of the next page; null on the last page.",
+          "title": "Next Offset"
+        },
+        "problems": {
+          "description": "One per series and reason.",
+          "items": {
+            "$ref": "#/$defs/AttentionProblem"
+          },
+          "title": "Problems",
+          "type": "array"
+        },
+        "total": {
+          "description": "Items matching the filters, across all pages.",
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "next_offset",
+        "items_total",
+        "problems"
+      ],
+      "title": "AttentionPage",
+      "type": "object"
+    },
+    "title": "List what needs attention"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Releases Comicarr grabbed and what became of them, newest first.",
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "default": 25,
+          "description": "Page size, 1 to 100.",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Part of the series name, issue number or provider.",
+          "title": "Name"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Items to skip before this page.",
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only this status, such as Snatched, Post-Processed or Failed.",
+          "title": "Status"
+        }
+      },
+      "title": "list_download_historyArguments",
+      "type": "object"
+    },
+    "name": "list_download_history",
+    "outputSchema": {
+      "$defs": {
+        "DownloadRecord": {
+          "properties": {
+            "at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "At"
+            },
+            "issue_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Issue Id"
+            },
+            "issue_number": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Issue Number"
+            },
+            "provider": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            },
+            "series_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Series Id"
+            },
+            "series_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Series Name"
+            },
+            "size_bytes": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Size Bytes"
+            },
+            "status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Such as Snatched, Downloaded, Post-Processed or Failed.",
+              "title": "Status"
+            }
+          },
+          "required": [
+            "issue_id",
+            "series_id",
+            "series_name",
+            "issue_number",
+            "status",
+            "provider",
+            "size_bytes",
+            "at"
+          ],
+          "title": "DownloadRecord",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "downloads": {
+          "description": "Newest first.",
+          "items": {
+            "$ref": "#/$defs/DownloadRecord"
+          },
+          "title": "Downloads",
+          "type": "array"
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Offset of the next page; null on the last page.",
+          "title": "Next Offset"
+        },
+        "total": {
+          "description": "Items matching the filters, across all pages.",
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "next_offset",
+        "downloads"
+      ],
+      "title": "DownloadHistoryPage",
+      "type": "object"
+    },
+    "title": "List download history"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "The direct-download queue: files waiting, downloading, or failed.",
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "default": 25,
+          "description": "Page size, 1 to 100.",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Items to skip before this page.",
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "Queued",
+                "Downloading",
+                "Failed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only this status.",
+          "title": "Status"
+        }
+      },
+      "title": "list_download_queueArguments",
+      "type": "object"
+    },
+    "name": "list_download_queue",
+    "outputSchema": {
+      "$defs": {
+        "QueuedDownload": {
+          "properties": {
+            "file_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "File Name"
+            },
+            "issue_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Issue Id"
+            },
+            "pack": {
+              "title": "Pack",
+              "type": "boolean"
+            },
+            "queue_id": {
+              "title": "Queue Id",
+              "type": "string"
+            },
+            "series_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Series Id"
+            },
+            "series_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Series Name"
+            },
+            "site": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Site"
+            },
+            "status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Queued, Downloading or Failed.",
+              "title": "Status"
+            },
+            "submitted_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Submitted At"
+            },
+            "updated_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Updated At"
+            },
+            "year": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          "required": [
+            "queue_id",
+            "series_name",
+            "year",
+            "file_name",
+            "issue_id",
+            "series_id",
+            "site",
+            "status",
+            "pack",
+            "submitted_at",
+            "updated_at"
+          ],
+          "title": "QueuedDownload",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "downloads": {
+          "items": {
+            "$ref": "#/$defs/QueuedDownload"
+          },
+          "title": "Downloads",
+          "type": "array"
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Offset of the next page; null on the last page.",
+          "title": "Next Offset"
+        },
+        "total": {
+          "description": "Items matching the filters, across all pages.",
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "next_offset",
+        "downloads"
+      ],
+      "title": "DownloadQueuePage",
+      "type": "object"
+    },
+    "title": "List download queue"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "What is being searched, downloaded or post-processed right now, and which of it is stuck (not updated for seven days).",
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "default": 25,
+          "description": "Page size, 1 to 100.",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Items to skip before this page.",
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "stuck_only": {
+          "default": false,
+          "description": "Only stuck items.",
+          "title": "Stuck Only",
+          "type": "boolean"
+        }
+      },
+      "title": "list_in_flightArguments",
+      "type": "object"
+    },
+    "name": "list_in_flight",
+    "outputSchema": {
+      "$defs": {
+        "InFlightItem": {
+          "properties": {
+            "can_retry_post_processing": {
+              "title": "Can Retry Post Processing",
+              "type": "boolean"
+            },
+            "issue_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Issue Id"
+            },
+            "item_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The run item id, for kind run.",
+              "title": "Item Id"
+            },
+            "kind": {
+              "description": "run: a search run item. journal: a grabbed release.",
+              "enum": [
+                "run",
+                "journal"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "provider": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            },
+            "release_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The release, for kind journal.",
+              "title": "Release Key"
+            },
+            "run_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Id"
+            },
+            "series_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Series Id"
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Run item state, or the journal stage.",
+              "title": "State"
+            },
+            "stuck": {
+              "description": "Not updated for seven days.",
+              "title": "Stuck",
+              "type": "boolean"
+            },
+            "updated_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Updated At"
+            }
+          },
+          "required": [
+            "kind",
+            "item_id",
+            "run_id",
+            "release_key",
+            "state",
+            "label",
+            "issue_id",
+            "series_id",
+            "provider",
+            "updated_at",
+            "stuck",
+            "can_retry_post_processing"
+          ],
+          "title": "InFlightItem",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/InFlightItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Offset of the next page; null on the last page.",
+          "title": "Next Offset"
+        },
+        "stuck": {
+          "description": "Stuck items across all pages.",
+          "title": "Stuck",
+          "type": "integer"
+        },
+        "total": {
+          "description": "Items matching the filters, across all pages.",
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "next_offset",
+        "stuck",
+        "items"
+      ],
+      "title": "InFlightPage",
+      "type": "object"
+    },
+    "title": "List in-flight work"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "description": "List the issues and annuals of one series, newest first, optionally only those in one state.",
     "inputSchema": {
       "properties": {

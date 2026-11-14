@@ -46,6 +46,11 @@ CALLS = {
     ),
     "list_wanted": ({"group_by": "series"}, lambda page: page["group_by"] == "series" and page["total"] == 0),
     "get_issue_story": ({"issue_id": "5001"}, lambda out: out["state"] == "Missing" and out["last_search"] is None),
+    "list_activity": ({"series_id": "1001"}, lambda page: page["total"] == 0 and page["events"] == []),
+    "list_in_flight": ({}, lambda page: page["total"] == 0 and page["stuck"] == 0),
+    "list_attention": ({}, lambda page: page["total"] == 0 and page["problems"] == []),
+    "list_download_history": ({"status": "Failed"}, lambda page: page["downloads"] == []),
+    "list_download_queue": ({}, lambda page: page["total"] == 0),
 }
 
 WRITE_CALLS = {
