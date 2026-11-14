@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.53.0
+
+### Minor Changes
+
+- 4ecd4fd: AI agents connected over MCP can now see what Comicarr has been doing: the Activity timeline for everything or for one series or issue (`list_activity`), what is searching, downloading or post-processing and what is stuck (`list_in_flight`), what Needs attention and which actions would clear it (`list_attention`), download history (`list_download_history`) and the direct-download queue (`list_download_queue`). Download folders, links and hashes are left out.
+- 43fcb83: With MCP writes allowed, AI agents can now add a series by its ComicVine, Metron, MangaDex or MyAnimeList id, optionally marking every issue Wanted, and refresh a series' metadata. Adding a series that is already in your library just returns it. Both run in the background like the same actions in the app, and Activity shows "via MCP" beside them.
+- c048e57: Comicarr can now serve AI agents over MCP at `/mcp`. It is off by default: set `mcp_enabled = True` in the `[MCP]` section of `config.ini` to turn it on. Agents sign in with your existing API key, sent as `Authorization: Bearer <key>` or `X-Api-Key`, and five wrong keys lock that address out for five minutes, as on the login page. This first version has one read-only tool, `list_series`, which lists your library by name, kind and status.
+- f743601: AI agents connected over MCP can now read more of your library: one series with its folder, issue counts and next announced issue (`get_series`), a series' issues filtered by state (`list_issues`), what is Wanted, issue by issue or grouped by series (`list_wanted`), and why an issue is not here yet, with what its last search found and rejected (`get_issue_story`). These are read-only and work with MCP writes off.
+- fc37bd6: With MCP writes allowed, AI agents can now unstick work: retry post-processing of a finished download, retry, search again for or stop wanting a needs-attention item, and cancel a queued search or download. Agents never pass a folder path. A retry waits its turn while post-processing is busy and refuses during acquisition maintenance.
+- 47e9ba6: With MCP writes allowed, AI agents can now start searches: one Wanted issue, every Wanted issue of a series, or a retry of a search run that stalled before it reached a worker. The agent's own approval prompt is the confirmation. No search starts while acquisition maintenance is running. Searches an agent starts show in Activity with "via MCP" beside them.
+- 4089312: Settings → System → Agents (MCP) turns the MCP server and its write tools on and off, with no restart, and shows the endpoint URL to copy into your agent. When MCP is on, Settings → Sources and keys warns that regenerating the API key disconnects every connected agent.
+- bae9112: AI agents connected over MCP can now make changes, once you allow it. Set `mcp_write_enabled = True` in the `[MCP]` section of `config.ini` and agents can mark an issue or annual Wanted or Skipped, and pause or resume automatic searching for a series. While it is off, agents don't see these tools at all. Every change an agent makes shows in Activity with "via MCP" beside it.
+- d619044: AI agents connected over MCP can now see this week's releases (or another week's) and which series you follow (`get_weekly_releases`), check whether Comicarr can search and download, with each route, indexer, client check and background job (`get_system_health`, which never includes passwords or API keys), look a series up on ComicVine, Metron, MyAnimeList or MangaDex before adding it (`find_series`), and follow a search run's progress (`get_search_run`).
+
+### Patch Changes
+
+- 76247a4: **Settings → System → Agents (MCP)** now links to the new [Connect an agent (MCP)](https://comicarr.com/docs/api/mcp) guide, which has setup steps for Claude Code, VS Code, Cursor and Codex.
+
 ## 0.52.0
 
 ### Minor Changes
