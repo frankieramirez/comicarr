@@ -23,6 +23,7 @@ from comicarr.app.core.image_hosts import csp_img_src_origins
 CSRF_EXEMPT_PREFIXES = (
     "/opds",
     "/api/health",
+    "/mcp",
 )
 
 

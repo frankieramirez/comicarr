@@ -69,6 +69,13 @@ from comicarr.app.system import job_results, log_files
 from comicarr.tables import comics, jobhistory
 
 _rate_limiter = LoginRateLimiter()
+
+
+def login_rate_limiter():
+    """The login page's per-IP limiter. Failed MCP API keys count against it too."""
+    return _rate_limiter
+
+
 _fallback_weekly_refresh_lock = threading.Lock()
 
 WEEKLY_JOB_NAME = "Weekly Pullist"

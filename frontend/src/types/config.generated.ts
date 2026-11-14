@@ -139,6 +139,8 @@ export interface ReadableConfig {
   qbittorrent_root_routes?: string;
   opds_enable?: boolean;
   opds_pagesize?: number;
+  mcp_enabled?: boolean;
+  mcp_write_enabled?: boolean;
   ai_base_url?: string;
   ai_model?: string;
   ai_timeout?: number;
@@ -315,6 +317,8 @@ export interface WritableConfig {
   qbittorrent_root_routes?: string;
   opds_enable?: boolean;
   opds_pagesize?: number;
+  mcp_enabled?: boolean;
+  mcp_write_enabled?: boolean;
   ai_base_url?: string;
   ai_api_key?: string;
   ai_model?: string;
