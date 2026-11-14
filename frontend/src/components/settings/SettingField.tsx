@@ -71,7 +71,11 @@ export function SettingField({
     return (
       <label
         htmlFor={fieldId}
-        className="flex items-start gap-3 py-2.5 px-3 rounded-lg border-[0.5px] cursor-pointer select-none"
+        className={`flex items-start gap-3 py-2.5 px-3 rounded-lg border-[0.5px] select-none ${
+          readOnly || disabled
+            ? "cursor-not-allowed opacity-60"
+            : "cursor-pointer"
+        }`}
         style={{
           borderColor: "var(--border)",
           background: "var(--card)",

@@ -15,6 +15,7 @@ export type SectionId =
   | "notifications"
   | "clients"
   | "ai"
+  | "agents"
   | "logs"
   | "about";
 

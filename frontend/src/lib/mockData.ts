@@ -2270,6 +2270,9 @@ export function mockApiResponse(
   }
   if (m === "GET" && url === "/api/config") {
     return {
+      mcp_enabled: true,
+      mcp_write_enabled: false,
+      api_key_set: true,
       import_dir: "/data/downloads/comics/inbox",
       comic_dir: "/data/comics",
       manga_dir: "/data/manga",
