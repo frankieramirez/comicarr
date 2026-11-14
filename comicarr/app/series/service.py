@@ -849,6 +849,55 @@ def search_wanted_issue(issue_id, audit_identity, *, preview_token, fingerprint,
     }
 
 
+def search_wanted_issue_now(issue_id, *, actor, session_id):
+    """Preview and confirm one Wanted issue through the ledger in one call.
+
+    For callers whose confirmation already happened outside Comicarr, such as
+    an MCP client's own approval prompt. The ledger, fingerprint check and
+    maintenance fence are the same ones the two-step browser flow uses.
+    """
+    preview = preview_wanted_issue(issue_id, actor=actor, session_id=session_id)
+    if not preview.get("success"):
+        return preview
+    return search_wanted_issue(
+        issue_id,
+        actor,
+        preview_token=preview["preview_token"],
+        fingerprint=preview["fingerprint"],
+        session_id=session_id,
+    )
+
+
+def search_all_missing_now(ctx, comic_id, *, actor, session_id):
+    """Preview and confirm a series' missing-issue search in one call.
+
+    The one-call counterpart of ``preview_search_all_missing`` plus
+    ``search_all_missing(confirm=True)``, for an already-approved caller.
+    """
+    preview = preview_search_all_missing(ctx, comic_id, actor=actor, session_id=session_id)
+    if not preview.get("success"):
+        return preview
+    if not preview.get("preview_token"):
+        # Nothing eligible: no token was minted, and there is nothing to confirm.
+        return {
+            "success": True,
+            "status": "noop",
+            "accepted": 0,
+            "run_id": None,
+            "message": "No eligible missing issues to search",
+            "preview": preview,
+        }
+    return search_all_missing(
+        ctx,
+        comic_id,
+        actor,
+        confirm=True,
+        preview_token=preview["preview_token"],
+        fingerprint=preview["fingerprint"],
+        session_id=session_id,
+    )
+
+
 def _search_missing_preview_state(ctx, comic_id):
     """Build the current public preview and private CAS selection once."""
     detail = get_comic_detail(ctx, comic_id)

@@ -261,6 +261,30 @@ def emit_run_completion(run):
     )
 
 
+def emit_run_started(run_id, accepted, *, scope_type=None, scope_id=None, actor=None):
+    """Narrate a search run someone asked for as ``search.started`` @ ``run``.
+
+    Comicarr's own scheduled sweeps stay silent until they close; this row
+    exists so a run an agent started carries ``actor`` from its first line.
+    """
+    if not run_id:
+        return None
+    if not (scope_type and scope_id):
+        scope_type = scope_id = None
+    return record_activity(
+        "search",
+        "started",
+        "run",
+        str(run_id),
+        "wanted issues",
+        reason_detail=json.dumps({"accepted": int(accepted)}, separators=(",", ":")),
+        run_id=str(run_id),
+        scope_type=scope_type,
+        scope_id=scope_id,
+        actor=actor,
+    )
+
+
 def emit_series_activity(
     activity,
     status,
@@ -448,6 +472,7 @@ __all__ = [
     "emit_grab_cancelled_series",
     "emit_search_cancelled",
     "emit_run_completion",
+    "emit_run_started",
     "emit_series_activity",
     "emit_tag_activity",
     "publish_activity",

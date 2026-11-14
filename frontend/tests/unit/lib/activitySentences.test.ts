@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   actorLabel,
+  countsOf,
   reasonDetailLine,
   reasonPhrase,
   sentenceFor,
@@ -126,5 +127,27 @@ describe("status changes", () => {
     expect(actorLabel(change({ actor: "mcp" }))).toBe("via MCP");
     expect(actorLabel(change({ actor: null }))).toBeNull();
     expect(actorLabel(event())).toBeNull();
+  });
+});
+
+describe("run counts", () => {
+  it("reads counts a producer stored as JSON in reason_detail", () => {
+    const started = event({
+      activity: "search",
+      status: "started",
+      subject_type: "run",
+      subject_label: "wanted issues",
+      reason_detail: '{"accepted":3}',
+      actor: "mcp",
+    });
+    expect(countsOf(started)?.accepted).toBe(3);
+    expect(sentenceFor(started)).toBe("Searching 3 wanted issues");
+  });
+
+  it("ignores a detail that is not counts", () => {
+    expect(countsOf(event({ reason_detail: "Wanted" }))).toBeNull();
+    expect(
+      countsOf(event({ subject_type: "run", reason_detail: "not json" })),
+    ).toBeNull();
   });
 });

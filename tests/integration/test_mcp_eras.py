@@ -15,8 +15,13 @@ sample call per tool; a tool missing from it fails the test, so each new tool
 adds its call here.
 """
 
+import queue
+
 import pytest
 
+import comicarr
+from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.db import get_engine
 from tests.mcp_harness import (
     INIT,
     KEY,
@@ -40,12 +45,25 @@ WRITE_CALLS = {
     "set_issue_status": ({"issue_id": "5001", "status": "wanted"}, lambda out: out["status"] == "Wanted"),
     "pause_series": ({"series_id": "1001"}, lambda out: out["status"] == "Paused"),
     "resume_series": ({"series_id": "1001"}, lambda out: out["status"] == "Active"),
+    # Runs after set_issue_status made 5001 Wanted.
+    "search_issue": ({"issue_id": "5001"}, lambda out: out["accepted"] == 1 and out["run_id"]),
+    "search_missing": ({"series_id": "1002"}, lambda out: out["status"] == "noop"),
+    # An unknown run proves the tool is wired; a real retry is in test_mcp_search.py.
+    "retry_search_run": ({"run_id": "no-such-run"}, lambda out: out["code"] == "not_found"),
 }
+EXPECTED_ERRORS = {"retry_search_run"}
 
 
 @pytest.fixture(autouse=True)
 def _library(tmp_path, monkeypatch):
     seed_library(tmp_path, monkeypatch)
+    monkeypatch.setattr(comicarr, "SEARCH_QUEUE", queue.Queue(), raising=False)
+    monkeypatch.delenv("COMICARR_ACQUISITION_MAINTENANCE", raising=False)
+    monkeypatch.setattr(
+        "comicarr.app.search.health.get_search_health",
+        lambda *_a, **_k: {"viable_route": True, "routes": {"ddl": {"ready": True}, "nzb": {}, "torrent": {}}},
+    )
+    assert ensure_acquisition_schema(get_engine()).ready
     yield
     teardown_library()
 
@@ -77,7 +95,7 @@ async def test_writes_off_then_on_in_each_protocol_era(mode, version):
         assert names == sorted({**CALLS, **WRITE_CALLS}), "add a sample call for each new write tool"
         for name, (arguments, check) in WRITE_CALLS.items():
             result = await mcp.call_tool(name, arguments)
-            assert not result.is_error, (name, result.content)
+            assert result.is_error == (name in EXPECTED_ERRORS), (name, result.content)
             assert check(result.structured_content), (name, result.structured_content)
 
 

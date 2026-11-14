@@ -12,7 +12,9 @@ the section 6 contract
 ([#1303](https://github.com/frankieramirez/comicarr/issues/1303)). In section
 5, the write switch and the status writes `set_issue_status`, `pause_series`
 and `resume_series` are live
-([#1307](https://github.com/frankieramirez/comicarr/issues/1307)).
+([#1307](https://github.com/frankieramirez/comicarr/issues/1307)), and so are
+the search writes `search_issue`, `search_missing` and `retry_search_run`
+([#1308](https://github.com/frankieramirez/comicarr/issues/1308)).
 
 Research: [MCP transport, auth and clients](../research/2026-11-13-mcp-transport-auth-clients.md)
 ([ticket](https://github.com/frankieramirez/comicarr/issues/1243)).
@@ -146,7 +148,12 @@ Decision: [ticket](https://github.com/frankieramirez/comicarr/issues/1248).
   is read on every request. Attribution is the `actor` column on
   `activity_events` (migration `0017_activity_actor`), which the timeline
   shows as "via MCP". Status writes record a `status_change` row only when
-  the status actually changed.
+  the status actually changed. Search writes call
+  `series.service.search_wanted_issue_now` and `search_all_missing_now`, which
+  run the browser's preview and confirm ledger in one call with a session id
+  minted per call. A search an agent starts writes a `search.started` run row
+  with `actor`; Comicarr's own sweeps still narrate only the closing row.
+  `acquisition.maintenance.acquisition_paused` is the maintenance check.
 - Writes that would start acquisition during maintenance return
   `maintenance`; `retry_post_processing` returns `busy` when the processing
   lock is held.

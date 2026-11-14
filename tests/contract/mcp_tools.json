@@ -317,6 +317,209 @@
     "annotations": {
       "destructiveHint": false,
       "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    },
+    "description": "Hand a search run's waiting items to a worker again, for a run that is still open but stuck before it started searching.",
+    "inputSchema": {
+      "properties": {
+        "run_id": {
+          "description": "A search run id, as a search tool returned it.",
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id"
+      ],
+      "title": "retry_search_runArguments",
+      "type": "object"
+    },
+    "name": "retry_search_run",
+    "outputSchema": {
+      "properties": {
+        "dispatched": {
+          "description": "Search items handed to a worker by this retry.",
+          "title": "Dispatched",
+          "type": "integer"
+        },
+        "pending": {
+          "description": "Items still waiting for a worker after this retry.",
+          "title": "Pending",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "dispatched",
+        "pending"
+      ],
+      "title": "SearchRunRetry",
+      "type": "object"
+    },
+    "title": "Retry a search run"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    },
+    "description": "Search the providers for one Wanted issue now. Returns a run_id at once; the search runs in the background.",
+    "inputSchema": {
+      "properties": {
+        "issue_id": {
+          "description": "Comicarr's issue or annual id.",
+          "minLength": 1,
+          "title": "Issue Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "issue_id"
+      ],
+      "title": "search_issueArguments",
+      "type": "object"
+    },
+    "name": "search_issue",
+    "outputSchema": {
+      "properties": {
+        "accepted": {
+          "description": "Wanted issues the run will search.",
+          "title": "Accepted",
+          "type": "integer"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Poll this run for progress. Null when nothing was eligible.",
+          "title": "Run Id"
+        },
+        "series_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Series Id"
+        },
+        "status": {
+          "description": "pending_dispatch: recorded, and Comicarr hands it to a worker as soon as it can.",
+          "enum": [
+            "accepted",
+            "pending_dispatch",
+            "noop"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "series_id",
+        "accepted",
+        "status"
+      ],
+      "title": "SearchStarted",
+      "type": "object"
+    },
+    "title": "Search for an issue"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true,
+      "readOnlyHint": false
+    },
+    "description": "Search the providers for every Wanted issue of one series now. Returns a run_id at once; the search runs in the background.",
+    "inputSchema": {
+      "properties": {
+        "series_id": {
+          "description": "Comicarr's series id, from list_series.",
+          "minLength": 1,
+          "title": "Series Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "series_id"
+      ],
+      "title": "search_missingArguments",
+      "type": "object"
+    },
+    "name": "search_missing",
+    "outputSchema": {
+      "properties": {
+        "accepted": {
+          "description": "Wanted issues the run will search.",
+          "title": "Accepted",
+          "type": "integer"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Poll this run for progress. Null when nothing was eligible.",
+          "title": "Run Id"
+        },
+        "series_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Series Id"
+        },
+        "status": {
+          "description": "pending_dispatch: recorded, and Comicarr hands it to a worker as soon as it can.",
+          "enum": [
+            "accepted",
+            "pending_dispatch",
+            "noop"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "series_id",
+        "accepted",
+        "status"
+      ],
+      "title": "SearchStarted",
+      "type": "object"
+    },
+    "title": "Search for missing issues"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
       "openWorldHint": false,
       "readOnlyHint": false
     },

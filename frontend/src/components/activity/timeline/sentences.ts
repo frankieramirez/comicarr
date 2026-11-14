@@ -6,7 +6,7 @@
  * line (#427).
  */
 
-import type { Story, TimelineEvent } from "./types";
+import type { RunCounts, Story, TimelineEvent } from "./types";
 
 const REASON_LEXICON: Record<string, string> = {
   downloader_unreachable: "downloader unreachable",
@@ -59,6 +59,30 @@ export function reasonDetailLine(
   };
 }
 
+/**
+ * Run counts: the envelope field when present, else the JSON producers put in
+ * `reason_detail` for run rows.
+ */
+export function countsOf(event: TimelineEvent): RunCounts | null {
+  if (event.counts) return event.counts;
+  if (event.subject_type !== "run" || !event.reason_detail) return null;
+  try {
+    const parsed: unknown = JSON.parse(event.reason_detail);
+    if (parsed && typeof parsed === "object" && "accepted" in parsed) {
+      const c = parsed as Partial<RunCounts>;
+      return {
+        accepted: Number(c.accepted) || 0,
+        grabbed: Number(c.grabbed) || 0,
+        no_match: Number(c.no_match) || 0,
+        failed: Number(c.failed) || 0,
+      };
+    }
+  } catch {
+    // Not JSON: an older row or a free-text detail.
+  }
+  return null;
+}
+
 function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
 }
@@ -68,7 +92,7 @@ function plural(n: number, one: string, many: string): string {
  * still says how many it looked at (#432 anti-silence).
  */
 function runSentence(event: TimelineEvent): string {
-  const c = event.counts;
+  const c = countsOf(event);
   if (event.status === "started") {
     if (!c || c.accepted === 0) return "Nothing to search";
     return `Searching ${plural(c.accepted, "wanted issue", "wanted issues")}`;
