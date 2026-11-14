@@ -157,24 +157,44 @@ def _get_common_columns(source_conn, dest_table, table):
     return sorted(common)
 
 
-def _insert_ignoring_duplicates(dest_table, dialect, columns):
-    """INSERT that skips a row already present, on whichever database Comicarr runs (#1256).
+# Rows per multi-row INSERT on MySQL, well under the default max_allowed_packet.
+_MYSQL_ROWS_PER_STATEMENT = 500
+
+
+def _duplicate_skipping_writer(dest_table, dialect, columns):
+    """Return ``write(conn, rows)`` that inserts rows and skips any whose key already exists (#1256).
 
     Only a duplicate key is skipped. MySQL's ``INSERT IGNORE`` would also turn a
     too-long or invalid value into a warning and store a changed row, so MySQL
-    uses a no-op ``ON DUPLICATE KEY UPDATE`` instead and strict mode still fails
-    the table's transaction on bad data.
+    uses a no-op ``ON DUPLICATE KEY UPDATE`` and strict mode still fails the
+    table's transaction on bad data. That statement goes out as one multi-row
+    INSERT per chunk: PyMySQL's ``executemany`` parses an ``ON DUPLICATE KEY``
+    suffix with a regex that backtracks for minutes on a wide table.
     """
-    if dialect == "postgresql":
-        from sqlalchemy.dialects.postgresql import insert as pg_insert
-
-        return pg_insert(dest_table).on_conflict_do_nothing()
     if dialect == "mysql":
         from sqlalchemy.dialects.mysql import insert as mysql_insert
 
         keep = columns[0]
-        return mysql_insert(dest_table).on_duplicate_key_update({keep: dest_table.c[keep]})
-    return sa.insert(dest_table).prefix_with("OR IGNORE")
+
+        def write_mysql(conn, rows):
+            for start in range(0, len(rows), _MYSQL_ROWS_PER_STATEMENT):
+                chunk = rows[start : start + _MYSQL_ROWS_PER_STATEMENT]
+                stmt = mysql_insert(dest_table).values(chunk)
+                conn.execute(stmt.on_duplicate_key_update({keep: dest_table.c[keep]}))
+
+        return write_mysql
+
+    if dialect == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+        stmt = pg_insert(dest_table).on_conflict_do_nothing()
+    else:
+        stmt = sa.insert(dest_table).prefix_with("OR IGNORE")
+
+    def write(conn, rows):
+        conn.execute(stmt, rows)
+
+    return write
 
 
 def _reflect_destination(engine, tables):
@@ -326,7 +346,7 @@ class Mylar3Migration:
                         comicarr.MIGRATION_TABLES_COMPLETE += 1
                         continue
 
-                    insert_stmt = _insert_ignoring_duplicates(dest_table, dialect, columns)
+                    write_rows = _duplicate_skipping_writer(dest_table, dialect, columns)
                     source_cursor = source_conn.execute("SELECT %s FROM %s" % (", ".join(columns), table))
 
                     try:
@@ -338,9 +358,7 @@ class Mylar3Migration:
                                 batch = source_cursor.fetchmany(5000)
                                 if not batch:
                                     break
-                                dest_conn.execute(
-                                    insert_stmt, [dict(zip(columns, tuple(row), strict=True)) for row in batch]
-                                )
+                                write_rows(dest_conn, [dict(zip(columns, tuple(row), strict=True)) for row in batch])
                                 total_rows += len(batch)
                         logger.info("[MIGRATION][%s] Imported %d rows" % (table.upper(), total_rows))
                     except Exception as e:
