@@ -229,7 +229,9 @@ Decision: [ticket](https://github.com/frankieramirez/comicarr/issues/1250).
   writes off and on, 404 when disabled, 401 on a bad key and 403 on a foreign
   Origin.
 - Each release candidate: a manual check with Claude Code and VS Code on the
-  RC image, recorded like the Clean slate integration check.
+  RC image, recorded like the Clean slate integration check
+  ([docs/testing/release-verification.md](../testing/release-verification.md)).
+  The operator page is [Connect an agent (MCP)](https://comicarr.com/docs/api/mcp).
 - Operator docs: a "Connect an agent (MCP)" page on comicarr.com with one
   snippet per client, a short section in `docs/operator-guide.md`, and a link
   from the Settings group.
