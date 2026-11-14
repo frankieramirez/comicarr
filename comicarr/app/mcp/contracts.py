@@ -196,3 +196,163 @@ class SeriesSummary(BaseModel):
 
 class SeriesPage(Paged):
     series: list[SeriesSummary]
+
+
+IssueState = Literal[
+    "Wanted",
+    "Missing",
+    "Skipped",
+    "Ignored",
+    "Reserved",
+    "Snatched",
+    "Downloaded",
+    "Archived",
+    "Failed",
+    "Covered",
+    "Unknown",
+]
+
+
+class IssueRef(BaseModel):
+    issue_id: str
+    number: str | None
+    release_date: str | None = Field(description="The date Comicarr goes by: release, digital or cover date.")
+
+
+class IssueCounts(BaseModel):
+    issues: int
+    annuals: int
+    owned: int = Field(description="On disk or archived.")
+    wanted: int
+    missing: int = Field(description="Not owned, not in flight and not covered by a pack.")
+    in_flight: int = Field(description="Snatched or reserved, on its way.")
+    skipped: int
+    failed: int
+    future: int = Field(description="Monitored issues not released yet.")
+
+
+class ProviderLink(BaseModel):
+    provider: str
+    url: str
+
+
+class SeriesDetail(BaseModel):
+    series_id: str
+    name: str
+    year: str | None
+    publisher: str | None
+    kind: SeriesKind
+    status: str | None
+    location: str | None = Field(description="The series folder.")
+    description: str | None
+    have: int = Field(description="Issues on disk.")
+    total: int = Field(description="Issues the series has.")
+    counts: IssueCounts
+    providers: list[ProviderLink] = Field(description="The series' pages on its metadata providers.")
+    search_providers: list[str] = Field(description="Search providers this series uses, in order.")
+    last_issue: IssueRef | None = Field(description="The most recently released issue.")
+    next_issue: IssueRef | None = Field(description="The next issue to be released, when one is announced.")
+
+
+class IssueSummary(BaseModel):
+    issue_id: str
+    entity_type: Literal["issue", "annual"]
+    number: str | None
+    name: str | None
+    state: IssueState
+    release_date: str | None
+    owned: bool
+    in_flight: bool
+    monitored: bool = Field(description="False when Skipped or Ignored: automatic search leaves it alone.")
+    eligible: bool = Field(description="Automatic search will look for it now.")
+    eligibility_reason: str | None = Field(description="Why it is or is not eligible, such as future or paused.")
+
+
+class IssuePage(Paged):
+    series_id: str
+    issues: list[IssueSummary]
+
+
+class LastSearch(BaseModel):
+    state: str = Field(description="The latest search run item's state, such as no_match, searching or grabbed.")
+    attempts: int
+    reason: str | None
+    run_id: str | None
+    searched_at: str | None
+
+
+class WantedIssue(BaseModel):
+    issue_id: str
+    series_id: str
+    series_name: str | None
+    number: str | None
+    name: str | None
+    release_date: str | None
+    last_search: LastSearch | None = Field(description="Null when it was never searched.")
+
+
+class WantedSeries(BaseModel):
+    series_id: str
+    name: str | None
+    year: str | None
+    publisher: str | None
+    kind: str
+    missing: int = Field(description="Wanted issues in this series.")
+    which: str = Field(description="The Wanted issue numbers, folded, such as #1-12, #20.")
+    not_found: int = Field(description="Searched and nothing usable was found.")
+    searching: int
+    queued: int = Field(description="Waiting for automatic search to reach them.")
+    last_searched_at: str | None
+    eta_hours: float | None = Field(description="Hours until automatic search reaches the last of them.")
+
+
+class WantedPage(Paged):
+    group_by: Literal["issue", "series"]
+    issues: list[WantedIssue] = Field(description="Filled when group_by is issue.")
+    series: list[WantedSeries] = Field(description="Filled when group_by is series.")
+
+
+class SearchReason(BaseModel):
+    code: str
+    label: str
+    count: int
+
+
+class SearchCandidate(BaseModel):
+    title: str
+    provider: str
+    size_bytes: int | None
+    pack: bool
+    chosen: bool = Field(description="True for the release Comicarr grabbed.")
+
+
+class SearchSummary(BaseModel):
+    searched_at: str | None
+    results: int = Field(description="Releases the providers returned.")
+    accepted: int
+    rejected: int
+    providers: list[str]
+    reasons: list[SearchReason] = Field(description="Why releases were rejected, most common first.")
+    candidates: list[SearchCandidate] = Field(description="Acceptable releases, at most 20.")
+
+
+class SearchAttempts(BaseModel):
+    search: int
+    grab: int
+    download: int
+    imported: int
+
+
+class IssueStory(BaseModel):
+    issue_id: str
+    entity_type: Literal["issue", "annual"]
+    series_id: str | None
+    series_name: str | None
+    number: str | None
+    state: IssueState
+    eligible: bool
+    eligibility_reason: str | None
+    release_date: str | None
+    attempts: SearchAttempts = Field(description="Finished searches, grabs, downloads and imports for this issue.")
+    last_search: SearchSummary | None = Field(description="What the most recent search saw; null if never searched.")
+    chosen_release: str | None = Field(description="The release name last handed to a download client.")

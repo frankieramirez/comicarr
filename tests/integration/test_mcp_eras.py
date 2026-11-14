@@ -39,6 +39,13 @@ ERAS = [pytest.param("legacy", LEGACY, id=LEGACY), pytest.param(MODERN, MODERN, 
 
 CALLS = {
     "list_series": ({"kind": "manga"}, lambda page: [s["series_id"] for s in page["series"]] == ["md-abc"]),
+    "get_series": ({"series_id": "1001"}, lambda out: out["name"] == "Saga" and out["counts"]["issues"] == 2),
+    "list_issues": (
+        {"series_id": "1001", "state": "Missing"},
+        lambda page: [i["issue_id"] for i in page["issues"]] == ["5001"],
+    ),
+    "list_wanted": ({"group_by": "series"}, lambda page: page["group_by"] == "series" and page["total"] == 0),
+    "get_issue_story": ({"issue_id": "5001"}, lambda out: out["state"] == "Missing" and out["last_search"] is None),
 }
 
 WRITE_CALLS = {

@@ -287,6 +287,7 @@ def get_comic_detail(ctx, comic_id):
     )
     summary = _issue_summary(projected_issues + projected_annuals)
     comic_row = comic[0] if comic else None
+    override = parse_provider_override(series_queries.get_comic_provider_override(comic_id))
 
     return {
         "comic": comic,
@@ -296,9 +297,78 @@ def get_comic_detail(ctx, comic_id):
         "providerLinks": series_kind.provider_page_links(comic_row) if comic_row else [],
         "searchProviders": {
             "available": [provider.name for provider in effective_provider_plan(ctx.config)] if ctx.config else [],
-            "override": parse_provider_override(series_queries.get_comic_provider_override(comic_id)),
+            "override": override,
+            # What search uses for this series: the plan with the override applied.
+            "effective": (
+                [provider.name for provider in effective_provider_plan(ctx.config, override=override)]
+                if ctx.config
+                else []
+            ),
         },
     }
+
+
+ISSUE_DISPLAY_STATES = (
+    "Wanted",
+    "Missing",
+    "Skipped",
+    "Ignored",
+    "Reserved",
+    "Snatched",
+    "Downloaded",
+    "Archived",
+    "Failed",
+    "Covered",
+    "Unknown",
+)
+
+
+def issue_release_date(row):
+    """The first parseable of release, digital and cover date, as eligibility picks it; ISO or None."""
+    for key in ("releaseDate", "digitalDate", "issueDate"):
+        try:
+            return datetime.date.fromisoformat(str(row.get(key) or "").strip()[:10]).isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def list_series_issues(ctx, comic_id, status=None, limit=25, offset=0):
+    """One page of a series' projected issues and annuals, newest first, optionally one display state.
+
+    Returns None when no series has ``comic_id``; otherwise ``{"issues", "total"}``
+    where ``total`` counts every row matching ``status``.
+    """
+    detail = get_comic_detail(ctx, comic_id)
+    if not detail["comic"]:
+        return None
+    rows = sorted(
+        detail["issues"] + detail["annuals"],
+        key=lambda row: (issue_release_date(row) or "", str(row.get("id") or "")),
+        reverse=True,
+    )
+    if status:
+        rows = [row for row in rows if row["displayState"] == status]
+    offset = max(0, int(offset or 0))
+    return {"issues": rows[offset : offset + limit], "total": len(rows)}
+
+
+def get_issue_state(ctx, issue_id):
+    """One issue or annual projected like the series page shows it, with its series row; or None."""
+    found = series_queries.get_issue_row(issue_id)
+    if found is None:
+        return None
+    table, row = found
+    comic = series_queries.get_comic(row.get("comicId"))
+    series = comic[0] if comic else {}
+    projected = project_issue_state(
+        row,
+        series_status=series.get("Status"),
+        annual=table == "annuals",
+        series_location=series.get("ComicLocation"),
+        retained_locations=series_locations.retained_locations(series) if series else [],
+    )
+    return {"issue": projected, "series": series or None}
 
 
 def add_comic(ctx, comic_id, folder=None):

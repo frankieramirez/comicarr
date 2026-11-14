@@ -1,6 +1,10 @@
 add_series
 cancel_in_flight
+get_issue_story
+get_series
+list_issues
 list_series
+list_wanted
 pause_series
 refresh_series
 resolve_attention

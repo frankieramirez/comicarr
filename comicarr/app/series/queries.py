@@ -413,6 +413,20 @@ def get_issues(comic_id):
     return db.select_all(stmt)
 
 
+def get_issue_row(issue_id):
+    """Return ``(table, row)`` for one issue or live annual, in the series page's columns, or None."""
+    row = db.select_one(select(*ISSUES_COLUMNS).where(t_issues.c.IssueID == str(issue_id)))
+    if row is not None:
+        return "issues", row
+    row = db.select_one(
+        select(*ANNUALS_COLUMNS).where(
+            t_annuals.c.IssueID == str(issue_id),
+            or_(t_annuals.c.Deleted.is_(None), t_annuals.c.Deleted != 1),
+        )
+    )
+    return ("annuals", row) if row is not None else None
+
+
 def get_annuals(comic_id):
     """Get all annuals for a comic."""
     return db.select_all(
