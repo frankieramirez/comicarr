@@ -56,8 +56,18 @@ WRITE_CALLS = {
         lambda out: out["already_in_library"] is True,
     ),
     "refresh_series": ({"series_id": "nope"}, lambda out: out["code"] == "not_found"),
+    # Unknown ids prove the recovery tools are wired; tests/unit/test_mcp_recovery.py does the real work.
+    "retry_post_processing": ({"release_key": "nope"}, lambda out: out["code"] == "not_found"),
+    "resolve_attention": ({"action": "retry", "release_keys": ["nope"]}, lambda out: out["code"] == "not_found"),
+    "cancel_in_flight": ({"kind": "journal", "release_key": "nope"}, lambda out: out["code"] == "not_found"),
 }
-EXPECTED_ERRORS = {"retry_search_run", "refresh_series"}
+EXPECTED_ERRORS = {
+    "retry_search_run",
+    "refresh_series",
+    "retry_post_processing",
+    "resolve_attention",
+    "cancel_in_flight",
+}
 
 
 @pytest.fixture(autouse=True)
