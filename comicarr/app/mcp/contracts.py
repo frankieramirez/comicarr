@@ -494,7 +494,7 @@ class WeeklyReleases(Paged):
 class IndexerHealth(BaseModel):
     name: str
     type: str | None
-    active: bool = Field(description="False when turned off or temporarily blocked.")
+    searching: bool = Field(description="True while a search is running on this indexer right now.")
     last_run: str | None
     hits: int | None
 

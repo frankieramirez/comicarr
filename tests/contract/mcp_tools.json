@@ -1289,11 +1289,6 @@
         },
         "IndexerHealth": {
           "properties": {
-            "active": {
-              "description": "False when turned off or temporarily blocked.",
-              "title": "Active",
-              "type": "boolean"
-            },
             "hits": {
               "anyOf": [
                 {
@@ -1320,6 +1315,11 @@
               "title": "Name",
               "type": "string"
             },
+            "searching": {
+              "description": "True while a search is running on this indexer right now.",
+              "title": "Searching",
+              "type": "boolean"
+            },
             "type": {
               "anyOf": [
                 {
@@ -1335,7 +1335,7 @@
           "required": [
             "name",
             "type",
-            "active",
+            "searching",
             "last_run",
             "hits"
           ],

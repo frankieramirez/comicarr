@@ -211,6 +211,44 @@ async def test_find_series_with_no_match_is_an_empty_page(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_find_series_treats_a_returned_provider_error_as_retryable(monkeypatch):
+    from comicarr.app.search import service as search_service
+
+    monkeypatch.setattr(
+        search_service,
+        "find_comic",
+        lambda *_a, **_k: {"error": "Metron could not look up this series. Check the connection and try again."},
+    )
+    result = await _call("find_series", {"name": "https://metron.cloud/series/2211/"})
+    assert result.is_error
+    assert (result.structured_content["code"], result.structured_content["retryable"]) == (
+        "provider_unavailable",
+        True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_find_series_keeps_the_provider_total_past_the_last_page(monkeypatch):
+    from comicarr import mangadex
+
+    monkeypatch.setattr(mangadex, "search_manga", lambda *_a, **_k: {"results": [], "pagination": {"total": 10}})
+    app = make_app()
+    app.state.ctx.config.MANGADEX_ENABLED = True
+    page = (await _call("find_series", {"name": "Dandadan", "kind": "manga", "offset": 25}, app=app)).structured_content
+    assert (page["results"], page["total"], page["next_offset"]) == ([], 10, None)
+
+
+def test_health_hides_a_bearer_token_and_a_folder_path():
+    from comicarr.app.mcp.tools.system import _connection_result
+    from comicarr.app.search.health import _sanitize
+
+    assert "s3cret" not in _sanitize("401 with Authorization: Bearer s3cret-token")
+    assert "s3cret" not in _sanitize("Authorization=Basic s3cret")
+    assert _connection_result("Folder not found: /srv/private/ddl") == "Folder not found"
+    assert _connection_result("Connected") == "Connected"
+
+
+@pytest.mark.asyncio
 async def test_get_search_run_reports_progress():
     ledger = RunLedger()
     ledger.create_run("run-42", "search", "manual", scope_type="series", scope_id="1001")

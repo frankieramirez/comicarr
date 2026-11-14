@@ -168,6 +168,10 @@ def _run(result) -> SearchRun:
     )
 
 
+# The errors find_comic and find_manga return for a bad request; any other is the provider's.
+_ARGUMENT_ERRORS = frozenset({"Missing a Comic name", "Invalid pagination parameters"})
+
+
 def register(server, get_ctx):
     """Add the search tools to ``server``."""
 
@@ -200,12 +204,17 @@ def register(server, get_ctx):
             ) from e
         error = result.get("error")
         if error and "no results" not in error:
-            if "not enabled" in error:
+            if error in _ARGUMENT_ERRORS:
+                raise ContractError("invalid_argument", error)
+            if "not enabled" in error or "not configured" in error:
                 raise ContractError("provider_unavailable", "%s. Turn it on in Settings." % error)
-            raise ContractError("invalid_argument", error)
+            raise ContractError("provider_unavailable", error, retryable=True)
         found = [item for item in (_found(row, kind) for row in result.get("results") or []) if item]
         total = (result.get("pagination") or {}).get("total")
-        total = max(int(total), offset + len(found)) if isinstance(total, int) else offset + len(found)
+        if not isinstance(total, int):
+            total = offset + len(found)
+        elif found:
+            total = max(total, offset + len(found))
         page = FoundSeriesPage(results=found, **paging(offset, len(found), total))
         if not found:
             return tool_result(page, "No %s series matched %r." % (kind, name))

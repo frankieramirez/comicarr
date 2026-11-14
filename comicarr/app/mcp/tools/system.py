@@ -81,10 +81,18 @@ def _indexer(row) -> IndexerHealth:
     return IndexerHealth(
         name=str(row.get("provider") or ""),
         type=_text(row.get("type")),
-        active=_truthy(row.get("active")),
+        searching=_truthy(row.get("active")),
         last_run=_when(row.get("lastrun")),
         hits=_int(row.get("hits")),
     )
+
+
+def _connection_result(value):
+    """The probe's result, without a configured folder path."""
+    text = _text(value)
+    if text and text.startswith("Folder not found"):
+        return "Folder not found"
+    return text
 
 
 def _connection(row) -> ConnectionHealth:
@@ -93,7 +101,7 @@ def _connection(row) -> ConnectionHealth:
         label=str(row.get("label") or row["key"]),
         kind=str(row.get("kind") or ""),
         ok=row.get("ok"),
-        result=_text(row.get("result")),
+        result=_connection_result(row.get("result")),
         checked_at=_when(row.get("checked_at")),
         latency_ms=row.get("latency_ms"),
         version=_text(row.get("version")),

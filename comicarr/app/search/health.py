@@ -62,7 +62,7 @@ def _timestamp(value):
 def _sanitize(value, fallback=None):
     message = re.sub(r"\s+", " ", str(value or "")).strip()
     message = re.sub(
-        r"(?i)(api[ _-]?key|authorization|password|token|passkey)\s*[=:]\s*[^\s,;]+",
+        r"(?i)(api[ _-]?key|authorization|password|token|passkey)\s*[=:]\s*(?:(?:bearer|basic)\s+)?[^\s,;]+",
         r"\1=[redacted]",
         message,
     )
