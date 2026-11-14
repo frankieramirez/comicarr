@@ -113,7 +113,7 @@ def app():
 
 @asynccontextmanager
 async def http(app, **headers):
-    async with app.state.mcp.session_manager.run():
+    async with app.state.mcp.run():
         transport = httpx2.ASGITransport(app=app, client=("127.0.0.1", 5000))
         async with httpx2.AsyncClient(transport=transport, base_url="http://testserver", headers=headers) as client:
             yield client
@@ -254,7 +254,7 @@ async def test_real_uvicorn_streams_through_all_three_middleware_layers(app):
 
     @asynccontextmanager
     async def lifespan(_app):
-        async with app.state.mcp.session_manager.run():
+        async with app.state.mcp.run():
             yield
 
     app.router.lifespan_context = lifespan
@@ -279,3 +279,10 @@ async def test_real_uvicorn_streams_through_all_three_middleware_layers(app):
     finally:
         server.should_exit = True
         thread.join(10)
+
+
+@pytest.mark.asyncio
+async def test_the_endpoint_serves_again_after_its_lifespan_restarts(app):
+    for _ in range(2):
+        async with http(app, Authorization="Bearer " + KEY) as client:
+            assert (await client.post("/mcp", json=INIT, headers=STREAM_HEADERS)).status_code == 200

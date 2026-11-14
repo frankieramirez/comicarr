@@ -222,7 +222,7 @@ async def lifespan(app: FastAPI):
         logger.error("[DEPRECATION] Startup deprecation check failed: %s" % e)
 
     mcp = getattr(app.state, "mcp", None)
-    async with mcp.session_manager.run() if mcp is not None else nullcontext():
+    async with mcp.run() if mcp is not None else nullcontext():
         yield
 
     import comicarr

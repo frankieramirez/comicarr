@@ -26,6 +26,7 @@ Both settings are read on every request, so changes apply without a restart.
 import hmac
 import json
 import logging
+from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 
 from mcp.server import MCPServer
@@ -103,24 +104,38 @@ def _with_bearer_from_api_key(scope):
 
 
 class McpEndpoint:
-    """The ``/mcp`` ASGI endpoint. ``session_manager.run()`` must be entered once at startup."""
+    """The ``/mcp`` ASGI endpoint. Serve it inside ``async with endpoint.run():``."""
 
     def __init__(self, get_ctx):
         self._get_ctx = get_ctx
         self.server = _build_server()
         series_tools.register(self.server, get_ctx)
-        # Builds the session manager. Host checking is off: the Origin check below replaces it.
+        self._authenticated = None
+
+    @asynccontextmanager
+    async def run(self):
+        """Run a fresh session manager for one app lifespan.
+
+        The SDK's session manager runs only once, and tests start the same app's
+        lifespan more than once, so each run builds its own.
+        """
+        # Host checking is off: the Origin check in __call__ replaces it.
         self.server.streamable_http_app(
             stateless_http=True,
             transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
         )
-        self.session_manager = self.server.session_manager
+        session_manager = self.server.session_manager
         transport = RequireAuthMiddleware(
-            StreamableHTTPASGIApp(self.session_manager), required_scopes=[], resource_metadata_url=None
+            StreamableHTTPASGIApp(session_manager), required_scopes=[], resource_metadata_url=None
         )
-        self._authenticated = AuthenticationMiddleware(
-            AuthContextMiddleware(transport), backend=BearerAuthBackend(ApiKeyVerifier(get_ctx))
-        )
+        async with session_manager.run():
+            self._authenticated = AuthenticationMiddleware(
+                AuthContextMiddleware(transport), backend=BearerAuthBackend(ApiKeyVerifier(self._get_ctx))
+            )
+            try:
+                yield
+            finally:
+                self._authenticated = None
 
     def _enabled(self):
         config = self._get_ctx().config
@@ -129,6 +144,8 @@ class McpEndpoint:
     async def __call__(self, scope, receive, send):
         if not self._enabled():
             return await _send_json(send, 404, "Not Found")
+        if self._authenticated is None:
+            return await _send_json(send, 503, "MCP is starting up")
         if _foreign_origin(scope):
             return await _send_json(send, 403, "Origin not allowed")
 
