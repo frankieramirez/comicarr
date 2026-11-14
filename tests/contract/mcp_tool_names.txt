@@ -1,7 +1,11 @@
 add_series
 cancel_in_flight
+find_series
 get_issue_story
+get_search_run
 get_series
+get_system_health
+get_weekly_releases
 list_activity
 list_attention
 list_download_history
