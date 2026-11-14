@@ -356,3 +356,105 @@ class IssueStory(BaseModel):
     attempts: SearchAttempts = Field(description="Finished searches, grabs, downloads and imports for this issue.")
     last_search: SearchSummary | None = Field(description="What the most recent search saw; null if never searched.")
     chosen_release: str | None = Field(description="The release name last handed to a download client.")
+
+
+class ActivityEvent(BaseModel):
+    event_id: str
+    at: str = Field(description="When it happened, ISO 8601.")
+    activity: str = Field(description="What kind of work: search, grab, download, import, series and so on.")
+    status: str = Field(description="How it went: started, succeeded, failed, no_match and so on.")
+    subject_type: str = Field(description="issue, annual, series or run.")
+    subject_id: str
+    subject_label: str
+    series_id: str | None
+    reason_code: str | None
+    reason_detail: str | None
+    provider: str | None
+    run_id: str | None = Field(description="The search run, for get_search_run.")
+    release_key: str | None
+    actor: str | None = Field(description="Who started it: null for Comicarr itself, mcp for an agent.")
+
+
+class ActivityPage(Paged):
+    events: list[ActivityEvent] = Field(description="Newest first.")
+
+
+class InFlightItem(BaseModel):
+    kind: Literal["run", "journal"] = Field(description="run: a search run item. journal: a grabbed release.")
+    item_id: str | None = Field(description="The run item id, for kind run.")
+    run_id: str | None
+    release_key: str | None = Field(description="The release, for kind journal.")
+    state: str | None = Field(description="Run item state, or the journal stage.")
+    label: str
+    issue_id: str | None
+    series_id: str | None
+    provider: str | None
+    updated_at: str | None
+    stuck: bool = Field(description="Not updated for seven days.")
+    can_retry_post_processing: bool
+
+
+class InFlightPage(Paged):
+    stuck: int = Field(description="Stuck items across all pages.")
+    items: list[InFlightItem]
+
+
+class AttentionItem(BaseModel):
+    release_key: str = Field(description="The attention item id.")
+    issue_id: str | None
+    issue_label: str
+    stage: str
+    actions: list[str] = Field(description="What the operator can do: retry, search_again, import, stop_wanting.")
+    updated_at: str | None
+
+
+class AttentionProblem(BaseModel):
+    group_key: str
+    series_id: str | None
+    series_label: str
+    reason_code: str | None
+    reason: str
+    stage: str
+    count: int
+    newest_at: str | None
+    oldest_at: str | None
+    actions: list[str]
+    items: list[AttentionItem]
+
+
+class AttentionPage(Paged):
+    items_total: int = Field(description="Items across every problem, all pages.")
+    problems: list[AttentionProblem] = Field(description="One per series and reason.")
+
+
+class DownloadRecord(BaseModel):
+    issue_id: str | None
+    series_id: str | None
+    series_name: str | None
+    issue_number: str | None
+    status: str | None = Field(description="Such as Snatched, Downloaded, Post-Processed or Failed.")
+    provider: str | None
+    size_bytes: int | None
+    at: str | None
+
+
+class DownloadHistoryPage(Paged):
+    downloads: list[DownloadRecord] = Field(description="Newest first.")
+
+
+class QueuedDownload(BaseModel):
+    queue_id: str
+    series_name: str | None
+    year: str | None
+    file_name: str | None
+    issue_id: str | None
+    series_id: str | None
+    site: str | None
+    status: str | None = Field(description="Queued, Downloading or Failed.")
+    pack: bool
+    submitted_at: str | None
+    updated_at: str | None
+
+
+class DownloadQueuePage(Paged):
+    downloads: list[QueuedDownload]

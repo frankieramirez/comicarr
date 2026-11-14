@@ -2,6 +2,11 @@ add_series
 cancel_in_flight
 get_issue_story
 get_series
+list_activity
+list_attention
+list_download_history
+list_download_queue
+list_in_flight
 list_issues
 list_series
 list_wanted
