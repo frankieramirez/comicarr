@@ -215,7 +215,7 @@ def markIssueWantedById(issueId):
                 )
                 .select_from(annuals.join(comics, annuals.c.ComicID == comics.c.ComicID, isouter=True))
                 .where(annuals.c.IssueID == issueId)
-                .where(annuals.c.Deleted == 0)
+                .where(annuals.c.Deleted.is_(None) | (annuals.c.Deleted != 1))
             )
             issue = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 

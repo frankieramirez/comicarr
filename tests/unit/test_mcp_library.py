@@ -54,7 +54,11 @@ def providers(monkeypatch):
                     )
                 conn.execute(
                     annuals.insert().values(
-                        IssueID="%s-a1" % comic_id, ComicID=comic_id, Issue_Number="1", Status="Skipped"
+                        IssueID="%s-a1" % comic_id,
+                        ComicID=comic_id,
+                        Issue_Number="1",
+                        Status="Skipped",
+                        Deleted=None,  # legacy rows can carry NULL, not the 0 default
                     )
                 )
         for watch in series:
