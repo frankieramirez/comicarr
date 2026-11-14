@@ -11,6 +11,7 @@ import { SearchTab } from "@/components/settings/SearchTab";
 import { DownloadClientsTab } from "@/components/settings/DownloadClientsTab";
 import { hostKey } from "@/lib/downloadClients";
 import { AiTab } from "@/components/settings/AiTab";
+import { AgentsTab } from "@/components/settings/AgentsTab";
 import { NotificationsTab } from "@/components/settings/NotificationsTab";
 import { MediaManagementTab } from "@/components/settings/MediaManagementTab";
 import { AcquisitionHealthTab } from "@/components/settings/AcquisitionHealthTab";
@@ -63,6 +64,7 @@ const SECTION_GROUPS: {
     label: "System",
     sections: [
       { id: "general", label: "General" },
+      { id: "agents", label: "Agents (MCP)" },
       { id: "logs", label: "Logs" },
       { id: "about", label: "About" },
     ],
@@ -436,6 +438,7 @@ export default function SettingsPage() {
             {section === "notifications" && <NotificationsTab {...tabProps} />}
             {section === "clients" && <DownloadClientsTab {...tabProps} />}
             {section === "ai" && <AiTab {...tabProps} />}
+            {section === "agents" && <AgentsTab {...tabProps} />}
             {section === "logs" && <LogsTab {...tabProps} />}
             {section === "about" && <AboutTab {...aboutProps} />}
           </div>

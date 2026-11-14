@@ -35,6 +35,8 @@ export function ApiTab({
   const apiKeyIsSet = config.api_key_set || false;
   const comicvineApiIsSet = config.comicvine_api_set || false;
   const metronPasswordIsSet = config.metron_password_set || false;
+  // The saved value, not the form draft: the note is about what is live.
+  const mcpEnabled = config.mcp_enabled || false;
 
   const handleCopyApiKey = async () => {
     if (!displayedApiKey) {
@@ -62,7 +64,9 @@ export function ApiTab({
   const handleRegenerateApiKey = async () => {
     if (
       !confirm(
-        "Are you sure you want to regenerate the API key? This will invalidate any existing API integrations.",
+        mcpEnabled
+          ? "Are you sure you want to regenerate the API key? This will invalidate any existing API integrations and disconnect every MCP agent."
+          : "Are you sure you want to regenerate the API key? This will invalidate any existing API integrations.",
       )
     ) {
       return;
@@ -135,6 +139,15 @@ export function ApiTab({
           <p className="text-xs text-muted-foreground">
             Use this key in API requests and integrations
           </p>
+          {mcpEnabled && (
+            <p
+              data-testid="mcp-rotation-note"
+              className="text-xs text-foreground-2"
+            >
+              MCP is on. Regenerating this key disconnects every connected MCP
+              agent at once; each one needs the new key.
+            </p>
+          )}
         </div>
       </SettingGroup>
 
