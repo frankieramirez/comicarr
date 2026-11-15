@@ -135,6 +135,8 @@ def test_add_queued_while_mass_add_worker_retires_still_runs(monkeypatch):
 
     ctx = AppContext()
     monkeypatch.setattr(runtime, "_runtime", ctx)
+    # set_runtime_field mirrors the pool onto the legacy global; restore it.
+    monkeypatch.setattr(comicarr, "MASS_ADD", None)
     monkeypatch.setattr(importer.time, "sleep", lambda *_: None)
     added = []
     done = threading.Event()
@@ -179,6 +181,7 @@ def test_add_queued_while_mass_add_worker_retires_still_runs(monkeypatch):
 def test_mass_add_worker_does_not_retire_while_work_is_queued(monkeypatch):
     ctx = AppContext()
     monkeypatch.setattr(runtime, "_runtime", ctx)
+    monkeypatch.setattr(comicarr, "MASS_ADD", None)
     sentinel = MagicMock(name="other_worker")
     importer._set_mass_add_pool(ctx, sentinel)
 
