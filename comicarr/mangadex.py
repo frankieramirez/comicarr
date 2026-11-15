@@ -224,6 +224,18 @@ def _get_localized_string(localized_dict, preferred_languages=None):
     return None
 
 
+SEARCH_FAILED_ERROR = "MangaDex could not be reached or returned an error. Try again."
+
+
+def _search_failed(page_limit, page_offset):
+    """The search_manga answer for a failed request: empty results plus ``error``."""
+    return {
+        "results": [],
+        "pagination": {"total": 0, "limit": page_limit, "offset": page_offset, "returned": 0},
+        "error": SEARCH_FAILED_ERROR,
+    }
+
+
 def search_manga(name, limit=None, offset=None, sort=None):
     """
     Search for manga series using MangaDex API.
@@ -235,7 +247,8 @@ def search_manga(name, limit=None, offset=None, sort=None):
         sort: Sort order (relevance, latestUploadedChapter, followedCount, etc.)
 
     Returns:
-        dict with 'results' list and 'pagination' metadata
+        dict with 'results' list and 'pagination' metadata. A failed request
+        also carries ``error``; a genuine no-match does not.
     """
     search_start_time = time.time()
     logger.info("[MANGADEX] Starting search for: %s (limit=%s, offset=%s, sort=%s)" % (name, limit, offset, sort))
@@ -279,11 +292,10 @@ def search_manga(name, limit=None, offset=None, sort=None):
         data = _make_request("/manga", params=params)
 
         if not data or data.get("result") != "ok":
-            logger.error("[MANGADEX] Search failed or returned no results")
-            return {
-                "results": [],
-                "pagination": {"total": 0, "limit": page_limit, "offset": page_offset, "returned": 0},
-            }
+            # A failed request is not a no-match: a real no-match comes back
+            # "ok" with an empty data list. Say so, so callers can retry.
+            logger.error("[MANGADEX] Search failed for: %s" % name)
+            return _search_failed(page_limit, page_offset)
 
         manga_list = data.get("data", [])
         total_results = data.get("total", 0)
@@ -389,7 +401,7 @@ def search_manga(name, limit=None, offset=None, sort=None):
         import traceback
 
         logger.error("[MANGADEX] Traceback: %s" % traceback.format_exc())
-        return {"results": [], "pagination": {"total": 0, "limit": page_limit, "offset": page_offset, "returned": 0}}
+        return _search_failed(page_limit, page_offset)
 
 
 def get_manga_details(manga_id):

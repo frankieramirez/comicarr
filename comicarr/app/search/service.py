@@ -106,6 +106,9 @@ def find_comic(
         comic["in_library"] = comic.get("haveit") != "No"
         return comic
 
+    if isinstance(searchresults, dict) and searchresults.get("error"):
+        # A provider failure (MangaDex says so with ``error``), not a no-match.
+        return {"error": searchresults["error"]}
     if isinstance(searchresults, dict) and "results" in searchresults:
         searchresults["results"] = [add_in_library(c) for c in searchresults["results"]]
         return searchresults
@@ -152,6 +155,9 @@ def find_manga(ctx, name, limit=None, offset=None, sort=None):
 
     searchresults = mangadex.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
 
+    if isinstance(searchresults, dict) and searchresults.get("error"):
+        # MangaDex failed (or MyAnimeList raised and MangaDex failed too): not a no-match.
+        return {"error": searchresults["error"]}
     if isinstance(searchresults, dict) and "results" in searchresults:
         searchresults["results"] = [add_in_library(m) for m in searchresults["results"]]
         return searchresults
