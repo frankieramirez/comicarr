@@ -1455,7 +1455,10 @@ def NZB_SEARCH(
             if nzbprov == "":
                 verified_matches = "no results"
             elif nzbprov != "experimental":
-                if provider_stat["type"] == "newznab":
+                if provider_stat["type"] == "newznab" and prowlarr.is_search_endpoint(host_newznab):
+                    host_newznab_fix = host_newznab.rstrip("/")
+                    findurl = prowlarr.search_url(host_newznab_fix, comsearch, category_newznab)
+                elif provider_stat["type"] == "newznab":
                     host_newznab_fix = host_newznab
                     if not host_newznab_fix.endswith("api"):
                         if not host_newznab_fix.endswith("/"):
@@ -1490,7 +1493,17 @@ def NZB_SEARCH(
                     findurl = findurl + "&apikey=" + str(apikey)
                     logsearch = helpers.apiremove(str(findurl), "nzb")
 
-                    if comicarr.CONFIG.USENET_RETENTION is not None and provider_stat["type"] != "torznab":
+                    prowlarr_protocol = None
+                    if provider_stat["type"] == "torznab" and prowlarr.is_search_endpoint(host_torznab):
+                        prowlarr_protocol = prowlarr.TORRENT
+                    elif provider_stat["type"] == "newznab" and prowlarr.is_search_endpoint(host_newznab):
+                        prowlarr_protocol = prowlarr.USENET
+
+                    if (
+                        comicarr.CONFIG.USENET_RETENTION is not None
+                        and provider_stat["type"] != "torznab"
+                        and prowlarr_protocol is None
+                    ):
                         findurl = findurl + "&maxage=" + str(comicarr.CONFIG.USENET_RETENTION)
 
                     pause_the_search = check_the_search_delay(manual)
@@ -1632,9 +1645,9 @@ def NZB_SEARCH(
                         logger.warn("[ERROR] %s" % e)
                         data = False
 
-                    if data and provider_stat["type"] == "torznab" and prowlarr.is_search_endpoint(host_torznab):
+                    if data and prowlarr_protocol is not None:
                         try:
-                            verified_matches = {"entries": prowlarr.entries_from_response(data)}
+                            verified_matches = {"entries": prowlarr.entries_from_response(data, prowlarr_protocol)}
                         except ValueError as e:
                             logger.warn("[PROWLARR] %s" % e)
                             is_info["foundc"]["status"] = False

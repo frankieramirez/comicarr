@@ -37,6 +37,17 @@ export interface SearchProviderGroup<T extends SearchProviderFields> {
   providers: T[];
 }
 
+/** One enabled Search provider in `GET /api/config/provider-order`. */
+export interface ProviderOrderEntry {
+  name: string;
+  kind: string;
+  route: "ddl" | "nzb" | "torrent";
+}
+
+export interface ProviderOrderResponse {
+  providers: ProviderOrderEntry[];
+}
+
 export interface ProviderConfigResponse {
   newznab: SearchProviderGroup<NewznabProvider>;
   torznab: SearchProviderGroup<TorznabProvider>;

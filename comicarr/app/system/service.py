@@ -65,6 +65,7 @@ from comicarr.app.search.provider_config import (
     normalize_category_list,
     providers_from_config,
 )
+from comicarr.app.search.providers import effective_provider_plan
 from comicarr.app.system import job_results, log_files
 from comicarr.tables import comics, jobhistory
 
@@ -443,6 +444,55 @@ def get_provider_config(ctx):
     }
 
 
+def get_provider_order(ctx):
+    """Return the enabled Search providers in the order search uses them (#1117).
+
+    Names, kinds and routes only: no host, key or category ever leaves here.
+    """
+    if not ctx.config:
+        return {"providers": []}
+    return {
+        "providers": [
+            {"name": candidate.name, "kind": candidate.kind, "route": candidate.route}
+            for candidate in effective_provider_plan(ctx.config)
+        ]
+    }
+
+
+def update_provider_order(ctx, body):
+    """Save a new global Search provider order (#1117).
+
+    ``body["order"]`` must list every enabled provider exactly once, by name.
+    The new order applies from the next search; a Series with its own provider
+    order keeps using that.
+    """
+    if not ctx.config:
+        return {"success": False, "error": "Config not loaded"}
+    order = body.get("order") if isinstance(body, dict) else None
+    if not isinstance(order, list) or not all(isinstance(name, str) for name in order):
+        return {"success": False, "error": "Send the provider order as a list of names"}
+    canonical = {candidate.name.casefold(): candidate.name for candidate in effective_provider_plan(ctx.config)}
+    requested = [name.strip().casefold() for name in order]
+    if len(requested) != len(set(requested)) or set(requested) != set(canonical):
+        return {"success": False, "error": "The order must list each enabled Search provider exactly once"}
+    names = [canonical[name] for name in requested]
+    for name in names:
+        if "," in name:
+            return {
+                "success": False,
+                "error": 'Rename "%s" under Search first: a provider name in the order cannot contain a comma' % name,
+            }
+    try:
+        persisted = ctx.config.save_provider_order(names)
+    except Exception as e:
+        logger.error("[PROVIDERS] Failed to persist provider order: %s" % type(e).__name__)
+        persisted = False
+    if persisted is False:
+        return {"success": False, "error": PROVIDER_CONFIG_PERSISTENCE_ERROR}
+    logger.info("[PROVIDERS] Search provider order is now: %s" % ", ".join(names))
+    return {"success": True, **get_provider_order(ctx)}
+
+
 WRITABLE_CONFIG_KEYS = writable_keys()
 
 
@@ -610,12 +660,14 @@ def regenerate_api_key(ctx, username, ip):
     return {"success": True, "api_key": new_api_key}
 
 
+_PROWLARR_PROVIDER_NAMES = {prowlarr.PROWLARR_NAME.casefold(), prowlarr.PROWLARR_USENET_NAME.casefold()}
+
+
 def _provider_named_prowlarr(config):
     """The Newznab or Torznab indexer whose name clashes with Prowlarr search, if any."""
-    reserved = prowlarr.PROWLARR_NAME.casefold()
     for kind in ("newznab", "torznab"):
         for record in providers_from_config(config, kind):
-            if str(record.name or "").strip().casefold() == reserved:
+            if str(record.name or "").strip().casefold() in _PROWLARR_PROVIDER_NAMES:
                 return record
     return None
 
@@ -639,8 +691,10 @@ def _validate_prowlarr_update(ctx, filtered):
                 return "Prowlarr API key is required when changing the server origin"
     if "PROWLARR_CATEGORIES" in filtered:
         filtered["PROWLARR_CATEGORIES"] = ",".join(prowlarr.categories(filtered["PROWLARR_CATEGORIES"]))
-    if filtered.get("ENABLE_PROWLARR") is True and _provider_named_prowlarr(ctx.config) is not None:
-        return 'Rename the indexer named "Prowlarr" under Search before turning on Prowlarr search'
+    clash = _provider_named_prowlarr(ctx.config)
+    turning_on = filtered.get("ENABLE_PROWLARR") is True or filtered.get("PROWLARR_USENET") is True
+    if turning_on and clash is not None:
+        return 'Rename the indexer named "%s" under Search before turning on Prowlarr search' % clash.name
     return None
 
 
@@ -692,11 +746,14 @@ def update_providers(ctx, provider_data):
         return {"success": False, "error": "Provider enabled must be a boolean"}
 
     config_key = "EXTRA_NEWZNABS" if provider_type == "newznab" else "EXTRA_TORZNABS"
-    if prowlarr.configured(ctx.config) and any(
-        isinstance(row, dict) and str(row.get("name") or "").strip().casefold() == prowlarr.PROWLARR_NAME.casefold()
-        for row in providers
-    ):
-        return {"success": False, "error": '"Prowlarr" is the name of Prowlarr search; choose another indexer name'}
+    if prowlarr.configured(ctx.config):
+        for row in providers:
+            name = str(row.get("name") or "").strip() if isinstance(row, dict) else ""
+            if name.casefold() in _PROWLARR_PROVIDER_NAMES:
+                return {
+                    "success": False,
+                    "error": '"%s" is the name of Prowlarr search; choose another indexer name' % name,
+                }
     if object_payload:
         existing = providers_from_config(ctx.config, provider_type)
         by_id = {str(record.id): record for record in existing if record.id is not None}

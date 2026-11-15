@@ -121,6 +121,7 @@ export interface ReadableConfig {
   prowlarr_host?: string;
   prowlarr_categories?: string;
   prowlarr_verify?: boolean;
+  prowlarr_usenet?: boolean;
   storyarc_location?: string;
   enable_meta?: boolean;
   enable_torrents?: boolean;
@@ -297,6 +298,7 @@ export interface WritableConfig {
   prowlarr_apikey?: string;
   prowlarr_categories?: string;
   prowlarr_verify?: boolean;
+  prowlarr_usenet?: boolean;
   storyarc_location?: string;
   enable_meta?: boolean;
   enable_torrents?: boolean;

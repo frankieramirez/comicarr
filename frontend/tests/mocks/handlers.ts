@@ -598,6 +598,10 @@ export const handlers = [
     });
   }),
 
+  http.get("/api/config/provider-order", () => {
+    return HttpResponse.json({ providers: [] });
+  }),
+
   // -------------------------------------------------------------------------
   // System endpoints
   // -------------------------------------------------------------------------

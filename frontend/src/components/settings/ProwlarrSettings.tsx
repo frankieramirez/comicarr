@@ -14,6 +14,7 @@ import type {
 interface ProwlarrTestResult {
   success: boolean;
   torrent_indexers?: number;
+  usenet_indexers?: number;
   error?: string;
 }
 
@@ -26,12 +27,17 @@ interface ProwlarrSettingsProps {
   ) => void;
 }
 
+function indexerCount(count: number, kind: string): string {
+  return count === 1
+    ? `1 enabled ${kind} indexer`
+    : `${count} enabled ${kind} indexers`;
+}
+
 function resultMessage(result: ProwlarrTestResult): string {
   if (!result.success) return result.error || "Connection test failed";
-  const count = result.torrent_indexers ?? 0;
-  return count === 1
-    ? "Connected. Prowlarr has 1 enabled torrent indexer."
-    : `Connected. Prowlarr has ${count} enabled torrent indexers.`;
+  const torrents = indexerCount(result.torrent_indexers ?? 0, "torrent");
+  const usenet = indexerCount(result.usenet_indexers ?? 0, "Usenet");
+  return `Connected. Prowlarr has ${torrents} and ${usenet}.`;
 }
 
 export function ProwlarrSettings({
@@ -77,22 +83,34 @@ export function ProwlarrSettings({
   return (
     <SettingGroup
       title="Prowlarr"
-      description="Search every torrent indexer in Prowlarr with one request. Prowlarr skips indexers it knows are failing."
+      description="Search every indexer in Prowlarr with one request. Prowlarr skips indexers it knows are failing and counts Comicarr's searches toward each indexer's limits."
     >
       <SettingField
         label="Search with Prowlarr"
         type="checkbox"
         checked={enabled}
         onChange={(value) => onChange("enable_prowlarr", value as boolean)}
-        helpText="Prowlarr appears as one provider named Prowlarr. You can remove the separate Torznab indexers you copied from it."
+        helpText="Torrent results come from a provider named Prowlarr. You can remove the separate Torznab indexers you copied from it."
       />
-      {enabled && config.enable_torrent_search === false && (
-        <Callout tone="warning" className="text-[12px]">
-          Torrent search is off, so Prowlarr won't be searched. Set
-          enable_torrent_search under [Torrents] in the config file shown in the
-          Settings header.
-        </Callout>
+      {enabled && (
+        <SettingField
+          label="Include Usenet indexers"
+          type="checkbox"
+          checked={Boolean(formData.prowlarr_usenet)}
+          onChange={(value) => onChange("prowlarr_usenet", value as boolean)}
+          helpText="Usenet results come from a provider named Prowlarr (Usenet) and go to your Usenet download client. Turn this on only if you remove the same indexers from Usenet indexers below, or each search hits them twice."
+        />
       )}
+      {enabled &&
+        !formData.prowlarr_usenet &&
+        config.enable_torrent_search === false && (
+          <Callout tone="warning" className="text-[12px]">
+            Torrent search is off and Usenet indexers are not included, so
+            Prowlarr won't be searched. Turn on Include Usenet indexers, or set
+            enable_torrent_search under [Torrents] in the config file shown in
+            the Settings header.
+          </Callout>
+        )}
       <SettingField
         label="Prowlarr URL"
         value={host}

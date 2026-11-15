@@ -12,6 +12,7 @@ import type {
   ConfigUpdate,
   NewznabProvider,
   ProviderConfigResponse,
+  ProviderOrderResponse,
   SearchProviderKind,
   TorznabProvider,
 } from "@/types";
@@ -104,7 +105,37 @@ export function useUpdateSearchProviders(): UseMutationResult<
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["config", "providers"] });
+      queryClient.invalidateQueries({ queryKey: ["config", "provider-order"] });
       queryClient.invalidateQueries({ queryKey: ["acquisition", "health"] });
+    },
+  });
+}
+
+export function useProviderOrder(): UseQueryResult<ProviderOrderResponse> {
+  return useQuery({
+    queryKey: ["config", "provider-order"],
+    queryFn: () =>
+      apiRequest<ProviderOrderResponse>("GET", "/api/config/provider-order"),
+    retry: 1,
+  });
+}
+
+export function useUpdateProviderOrder(): UseMutationResult<
+  ProviderOrderResponse,
+  Error,
+  string[]
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (order) =>
+      apiRequest<ProviderOrderResponse>("PUT", "/api/config/provider-order", {
+        order,
+      }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["config", "provider-order"], {
+        providers: data.providers,
+      });
     },
   });
 }

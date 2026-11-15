@@ -842,6 +842,8 @@ class Config(object):
             reserved.add(201)
         if prowlarr.enabled(self):
             reserved.add(prowlarr.PROWLARR_PROVIDER_ID)
+        if prowlarr.usenet_enabled(self):
+            reserved.add(prowlarr.PROWLARR_USENET_PROVIDER_ID)
         return reserved
 
     def _validate_existing_encryption_authority(self):
@@ -868,6 +870,8 @@ class Config(object):
             reserved.add("ddl(external)")
         if prowlarr.enabled(self):
             reserved.add(prowlarr.PROWLARR_NAME.casefold())
+        if prowlarr.usenet_enabled(self):
+            reserved.add(prowlarr.PROWLARR_USENET_NAME.casefold())
         return reserved
 
     @staticmethod
@@ -2373,6 +2377,10 @@ class Config(object):
             PR.append(prowlarr.PROWLARR_NAME)
             PPR.append(prowlarr.PROWLARR_NAME)
             PR_NUM += 1
+        if prowlarr.usenet_enabled(self):
+            PR.append(prowlarr.PROWLARR_USENET_NAME)
+            PPR.append(prowlarr.PROWLARR_USENET_NAME)
+            PR_NUM += 1
 
         if self.PROVIDER_ORDER is not None:
             try:
@@ -2453,6 +2461,20 @@ class Config(object):
         provider_order = dict(list(zip(*[PROVIDER_ORDER[i::2] for i in range(2)], strict=False)))
         return provider_order, serialized_order
 
+    def save_provider_order(self, names):
+        """Persist an operator-chosen global Search provider order (#1117).
+
+        ``names`` is the full list of provider names, first searched first. It
+        is stored in the same ``seq, name, seq, name`` form the loader parses,
+        then reconciled by ``provider_sequence`` so the runtime value and the
+        provider-search projection match what a restart would load.
+        """
+        serialized = ", ".join("%s, %s" % (index, name) for index, name in enumerate(names))
+        if self.apply_transaction({"PROVIDER_ORDER": serialized}, configure=False) is False:
+            return False
+        self.provider_sequence()
+        return True
+
     def provider_sequence(self):
         """Publish the current provider order and reconcile its database projection."""
         provider_order, serialized_order = self._calculate_provider_order()
@@ -2475,6 +2497,8 @@ class Config(object):
             return "experimental", "experimental", 101
         if provider == prowlarr.PROWLARR_NAME:
             return provider, "torznab", prowlarr.PROWLARR_PROVIDER_ID
+        if provider == prowlarr.PROWLARR_USENET_NAME:
+            return provider, "newznab", prowlarr.PROWLARR_USENET_PROVIDER_ID
         for provider_type, entries in (("newznab", extra_newznabs), ("torznab", extra_torznabs)):
             for entry in entries:
                 entry_name = entry[0] or entry[1]
