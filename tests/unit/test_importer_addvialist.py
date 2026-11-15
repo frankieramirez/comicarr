@@ -127,3 +127,68 @@ def test_refresh_worker_projects_pool_to_canonical_runtime(monkeypatch):
     assert importer.refresh_worker_should_retire(ctx.refresh_queue) is True
     assert ctx.mass_refresh_pool is None
     assert comicarr.MASS_REFRESH is None
+
+
+def test_add_queued_while_mass_add_worker_retires_still_runs(monkeypatch):
+    """#1322: an add that lands as the idle worker retires gets a worker of its own."""
+    import threading
+
+    ctx = AppContext()
+    monkeypatch.setattr(runtime, "_runtime", ctx)
+    # set_runtime_field mirrors the pool onto the legacy global; restore it.
+    monkeypatch.setattr(comicarr, "MASS_ADD", None)
+    monkeypatch.setattr(importer.time, "sleep", lambda *_: None)
+    added = []
+    done = threading.Event()
+
+    def fake_add(comicid, **_kwargs):
+        added.append(comicid)
+        done.set()
+
+    monkeypatch.setattr(importer, "addComictoDB", fake_add)
+
+    producer = {}
+    real_empty = ctx.add_list.empty
+
+    def empty_with_racing_producer():
+        # The worker is inside its retirement check, holding the worker lock.
+        # A producer queues an add right now; it must wait for the decision.
+        if "thread" not in producer:
+            producer["thread"] = threading.Thread(
+                target=importer.importer_thread, args=([{"comicid": "777", "comicname": None}],)
+            )
+            producer["thread"].start()
+            producer["thread"].join(timeout=0.2)
+            assert producer["thread"].is_alive(), "producer must block on the worker lock"
+        return real_empty()
+
+    monkeypatch.setattr(ctx.add_list, "empty", empty_with_racing_producer)
+
+    first = threading.Thread(target=importer.addvialist, args=(ctx.add_list, ctx.issue_watch_list))
+    importer._set_mass_add_pool(ctx, first)
+    first.start()
+    first.join(timeout=5)
+    producer["thread"].join(timeout=5)
+
+    assert not first.is_alive()
+    assert done.wait(timeout=5), "the add queued during retirement never ran"
+    assert added == ["777"]
+    second = ctx.mass_add_pool
+    if second is not None:
+        second.join(timeout=5)
+
+
+def test_mass_add_worker_does_not_retire_while_work_is_queued(monkeypatch):
+    ctx = AppContext()
+    monkeypatch.setattr(runtime, "_runtime", ctx)
+    monkeypatch.setattr(comicarr, "MASS_ADD", None)
+    sentinel = MagicMock(name="other_worker")
+    importer._set_mass_add_pool(ctx, sentinel)
+
+    ctx.issue_watch_list.put("i1")
+    assert importer.mass_add_worker_should_retire(ctx.add_list, ctx.issue_watch_list) is False
+    ctx.issue_watch_list.get_nowait()
+
+    # Retiring from a thread that is not the published worker leaves it alone.
+    assert importer.mass_add_worker_should_retire(ctx.add_list, ctx.issue_watch_list) is True
+    assert ctx.mass_add_pool is sentinel
