@@ -83,6 +83,8 @@ export type {
   Config,
   NewznabProvider,
   ProviderConfigResponse,
+  ProviderOrderEntry,
+  ProviderOrderResponse,
   SearchProviderGroup,
   SearchProviderKind,
   TorznabProvider,

@@ -24,7 +24,7 @@ function renderSettings(
 }
 
 describe("Prowlarr settings", () => {
-  it("tests the saved key and reports how many torrent indexers answer", async () => {
+  it("tests the saved key and reports how many indexers of each kind answer", async () => {
     let body: unknown;
     server.use(
       http.post("/api/config/prowlarr/test", async ({ request }) => {
@@ -32,6 +32,7 @@ describe("Prowlarr settings", () => {
         return HttpResponse.json({
           success: true,
           torrent_indexers: 4,
+          usenet_indexers: 1,
           indexers: 6,
         });
       }),
@@ -46,7 +47,7 @@ describe("Prowlarr settings", () => {
 
     expect(
       await screen.findByText(
-        "Connected. Prowlarr has 4 enabled torrent indexers.",
+        "Connected. Prowlarr has 4 enabled torrent indexers and 1 enabled Usenet indexer.",
       ),
     ).toBeTruthy();
     expect(body).toEqual({
@@ -96,5 +97,40 @@ describe("Prowlarr settings", () => {
     expect(screen.getByRole("alert").textContent).toContain(
       "Torrent search is off",
     );
+  });
+
+  it("does not warn about torrent search when Usenet indexers are included", () => {
+    renderSettings(
+      { enable_prowlarr: true, prowlarr_usenet: true },
+      { enable_torrent_search: false },
+    );
+
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("saves the Usenet opt-in", async () => {
+    const changes: Array<[string, unknown]> = [];
+    const user = userEvent.setup();
+    render(
+      createElement(ProwlarrSettings, {
+        config: {},
+        formData: { enable_prowlarr: true },
+        onChange: (key, value) => changes.push([key, value]),
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("checkbox", { name: /include usenet indexers/i }),
+    );
+
+    expect(changes).toEqual([["prowlarr_usenet", true]]);
+  });
+
+  it("hides the Usenet opt-in until Prowlarr search is on", () => {
+    renderSettings({ enable_prowlarr: false });
+
+    expect(
+      screen.queryByRole("checkbox", { name: /include usenet indexers/i }),
+    ).toBeNull();
   });
 });

@@ -257,6 +257,26 @@ async def test_prowlarr(request: Request, ctx: AppContext = Depends(get_context)
     return await asyncio.to_thread(system_service.check_prowlarr_connection, ctx, body)
 
 
+@router.get("/config/provider-order", dependencies=[Depends(require_session)])
+def get_provider_order(ctx: AppContext = Depends(get_context)):
+    """Return the enabled Search providers in global search order."""
+    return system_service.get_provider_order(ctx)
+
+
+@router.put("/config/provider-order", dependencies=[Depends(require_session)])
+async def update_provider_order(request: Request, ctx: AppContext = Depends(get_context)):
+    """Save the global Search provider order: ``{"order": [name, ...]}``."""
+    try:
+        body = await request.json()
+    except ValueError:
+        body = None
+    result = await asyncio.to_thread(system_service.update_provider_order, ctx, body)
+    if not result["success"]:
+        status_code = 500 if result.get("error") == system_service.PROVIDER_CONFIG_PERSISTENCE_ERROR else 400
+        return JSONResponse(status_code=status_code, content=result)
+    return result
+
+
 @router.get("/config/providers", dependencies=[Depends(require_session)])
 def get_providers(ctx: AppContext = Depends(get_context)):
     """Return provider identities and enablement without credentials."""

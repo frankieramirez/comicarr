@@ -408,6 +408,7 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("PROWLARR_APIKEY", str, "Prowlarr", None, writable=True),
     ConfigKey("PROWLARR_CATEGORIES", str, "Prowlarr", "7030", readable=True, writable=True),
     ConfigKey("PROWLARR_VERIFY", bool, "Prowlarr", True, readable=True, writable=True),
+    ConfigKey("PROWLARR_USENET", bool, "Prowlarr", False, readable=True, writable=True),
     ConfigKey("EXPERIMENTAL", bool, "Experimental", False),
     ConfigKey("TAB_HOST", str, "Tablet", None),
     ConfigKey("TAB_USER", str, "Tablet", None),

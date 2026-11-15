@@ -172,6 +172,7 @@ def _route_enabled(config, route):
         providers = bool(
             getattr(config, "EXPERIMENTAL", False)
             or (getattr(config, "NEWZNAB", False) and _enabled_extra(getattr(config, "EXTRA_NEWZNABS", None)))
+            or prowlarr.usenet_enabled(config)
         )
         return providers and int(getattr(config, "NZB_DOWNLOADER", 3) or 0) != 3
     providers = bool(

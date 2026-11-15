@@ -42,10 +42,25 @@ def enabled_provider_entries(entries: Iterable[object]):
             continue
 
 
+def _sequence_key(value):
+    text = str(value).strip()
+    return (0, int(text), "") if text.isdigit() else (1, 0, text)
+
+
 def ordered_provider_names(config) -> list[str]:
+    """The saved global provider order, first searched first.
+
+    ``PROVIDER_ORDER`` is a ``{"0": name, "1": name, ...}`` mapping at runtime
+    and ``"0, name, 1, name"`` in the ini. Sequence numbers sort as numbers:
+    sorted as text, "10" came before "2" and an install with more than ten
+    providers searched them out of order.
+    """
     configured = getattr(config, "PROVIDER_ORDER", None) or {}
+    if isinstance(configured, str):
+        parts = [part.strip() for part in configured.split(", ")]
+        configured = dict(zip(parts[0::2], parts[1::2], strict=False))
     if isinstance(configured, dict):
-        return [str(value) for _, value in sorted(configured.items(), key=lambda item: str(item[0]))]
+        return [str(value) for _, value in sorted(configured.items(), key=lambda item: _sequence_key(item[0]))]
     return [str(value) for value in configured]
 
 
@@ -54,8 +69,13 @@ def _ordered(config, candidates):
 
     def position(candidate):
         names = {candidate.name.casefold(), candidate.execution_name.casefold()}
+        # An exact name wins over a partial one, so "NZB" saved after
+        # "NZBgeek" cannot pull NZBgeek forward, nor "Prowlarr" its Usenet side.
         for index, value in enumerate(preferred):
-            if any(value == name or value in name for name in names):
+            if value in names:
+                return index
+        for index, value in enumerate(preferred):
+            if any(value in name for name in names):
                 return index
         return len(preferred)
 
@@ -133,6 +153,9 @@ def effective_provider_plan(
         for index, entry in enumerate(enabled_provider_entries(getattr(config, "EXTRA_NEWZNABS", None)), start=1):
             name = str(entry[0]).strip() or "Newznab %s" % index
             add(name, "newznab", "newznab: %s" % name, entry)
+    if prowlarr.usenet_enabled(config):
+        name = prowlarr.PROWLARR_USENET_NAME
+        add(name, "newznab", "newznab: %s" % name, prowlarr.usenet_provider_entry(config))
     if getattr(config, "ENABLE_TORRENT_SEARCH", False):
         if getattr(config, "ENABLE_32P", False):
             add("32p", "torrent")

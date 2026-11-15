@@ -21,10 +21,14 @@ import urllib.parse
 from urllib.parse import unquote, urlparse
 
 from comicarr import logger
+from comicarr.app.search import prowlarr
 
 
 def generate_id(nzbprov, link, comicname):
     """Return the provider identity used to identify a release candidate."""
+
+    if prowlarr.is_download_link(link):
+        return prowlarr.release_id(link)
 
     missing = object()
     nzbid = missing

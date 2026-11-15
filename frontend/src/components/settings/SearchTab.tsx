@@ -6,6 +6,7 @@ import { SettingGroup } from "./SettingGroup";
 import { SettingField } from "./SettingField";
 import { SearchProviderEditor } from "./SearchProviderEditor";
 import { ProwlarrSettings } from "./ProwlarrSettings";
+import { ProviderOrderSettings } from "./ProviderOrderSettings";
 import type {
   ReadableConfig,
   SettingsFormData,
@@ -63,7 +64,8 @@ function SearchProviderSettings({
   const providerQuery = useProviderConfig();
   const [newznabDirty, setNewznabDirty] = useState(false);
   const [torznabDirty, setTorznabDirty] = useState(false);
-  const dirty = newznabDirty || torznabDirty;
+  const [orderDirty, setOrderDirty] = useState(false);
+  const dirty = newznabDirty || torznabDirty || orderDirty;
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -117,6 +119,8 @@ function SearchProviderSettings({
           ) : null}
         </ProviderQueryStatus>
       </SettingGroup>
+
+      <ProviderOrderSettings onDirtyChange={setOrderDirty} />
     </>
   );
 }
