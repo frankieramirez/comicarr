@@ -2271,6 +2271,64 @@ def _mark_arc_row_downloaded(ml, location):
     db.upsert("storyarcs", newVal, ctrlVal)
 
 
+def _arc_only_payload(run, ml, destination):
+    """The ``post_processing`` claim for one arc-only placement."""
+    return {
+        "issueid": run.context.issue_id,
+        "issuearcid": ml["IssueArcID"],
+        "comicid": run.context.comic_id,
+        "nzb_name": run.context.nzb_name,
+        "nzb_folder": run.context.nzb_folder,
+        "apicall": run.context.api_call,
+        "ddl": run.context.ddl,
+        "arc_only": True,
+        "arc_destination": destination,
+        "story_arc": ml["StoryArc"],
+        "story_arc_id": ml["StoryArcID"],
+    }
+
+
+def recover_arc_only_placement(release_key, row, payload):
+    """Finish an arc-only placement a restart interrupted, or None to re-drive.
+
+    The file is already in the arc folder when ``arc_destination`` exists, so
+    the arc row is completed from the payload alone: a ``move`` has consumed
+    the source, and re-driving would find nothing to match. Without the
+    placed file the source may still be there, so the caller re-drives.
+    """
+    destination = (payload or {}).get("arc_destination")
+    issue_arc_id = (payload or {}).get("issuearcid")
+    if not destination or not issue_arc_id or not os.path.isfile(destination):
+        return None
+    from comicarr.app.downloads._postprocess_completion import complete
+
+    context = PostProcessContext(
+        issue_id=payload.get("issueid"),
+        issue_arc_id=issue_arc_id,
+        comic_id=payload.get("comicid"),
+        nzb_name=payload.get("nzb_name") or "",
+        nzb_folder=payload.get("nzb_folder") or "",
+        api_call=False,
+        ddl=False,
+        canonical_release_key=release_key,
+        log_module="[POST-PROCESSING][RECOVERY]",
+    )
+    _mark_arc_row_downloaded({"IssueArcID": issue_arc_id}, destination)
+    _JOURNAL.transition(context, journal.MOVED, issue_arc_id=issue_arc_id)
+    completion = complete(
+        context,
+        issue_arc_id=issue_arc_id,
+        anchor_ids=("S" + str(issue_arc_id), str(issue_arc_id)),
+        arc_scope=payload.get("story_arc"),
+        database=db,
+    )
+    logger.info(
+        "[POST-PROCESSING][RECOVERY] [%s] Recorded the arc-only file already placed at %s"
+        % (payload.get("story_arc"), destination)
+    )
+    return completion
+
+
 def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manual_arclist):
     """Place files that belong to a watched arc and no watched series.
 
@@ -2475,7 +2533,14 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                     % (module, comicarr.CONFIG.ARC_FILEOPS.upper(), grab_src, grab_dst)
                 )
 
-                run.journal("post_processing", issue_arc_id=ml["IssueArcID"])
+                # The destination rides on the claim so a restart after a
+                # ``move`` consumed the source can still finish the arc row
+                # from the placed file (recover_arc_only_placement, #1296).
+                run.journal(
+                    "post_processing",
+                    issue_arc_id=ml["IssueArcID"],
+                    payload=_arc_only_payload(run, ml, grab_dst),
+                )
 
                 try:
                     checkspace = helpers.get_free_space(grdst)
@@ -2893,7 +2958,9 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
                         vol_label = seriesyear
                 else:
                     if arcdata:
-                        vol_label = arcdata["ComicVersion"]
+                        # storyarcs has no ComicVersion; its Volume column is
+                        # the same label the arc-only path uses (#1296).
+                        vol_label = arcdata["Volume"]
                     else:
                         vol_label = seriesvolume
 
