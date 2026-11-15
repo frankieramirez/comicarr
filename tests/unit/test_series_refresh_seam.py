@@ -252,10 +252,9 @@ def test_dupecheck_refreshes_series_when_have_exceeds_total(engine, tmp_path, mo
     assert result == {"action": "dont_dupe"}
 
 
-def test_new_annual_status_is_written_against_the_last_new_issue(engine, fakes, monkeypatch):
-    # Bug, pinned as-is: the new-annual status loop reads ``iss`` (the last new
-    # issue) instead of ``ann``, so the annual keeps Status None and a stray
-    # annuals row appears under the issue's IssueID.
+def test_new_annual_status_is_written_against_the_annual(engine, fakes, monkeypatch):
+    # #1291: the new-annual status loop reads the annual's own dates and writes
+    # its status against the annual's IssueID, not the last new issue's.
     monkeypatch.setattr(comicarr, "CONFIG", _config(ANNUALS_ON=True))
     _insert_comic(engine)
     with engine.begin() as conn:
@@ -276,5 +275,32 @@ def test_new_annual_status_is_written_against_the_last_new_issue(engine, fakes, 
 
     with engine.connect() as conn:
         ann_rows = {r["IssueID"]: r["Status"] for r in conn.execute(select(annuals)).mappings()}
-    assert ann_rows == {"a1": None, "i2": "Skipped"}
+    # a1 releases in 2099 and AUTOWANT_UPCOMING is on, so it is Wanted; no
+    # stray annuals row appears under the new issue's IssueID.
+    assert ann_rows == {"a1": "Wanted"}
     assert _issues_by_id(engine, "100")["i2"]["Status"] == "Skipped"
+
+
+@pytest.mark.parametrize("release_date", ["2026-02-30", "0000-00-00", None])
+def test_new_annual_with_an_unusable_date_is_skipped(engine, fakes, monkeypatch, release_date):
+    monkeypatch.setattr(comicarr, "CONFIG", _config(ANNUALS_ON=True))
+    _insert_comic(engine)
+    with engine.begin() as conn:
+        conn.execute(issues.insert(), {"IssueID": "i1", "ComicID": "100", "Status": "Skipped"})
+
+    def fake_manual_annual(annchk):
+        with engine.begin() as conn:
+            conn.execute(annuals.insert(), {"IssueID": "a1", "ComicID": "100", "ReleaseDate": release_date})
+
+    monkeypatch.setattr(importer, "manualAnnual", fake_manual_annual)
+    fakes.add.return_value = {
+        "status": "complete",
+        "issuedata": [_issue_data("100", "i2", "2", "2023-11-01")],
+        "anndata": [{"placeholder": True}],
+    }
+
+    series_refresh.refresh_series_metadata(["100"], calledfrom="dupechk")
+
+    with engine.connect() as conn:
+        ann_rows = {r["IssueID"]: r["Status"] for r in conn.execute(select(annuals)).mappings()}
+    assert ann_rows == {"a1": "Skipped"}
