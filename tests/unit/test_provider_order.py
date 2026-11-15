@@ -20,7 +20,15 @@ from tests.unit.test_system_domain import _make_real_config, _make_test_ctx
 
 
 def _newznab(name, provider_id, enabled="1"):
-    return (name, "https://%s.test" % name.lower().replace(" ", ""), "1", "key-%s" % provider_id, "1#7030", enabled, provider_id)
+    return (
+        name,
+        "https://%s.test" % name.lower().replace(" ", ""),
+        "1",
+        "key-%s" % provider_id,
+        "1#7030",
+        enabled,
+        provider_id,
+    )
 
 
 def _config(**overrides):
@@ -192,7 +200,12 @@ def test_reconciling_the_saved_order_keeps_it_and_appends_new_indexers(tmp_path,
     cfg.PROVIDER_ORDER = order
     cfg.EXTRA_NEWZNABS = cfg.EXTRA_NEWZNABS + [_newznab("Newcomer", 14)]
     order, _serialized = cfg._calculate_provider_order()
-    assert ordered_provider_names(SimpleNamespace(PROVIDER_ORDER=order)) == ["DrunkenSlug", "NZBgeek", "NZB", "Newcomer"]
+    assert ordered_provider_names(SimpleNamespace(PROVIDER_ORDER=order)) == [
+        "DrunkenSlug",
+        "NZBgeek",
+        "NZB",
+        "Newcomer",
+    ]
 
 
 def test_a_failed_reconcile_puts_the_previous_order_back(tmp_path, monkeypatch):
@@ -205,3 +218,27 @@ def test_a_failed_reconcile_puts_the_previous_order_back(tmp_path, monkeypatch):
 
     assert "provider_order = 0, NZBgeek, 1, NZB" in config_path.read_text()
     assert cfg.provider_sequence.call_count == 2
+
+
+def test_a_refused_rollback_keeps_the_running_order_and_says_so(tmp_path, monkeypatch):
+    cfg, config_path, _module = _make_real_config(tmp_path, monkeypatch)
+    cfg.PROVIDER_ORDER = {"0": "NZBgeek", "1": "NZB"}
+    cfg.provider_sequence = MagicMock(side_effect=RuntimeError("database locked"))
+    real_apply = cfg.apply_transaction
+    calls = []
+
+    def apply(values, configure=True):
+        calls.append(values)
+        if len(calls) == 1:
+            return real_apply(values, configure=configure)
+        return False
+
+    cfg.apply_transaction = apply
+
+    with pytest.raises(RuntimeError, match="could not be restored") as excinfo:
+        cfg.save_provider_order(["NZB", "NZBgeek"])
+
+    assert isinstance(excinfo.value.__cause__, RuntimeError)
+    assert cfg.PROVIDER_ORDER == {"0": "NZBgeek", "1": "NZB"}
+    assert calls[1] == {"PROVIDER_ORDER": "0, NZBgeek, 1, NZB"}
+    assert cfg.provider_sequence.call_count == 1

@@ -2474,17 +2474,27 @@ class Config(object):
         # publish its order between them. The lock is reentrant, so
         # apply_transaction takes it again without blocking.
         with _CONFIG_TRANSACTION_LOCK:
-            previous = self.PROVIDER_ORDER
+            previous_runtime = copy.deepcopy(self.PROVIDER_ORDER)
+            previous = previous_runtime
             if isinstance(previous, dict):
                 previous = ", ".join("%s, %s" % (key, name) for key, name in previous.items())
             if self.apply_transaction({"PROVIDER_ORDER": serialized}, configure=False) is False:
                 return False
             try:
                 self.provider_sequence()
-            except Exception:
+            except Exception as e:
                 # Put the order that was in effect back, on disk and at runtime,
                 # so a failed save never leaves the new order half applied.
-                self.apply_transaction({"PROVIDER_ORDER": previous}, configure=False)
+                if self.apply_transaction({"PROVIDER_ORDER": previous}, configure=False) is False:
+                    # The rollback write was refused, so the new order is still
+                    # on disk. Keep the running order as it was and say so, so
+                    # the operator knows a restart would load the new order.
+                    self.PROVIDER_ORDER = previous_runtime
+                    logger.error(
+                        "[CONFIG] Could not restore the previous Search order after a failed save; "
+                        "config.ini still holds the new order"
+                    )
+                    raise RuntimeError("Search order save failed and the previous order could not be restored") from e
                 self.provider_sequence()
                 raise
             return True
