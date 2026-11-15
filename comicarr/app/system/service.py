@@ -274,9 +274,12 @@ def initial_setup(ctx, username, password, setup_token):
 
     set_runtime_field(ctx, "setup_token", None)
 
-    set_runtime_field(ctx, "signal", "restart")
-
-    return {"success": True, "username": username, "needs_restart": True}
+    # The new credentials are live in ctx.config and the setup gate opens as
+    # soon as the token clears, so sign-in works now. No restart: nothing ever
+    # sent one, so asking for it left the setup page waiting for downtime that
+    # never came, and parked a "restart" intent that turned the next SIGTERM
+    # (docker stop) into a re-exec until the stop timeout killed it (#1352).
+    return {"success": True, "username": username, "needs_restart": False}
 
 
 _READABLE_KEYS = sorted(readable_keys())
