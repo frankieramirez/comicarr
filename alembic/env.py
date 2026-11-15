@@ -11,7 +11,7 @@
 
 from alembic import context
 from comicarr import logger
-from comicarr.app.core.schema import autogenerate_include_object
+from comicarr.app.core.schema import autogenerate_include_object, compare_column_type
 from comicarr.db import get_engine
 from comicarr.tables import metadata
 
@@ -39,7 +39,7 @@ def run_migrations_online():
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            compare_type=True,
+            compare_type=compare_column_type,
             include_object=autogenerate_include_object(connection),
         )
         with context.begin_transaction():
@@ -54,7 +54,7 @@ def run_migrations_online():
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            compare_type=True,
+            compare_type=compare_column_type,
             include_object=autogenerate_include_object(connection),
         )
         with context.begin_transaction():

@@ -26,6 +26,7 @@ from comicarr.tables import (
     issues,
     metadata,
     mylar_info,
+    snatched,
     storyarcs,
 )
 
@@ -92,9 +93,9 @@ def test_fresh_database_uses_application_runner_and_is_idempotent():
     try:
         _reset_database(engine)
 
-        assert upgrade_database(engine) == "0018_mcp_tool_calls"
-        assert upgrade_database(engine) == "0018_mcp_tool_calls"
-        assert current_revision(engine) == "0018_mcp_tool_calls"
+        assert upgrade_database(engine) == "0019_snatched_size_bigint"
+        assert upgrade_database(engine) == "0019_snatched_size_bigint"
+        assert current_revision(engine) == "0019_snatched_size_bigint"
         assert set(metadata.tables).issubset(set(inspect(engine).get_table_names()))
     finally:
         engine.dispose()
@@ -177,9 +178,9 @@ def test_legacy_adoption_preserves_data_and_is_idempotent_across_dialects():
         _reset_database(engine)
         _build_legacy_fixture(engine)
 
-        assert upgrade_database(engine) == "0018_mcp_tool_calls"
-        assert upgrade_database(engine) == "0018_mcp_tool_calls"
-        assert current_revision(engine) == "0018_mcp_tool_calls"
+        assert upgrade_database(engine) == "0019_snatched_size_bigint"
+        assert upgrade_database(engine) == "0019_snatched_size_bigint"
+        assert current_revision(engine) == "0019_snatched_size_bigint"
 
         table_names = set(inspect(engine).get_table_names())
         assert "readinglist" not in table_names
@@ -219,6 +220,29 @@ def test_legacy_adoption_preserves_data_and_is_idempotent_across_dialects():
         with pytest.raises(IntegrityError):
             with engine.begin() as connection:
                 connection.execute(comics.insert().values(ComicID="dialect-comic", ComicName="Duplicate"))
+
+        command.check(alembic_config(engine))
+    finally:
+        engine.dispose()
+
+
+def test_snatched_size_holds_a_grab_over_two_gib():
+    """#1300: a pack bigger than 2**31 - 1 bytes must fit on every dialect."""
+    database_url = os.environ["DATABASE_URL"]
+    engine = create_engine(database_url)
+    size = 3 * 2**31
+    try:
+        _reset_database(engine)
+        upgrade_database(engine)
+        # Step back to the 32-bit column and forward again, so the widening
+        # itself is exercised, not just the head metadata.
+        command.downgrade(alembic_config(engine), "0018_mcp_tool_calls")
+        command.upgrade(alembic_config(engine), "head")
+
+        with engine.begin() as connection:
+            connection.execute(snatched.insert().values(IssueID="big-pack", Status="Snatched", Provider="x", Size=size))
+        with engine.connect() as connection:
+            assert connection.execute(select(snatched.c.Size)).scalar_one() == size
 
         command.check(alembic_config(engine))
     finally:
