@@ -364,6 +364,8 @@ def merge_completion_evidence(payload, details):
         merged["nzb_name"] = name
     if details.get("failed") is not None:
         merged["failed"] = bool(details.get("failed"))
+    if details.get("failed") and details.get("fail_cause"):
+        merged["fail_cause"] = details["fail_cause"]
     nzo_id = details.get("nzo_id")
     # nzo_id is an immutable journal key: only fill it when the snatch never
     # recorded one (a name-matched history job). The probe queries by the

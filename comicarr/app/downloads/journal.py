@@ -273,6 +273,7 @@ _PAYLOAD_KEYS = frozenset(
         "attention_release_key",
         "download_info",
         "fail_detail",
+        "fail_cause",
         "recovery_count",
         # An owed story-arc copy (#1225): what recovery needs to make it from
         # the placed library file without the download.

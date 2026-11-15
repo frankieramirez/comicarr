@@ -121,6 +121,7 @@ def test_par_failure_is_a_failed_download(nzb):
 
     assert found["status"] is True and found["failed"] is True
     assert found["name"] == pipeline.RELEASE
+    assert found["fail_cause"] == "par"
 
 
 def test_unpack_failure_is_a_failed_download(nzb):
@@ -128,6 +129,7 @@ def test_unpack_failure_is_a_failed_download(nzb):
 
     assert found["status"] is True and found["failed"] is True
     assert found["name"] == pipeline.RELEASE
+    assert found["fail_cause"] == "unpack"
 
 
 def test_health_failure_is_a_failed_download(nzb):
@@ -135,6 +137,23 @@ def test_health_failure_is_a_failed_download(nzb):
 
     assert found["status"] is True and found["failed"] is True
     assert found["name"] == pipeline.RELEASE
+    assert found["fail_cause"] == "health"
+
+
+@pytest.mark.parametrize(
+    ("status", "cause"),
+    [
+        ("FAILURE/PAR", "par"),
+        ("FAILURE/UNPACK", "unpack"),
+        ("FAILURE/HEALTH", "health"),
+        ("FAILURE", None),
+        ("SUCCESS/ALL", None),
+        ("FAILURE/BAD:CAUSE", None),
+        (None, None),
+    ],
+)
+def test_failure_cause_names_what_nzbget_says_failed(status, cause):
+    assert nzbget.failure_cause(status) == cause
 
 
 def test_restart_probe_finds_a_finished_job_in_history(nzb, monkeypatch, tmp_path):
