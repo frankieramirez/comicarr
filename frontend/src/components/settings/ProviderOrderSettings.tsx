@@ -74,7 +74,7 @@ function OrderEditor({
               variant="ghost"
               size="icon-sm"
               aria-label={`Move ${provider.name} up`}
-              disabled={index === 0}
+              disabled={index === 0 || updateOrder.isPending}
               onClick={() =>
                 setProviders((current) => move(current, index, index - 1))
               }
@@ -86,7 +86,7 @@ function OrderEditor({
               variant="ghost"
               size="icon-sm"
               aria-label={`Move ${provider.name} down`}
-              disabled={index === providers.length - 1}
+              disabled={index === providers.length - 1 || updateOrder.isPending}
               onClick={() =>
                 setProviders((current) => move(current, index, index + 1))
               }
@@ -108,7 +108,7 @@ function OrderEditor({
             type="button"
             variant="ghost"
             size="sm"
-            disabled={!isDirty}
+            disabled={!isDirty || updateOrder.isPending}
             onClick={() => setProviders(saved)}
           >
             Reset order
@@ -147,7 +147,7 @@ export function ProviderOrderSettings({
           <LoaderCircle className="h-4 w-4 animate-spin" /> Loading search
           order…
         </div>
-      ) : orderQuery.error ? (
+      ) : orderQuery.error && !orderQuery.data ? (
         <div role="alert" className="py-3 text-[12px] text-destructive">
           {orderQuery.error instanceof Error
             ? orderQuery.error.message
@@ -160,12 +160,20 @@ export function ProviderOrderSettings({
         </div>
       ) : (
         // Re-keyed on the saved order so a save or an indexer change starts
-        // the editor again from what the server now uses.
-        <OrderEditor
-          key={namesOf(saved)}
-          saved={saved}
-          onDirtyChange={onDirtyChange}
-        />
+        // the editor again from what the server now uses. A failed background
+        // refresh keeps the editor, and any unsaved moves, in place.
+        <>
+          {orderQuery.error && (
+            <p role="alert" className="pb-2 text-[12px] text-destructive">
+              Could not refresh the search order. Showing the last one loaded.
+            </p>
+          )}
+          <OrderEditor
+            key={namesOf(saved)}
+            saved={saved}
+            onDirtyChange={onDirtyChange}
+          />
+        </>
       )}
     </SettingGroup>
   );

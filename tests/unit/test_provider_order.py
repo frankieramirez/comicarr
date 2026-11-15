@@ -193,3 +193,15 @@ def test_reconciling_the_saved_order_keeps_it_and_appends_new_indexers(tmp_path,
     cfg.EXTRA_NEWZNABS = cfg.EXTRA_NEWZNABS + [_newznab("Newcomer", 14)]
     order, _serialized = cfg._calculate_provider_order()
     assert ordered_provider_names(SimpleNamespace(PROVIDER_ORDER=order)) == ["DrunkenSlug", "NZBgeek", "NZB", "Newcomer"]
+
+
+def test_a_failed_reconcile_puts_the_previous_order_back(tmp_path, monkeypatch):
+    cfg, config_path, _module = _make_real_config(tmp_path, monkeypatch)
+    cfg.PROVIDER_ORDER = {"0": "NZBgeek", "1": "NZB"}
+    cfg.provider_sequence = MagicMock(side_effect=[RuntimeError("database locked"), None])
+
+    with pytest.raises(RuntimeError):
+        cfg.save_provider_order(["NZB", "NZBgeek"])
+
+    assert "provider_order = 0, NZBgeek, 1, NZB" in config_path.read_text()
+    assert cfg.provider_sequence.call_count == 2

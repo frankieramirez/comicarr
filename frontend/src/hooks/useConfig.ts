@@ -132,7 +132,12 @@ export function useUpdateProviderOrder(): UseMutationResult<
       apiRequest<ProviderOrderResponse>("PUT", "/api/config/provider-order", {
         order,
       }),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      // A read that started before the save must not land after it and
+      // put the old order back in the cache.
+      await queryClient.cancelQueries({
+        queryKey: ["config", "provider-order"],
+      });
       queryClient.setQueryData(["config", "provider-order"], {
         providers: data.providers,
       });

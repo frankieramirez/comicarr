@@ -8,6 +8,7 @@
 #  (at your option) any later version.
 
 import json
+from datetime import datetime, timezone
 import types
 from types import SimpleNamespace
 
@@ -510,3 +511,27 @@ def test_connection_test_explains_failures(monkeypatch, response, error):
     monkeypatch.setattr(prowlarr.requests, "get", lambda *a, **k: response)
 
     assert prowlarr.check_connection("http://prowlarr.test", "key") == {"success": False, "error": error}
+
+
+def test_usenet_results_older_than_retention_are_dropped():
+    now = datetime(2024, 3, 1, tzinfo=timezone.utc)
+    entries = [
+        {"title": "new", "pubdate": "Wed, 10 Jan 2024 12:00:00 +0000"},
+        {"title": "old", "pubdate": "Mon, 10 Jan 2022 12:00:00 +0000"},
+        {"title": "undated"},
+    ]
+
+    kept = prowlarr.within_retention(entries, 365, now=now)
+
+    assert [entry["title"] for entry in kept] == ["new", "undated"]
+    assert prowlarr.within_retention(entries, None, now=now) == entries
+    assert prowlarr.within_retention(entries, 0, now=now) == entries
+
+
+def test_an_old_usenet_result_never_reaches_evaluation(prowlarr_env):
+    comicarr.CONFIG.USENET_RETENTION = 30
+    prowlarr_env.responses["body"] = json.dumps(USENET_RESULTS).encode()
+
+    _run_usenet(prowlarr.usenet_provider_entry(_config(PROWLARR_USENET=True)))
+
+    assert all(entries == [] for entries in prowlarr_env.evaluated)

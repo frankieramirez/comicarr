@@ -1647,7 +1647,14 @@ def NZB_SEARCH(
 
                     if data and prowlarr_protocol is not None:
                         try:
-                            verified_matches = {"entries": prowlarr.entries_from_response(data, prowlarr_protocol)}
+                            prowlarr_entries = prowlarr.entries_from_response(data, prowlarr_protocol)
+                            if prowlarr_protocol == prowlarr.USENET:
+                                # Prowlarr's search takes no maxage, so apply
+                                # Usenet retention to its results here.
+                                prowlarr_entries = prowlarr.within_retention(
+                                    prowlarr_entries, comicarr.CONFIG.USENET_RETENTION
+                                )
+                            verified_matches = {"entries": prowlarr_entries}
                         except ValueError as e:
                             logger.warn("[PROWLARR] %s" % e)
                             is_info["foundc"]["status"] = False
@@ -3344,7 +3351,8 @@ def searcher(
                         payload = {"r": str(apikey)}
                         if uid is not None:
                             payload["i"] = uid
-                    verify = bool(newznab[2])
+                    # The flag is stored as "1"/"0"; bool("0") is True.
+                    verify = str(newznab[2]).strip().lower() in ("1", "true", "yes", "on")
 
             if nzbhydra is True:
                 down_url = link

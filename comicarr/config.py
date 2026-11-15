@@ -2470,10 +2470,24 @@ class Config(object):
         provider-search projection match what a restart would load.
         """
         serialized = ", ".join("%s, %s" % (index, name) for index, name in enumerate(names))
-        if self.apply_transaction({"PROVIDER_ORDER": serialized}, configure=False) is False:
-            return False
-        self.provider_sequence()
-        return True
+        # One lock across the write and the reconcile, so a second save cannot
+        # publish its order between them. The lock is reentrant, so
+        # apply_transaction takes it again without blocking.
+        with _CONFIG_TRANSACTION_LOCK:
+            previous = self.PROVIDER_ORDER
+            if isinstance(previous, dict):
+                previous = ", ".join("%s, %s" % (key, name) for key, name in previous.items())
+            if self.apply_transaction({"PROVIDER_ORDER": serialized}, configure=False) is False:
+                return False
+            try:
+                self.provider_sequence()
+            except Exception:
+                # Put the order that was in effect back, on disk and at runtime,
+                # so a failed save never leaves the new order half applied.
+                self.apply_transaction({"PROVIDER_ORDER": previous}, configure=False)
+                self.provider_sequence()
+                raise
+            return True
 
     def provider_sequence(self):
         """Publish the current provider order and reconcile its database projection."""

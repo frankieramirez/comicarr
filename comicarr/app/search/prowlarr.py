@@ -29,8 +29,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
-from email.utils import format_datetime
+from datetime import datetime, timezone
+from email.utils import format_datetime, parsedate_to_datetime
 from urllib.parse import parse_qs, quote, urlsplit
 
 import feedparser
@@ -208,6 +208,29 @@ def entries_from_response(content, protocol=TORRENT) -> list:
                 entry[key] = result[key]
         entries.append(entry)
     return entries
+
+
+def within_retention(entries, retention_days, now=None) -> list:
+    """Drop entries posted longer ago than ``retention_days``; no limit keeps all."""
+    try:
+        days = int(retention_days)
+    except (TypeError, ValueError):
+        return list(entries)
+    if days <= 0:
+        return list(entries)
+    now = now or datetime.now(timezone.utc)
+    kept = []
+    for entry in entries:
+        try:
+            posted = parsedate_to_datetime(entry["pubdate"])
+        except (KeyError, TypeError, ValueError):
+            kept.append(entry)
+            continue
+        if posted.tzinfo is None:
+            posted = posted.replace(tzinfo=timezone.utc)
+        if (now - posted).days <= days:
+            kept.append(entry)
+    return kept
 
 
 def check_connection(host, api_key, verify=True, timeout=15) -> dict:
