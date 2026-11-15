@@ -25,7 +25,7 @@ from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.core.context import AppContext
 from comicarr.app.downloads import handoff, journal, postprocessing, recovery
 from comicarr.app.series import service as series_service
-from comicarr.tables import acquisition_run_items, acquisition_runs, comics, issues, metadata, nzblog, pipeline_journal
+from comicarr.tables import acquisition_run_items, acquisition_runs, comics, issues, metadata, nzblog, pipeline_journal, snatched
 from tests.fakes import manga as manga_fake
 from tests.fakes import pipeline
 from tests.fakes import sabnzbd as sab_fake
@@ -939,15 +939,11 @@ def test_manga_volume_covers_its_chapters_without_marking_them_have(manga):
     assert covered == set(pipeline.MANGA_VOLUMES["1"])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Recording a manga volume grab looks up an issue row the volume does not have: "
-    "https://github.com/frankieramirez/comicarr/issues/1279",
-)
 def test_manga_volume_grab_is_recorded_as_snatched(manga):
     from comicarr.app.manga.ledger import volume_id
 
     name = "Sakamoto.Days.v02"
+    before = pipeline.manga_issues()
     _response, item = pipeline.send_to_sab(
         pipeline.cached_nzb(manga.tmp_path, name),
         name,
@@ -957,6 +953,13 @@ def test_manga_volume_grab_is_recorded_as_snatched(manga):
     )
 
     assert item["snatch_error"] is None
+    with db.get_engine().connect() as conn:
+        [history] = [dict(row._mapping) for row in conn.execute(select(snatched))]
+    assert history["IssueID"] == volume_id(pipeline.MANGA_ID, "2")
+    assert history["Status"] == "Snatched"
+    assert history["Issue_Number"] == "Volume 2"
+    # Volumes are not issues: the grab neither adds an issue row nor marks a chapter.
+    assert pipeline.manga_issues() == before
 
 
 def test_manga_blended_frontier_searches_volumes_then_chapters_beyond(manga):

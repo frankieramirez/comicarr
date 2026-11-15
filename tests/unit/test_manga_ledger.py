@@ -9,6 +9,8 @@
 
 """Executable contract for manga chapter and volume ledgers."""
 
+import pytest
+
 from comicarr.app.acquisition.models import AcquisitionIntent, Fulfillment
 from comicarr.app.acquisition.policy import EligibilityInput, evaluate_eligibility
 from comicarr.app.manga.ledger import (
@@ -21,6 +23,7 @@ from comicarr.app.manga.ledger import (
     merge_refresh_row,
     normalize_volume_number,
     volume_id,
+    volume_number_from_id,
     volume_numbers_match,
 )
 
@@ -186,3 +189,20 @@ class TestVolumeNumbersMatchIsExact:
 
     def test_a_different_volume_still_does_not_match(self):
         assert volume_numbers_match("v01", "1.5") is False
+
+
+@pytest.mark.parametrize(
+    ("issue_id", "expected"),
+    [
+        ("md-abc-v2", "2"),
+        ("md-abc-v2.5", "2.5"),
+        ("md-abc-ch2", None),
+        ("md-other-v2", None),
+        ("md-abc-v", None),
+        ("md-abc-v02", None),
+        (None, None),
+    ],
+)
+def test_volume_number_from_id_inverts_volume_id(issue_id, expected):
+    """A grab's IssueID names a volume only when it is exactly ``volume_id`` (#1279)."""
+    assert volume_number_from_id("md-abc", issue_id) == expected

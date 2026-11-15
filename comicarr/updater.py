@@ -31,6 +31,7 @@ from sqlalchemy import bindparam, func, select, text, update
 
 import comicarr
 from comicarr import db, filechecker, helpers, logger, series_kind
+from comicarr.app.manga.ledger import volume_number_from_id
 from comicarr.tables import (
     annuals,
     comics,
@@ -1293,8 +1294,15 @@ def foundsearch(
 
     logger.fdebug(module + " comicid: " + str(ComicID))
     logger.fdebug(module + " issueid: " + str(IssueID))
+    # A manga volume grab carries a volume id ("{comicId}-v{n}"). Volumes are
+    # not issues (ADR-0004), so there is no issue row to read or mark (#1279).
+    manga_volume = volume_number_from_id(ComicID, IssueID) if mode not in ("pullwant", "story_arc") else None
     if mode != "pullwant":
-        if mode != "story_arc":
+        if manga_volume is not None:
+            comic = db.select_one(select(comics).where(comics.c.ComicID == ComicID))
+            ComicName = comic["ComicName"]
+            IssueNum = "Volume %s" % manga_volume
+        elif mode != "story_arc":
             comic = db.select_one(select(comics).where(comics.c.ComicID == ComicID))
             ComicName = comic["ComicName"]
             if mode == "want_ann":
@@ -1334,7 +1342,9 @@ def foundsearch(
             snatchedupdate = {"IssueID": IssueArcID, "Status": "Snatched", "Provider": provider}
 
         else:
-            if mode == "want_ann":
+            if manga_volume is not None:
+                pass
+            elif mode == "want_ann":
                 controlValue = {"IssueID": IssueID}
                 db.upsert("annuals", newValue, controlValue)
             else:
@@ -1346,6 +1356,18 @@ def foundsearch(
 
         if mode == "story_arc":
             IssueNum = issue["IssueNumber"]
+            newsnatchValues = {
+                "ComicName": ComicName,
+                "ComicID": ComicID,
+                "Issue_Number": IssueNum,
+                "DateAdded": helpers.now(),
+                "Status": "Snatched",
+                "Hash": hash,
+            }
+
+            db.upsert("snatched", newsnatchValues, snatchedupdate)
+
+        elif manga_volume is not None:
             newsnatchValues = {
                 "ComicName": ComicName,
                 "ComicID": ComicID,
@@ -1487,7 +1509,7 @@ def foundsearch(
             nValue = {"Status": "Downloaded"}
             db.upsert("storyarcs", nValue, cValue)
 
-        elif mode != "pullwant":
+        elif mode != "pullwant" and manga_volume is None:
             controlValue = {"IssueID": IssueID}
             newValue = {"Status": "Downloaded"}
             if mode == "want_ann":
