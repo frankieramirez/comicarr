@@ -29,6 +29,7 @@ Design decisions:
 """
 
 from sqlalchemy import (
+    BigInteger,
     Column,
     Float,
     Index,
@@ -173,7 +174,7 @@ snatched = Table(
     Column("IssueID", MYSQL_KEY_TEXT),
     Column("ComicName", Text),
     Column("Issue_Number", Text),
-    Column("Size", Integer),
+    Column("Size", BigInteger),
     Column("DateAdded", Text),
     Column("Status", MYSQL_KEY_TEXT),
     Column("FolderName", Text),

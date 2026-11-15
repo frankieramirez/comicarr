@@ -18,7 +18,7 @@ from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from alembic.util.exc import CommandError
-from sqlalchemy import Column, UniqueConstraint, insert, inspect, select, text
+from sqlalchemy import Column, Integer, UniqueConstraint, insert, inspect, select, text
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -70,6 +70,7 @@ _REVISION_INTRODUCED_TABLES = {
     "0016_import_folder_choices": frozenset({"import_folder_choices"}),
     "0017_activity_actor": frozenset(),
     "0018_mcp_tool_calls": frozenset({"mcp_tool_calls"}),
+    "0019_snatched_size_bigint": frozenset(),
 }
 _READINGLIST_TO_STORYARCS_COLUMNS = (
     "StoryArcID",
@@ -229,6 +230,20 @@ def alembic_config(engine: Engine | None = None, connection=None) -> Config:
     if connection is not None:
         config.attributes["connection"] = connection
     return config
+
+
+def compare_column_type(context, _inspected_column, _metadata_column, inspected_type, metadata_type):
+    """Treat every integer width as one type on SQLite.
+
+    SQLite stores INTEGER, BIGINT and SMALLINT alike as a 64-bit integer, so a
+    column widened on PostgreSQL and MySQL (#1300) needs no table rebuild on
+    SQLite. Returning ``None`` keeps Alembic's own comparison for every other
+    case.
+    """
+
+    if context.dialect.name == "sqlite" and isinstance(inspected_type, Integer) and isinstance(metadata_type, Integer):
+        return False
+    return None
 
 
 def autogenerate_include_object(connection: Connection):

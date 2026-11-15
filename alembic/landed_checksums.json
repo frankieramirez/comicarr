@@ -16,5 +16,6 @@
   "0015_issue_search_history.py": "eb378f37ca202e27f1d539807cbdea967ab1e04c3bae35189443a79582c1a2ca",
   "0016_import_folder_choices.py": "bd52ebe6d2c2f758a3b010a06938c0c07ec6e2b17d6f6828183ae0595398d5a4",
   "0017_activity_actor.py": "d7d18f83dc7a636efe115ec672dca1ed13a4fe6c4652cf7745c38b3247d74ba6",
-  "0018_mcp_tool_calls.py": "b4646a2caafbb99f77a67d2d0c036ac8505d88e0309bc3b12b809864bd73a215"
+  "0018_mcp_tool_calls.py": "b4646a2caafbb99f77a67d2d0c036ac8505d88e0309bc3b12b809864bd73a215",
+  "0019_snatched_size_bigint.py": "f39e9fb3906a011612ad4bbd89d8d3d1f9f764fe15e381dd9e1dde60650a0855"
 }
