@@ -93,9 +93,9 @@ def test_fresh_database_uses_application_runner_and_is_idempotent():
     try:
         _reset_database(engine)
 
-        assert upgrade_database(engine) == "0020_drop_redundant_pk_uniques"
-        assert upgrade_database(engine) == "0020_drop_redundant_pk_uniques"
-        assert current_revision(engine) == "0020_drop_redundant_pk_uniques"
+        assert upgrade_database(engine) == "0021_comics_kind_varchar"
+        assert upgrade_database(engine) == "0021_comics_kind_varchar"
+        assert current_revision(engine) == "0021_comics_kind_varchar"
         assert set(metadata.tables).issubset(set(inspect(engine).get_table_names()))
     finally:
         engine.dispose()
@@ -178,9 +178,9 @@ def test_legacy_adoption_preserves_data_and_is_idempotent_across_dialects():
         _reset_database(engine)
         _build_legacy_fixture(engine)
 
-        assert upgrade_database(engine) == "0020_drop_redundant_pk_uniques"
-        assert upgrade_database(engine) == "0020_drop_redundant_pk_uniques"
-        assert current_revision(engine) == "0020_drop_redundant_pk_uniques"
+        assert upgrade_database(engine) == "0021_comics_kind_varchar"
+        assert upgrade_database(engine) == "0021_comics_kind_varchar"
+        assert current_revision(engine) == "0021_comics_kind_varchar"
 
         table_names = set(inspect(engine).get_table_names())
         assert "readinglist" not in table_names
@@ -244,6 +244,36 @@ def test_snatched_size_holds_a_grab_over_two_gib():
         with engine.connect() as connection:
             assert connection.execute(select(snatched.c.Size)).scalar_one() == size
 
+        command.check(alembic_config(engine))
+    finally:
+        engine.dispose()
+
+
+def test_text_content_kind_columns_from_a_pre_alembic_release_become_varchar():
+    """#1252: v0.19.x added comics.ContentType/ReadingDirection as TEXT."""
+    database_url = os.environ["DATABASE_URL"]
+    engine = create_engine(database_url)
+    try:
+        _reset_database(engine)
+        upgrade_database(engine)
+        command.downgrade(alembic_config(engine), "0020_drop_redundant_pk_uniques")
+        if engine.dialect.name != "sqlite":
+            alter = "ALTER COLUMN %s TYPE TEXT" if engine.dialect.name == "postgresql" else "MODIFY %s TEXT"
+            quote = engine.dialect.identifier_preparer.quote
+            with engine.begin() as connection:
+                for name in ("ContentType", "ReadingDirection"):
+                    connection.execute(text("ALTER TABLE comics " + alter % quote(name)))
+        with engine.begin() as connection:
+            connection.execute(comics.insert().values(ComicID="kind-comic", ComicName="Saga", ContentType="manga"))
+
+        command.upgrade(alembic_config(engine), "head")
+
+        columns = {column["name"]: column["type"] for column in inspect(engine).get_columns("comics")}
+        if engine.dialect.name != "sqlite":
+            assert columns["ContentType"].length == 16
+            assert columns["ReadingDirection"].length == 16
+        with engine.connect() as connection:
+            assert connection.execute(select(comics.c.ContentType)).scalar_one() == "manga"
         command.check(alembic_config(engine))
     finally:
         engine.dispose()

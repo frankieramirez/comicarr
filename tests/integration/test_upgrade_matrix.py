@@ -94,7 +94,6 @@ _RETIRED_BEFORE_18 = {("General", "folder_scan_log_verbose"): None}
 _SEARCH_DELAY_SECONDS_BEFORE_19 = {("General", "search_delay"): "60"}  # default 1 minute
 _CURRENT_CONFIG_VERSION = {("General", "config_version"): "19"}
 
-DRIFT_1252 = "https://github.com/frankieramirez/comicarr/issues/1252"
 MYLAR_CONFIG_1254_1255 = (
     "https://github.com/frankieramirez/comicarr/issues/1254 and https://github.com/frankieramirez/comicarr/issues/1255"
 )
@@ -125,7 +124,6 @@ ROWS = (
         sql="pre-alembic.sql",
         config="pre-alembic.config.ini",
         legacy=True,
-        xfail={"test_1_upgrade_reaches_head_without_drift": DRIFT_1252},
         config_changes={
             **_RETIRED_BEFORE_16,
             **_GITHUB_ON_BEFORE_16,
