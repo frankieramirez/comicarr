@@ -296,3 +296,58 @@ async def test_each_tool_answers_with_faked_providers_in_each_protocol_era(monke
             result = await mcp.call_tool(name, arguments)
             assert not result.is_error, (name, result.content)
             assert check(result.structured_content), (name, result.structured_content)
+
+
+def _mangadex_answers(monkeypatch, response):
+    """Drive the real mangadex.search_manga with ``response`` from its HTTP layer."""
+    from comicarr import mangadex
+
+    monkeypatch.setattr(mangadex, "_make_request", lambda *_a, **_k: response)
+    monkeypatch.setattr(mangadex, "listLibrary", lambda: {})
+    monkeypatch.setattr(
+        mangadex.comicarr, "CONFIG", types.SimpleNamespace(MANGADEX_ENABLED=True, MANGADEX_CONTENT_RATING=None)
+    )
+    app = make_app()
+    app.state.ctx.config.MANGADEX_ENABLED = True
+    return app
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("response", [None, {"result": "error", "errors": [{"status": 503}]}])
+async def test_find_series_reports_a_failed_mangadex_search_as_retryable(monkeypatch, response):
+    # #1329: a failed MangaDex request is not "No manga series matched".
+    app = _mangadex_answers(monkeypatch, response)
+    result = await _call("find_series", {"name": "Dandadan", "kind": "manga"}, app=app)
+    assert result.is_error
+    assert (result.structured_content["code"], result.structured_content["retryable"]) == (
+        "provider_unavailable",
+        True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_find_series_keeps_a_genuine_mangadex_no_match_an_empty_page(monkeypatch):
+    app = _mangadex_answers(monkeypatch, {"result": "ok", "data": [], "total": 0})
+    page = (await _call("find_series", {"name": "Nothing Like This", "kind": "manga"}, app=app)).structured_content
+    assert (page["results"], page["total"]) == ([], 0)
+
+
+def test_manga_search_surfaces_a_mangadex_failure_after_a_myanimelist_error(monkeypatch):
+    from comicarr import mangadex, myanimelist
+    from comicarr.app.search import service as search_service
+
+    def mal_down(*_a, **_k):
+        raise ConnectionError("myanimelist.net timed out")
+
+    monkeypatch.setattr(myanimelist, "search_manga", mal_down)
+    monkeypatch.setattr(mangadex, "_make_request", lambda *_a, **_k: None)
+    monkeypatch.setattr(mangadex, "listLibrary", lambda: {})
+    monkeypatch.setattr(
+        mangadex.comicarr, "CONFIG", types.SimpleNamespace(MANGADEX_ENABLED=True, MANGADEX_CONTENT_RATING=None)
+    )
+    ctx = types.SimpleNamespace(
+        config=types.SimpleNamespace(MAL_ENABLED=True, MAL_CLIENT_ID="client", MANGADEX_ENABLED=True)
+    )
+
+    assert search_service.find_manga(ctx, "Dandadan") == {"error": mangadex.SEARCH_FAILED_ERROR}
+    assert search_service.find_comic(ctx, "Dandadan", content_type="manga") == {"error": mangadex.SEARCH_FAILED_ERROR}
