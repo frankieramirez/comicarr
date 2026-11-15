@@ -84,6 +84,9 @@ def test_series_list_includes_the_same_sync_fields(query_db):
     assert by_id["md-synced"]["LastUpdated"] == "2026-08-16 12:00:00"
     assert by_id["md-synced"]["Description"] == "Pirates hunt the One Piece."
     assert by_id["mal-unsynced"]["LastUpdated"] is None
+    # The dashboard's "Recently added" sorts on this; without it the panel
+    # always said "No series yet".
+    assert all("DateAdded" in row for row in by_id.values())
 
 
 def test_query_projection_does_not_confuse_latest_release_with_last_refresh(query_db):

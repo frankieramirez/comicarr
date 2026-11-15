@@ -125,7 +125,11 @@ export function MostWanted() {
         state={state}
         label="Most wanted"
         skeleton={<PanelSkeleton rows={3} rowHeight={36} />}
-        empty="Every series is complete."
+        empty={
+          (series.data?.length ?? 0) === 0
+            ? "Nothing wanted yet. Add a series to start."
+            : "No active series are missing issues."
+        }
         onRetry={() => void series.refetch()}
         isRetrying={series.isFetching}
       >

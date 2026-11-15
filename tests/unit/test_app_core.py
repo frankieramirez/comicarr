@@ -662,6 +662,8 @@ def _build_setup_gate_app(setup_token="test-setup-token"):
             Route("/api/auth/login", ok_endpoint, methods=["POST"]),
             Route("/api/health", ok_endpoint, methods=["GET"]),
             Route("/api/series", ok_endpoint, methods=["GET"]),
+            Route("/theme-init.js", ok_endpoint, methods=["GET"]),
+            Route("/logo.svg", ok_endpoint, methods=["GET"]),
         ]
     )
     ctx = create_test_context(setup_token=setup_token)
@@ -700,6 +702,12 @@ class TestSetupGateMiddleware:
         response = client.get("/api/health")
         assert response.status_code == 200
         assert response.json() == {"ok": True}
+
+    def test_setup_page_static_files_allowed_during_setup(self):
+        """The setup page loads these before any account exists; a 503 broke the theme."""
+        client = _build_setup_gate_app()
+        for path in ("/theme-init.js", "/logo.svg"):
+            assert client.get(path).status_code == 200
 
     def test_series_blocked_during_setup(self):
         client = _build_setup_gate_app()

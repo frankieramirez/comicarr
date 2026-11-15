@@ -38,6 +38,7 @@ COMICS_COLUMNS = [
     t_comics.c.LatestIssue.label("LatestIssue"),
     t_comics.c.LatestDate.label("LatestDate"),
     t_comics.c.LastUpdated.label("LastUpdated"),
+    t_comics.c.DateAdded.label("DateAdded"),
     t_comics.c.Description.label("Description"),
     t_comics.c.Total.label("Total"),
     t_comics.c.Have.label("Have"),

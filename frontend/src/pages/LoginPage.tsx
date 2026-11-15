@@ -455,7 +455,7 @@ export default function LoginPage() {
               className="w-1.5 h-1.5 rounded-full"
               style={{ background: "var(--status-active)" }}
             />
-            HOME.LAN
+            {window.location.hostname}
           </span>
           <span>COMICARR · READY</span>
         </div>

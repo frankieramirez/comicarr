@@ -381,6 +381,15 @@ def get_safe_config(ctx):
         result["version"] = version
     result["newznab"] = _safe_provider_projection(ctx.config, "newznab")
     result["torznab"] = _safe_provider_projection(ctx.config, "torznab")
+    # Settings and About print where this install keeps its files; without
+    # these the UI fell back to a Docker-shaped "/config/config.ini".
+    config_file = getattr(ctx.config, "_config_file", None) or getattr(comicarr, "CONFIG_FILE", None)
+    if isinstance(config_file, (str, os.PathLike)):
+        result["config_path"] = str(config_file)
+    data_dir = getattr(ctx, "data_dir", None)
+    if isinstance(data_dir, (str, os.PathLike)):
+        result["data_dir"] = str(data_dir)
+    result["python_version"] = platform.python_version()
     return result
 
 
