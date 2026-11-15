@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.54.0
+
+### Minor Changes
+
+- 2531486: A downloaded manga volume is now owned as a volume. The chapters it contains show as Covered on the series page instead of one chapter showing Downloaded, and manga RSS stops searching for a volume you already have or have just grabbed.
+
+### Patch Changes
+
+- 41a1f0d: A story-arc file moved into its arc folder is no longer lost track of when Comicarr restarts mid-way: on startup the arc issue is marked Downloaded from where the file landed. One-off story-arc downloads also no longer fail with a `ComicVersion` error while labelling the file.
+- fe27018: A refresh that cannot reach the metadata provider no longer renames a series that has no folder set to "Comic ID: <id>" (and then "Fetch failed…" with a failed-add entry in Activity), and no longer un-pauses it. The series keeps its name and status, and the next refresh tries again.
+- c675751: Grabs for recent ComicVine issues (IssueID 900000 and up) no longer show up twice after a restart. Comicarr used to mistake those issues for one-off downloads and track the same grab under two names.
+- 29bba74: Grabbing a manga volume now shows up in download history as Snatched. Before, recording the grab failed with an error after the release had already gone to the download client.
+- aac3ddc: Adding a MangaDex series that is already in your library under its MyAnimeList id now says it is already there and points to that series, for the Add button and for AI agents using `add_series`. Before, the add reported success and then quietly did nothing.
+- a492105: When MangaDex can't be reached, manga search now says so instead of showing an empty "no results" list, both in the app and for AI agents using `find_series` (which now get a retryable "provider unavailable" answer). This also covers searches that fall back to MangaDex after MyAnimeList fails.
+- 2f8af85: A series you add right as Comicarr finishes its previous batch of adds now always gets added. Before, it could sit in the queue until the next time you added something.
+- ffe472c: Importing from Mylar3 no longer turns settings left unset in Mylar3 into the literal value "None". Unset passwords and API keys stay empty instead of becoming a stored password of "None", and the web login no longer accepts "None" as the password. The import also stops copying Mylar3's own config version, so the first restart after an import no longer turns a 1-minute search delay into 1 hour or switches update checks back on.
+- 6c92bad: A failed NZBGet download now records what NZBGet says went wrong (par repair, unpack, or missing articles), so a failure reads `download_failed_researching:par` instead of the same reason for every case.
+- 9f8616e: When annuals are on, a series refresh now gives each newly found annual its Wanted or Skipped status from the annual's own release date. Before, new annuals kept no status and a stray annual entry could appear under one of the series' issues.
+- 6a3e831: Adding a comic series that fails to load from ComicVine now shows up as a failed add in Activity. Before, the add quietly left a "Fetch failed, try refreshing." series in your library with nothing in Activity to explain it. That series still stays so you can retry the add.
+- 55d363a: On PostgreSQL and MySQL, grabbing a release larger than 2 GiB (common for packs) no longer fails when its size is recorded. The upgrade widens the stored size column; SQLite installs are unaffected.
+- fdf7179: Updates the HTML parsing library Comicarr uses to read provider pages (Soup Sieve 4.1.1), closing four reported denial-of-service flaws where a crafted page could stall parsing. Source installs now need Python 3.11.5 or newer; the Docker image is unaffected.
+
 ## 0.53.0
 
 ### Minor Changes
