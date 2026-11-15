@@ -27,15 +27,10 @@ why it accumulates without anyone filing a bug.
 Semantic colour belongs to the ``--status-*`` family; ``--destructive`` and
 ``--muted-foreground`` cover the generic cases. Both are theme-aware.
 
-This gate is a ratchet, not a cliff. 42 usages across 7 files predate it, so
-the baseline below records the per-file count and the check fails when a count
-*rises* or a new file appears. It also fails when a count *falls* without the
-baseline being updated: a stale entry is a lie about the debt, and forcing the
-edit is what makes the number monotonically decrease. Same contract as the
-allowlist in ``check_attention_seam.py`` — the list only ever shrinks.
-
-To clear an entry: replace the literals with tokens, then lower the number
-here (or delete the line at zero).
+The 42 usages that predated this gate were cleared by #1353, so the baseline
+below is empty and any palette literal in ``frontend/src`` fails CI. Keep it
+empty: the baseline mechanism stays only so the guard's shape matches its
+sibling guards, not as a place to park new debt.
 
 Rules and drift backlog: ``DESIGN.md``.
 
@@ -70,13 +65,7 @@ _PALETTES = (
 PALETTE_RE = re.compile(rf"\b(?:{_UTILITIES})-(?:{_PALETTES})-(?:50|[1-9]00|950)\b")
 
 # Paths are relative to frontend/src. This list only ever shrinks.
-BASELINE: dict[str, int] = {
-    "components/ai/ActivityFeedEntry.tsx": 13,
-    "components/import/MatchModal.tsx": 3,
-    "components/queue/BulkActionBar.tsx": 2,
-    "components/settings/AiTab.tsx": 2,
-    "components/storyarcs/ArcIssueRow.tsx": 7,
-}
+BASELINE: dict[str, int] = {}
 
 
 def _scan() -> dict[str, int]:

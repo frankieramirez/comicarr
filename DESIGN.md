@@ -205,9 +205,8 @@ utility must do the same.
   `border-yellow-500`. They are fixed sRGB values that ignore `.dark` entirely, so
   a component using them is legible in one theme and wrong in the other. Use a
   `--status-*` token, or `--destructive` / `--muted-foreground` for the generic
-  cases. 42 such usages predated the gate (30 remain); `scripts/check_palette_classes.py` holds
-  a per-file baseline that only ever shrinks, so new ones fail CI and fixes must
-  lower the number.
+  cases. The 42 usages that predated the gate are all gone (#1353), so
+  `scripts/check_palette_classes.py` now allows none: any new literal fails CI.
 
 - **Do NOT reintroduce `--success` / `--warning` / `--error` / `--info`.** These
   were mislabeled leftovers from a pre-token shadcn scaffold — *surface* values
@@ -271,7 +270,6 @@ target state — the rules above are the target state.
 |-------|--------|--------|
 | Arbitrary `text-[Npx]` | 367 usages, 75 files | No typographic scale; v2 settled on 11/13/15px |
 | Inline `style={{ }}` | 190 attributes, 49 files | Tokens bypass the class layer |
-| Raw Tailwind palette classes | 30 usages, 6 files | Colors don't respond to theme — **gated, shrink-only** |
 | Radix holdouts | `avatar.tsx`, `bubble.tsx`, `marker.tsx` + 3 deps | Two primitive libraries in one app |
 | Dead `components/custom/` | 6 files, 0 importers | Unlinted, unreachable code |
 | Dead `frontend/src/App.css` | 42 lines, imported nowhere | Vite scaffold leftover |

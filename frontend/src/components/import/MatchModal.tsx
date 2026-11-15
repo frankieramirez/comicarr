@@ -252,7 +252,7 @@ function MatchModalContent({
                     )}
 
                     {result.in_library && (
-                      <span className="rounded bg-green-500/20 px-2 py-1 text-xs text-green-600 dark:text-green-400">
+                      <span className="rounded bg-[var(--status-active-bg)] px-2 py-1 text-xs text-[var(--status-active)]">
                         In Library
                       </span>
                     )}

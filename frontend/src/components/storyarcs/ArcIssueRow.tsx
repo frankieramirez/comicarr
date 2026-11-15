@@ -16,17 +16,17 @@ interface ArcIssueRowProps {
 const STATUS_CONFIG = {
   owned: {
     label: "Owned",
-    dotClass: "bg-green-500",
-    textClass: "text-green-700 dark:text-green-400",
+    dotClass: "bg-[var(--status-downloaded)]",
+    textClass: "text-[var(--status-downloaded)]",
   },
   wanted: {
     label: "Wanted",
-    dotClass: "bg-yellow-500",
-    textClass: "text-yellow-700 dark:text-yellow-400",
+    dotClass: "bg-[var(--status-wanted)]",
+    textClass: "text-[var(--status-wanted)]",
   },
   not_tracked: {
     label: "Not Tracked",
-    dotClass: "bg-gray-400",
+    dotClass: "bg-[var(--status-skipped)]",
     textClass: "text-muted-foreground",
   },
 } as const;

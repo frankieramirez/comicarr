@@ -2,18 +2,9 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle } from "lucide-react";
 import type { AiActivityEntry } from "@/hooks/useAiActivity";
 
-const FEATURE_COLORS: Record<string, string> = {
-  parsing: "bg-blue-500/15 text-blue-400",
-  search: "bg-green-500/15 text-green-400",
-  enrichment: "bg-purple-500/15 text-purple-400",
-  reconciliation: "bg-amber-500/15 text-amber-400",
-  chat: "bg-cyan-500/15 text-cyan-400",
-  curation: "bg-rose-500/15 text-rose-400",
-};
-
-function getFeatureBadgeClass(feature: string): string {
-  return FEATURE_COLORS[feature] || "bg-muted text-muted-foreground";
-}
+// The feature name is the badge's text, so it needs no colour of its own. The
+// six palette hues it used to carry had no dark-mode counterpart (DESIGN.md).
+const FEATURE_BADGE_CLASS = "bg-muted text-muted-foreground";
 
 function formatTimestamp(timestamp: string): string {
   try {
@@ -38,16 +29,14 @@ export function ActivityFeedEntry({ entry }: ActivityFeedEntryProps) {
     <div className="flex items-start gap-3 py-3 px-4 border-b border-border last:border-b-0">
       <div className="flex-shrink-0 mt-0.5">
         {entry.success ? (
-          <CheckCircle2 className="h-4 w-4 text-green-400" />
+          <CheckCircle2 className="h-4 w-4 text-[var(--status-active)]" />
         ) : (
           <XCircle className="h-4 w-4 text-destructive" />
         )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <Badge className={getFeatureBadgeClass(entry.feature)}>
-            {entry.feature}
-          </Badge>
+          <Badge className={FEATURE_BADGE_CLASS}>{entry.feature}</Badge>
           <span className="text-xs text-muted-foreground">
             {formatTimestamp(entry.timestamp)}
           </span>
