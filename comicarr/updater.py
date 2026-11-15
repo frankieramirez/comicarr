@@ -756,23 +756,24 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                 chkstatus = comicarr.importer.addComictoDB(ComicID, mismatch)
 
         cnt += 1
-        if all([sched is False, calledfrom != "refresh", len(comiclist) > 1]):
-            time.sleep(15)
-        else:
-            if calledfrom == "refresh":
-                try:
-                    from comicarr.app.activity.producers import emit_series_activity
+        if calledfrom == "refresh":
+            try:
+                from comicarr.app.activity.producers import emit_series_activity
 
-                    emit_series_activity(
-                        "refresh",
-                        "succeeded",
-                        ComicID,
-                        comicname=ComicName,
-                        seriesyear=dspyear,
-                    )
-                except Exception as emit_err:
-                    logger.fdebug("[ACTIVITY] refresh.succeeded emit skipped: %s" % emit_err)
+                emit_series_activity(
+                    "refresh",
+                    "succeeded",
+                    ComicID,
+                    comicname=ComicName,
+                    seriesyear=dspyear,
+                )
+            except Exception as emit_err:
+                logger.fdebug("[ACTIVITY] refresh.succeeded emit skipped: %s" % emit_err)
+        if sched is True:
+            # A scheduled pass refreshes one stale series per tick.
             break
+        if calledfrom != "refresh" and len(comiclist) > 1:
+            time.sleep(15)
 
     logger.fdebug("Update complete")
 
