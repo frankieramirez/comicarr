@@ -73,6 +73,7 @@ _REVISION_INTRODUCED_TABLES = {
     "0019_snatched_size_bigint": frozenset(),
     "0020_drop_redundant_pk_uniques": frozenset(),
     "0021_comics_kind_varchar": frozenset(),
+    "0022_manga_volumes": frozenset({"manga_volumes"}),
 }
 _READINGLIST_TO_STORYARCS_COLUMNS = (
     "StoryArcID",

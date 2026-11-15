@@ -72,6 +72,25 @@ def test_owning_a_volume_covers_only_mapped_chapters():
     assert by_id["md-x-ch4"]["fulfillment"] == "downloaded"
 
 
+def test_a_covered_series_row_keeps_its_nested_decision_consistent():
+    chapters = [
+        {
+            "id": "md-x-ch1",
+            "fulfillment": "missing",
+            "acquisitionIntent": "policy",
+            "eligible": True,
+            "eligibility": {"eligible": True, "reason": "released", "date": None, "source": None},
+            "deferred": True,
+        }
+    ]
+    row = apply_volume_coverage(chapters, owned_volumes=["1"], containment={"1": ["md-x-ch1"]})[0]
+    assert row["eligible"] is False
+    assert row["eligibility"]["eligible"] is False
+    assert row["eligibility"]["reason"] == "covered"
+    assert row["deferred"] is False
+    assert chapters[0]["eligibility"]["eligible"] is True
+
+
 def test_unknown_containment_does_not_cover_chapters():
     chapters = [{"id": "md-x-ch8", "fulfillment": "missing", "acquisitionIntent": "policy"}]
     projected = apply_volume_coverage(chapters, owned_volumes=["8"], containment={})
@@ -176,7 +195,7 @@ class TestVolumeNumbersMatchIsExact:
     """
 
     def test_two_identical_non_volumes_do_not_match(self):
-        """"TPB" is not a volume, so a TPB does not satisfy another TPB."""
+        """ "TPB" is not a volume, so a TPB does not satisfy another TPB."""
         assert volume_numbers_match("TPB", "TPB") is False
 
     def test_precision_is_not_rounded_away(self):

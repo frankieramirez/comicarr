@@ -89,6 +89,7 @@ class TestMangaCheck:
         mock_db.select_all.side_effect = [
             [series],
             [chapter],
+            [],
         ]
         mock_helpers.issue_status.return_value = False
 
@@ -110,6 +111,7 @@ class TestMangaCheck:
         mock_db.select_all.side_effect = [
             [series],
             [chapter],
+            [],
         ]
         mock_helpers.issue_status.return_value = True
 
@@ -129,6 +131,7 @@ class TestMangaCheck:
         mock_db.select_all.side_effect = [
             [series],
             [ch1, ch2],
+            [],
         ]
         mock_helpers.issue_status.return_value = False
         mock_search_init.side_effect = [Exception("provider down"), None]
@@ -146,6 +149,7 @@ class TestMangaCheck:
 
         mock_db.select_all.side_effect = [
             [series],
+            [],
             [],
         ]
 
@@ -193,7 +197,9 @@ class TestMangaCheckRssdb:
 
     def _run(self, mock_db, series_rows, chapters_by_series, search_init):
         mock_db.get_engine = get_engine
-        mock_db.select_all.side_effect = [series_rows] + [chapters_by_series[row["ComicID"]] for row in series_rows]
+        mock_db.select_all.side_effect = (
+            [series_rows] + [chapters_by_series[row["ComicID"]] for row in series_rows] + [[]]
+        )
         with patch("comicarr.rsscheck.helpers") as mock_helpers, patch("comicarr.search.search_init", search_init):
             mock_helpers.issue_status.return_value = False
             mangaCheck()

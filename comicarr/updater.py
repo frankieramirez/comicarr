@@ -31,6 +31,7 @@ from sqlalchemy import bindparam, func, select, text, update
 
 import comicarr
 from comicarr import db, filechecker, helpers, logger, series_kind
+from comicarr.app.manga import volumes as manga_volumes
 from comicarr.app.manga.ledger import volume_number_from_id
 from comicarr.tables import (
     annuals,
@@ -1344,7 +1345,7 @@ def foundsearch(
 
         else:
             if manga_volume is not None:
-                pass
+                manga_volumes.record_volume(ComicID, manga_volume, manga_volumes.SNATCHED)
             elif mode == "want_ann":
                 controlValue = {"IssueID": IssueID}
                 db.upsert("annuals", newValue, controlValue)

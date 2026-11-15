@@ -827,7 +827,7 @@ def _set_manga(**values):
 def _manga_plan():
     from comicarr.app.manga.acquisition import search_plan_for_series
 
-    return search_plan_for_series(_manga_series(), list(pipeline.manga_issues().values()))
+    return search_plan_for_series(_manga_series(), list(pipeline.manga_issues().values()), _owned_volumes())
 
 
 def _grab_manga(sab, target, filename):
@@ -863,8 +863,10 @@ def _downloaded():
     )
 
 
-def _volume_of(chapter):
-    return next((volume for volume, chapters in pipeline.MANGA_VOLUMES.items() if chapter in chapters), None)
+def _owned_volumes():
+    from comicarr.app.manga.volumes import volume_states
+
+    return volume_states(pipeline.MANGA_ID)
 
 
 def test_manga_bare_number_auto_mode_reads_a_volume(manga):
@@ -874,8 +876,8 @@ def test_manga_bare_number_auto_mode_reads_a_volume(manga):
     assert term == "Sakamoto Days v02"
     assert result.status == "processed"
     assert (manga.manga_root / "Sakamoto Days 02.cbz").is_file()
-    downloaded = _downloaded()
-    assert downloaded and {_volume_of(chapter) for chapter in downloaded} == {"2"}
+    assert _owned_volumes() == {"2": "Downloaded"}
+    assert _downloaded() == []
 
 
 def test_manga_bare_number_auto_mode_reads_a_number_past_the_volumes_as_a_chapter(manga):
@@ -894,8 +896,8 @@ def test_manga_bare_number_volumes_mode_reads_a_volume(manga):
     _term, _issueid, result = _grab_manga(manga, {"kind": "volume", "number": "1"}, "Sakamoto Days 01.cbz")
 
     assert result.status == "processed"
-    downloaded = _downloaded()
-    assert downloaded and {_volume_of(chapter) for chapter in downloaded} == {"1"}
+    assert _owned_volumes() == {"1": "Downloaded"}
+    assert _downloaded() == []
 
 
 def test_manga_bare_number_chapters_mode_reads_a_chapter(manga):
@@ -919,15 +921,10 @@ def test_manga_v_prefixed_volume_is_a_volume_in_any_mode(manga):
     assert term == "Sakamoto Days v01"
     assert result.status == "processed"
     assert (manga.manga_root / "Sakamoto Days v01 (2021) (Digital).cbz").is_file()
-    downloaded = _downloaded()
-    assert downloaded and {_volume_of(chapter) for chapter in downloaded} == {"1"}
+    assert _owned_volumes() == {"1": "Downloaded"}
+    assert _downloaded() == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="A manga volume is matched to one of its chapter rows, which is marked Downloaded, and the "
-    "other chapters are never covered: https://github.com/frankieramirez/comicarr/issues/1278",
-)
 def test_manga_volume_covers_its_chapters_without_marking_them_have(manga):
     _grab_manga(manga, {"kind": "volume", "number": "1"}, "Sakamoto Days v01 (2021) (Digital).cbz")
 
@@ -935,7 +932,7 @@ def test_manga_volume_covers_its_chapters_without_marking_them_have(manga):
     volume_one = [rows[pipeline.manga_chapter_id(chapter)] for chapter in pipeline.MANGA_VOLUMES["1"]]
     assert all(row["Status"] != "Downloaded" for row in volume_one)
     chapters, _summary = _manga_detail()
-    covered = {row["ChapterNumber"] for row in chapters if row.get("covered")}
+    covered = {row["chapterNumber"] for row in chapters if row.get("covered")}
     assert covered == set(pipeline.MANGA_VOLUMES["1"])
 
 
@@ -960,6 +957,7 @@ def test_manga_volume_grab_is_recorded_as_snatched(manga):
     assert history["Issue_Number"] == "Volume 2"
     # Volumes are not issues: the grab neither adds an issue row nor marks a chapter.
     assert pipeline.manga_issues() == before
+    assert _owned_volumes() == {"2": "Snatched"}
 
 
 def test_manga_blended_frontier_searches_volumes_then_chapters_beyond(manga):
@@ -990,11 +988,6 @@ def test_manga_blended_frontier_searches_volumes_then_chapters_beyond(manga):
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="A downloaded manga volume never leaves the blended frontier, so it is searched again: "
-    "https://github.com/frankieramirez/comicarr/issues/1278",
-)
 def test_manga_downloaded_volume_leaves_the_blended_frontier(manga):
     _grab_manga(manga, {"kind": "volume", "number": "1"}, "Sakamoto Days v01 (2021) (Digital).cbz")
 

@@ -30,7 +30,7 @@ from comicarr.app.common.placement import OnExisting, Outcome, Purpose
 from comicarr.app.common.redaction import redacted_traceback
 from comicarr.app.downloads import journal
 from comicarr.app.downloads.pp_commands import safe_walk
-from comicarr.app.manga.ledger import normalize_volume_number
+from comicarr.app.manga.ledger import is_volume_target, normalize_volume_number
 from comicarr.tables import annuals, comics, issues, snatched, storyarcs, weekly
 
 
@@ -1995,10 +1995,16 @@ def process_manga_download(run: PostProcessRun, deps: PostProcessItemDeps):
             logger.warning("%s Skipping file outside download directory: %s" % (module, filepath))
             continue
 
+        # A volume file is owned as a volume, never as one of its chapter
+        # rows (ADR-0004, #1278); it has no issue row to tag from.
+        volume_number = None
+        if parsed is not None and is_volume_target(parsed.get("chapter_number"), parsed.get("volume_number")):
+            volume_number = normalize_volume_number(parsed.get("volume_number"))
+
         # Resolve the ledger row first: the tagger needs the IssueID, and
         # tagging happens here, at the download location, because it can
         # rename the file -- so the name that gets placed is the tagged one.
-        matching = match_manga_issue(comic_id, parsed)
+        matching = None if volume_number is not None else match_manga_issue(comic_id, parsed)
 
         # Kept so the download original can be tidied after placement: the
         # tagger copies into CACHE_DIR and returns the CACHE path, so what
@@ -2055,7 +2061,20 @@ def process_manga_download(run: PostProcessRun, deps: PostProcessItemDeps):
 
         run.journal(journal.POST_PROCESSING)
 
-        if matching:
+        if volume_number is not None:
+            from comicarr.app.downloads import queries as downloads_queries
+            from comicarr.app.manga import volumes as manga_volumes
+
+            issueid = manga_volumes.record_volume(
+                comic_id, volume_number, manga_volumes.DOWNLOADED, location=os.path.basename(dst)
+            )
+            downloads_queries.mark_snatched_post_processed(issueid)
+            logger.info("%s Volume %s is in the library: %s" % (module, volume_number, filename))
+            run.narrate("Matched to volume %s" % volume_number)
+            matched_issueids.append(issueid)
+            last_matched_issueid = issueid
+            processed += 1
+        elif matching:
             issueid = matching["IssueID"]
             reconcile.reconcile(
                 PostProcessPlacedItem(

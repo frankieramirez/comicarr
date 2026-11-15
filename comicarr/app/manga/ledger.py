@@ -223,6 +223,12 @@ def apply_volume_coverage(chapters, owned_volumes, containment):
             row["missing"] = False
             row["eligible"] = False
             row["eligibilityReason"] = "covered"
+            # Series detail rows also carry the nested decision and the
+            # deferred flag; keep them consistent with the Covered state.
+            if isinstance(row.get("eligibility"), dict):
+                row["eligibility"] = {**row["eligibility"], "eligible": False, "reason": "covered"}
+            if "deferred" in row:
+                row["deferred"] = False
         projected.append(row)
     return projected
 
