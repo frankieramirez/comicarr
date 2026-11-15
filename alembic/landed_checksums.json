@@ -19,5 +19,5 @@
   "0018_mcp_tool_calls.py": "b4646a2caafbb99f77a67d2d0c036ac8505d88e0309bc3b12b809864bd73a215",
   "0019_snatched_size_bigint.py": "f39e9fb3906a011612ad4bbd89d8d3d1f9f764fe15e381dd9e1dde60650a0855",
   "0020_drop_redundant_pk_uniques.py": "1f7e43c36f1f335d774807d723f7152c0fa064e2909568e8ef5f798d29482775",
-  "0021_comics_kind_varchar.py": "cd5944be850e67c94cd08ab3b8323772987f58b7b38a483c126a06621f14c850"
+  "0021_comics_kind_varchar.py": "0115710383a12f30bf5f396fefb2777bdea7fa9d997139f7b2ac3bf7af9761f6"
 }

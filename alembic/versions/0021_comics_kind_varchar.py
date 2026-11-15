@@ -44,7 +44,7 @@ def upgrade():
         # TEXT reflects as an unbounded String; VARCHAR(16) already matches.
         if column is None or not isinstance(column["type"], sa.String) or column["type"].length is not None:
             continue
-        longest = bind.execute(sa.select(sa.func.max(sa.func.length(comics.c[name])))).scalar()
+        longest = bind.execute(sa.select(sa.func.max(sa.func.char_length(comics.c[name])))).scalar()
         if longest is not None and longest > 16:
             logger.warning(
                 "[MIGRATION] comics.%s keeps its TEXT type: a stored value is %s characters, longer than 16"
