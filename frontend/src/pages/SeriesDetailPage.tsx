@@ -7,6 +7,7 @@ import {
   ExternalLink,
   MoreHorizontal,
   Pause,
+  Plus,
   Play,
   RefreshCw,
   Search,
@@ -19,7 +20,9 @@ import { SeriesContentKind } from "@/components/series/SeriesContentKind";
 import { SeriesSearchProviders } from "@/components/series/SeriesSearchProviders";
 import { SeriesFolder } from "@/components/series/SeriesFolder";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { useSearchBlockers } from "@/hooks/useAcquisitionHealth";
+import type { SearchBlocker } from "@/lib/searchBlockers";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -196,6 +199,51 @@ const ROUTE_REASON_FIX: Record<string, { label: string; to: string }> = {
   },
 };
 
+/**
+ * The header's primary action. While setup stops every search, a "Search 117
+ * missing" button can only fail, so the same spot links to the fix instead.
+ */
+function SearchMissingButton({
+  blocker,
+  missing,
+  onClick,
+  disabled,
+  "aria-label": ariaLabel,
+}: {
+  blocker?: SearchBlocker;
+  missing: number;
+  onClick: () => void;
+  disabled: boolean;
+  "aria-label"?: string;
+}) {
+  if (blocker) {
+    return (
+      <Link
+        to={blocker.fix.to}
+        className={buttonVariants({ size: "toolbar" })}
+        data-testid="search-blocked-fix"
+      >
+        <Plus />
+        {blocker.key === "indexer"
+          ? "Add an indexer to search"
+          : "Add a download client to search"}
+      </Link>
+    );
+  }
+  return (
+    <Button
+      type="button"
+      size="toolbar"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel}
+    >
+      <Search />
+      {missing > 0 ? `Search ${missing} missing` : "Search missing"}
+    </Button>
+  );
+}
+
 function formatRouteReason(reason?: string | null): string {
   if (!reason) return "No safe acquisition route is currently ready.";
   return (
@@ -326,6 +374,7 @@ export default function SeriesDetailPage() {
   const setIssueStatus = useSetIssueStatus();
   const bulkSetIssueStatus = useBulkSetIssueStatus();
   const { startReview, reviewSheetProps } = useInteractiveReview();
+  const searchBlocker = useSearchBlockers().blockers[0];
 
   const fetchSearchPreview = async () => {
     setPreview(null);
@@ -824,15 +873,12 @@ export default function SeriesDetailPage() {
             </span>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <Button
-              type="button"
-              size="toolbar"
+            <SearchMissingButton
+              blocker={searchBlocker}
+              missing={missing}
               onClick={handleOpenSearch}
               disabled={!comicId || searchPreview.isFetching}
-            >
-              <Search />
-              {missing > 0 ? `Search ${missing} missing` : "Search missing"}
-            </Button>
+            />
             <Button
               type="button"
               variant="outline"
@@ -986,18 +1032,13 @@ export default function SeriesDetailPage() {
               <div className="col-span-2 flex shrink-0 flex-wrap items-center gap-2 md:pt-12">
                 {!showDeleteConfirm ? (
                   <>
-                    <Button
-                      type="button"
-                      size="toolbar"
+                    <SearchMissingButton
+                      blocker={searchBlocker}
+                      missing={missing}
                       onClick={handleOpenSearch}
                       disabled={!comicId || searchPreview.isFetching}
                       aria-label="Search all missing"
-                    >
-                      <Search />
-                      {missing > 0
-                        ? `Search ${missing} missing`
-                        : "Search missing"}
-                    </Button>
+                    />
                     <Button
                       type="button"
                       variant="outline"
@@ -1356,28 +1397,32 @@ export default function SeriesDetailPage() {
                           )}
                         </div>
                         <div className="flex justify-end">
-                          <button
-                            type="button"
-                            className="inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-secondary/50"
-                            style={{ color: "var(--muted-foreground)" }}
-                            aria-label={interactiveSearchLabel(issue)}
-                            title="Interactive Search"
-                            disabled={!issueId}
-                            onClick={() =>
-                              void startReview(
-                                toReleaseReviewIssue(issue, comic.ComicName),
-                                {
-                                  entityType: issue.annual ? "annual" : "issue",
-                                  entityId: String(issueId ?? ""),
-                                },
-                              )
-                            }
-                          >
-                            <Search
-                              className="h-3.5 w-3.5"
-                              aria-hidden="true"
-                            />
-                          </button>
+                          {!searchBlocker && (
+                            <button
+                              type="button"
+                              className="inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-secondary/50"
+                              style={{ color: "var(--muted-foreground)" }}
+                              aria-label={interactiveSearchLabel(issue)}
+                              title="Interactive Search"
+                              disabled={!issueId}
+                              onClick={() =>
+                                void startReview(
+                                  toReleaseReviewIssue(issue, comic.ComicName),
+                                  {
+                                    entityType: issue.annual
+                                      ? "annual"
+                                      : "issue",
+                                    entityId: String(issueId ?? ""),
+                                  },
+                                )
+                              }
+                            >
+                              <Search
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                              />
+                            </button>
+                          )}
                         </div>
                       </div>
                     );

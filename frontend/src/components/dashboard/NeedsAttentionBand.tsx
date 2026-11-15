@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { CircleX, FileWarning, MoreHorizontal, Wrench } from "lucide-react";
+import {
+  CircleX,
+  FileWarning,
+  MoreHorizontal,
+  Plug,
+  Search,
+  Wrench,
+} from "lucide-react";
 import {
   actionLabel,
   stageAccent,
@@ -28,6 +35,8 @@ import {
   useBandBatchResolution,
   type BandBatchResult,
 } from "@/hooks/useActivity";
+import { useSearchBlockers } from "@/hooks/useAcquisitionHealth";
+import type { SearchBlocker } from "@/lib/searchBlockers";
 
 /**
  * Needs-attention on the dashboard (docs/architecture/dashboard-spec.md §3.2).
@@ -39,8 +48,12 @@ import {
  * triage route uses, so an action here has the same effect and the count
  * refreshes without a manual reload.
  *
- * Zero groups is a single quiet "Nothing needs you" line, not an empty card.
- * That sentence is only trustworthy alongside the health band's
+ * Setup gaps that stop every search (no indexer, no download client) lead the
+ * list: until they are fixed nothing else here can change, and "Nothing needs
+ * you" would be false.
+ *
+ * Zero groups and no gaps is a single quiet "Nothing needs you" line, not an
+ * empty card. That sentence is only trustworthy alongside the health band's
  * last-successful-search line.
  */
 
@@ -184,6 +197,50 @@ function CauseRow({
   );
 }
 
+/** One setup gap: what it stops, and the one link that fixes it. */
+function BlockerRow({
+  blocker,
+  primaryRow,
+}: {
+  blocker: SearchBlocker;
+  primaryRow: boolean;
+}) {
+  const Icon = blocker.key === "indexer" ? Search : Plug;
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5 border-b border-border-subtle py-3 max-sm:items-start"
+      data-testid="needs-attention-blocker"
+    >
+      <Icon
+        className="size-[18px] shrink-0 self-start mt-0.5"
+        style={{ color: "var(--status-paused)" }}
+        aria-hidden="true"
+      />
+      <div className="min-w-0 flex-1 max-sm:basis-[calc(100%-32px)]">
+        <div className="text-sm font-medium text-foreground sm:truncate">
+          {blocker.headline}
+        </div>
+        <div className="text-[13px] text-foreground-2 sm:truncate">
+          {blocker.detail}
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2 max-sm:ml-8">
+        <Link
+          to={blocker.fix.to}
+          className={cn(
+            buttonVariants({
+              variant: primaryRow ? "default" : "outline",
+              size: "toolbar",
+            }),
+          )}
+        >
+          {blocker.fix.label}
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 function seriesIdentity(series: AttentionCause["series"][number]) {
   return series.comicid ?? series.group_key;
 }
@@ -194,6 +251,7 @@ function distinctSeries(causes: AttentionCause[]) {
 
 export default function NeedsAttentionBand() {
   const band = useActivityBand();
+  const { blockers } = useSearchBlockers();
   const batch = useBandBatchResolution();
   const { addToast } = useToast();
   const [confirming, setConfirming] = useState<{
@@ -262,7 +320,10 @@ export default function NeedsAttentionBand() {
   const hiddenSeries = distinctSeries(hidden);
   const hiddenIssues = hidden.reduce((n, c) => n + c.member_count, 0);
 
-  if (total === 0) {
+  const blockerMeta =
+    blockers.length > 0 ? plural(blockers.length, "setup step") : null;
+
+  if (total === 0 && blockers.length === 0) {
     return (
       <section data-testid="needs-attention-empty">
         <SectionHeader title="Needs you" />
@@ -282,16 +343,30 @@ export default function NeedsAttentionBand() {
     <section aria-label="Needs attention" data-testid="needs-attention-band">
       <SectionHeader
         title="Needs you"
-        meta={`${distinctSeries(causes)} series · ${plural(memberTotal, "issue")}`}
-        action={{ label: "See all", to: TRIAGE_HREF }}
+        meta={[
+          blockerMeta,
+          total > 0
+            ? `${distinctSeries(causes)} series · ${plural(memberTotal, "issue")}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        action={total > 0 ? { label: "See all", to: TRIAGE_HREF } : undefined}
       />
 
       <div className="border-t border-border-subtle">
+        {blockers.map((blocker, index) => (
+          <BlockerRow
+            key={blocker.key}
+            blocker={blocker}
+            primaryRow={index === 0}
+          />
+        ))}
         {preview.map((cause, index) => (
           <CauseRow
             key={cause.cause_key}
             cause={cause}
-            primaryRow={index === 0}
+            primaryRow={blockers.length === 0 && index === 0}
             busy={batch.isPending}
             onAction={onCauseAction}
           />

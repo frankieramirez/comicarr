@@ -6,6 +6,7 @@ import { render, screen, within } from "../test-utils";
 import ReleasesPage from "@/pages/ReleasesPage";
 import { landedLabel, releaseNumber, releaseState } from "@/lib/releaseState";
 import type { UpcomingIssue } from "@/types";
+import { UNCONFIGURED_SEARCH_HEALTH } from "../mocks/searchHealth";
 
 const issue = (overrides: Partial<UpcomingIssue>): UpcomingIssue =>
   ({
@@ -102,6 +103,35 @@ describe("Releases > Mine by day", () => {
     expect(screen.getByRole("link", { name: "· see why" })).toBeTruthy();
   });
 
+  it("says a wanted issue can't be searched when there is no indexer", async () => {
+    serveWeek([
+      issue({ IssueID: "now", ComicName: "Absolute Flash" }),
+      issue({ IssueID: "later", ComicName: "Ark-M", IssueDate: "2099-01-02" }),
+    ]);
+    server.use(
+      http.get("/api/search/health", () =>
+        HttpResponse.json(UNCONFIGURED_SEARCH_HEALTH),
+      ),
+    );
+    render(<ReleasesPage />, { useMemoryRouter: true, route: "/releases" });
+
+    const banner = await screen.findByTestId("search-blocked");
+    expect(banner.textContent).toContain(
+      "Nothing can be searched until you add an indexer",
+    );
+    expect(await screen.findByText("Can't search")).toBeTruthy();
+    expect(screen.queryByText("Searching")).toBeNull();
+    expect(screen.getByText("search paused")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: /Review releases/ }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /Force search/ })).toBeNull();
+    const tabs = screen.getByRole("group", { name: "Where it stands" });
+    expect(
+      within(tabs).getByRole("button", { name: /^Needs you/ }).textContent,
+    ).toBe("Needs you1");
+  });
+
   it("filters by series or publisher", async () => {
     serveWeek(ROWS);
     const user = userEvent.setup();
@@ -145,6 +175,29 @@ describe("releaseState", () => {
     expect(
       releaseState(issue({ IssueDate: "2026-10-16" }), today),
     ).toMatchObject({ bucket: "coming_up", label: "Out Friday" });
+  });
+
+  it("never says Searching while setup stops every search", () => {
+    expect(
+      releaseState(issue({}), today, undefined, "no indexer"),
+    ).toMatchObject({
+      bucket: "needs_you",
+      label: "Can't search",
+      detail: "no indexer",
+      setupBlocked: true,
+    });
+    expect(
+      releaseState(
+        issue({ IssueDate: "2026-10-16" }),
+        today,
+        undefined,
+        "no indexer",
+      ),
+    ).toMatchObject({
+      bucket: "coming_up",
+      label: "Out Friday",
+      detail: "search paused",
+    });
   });
 
   it("numbers manga by chapter", () => {

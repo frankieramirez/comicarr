@@ -15,6 +15,7 @@ import { render, screen, waitFor } from "../test-utils";
 import NeedsAttentionBand from "@/components/dashboard/NeedsAttentionBand";
 import { causeSubline, seriesList } from "@/lib/attentionCause";
 import type { AttentionCause } from "@/components/activity/timeline";
+import { UNCONFIGURED_SEARCH_HEALTH } from "../mocks/searchHealth";
 
 function series(label: string, count: number, comicid = label) {
   return {
@@ -100,6 +101,35 @@ describe("NeedsAttentionBand", () => {
     expect(
       screen.queryByRole("region", { name: "Needs attention" }),
     ).toBeNull();
+  });
+
+  it("leads with setup gaps instead of saying nothing needs you", async () => {
+    server.use(
+      bandHandler([]),
+      http.get("/api/search/health", () =>
+        HttpResponse.json(UNCONFIGURED_SEARCH_HEALTH),
+      ),
+    );
+
+    render(<NeedsAttentionBand />);
+
+    const rows = await screen.findAllByTestId("needs-attention-blocker");
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("No indexer, so nothing can be searched"),
+      expect.stringContaining(
+        "No download client, so nothing can be downloaded",
+      ),
+    ]);
+    expect(
+      screen.getByRole("link", { name: "Add an indexer" }).getAttribute("href"),
+    ).toBe("/settings?section=search");
+    expect(
+      screen
+        .getByRole("link", { name: "Add a download client" })
+        .getAttribute("href"),
+    ).toBe("/settings?section=clients");
+    expect(screen.getByText("2 setup steps")).toBeTruthy();
+    expect(screen.queryByText("Nothing needs you")).toBeNull();
   });
 
   it("shows one row per cause with series and issue totals", async () => {

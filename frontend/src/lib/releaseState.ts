@@ -16,6 +16,8 @@ export interface ReleaseState {
   tone: string;
   /** Download percent, when the client reports one. */
   progress?: number | null;
+  /** Needs you because setup stops every search, not because of this issue. */
+  setupBlocked?: boolean;
 }
 
 const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "long" });
@@ -50,10 +52,16 @@ export function releaseDay(issue: UpcomingIssue): string {
   return String(issue.IssueDate || issue.ReleaseDate || "").slice(0, 10);
 }
 
+/**
+ * `searchPaused` is the setup gap that stops every search ("no indexer"), from
+ * `searchPausedReason`. With one, a wanted issue that is out cannot be
+ * "Searching": it is the operator's to unblock, so it lands in Needs you.
+ */
 export function releaseState(
   issue: UpcomingIssue,
   today: string,
   now: Date = new Date(),
+  searchPaused: string | null = null,
 ): ReleaseState {
   const status = (issue.Status || "").toLowerCase();
   const day = releaseDay(issue);
@@ -92,8 +100,17 @@ export function releaseState(
       return {
         bucket: "coming_up",
         label: `Out ${WEEKDAY.format(parseDay(day))}`,
-        detail: "wanted",
+        detail: searchPaused ? "search paused" : "wanted",
         tone: "var(--text-muted)",
+      };
+    }
+    if (searchPaused) {
+      return {
+        bucket: "needs_you",
+        label: "Can't search",
+        detail: searchPaused,
+        tone: "var(--status-paused)",
+        setupBlocked: true,
       };
     }
     return {

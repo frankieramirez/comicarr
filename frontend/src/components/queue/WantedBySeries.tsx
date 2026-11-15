@@ -23,6 +23,8 @@ import {
 import { cn } from "@/lib/utils";
 import { approxDuration } from "@/lib/wantedPacing";
 import WantedPacingBanner from "@/components/queue/WantedPacingBanner";
+import SearchBlockedBanner from "@/components/releases/SearchBlockedBanner";
+import { useSearchBlockers } from "@/hooks/useAcquisitionHealth";
 import type { WantedBucket, WantedSeries } from "@/types";
 
 const PAGE_SIZE = 50;
@@ -52,7 +54,31 @@ const BUCKET_COLOR: Record<WantedBucket, string> = {
   queued: "var(--text-muted)",
 };
 
-function WhyCell({ series }: { series: WantedSeries }) {
+function WhyCell({
+  series,
+  searchPaused,
+}: {
+  series: WantedSeries;
+  /** The setup gap that stops every search; nothing is searching or queued. */
+  searchPaused?: string | null;
+}) {
+  if (searchPaused && series.why !== "not_found") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[13px]">
+        <span
+          aria-hidden="true"
+          className="size-1.5 shrink-0 rounded-full"
+          style={{ background: "var(--status-paused)" }}
+        />
+        <span
+          className="text-foreground"
+          title={`Search paused: ${searchPaused}`}
+        >
+          Search paused
+        </span>
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1.5 text-[13px]">
       <span
@@ -167,7 +193,13 @@ function SeriesIssues({ series }: { series: WantedSeries }) {
   );
 }
 
-function SeriesRow({ series }: { series: WantedSeries }) {
+function SeriesRow({
+  series,
+  searchPaused,
+}: {
+  series: WantedSeries;
+  searchPaused: string | null;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <li data-testid="wanted-series-row">
@@ -208,7 +240,7 @@ function SeriesRow({ series }: { series: WantedSeries }) {
           {series.which}
         </span>
         <span className="col-start-3 md:col-start-auto">
-          <WhyCell series={series} />
+          <WhyCell series={series} searchPaused={searchPaused} />
         </span>
         <span className="max-md:hidden">
           <RelativeTime value={series.last_searched_at} compact />
@@ -237,6 +269,7 @@ export default function WantedBySeries({
   /** Reports issue and series totals for the page header. */
   onTotals?: (totals: { issues: number; series: number }) => void;
 }) {
+  const { blockers, pausedReason } = useSearchBlockers();
   const [state, setState] = useState<WantedSeriesParams["state"]>("all");
   const [kind, setKind] = useState<WantedSeriesParams["kind"]>("all");
   const [sort, setSort] = useState<WantedSeriesParams["sort"]>("problems");
@@ -270,12 +303,19 @@ export default function WantedBySeries({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {data?.pacing && (
-        <WantedPacingBanner
-          pacing={data.pacing}
-          onSearchNow={onSearchNow}
-          searching={searching}
+      {blockers[0] ? (
+        <SearchBlockedBanner
+          blocker={blockers[0]}
+          className="mx-4 mb-3 md:mx-8"
         />
+      ) : (
+        data?.pacing && (
+          <WantedPacingBanner
+            pacing={data.pacing}
+            onSearchNow={onSearchNow}
+            searching={searching}
+          />
+        )
       )}
       <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 pb-3 md:px-8">
         <div
@@ -349,7 +389,11 @@ export default function WantedBySeries({
         {data && data.series.length > 0 && (
           <ul aria-label="Wanted series">
             {data.series.map((series) => (
-              <SeriesRow key={series.comicid} series={series} />
+              <SeriesRow
+                key={series.comicid}
+                series={series}
+                searchPaused={pausedReason}
+              />
             ))}
           </ul>
         )}
