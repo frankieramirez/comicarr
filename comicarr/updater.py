@@ -683,6 +683,11 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                             if not ann_date or ann_date == "0000-00-00":
                                 ann_date = ann["IssueDate"] or "0000-00-00"
                             dk = re.sub("-", "", ann_date).strip()
+                            try:
+                                datechk = datetime.datetime.strptime(dk, "%Y%m%d")
+                            except ValueError:
+                                # A malformed date (2026-02-30) is as unusable as 0000-00-00.
+                                dk = "00000000"
                             if dk == "00000000":
                                 logger.warn(
                                     "Issue Data is invalid for Issue Number %s. Marking this issue as Skipped"
@@ -690,7 +695,6 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                                 )
                                 newstatus = "Skipped"
                             else:
-                                datechk = datetime.datetime.strptime(dk, "%Y%m%d")
                                 issue_week = datetime.datetime.strftime(datechk, "%Y%U")
                                 logger.info("issue_week: %s" % issue_week)
                                 if pause_status is True:
