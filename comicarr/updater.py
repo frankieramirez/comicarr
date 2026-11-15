@@ -679,18 +679,22 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                         )
 
                         for ann in annualsnew:
-                            if iss["ReleaseDate"] == "0000-00-00":
-                                dk = re.sub("-", "", iss["IssueDate"]).strip()
-                            else:
-                                dk = re.sub("-", "", iss["ReleaseDate"]).strip()
+                            ann_date = ann["ReleaseDate"]
+                            if not ann_date or ann_date == "0000-00-00":
+                                ann_date = ann["IssueDate"] or "0000-00-00"
+                            dk = re.sub("-", "", ann_date).strip()
+                            try:
+                                datechk = datetime.datetime.strptime(dk, "%Y%m%d")
+                            except ValueError:
+                                # A malformed date (2026-02-30) is as unusable as 0000-00-00.
+                                dk = "00000000"
                             if dk == "00000000":
                                 logger.warn(
                                     "Issue Data is invalid for Issue Number %s. Marking this issue as Skipped"
-                                    % iss["Issue_Number"]
+                                    % ann["Issue_Number"]
                                 )
                                 newstatus = "Skipped"
                             else:
-                                datechk = datetime.datetime.strptime(dk, "%Y%m%d")
                                 issue_week = datetime.datetime.strftime(datechk, "%Y%U")
                                 logger.info("issue_week: %s" % issue_week)
                                 if pause_status is True:
@@ -718,14 +722,14 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                                             comicarr.CONFIG.AUTOWANT_UPCOMING is True,
                                         ]
                                     ):
-                                        logger.info("Autowant upcoming triggered for issue #%s" % issue["Issue_Number"])
+                                        logger.info("Autowant upcoming triggered for issue #%s" % ann["Issue_Number"])
                                         newstatus = "Wanted"
                                     else:
                                         logger.info("setting to Skipped")
                                         newstatus = "Skipped"
-                            logger.fdebug("[#%s]status is : %s" % (iss["Issue_Number"], newstatus))
+                            logger.fdebug("[#%s]status is : %s" % (ann["Issue_Number"], newstatus))
 
-                            newiss.append({"IssueID": iss["IssueID"], "Status": newstatus, "Annual": True})
+                            newiss.append({"IssueID": ann["IssueID"], "Status": newstatus, "Annual": True})
 
                     if len(newiss) > 0:
                         for newi in newiss:
