@@ -111,6 +111,24 @@ def volume_id(comic_id, volume_number):
     return "%s-v%s" % (comic_id, normalized)
 
 
+def volume_number_from_id(comic_id, issue_id):
+    """The volume number ``issue_id`` names for ``comic_id``, or None.
+
+    Inverse of ``volume_id``: ``md-x-v2`` for ``md-x`` is ``"2"``. A chapter
+    id (``md-x-ch2``) or another series' volume is None.
+    """
+    if not comic_id or issue_id in (None, ""):
+        return None
+    prefix = "%s-v" % comic_id
+    text = str(issue_id)
+    if not text.startswith(prefix):
+        return None
+    number = normalize_volume_number(text[len(prefix) :])
+    if number is None or volume_id(comic_id, number) != text:
+        return None
+    return number
+
+
 def last_released_volume(cover_volumes):
     """Last released volume is the highest cover-feed volume number.
 
