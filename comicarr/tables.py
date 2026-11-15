@@ -804,7 +804,7 @@ issue_search_history = Table(
 import_folder_choices = Table(
     "import_folder_choices",
     metadata,
-    Column("folder_key", String(255), primary_key=True, unique=True),
+    Column("folder_key", String(255), primary_key=True),
     Column("folder_name", Text),
     Column("comic_id", String(255), nullable=False),
     Column("comic_name", Text),
@@ -814,14 +814,14 @@ import_folder_choices = Table(
 mcp_tool_calls = Table(
     "mcp_tool_calls",
     metadata,
-    Column("tool_name", String(64), primary_key=True, unique=True),
+    Column("tool_name", String(64), primary_key=True),
     Column("last_called_at", String(40), nullable=False),
 )
 
 search_backlog_state = Table(
     "search_backlog_state",
     metadata,
-    Column("pass_kind", String(32), primary_key=True, unique=True),
+    Column("pass_kind", String(32), primary_key=True),
     Column("cursor_key", String(255)),
     Column("rssdb_generation", String(40), nullable=False, server_default=""),
     Column("updated_at", String(40), nullable=False),

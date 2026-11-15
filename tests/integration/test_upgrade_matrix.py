@@ -94,9 +94,7 @@ _RETIRED_BEFORE_18 = {("General", "folder_scan_log_verbose"): None}
 _SEARCH_DELAY_SECONDS_BEFORE_19 = {("General", "search_delay"): "60"}  # default 1 minute
 _CURRENT_CONFIG_VERSION = {("General", "config_version"): "19"}
 
-DRIFT_1251 = "https://github.com/frankieramirez/comicarr/issues/1251"
 DRIFT_1252 = "https://github.com/frankieramirez/comicarr/issues/1252"
-DRIFT_1257 = "https://github.com/frankieramirez/comicarr/issues/1257"
 MYLAR_CONFIG_1254_1255 = (
     "https://github.com/frankieramirez/comicarr/issues/1254 and https://github.com/frankieramirez/comicarr/issues/1255"
 )
@@ -149,29 +147,22 @@ ROWS = (
             **_SEARCH_DELAY_SECONDS_BEFORE_19,
             **_CURRENT_CONFIG_VERSION,
         },
-        xfail={
-            "test_1_upgrade_reaches_head_without_drift": DRIFT_1251,
-            "test_1_upgrade_reaches_head_without_drift@postgresql": "%s and %s" % (DRIFT_1251, DRIFT_1257),
-        },
     ),
     Row(
         "0.3x",
         sql="0.3x.sql",
         config="0.3x.config.ini",
         config_changes={**_SEARCH_DELAY_SECONDS_BEFORE_19, **_CURRENT_CONFIG_VERSION},
-        xfail={"test_1_upgrade_reaches_head_without_drift": DRIFT_1251},
     ),
     Row(
         "0.4x",
         sql="0.4x.sql",
         config="0.4x.config.ini",
-        xfail={"test_1_upgrade_reaches_head_without_drift": DRIFT_1251},
     ),
     Row(
         "0.5x",
         sql="0.5x.sql",
         config="0.5x.config.ini",
-        xfail={"test_1_upgrade_reaches_head_without_drift@postgresql": DRIFT_1257},
     ),
     *(
         Row(
