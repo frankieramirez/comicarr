@@ -101,8 +101,12 @@ _OWNED_STATUSES = frozenset({"Downloaded", "Snatched", "Archived", "Have", "Rese
 _COVERED_STATUSES = frozenset({"Covered"})
 
 
-def classify_series_issues(issues):
-    """Split a series issue list into ledger rows and ownership sets."""
+def classify_series_issues(issues, volume_states=None):
+    """Split a series issue list into ledger rows and ownership sets.
+
+    ``volume_states`` is ``{volume number: status}`` from ``manga_volumes``;
+    a grabbed or downloaded volume is owned as a volume (#1278).
+    """
     volumes = []
     seen_volumes = set()
     chapters = []
@@ -132,6 +136,10 @@ def classify_series_issues(issues):
                 covered_chapter_ids.add(identity)
         elif volume is not None and status in _OWNED_STATUSES:
             owned_volumes.add(volume)
+    for number, status in (volume_states or {}).items():
+        volume = normalize_volume_number(number)
+        if volume is not None and status in _OWNED_STATUSES:
+            owned_volumes.add(volume)
     return {
         "volumes": volumes,
         "chapters": chapters,
@@ -141,9 +149,13 @@ def classify_series_issues(issues):
     }
 
 
-def search_plan_for_series(series, issues):
-    """Blended-frontier search targets for one series' issue list."""
-    classified = classify_series_issues(issues)
+def search_plan_for_series(series, issues, volume_states=None):
+    """Blended-frontier search targets for one series' issue list.
+
+    ``volume_states`` is the series' recorded ``manga_volumes``
+    (``{volume number: status}``); the caller reads it with the issues.
+    """
+    classified = classify_series_issues(issues, volume_states)
     mode = normalize_monitor_mode((series or {}).get("MonitorMode"))
     return blended_search_targets(
         classified["volumes"],

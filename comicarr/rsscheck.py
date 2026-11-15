@@ -1599,6 +1599,7 @@ def mangaCheck():
     from comicarr.app.manga.sync import active_manga_clause
     from comicarr.tables import comics as t_comics
     from comicarr.tables import issues as t_issues
+    from comicarr.tables import manga_volumes as t_volumes
 
     logger.info("[MANGA-RSS] Starting manga blended-frontier search")
 
@@ -1624,13 +1625,23 @@ def mangaCheck():
         comic_id = series["ComicID"]
         issues_by_series[comic_id] = db.select_all(select(t_issues).where(t_issues.c.ComicID == comic_id))
 
+    # Volumes are not issues (ADR-0004): a grabbed or downloaded volume is
+    # owned from manga_volumes, so it leaves the frontier (#1278).
+    volumes_by_series = {}
+    for row in db.select_all(
+        select(t_volumes.c.ComicID, t_volumes.c.VolumeNumber, t_volumes.c.Status).where(
+            t_volumes.c.ComicID.in_([series["ComicID"] for series in manga_series])
+        )
+    ):
+        volumes_by_series.setdefault(row["ComicID"], {})[row["VolumeNumber"]] = row["Status"]
+
     with rss_lookup_memo():
         for series in manga_series:
             comic_id = series["ComicID"]
             comic_name = series["ComicName"]
             series_year = series.get("ComicYear") or str(datetime.now().year)
             issues = issues_by_series.get(comic_id) or []
-            targets = search_plan_for_series(series, issues)
+            targets = search_plan_for_series(series, issues, volumes_by_series.get(comic_id, {}))
             if not targets:
                 continue
 

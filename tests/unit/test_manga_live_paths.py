@@ -159,7 +159,7 @@ def test_manga_check_searches_blended_targets_not_every_wanted_chapter():
         patch("comicarr.rsscheck.db") as mock_db,
         patch("comicarr.search.search_init") as mock_search,
     ):
-        mock_db.select_all.side_effect = [[series], issues]
+        mock_db.select_all.side_effect = [[series], issues, []]
         mock_helpers.issue_status.return_value = False
         mangaCheck()
 
@@ -559,3 +559,14 @@ def test_the_volume_numbered_type_list_has_a_single_owner():
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value == "TPB"
     ]
     assert len(literals) == 1, "the volume-numbered type list has been duplicated again"
+
+
+def test_a_recorded_volume_drops_out_of_the_plan():
+    """Volumes live in manga_volumes, not issues; a grabbed one is not searched again (#1278)."""
+    series = {"MonitorMode": "blended"}
+    issues = [
+        {"IssueID": "md-x-ch1", "ChapterNumber": "1", "VolumeNumber": "1", "Status": "Wanted"},
+        {"IssueID": "md-x-ch2", "ChapterNumber": "2", "VolumeNumber": "2", "Status": "Wanted"},
+    ]
+    targets = search_plan_for_series(series, issues, volume_states={"1": "Snatched"})
+    assert targets == [{"kind": "volume", "number": "2"}]

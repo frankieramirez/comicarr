@@ -47,6 +47,7 @@ def _mock_db():
         patch("comicarr.app.downloads.postprocess_pipeline.db", mock_db),
         patch("comicarr.app.series.queries.db", mock_db),
         patch("comicarr.app.downloads.queries.db", mock_db),
+        patch("comicarr.app.manga.volumes.db", mock_db),
     ):
         yield mock_db
 

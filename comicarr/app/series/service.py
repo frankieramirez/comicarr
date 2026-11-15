@@ -262,6 +262,28 @@ def list_comics(ctx, limit=None, offset=None, name=None, kind=None, status=None)
     return [series_queries.with_library_cover_src(row) for row in series_queries.list_comics()]
 
 
+def _cover_chapters_by_owned_volumes(comic_id, projected_issues):
+    """Mark the chapters a Downloaded manga volume contains as Covered (#1278).
+
+    Containment is each chapter row's own VolumeNumber, the partial map
+    MangaDex's aggregate gives; a chapter with no volume is never covered.
+    """
+    from comicarr.app.manga.ledger import apply_volume_coverage, normalize_volume_number
+    from comicarr.app.manga.volumes import covering_volumes, volume_states
+
+    containment = {}
+    for row in projected_issues:
+        number = normalize_volume_number(row.get("volumeNumber"))
+        if number is not None and row.get("chapterNumber") not in (None, ""):
+            containment.setdefault(number, set()).add(row.get("id"))
+    if not containment:
+        return projected_issues
+    owned = covering_volumes(volume_states(comic_id))
+    if not owned:
+        return projected_issues
+    return apply_volume_coverage(projected_issues, owned, containment)
+
+
 def get_comic_detail(ctx, comic_id):
     """Get a single comic with its issues and annuals."""
     comic = [series_queries.with_library_cover_src(row) for row in series_queries.get_comic(comic_id)]
@@ -285,6 +307,7 @@ def get_comic_detail(ctx, comic_id):
         series_location=series_location,
         retained_locations=retained,
     )
+    projected_issues = _cover_chapters_by_owned_volumes(comic_id, projected_issues)
     summary = _issue_summary(projected_issues + projected_annuals)
     comic_row = comic[0] if comic else None
     override = parse_provider_override(series_queries.get_comic_provider_override(comic_id))

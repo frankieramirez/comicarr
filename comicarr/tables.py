@@ -818,6 +818,20 @@ mcp_tool_calls = Table(
     Column("last_called_at", String(40), nullable=False),
 )
 
+# A manga volume the library owns or has grabbed (ADR-0004: volumes are not
+# issues). Chapters a Downloaded volume contains read as Covered (#1278).
+manga_volumes = Table(
+    "manga_volumes",
+    metadata,
+    Column("VolumeID", String(255), primary_key=True),
+    Column("ComicID", String(255), nullable=False),
+    Column("VolumeNumber", String(32), nullable=False),
+    Column("Status", String(16), nullable=False),
+    Column("Location", Text),
+    Column("updated_at", String(40), nullable=False),
+    Index("ix_manga_volumes_comic", "ComicID"),
+)
+
 search_backlog_state = Table(
     "search_backlog_state",
     metadata,
