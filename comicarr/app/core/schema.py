@@ -18,7 +18,7 @@ from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from alembic.util.exc import CommandError
-from sqlalchemy import Column, Integer, UniqueConstraint, insert, inspect, select, text
+from sqlalchemy import Column, Integer, String, UniqueConstraint, insert, inspect, select, text
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -72,6 +72,7 @@ _REVISION_INTRODUCED_TABLES = {
     "0018_mcp_tool_calls": frozenset({"mcp_tool_calls"}),
     "0019_snatched_size_bigint": frozenset(),
     "0020_drop_redundant_pk_uniques": frozenset(),
+    "0021_comics_kind_varchar": frozenset(),
 }
 _READINGLIST_TO_STORYARCS_COLUMNS = (
     "StoryArcID",
@@ -234,16 +235,20 @@ def alembic_config(engine: Engine | None = None, connection=None) -> Config:
 
 
 def compare_column_type(context, _inspected_column, _metadata_column, inspected_type, metadata_type):
-    """Treat every integer width as one type on SQLite.
+    """Compare column types the way SQLite stores them.
 
-    SQLite stores INTEGER, BIGINT and SMALLINT alike as a 64-bit integer, so a
-    column widened on PostgreSQL and MySQL (#1300) needs no table rebuild on
-    SQLite. Returning ``None`` keeps Alembic's own comparison for every other
-    case.
+    SQLite keeps one storage class per type family: INTEGER, BIGINT and
+    SMALLINT are all a 64-bit integer, and TEXT, VARCHAR(n) and CHAR(n) are
+    all unbounded text. So a column widened on PostgreSQL and MySQL (#1300),
+    or a TEXT column a pre-Alembic release added where the metadata now says
+    ``String(16)`` (#1252), needs no table rebuild on SQLite and is not drift.
+    Returning ``None`` keeps Alembic's own comparison for every other case.
     """
 
-    if context.dialect.name == "sqlite" and isinstance(inspected_type, Integer) and isinstance(metadata_type, Integer):
-        return False
+    if context.dialect.name == "sqlite":
+        for family in (Integer, String):
+            if isinstance(inspected_type, family) and isinstance(metadata_type, family):
+                return False
     return None
 
 
