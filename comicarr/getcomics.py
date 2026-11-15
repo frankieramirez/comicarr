@@ -42,6 +42,7 @@ from comicarr.app.common.remote_artifacts import (
     write_chunks_atomically,
 )
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
+from comicarr.app.search import diagnostics as search_diagnostics
 from comicarr.app.search.evaluation import EvaluationSession
 
 
@@ -204,7 +205,7 @@ class GC(object):
                 if not queryline:
                     continue
 
-                logger.fdebug("[DDL-QUERY] Query set to: %s" % queryline)
+                search_diagnostics.log_query(is_info, "getcomics", queryline)
 
                 result_generator = self.perform_search_queries(queryline)
                 selected = evaluator.evaluate(

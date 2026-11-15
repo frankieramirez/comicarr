@@ -67,6 +67,7 @@ from comicarr.app.common.remote_artifacts import (
 from comicarr.app.core.workers import submit_background_future
 from comicarr.app.downloads import handoff
 from comicarr.app.notifications import service as notifiers
+from comicarr.app.search import diagnostics as search_diagnostics
 from comicarr.app.search import failures as search_failures
 from comicarr.app.search import progress, prowlarr
 from comicarr.app.search.backlog import (
@@ -1439,9 +1440,12 @@ def NZB_SEARCH(
                     oneoff,
                 )
             logger.fdebug("bb: %s" % (bb,))
+            rss_query = "%s %s" % (ComicName if "DDL(GetComics)" in nzbprov else findcomic, mod_isssearch)
             if any([bb is None, bb == "no results"]):
+                search_diagnostics.log_query(is_info, "rss", rss_query, 0)
                 verified_matches = "no results"
             else:
+                search_diagnostics.log_query(is_info, "rss", rss_query, len(bb["entries"]))
                 if len(bb["entries"]) > 0:
                     verified_matches = evaluator.evaluate(bb["entries"], is_info).selected
                 else:
@@ -1668,6 +1672,7 @@ def NZB_SEARCH(
                     except Exception:
                         logger.fdebug("no errors on data retrieval...proceeding")
                         entries = verified_matches["entries"]
+                        returned = len(entries)
                         if cmloopit == 0 and not unfiltered_pass_active():
                             from comicarr.app.search.packs import pack_shaped
 
@@ -1678,6 +1683,7 @@ def NZB_SEARCH(
                                     % (len(kept), len(entries))
                                 )
                             entries = kept
+                        search_diagnostics.log_query(is_info, "api", comsearch, returned, len(entries))
                         verified_matches = evaluator.evaluate(entries, is_info).selected
 
             elif nzbprov == "experimental":
@@ -1689,6 +1695,7 @@ def NZB_SEARCH(
                     is_info["foundc"]["status"] = False
                     done = True
                 else:
+                    search_diagnostics.log_query(is_info, "experimental", "%s %s" % (findcomic, isssearch), len(bb))
                     verified_matches = evaluator.evaluate(bb, is_info).selected
                 is_info["foundc"]["lastrun"] = time.time()
                 logger.fdebug(

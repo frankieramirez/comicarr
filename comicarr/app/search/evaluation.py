@@ -29,6 +29,7 @@ import comicarr
 from comicarr import filechecker, helpers, logger
 from comicarr.app.search import _pack_membership
 from comicarr.app.search._release_identity import generate_id
+from comicarr.app.search.diagnostics import log_evaluation, safe_provider_name
 
 __all__ = ["EvaluationSession", "EvaluationBatch", "ReleaseCandidateEvaluation"]
 
@@ -181,6 +182,7 @@ class EvaluationSession:
         selected = []
         error = None
         fallback = None
+        stopped = "end"
         for entry in entries:
             evaluation = self._evaluate_entry(entry, is_info)
             if self._searched_item is not None:
@@ -188,6 +190,7 @@ class EvaluationSession:
             outcomes.append(evaluation)
             if evaluation.exception is not None and (batch or not self.review):
                 error = evaluation.exception
+                stopped = "error"
                 break
             if evaluation._handoff is None:
                 continue
@@ -199,6 +202,7 @@ class EvaluationSession:
                 selected.append(evaluation)
             elif bool(evaluation._handoff["pack"]) is bool(prefer_pack):
                 selected = [evaluation]
+                stopped = "preferred"
                 break
             else:
                 fallback = evaluation
@@ -213,6 +217,7 @@ class EvaluationSession:
         room = OBSERVED_LIMIT - len(self._observed)
         if room > 0:
             self._observed.extend(outcomes[:room])
+        log_evaluation(is_info, outcomes, selected, stopped)
         return EvaluationBatch(tuple(outcomes), tuple(selected), error)
 
     def take_observed(self):
@@ -267,35 +272,7 @@ class EvaluationSession:
 
     def _normalized_candidate(self, entry, is_info):
         info = is_info or {}
-        nzbprov = str(info.get("nzbprov") or self._entry_value(entry, "site") or "Unknown")
-        provider_stat = info.get("provider_stat") or {}
-        provider_type = str(provider_stat.get("type") or "").lower()
-        newznab_host = info.get("newznab_host")
-        torznab_host = info.get("torznab_host")
-
-        if newznab_host:
-            provider = str(newznab_host[0] or "Newznab")
-        elif torznab_host:
-            provider = str(torznab_host[0] or "Torznab")
-        else:
-            provider = nzbprov
-
-        if "ddl" in nzbprov.lower():
-            source_kind = "ddl"
-        elif provider_type in ("newznab", "usenet") or "newznab" in nzbprov.lower():
-            source_kind = "usenet"
-        elif provider_type in ("torznab", "torrent") or "torrent" in nzbprov.lower() or nzbprov == "32P":
-            source_kind = "torrent"
-        else:
-            source_kind = "unknown"
-
-        provider_lower = provider.lower()
-        if any(marker in provider_lower for marker in ("://", "@", "?", "apikey=", "token=")):
-            provider = {
-                "ddl": "Direct-download provider",
-                "torrent": "Torrent provider",
-                "usenet": "Usenet provider",
-            }.get(source_kind, "Search provider")
+        provider, source_kind = safe_provider_name(info, self._entry_value(entry, "site"))
 
         raw_size = self._entry_value(entry, "length")
         if raw_size in (None, "", "0", 0):
