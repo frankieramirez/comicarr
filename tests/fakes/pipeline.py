@@ -42,7 +42,6 @@ from comicarr.config import _CONFIG_DEFINITIONS, Config
 from tests.fakes.nntp import nzb_document
 
 COMIC_ID = "160294"
-# Below 900000: larger IssueIDs currently key as one-offs (#1261).
 ISSUE_ID = "523814"
 SERIES = "Absolute Batman"
 RELEASE = "Absolute.Batman.001.2024"
