@@ -198,7 +198,10 @@ export function useUpcomingColumns(
                   </Link>
                 </Button>
               )}
-              {status === "wanted" && onReview ? (
+              {/* A pull-list row can arrive before the series refresh creates
+                  its issue; without an IssueID there is nothing to search,
+                  and the button used to do nothing at all. */}
+              {status === "wanted" && onReview && row.original.IssueID ? (
                 <Button
                   size="compact"
                   variant="ghost"

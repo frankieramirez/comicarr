@@ -119,3 +119,22 @@ class TestReleaseVersionContract:
         with patch("importlib.metadata.version", return_value="0.19.13") as mock_meta:
             assert system_service.get_release_version() == release_version
             mock_meta.assert_not_called()
+
+
+def test_get_safe_config_reports_where_this_install_keeps_its_files(monkeypatch, tmp_path):
+    """Settings and About fell back to a Docker-shaped path when these were missing."""
+    config = MagicMock()
+    config._config_file = str(tmp_path / "config.ini")
+    for key in ("NZB_DOWNLOADER", "TORRENT_DOWNLOADER"):
+        setattr(config, key, None)
+    ctx = AppContext(
+        prog_dir=str(tmp_path),
+        data_dir=str(tmp_path / "data"),
+        db_file=":memory:",
+        config=config,
+        scheduler=MagicMock(),
+    )
+    result = system_service.get_safe_config(ctx)
+    assert result["config_path"] == str(tmp_path / "config.ini")
+    assert result["data_dir"] == str(tmp_path / "data")
+    assert result["python_version"].count(".") == 2

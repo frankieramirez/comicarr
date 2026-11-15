@@ -94,6 +94,8 @@ class SetupGateMiddleware(BaseHTTPMiddleware):
         "/api/auth/check-setup",
         "/assets",
         "/favicon.ico",
+        "/logo.svg",
+        "/theme-init.js",
         "/api/health",
     )
 

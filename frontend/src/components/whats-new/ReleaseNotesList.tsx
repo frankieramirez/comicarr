@@ -1,6 +1,32 @@
 import { cn } from "@/lib/utils";
 import type { ReleaseNotesSection } from "@/types/version";
 
+/** Changesets are Markdown, so a note can carry **bold** and `code`.
+ *  Only those two inline forms are rendered; everything else stays text. */
+function InlineMarkdown({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(\*\*[^*]+\*\*|`[^`]+`)/).map((part, i) => {
+        if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+          return (
+            <strong key={i} className="font-medium text-foreground">
+              {part.slice(2, -2)}
+            </strong>
+          );
+        }
+        if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+          return (
+            <code key={i} className="font-mono text-[0.92em] text-foreground">
+              {part.slice(1, -1)}
+            </code>
+          );
+        }
+        return part;
+      })}
+    </>
+  );
+}
+
 /** Multi-paragraph bullet bodies from the mechanical transform (#450). */
 export function BulletBody({ text }: { text: string }) {
   const paras = text.split(/\n{2,}/);
@@ -8,7 +34,7 @@ export function BulletBody({ text }: { text: string }) {
     <>
       {paras.map((p, i) => (
         <p key={i} className={i > 0 ? "mt-1.5" : undefined}>
-          {p.replace(/\n/g, " ")}
+          <InlineMarkdown text={p.replace(/\n/g, " ")} />
         </p>
       ))}
     </>

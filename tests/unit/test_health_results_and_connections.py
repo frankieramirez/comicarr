@@ -276,3 +276,20 @@ def test_summary_counts_reachable_connections():
     assert connections.summarize([]) == "Nothing to check"
     assert connections.summarize([{"ok": True}, {"ok": True}, {"ok": None}]) == "2 of 2 reachable"
     assert connections.summarize([{"ok": True}, {"ok": False}]) == "1 of 2 not responding"
+
+
+def test_scheduled_connection_check_runs_and_leaves_a_summary(monkeypatch):
+    """The hourly job used to crash after checking, so Health always showed it failing."""
+
+    def fake_get(url, params=None, **kwargs):
+        if params["mode"] == "version":
+            return FakeResponse(payload={"version": "4.3.2"})
+        return FakeResponse(payload={"queue": {"noofslots": 0}})
+
+    monkeypatch.setattr(connections.requests, "get", fake_get)
+    monkeypatch.setattr(comicarr, "CONFIG", _sab_config())
+
+    rows = connections.run()
+
+    assert [row["ok"] for row in rows] == [True]
+    assert job_results.summarize(connections.JOB_ID, T0.timestamp()) == "1 of 1 reachable"

@@ -427,6 +427,20 @@ describe("ReleasesPage", () => {
     ).toBeTruthy();
   });
 
+  it("hides review for a release whose issue is not in the library yet", async () => {
+    server.use(
+      http.get("/api/upcoming", () =>
+        HttpResponse.json([{ ...upcomingIssue, IssueID: null }]),
+      ),
+    );
+    render(<ReleasesPage />);
+
+    await screen.findByText("Absolute Batman");
+    expect(screen.queryByRole("button", { name: "Review releases" })).toBe(
+      null,
+    );
+  });
+
   it("skips a mine-row, toasts, and drops it from the week", async () => {
     const store = { ...upcomingIssue };
     server.use(

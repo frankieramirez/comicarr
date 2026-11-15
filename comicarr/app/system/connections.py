@@ -545,9 +545,10 @@ def summarize(rows) -> str:
 
 
 def run():
-    """Scheduled entry point: check everything and leave a one-line summary."""
-    from comicarr.app.system import job_results
+    """Scheduled entry point: check everything.
 
-    rows = test_all()
-    job_results.record(JOB_ID, summarize(rows))
-    return rows
+    The Health tab's one-line result comes from ``job_results`` reading
+    :func:`snapshot`, which ``test_all`` has just filled, so nothing else
+    needs recording here.
+    """
+    return test_all()
