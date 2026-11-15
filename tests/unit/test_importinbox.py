@@ -382,9 +382,42 @@ class TestMatchGroup:
         series_list = [
             {"ComicID": "cv-mad", "ComicName": "MAD Magazine", "ComicSortName": "MAD Magazine", "DynamicName": "mad"},
         ]
-        filepath = "/import/Wizard Magazine 090.cbz"
+        filepath = "/import/MAD Magazine 090.cbz"
         _mock_globals["db"].upsert = MagicMock()
         _mock_globals["get_issue_id"].return_value = None
+
+        with (
+            patch("comicarr.app.imports.queries.get_import_rows", return_value=[]),
+            patch("comicarr.app.imports.finalization.finalize_manual_match") as finalize,
+        ):
+            result = importinbox._match_group(
+                "file:mad",
+                {"group_name": "MAD Magazine", "files": [filepath]},
+                series_list,
+            )
+
+        assert result == {"auto_imported": 0, "queued_for_review": 1}
+        finalize.assert_not_called()
+        _mock_globals["get_issue_id"].assert_called_once_with("cv-mad", "90")
+        queued = _mock_globals["db"].upsert.call_args.args[1]
+        assert queued["MatchSource"] == "inbox"
+        assert queued["SuggestedComicID"] == "cv-mad"
+        assert queued["SuggestedComicName"] == "MAD Magazine"
+        assert queued["MatchConfidence"] >= 80
+
+    def test_issue_1102_shared_generic_word_does_not_match_wizard_to_mad(self, importinbox, _mock_globals):
+        series_list = [
+            {"ComicID": "cv-mad", "ComicName": "MAD Magazine", "ComicSortName": "MAD Magazine", "DynamicName": "mad"},
+            {
+                "ComicID": "cv-wizard",
+                "ComicName": "Wizard: The Comics Magazine",
+                "ComicSortName": "Wizard: The Comics Magazine",
+                "DynamicName": "wizardthecomicsmagazine",
+            },
+        ]
+        filepath = "/import/Wizard Magazine 090.cbz"
+        _mock_globals["db"].upsert = MagicMock()
+        _mock_globals["get_issue_id"].return_value = "issue-90"
 
         with (
             patch("comicarr.app.imports.queries.get_import_rows", return_value=[]),
@@ -398,12 +431,8 @@ class TestMatchGroup:
 
         assert result == {"auto_imported": 0, "queued_for_review": 1}
         finalize.assert_not_called()
-        _mock_globals["get_issue_id"].assert_called_once_with("cv-mad", "90")
         queued = _mock_globals["db"].upsert.call_args.args[1]
-        assert queued["MatchSource"] == "inbox"
-        assert queued["SuggestedComicID"] == "cv-mad"
-        assert queued["SuggestedComicName"] == "MAD Magazine"
-        assert queued["MatchConfidence"] >= 80
+        assert queued["SuggestedComicID"] == "cv-wizard"
 
     def test_issue_1068_only_files_missing_from_the_series_go_to_review(self, importinbox, _mock_globals):
         series_list = [
