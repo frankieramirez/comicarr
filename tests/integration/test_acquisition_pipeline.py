@@ -597,11 +597,6 @@ def current_comicvine_issue_id(monkeypatch):
     monkeypatch.setattr(pipeline, "ISSUE_ID", "1086215")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="IssueIDs at or above 900000 key as one-offs, so a restart finds two rows for one grab: "
-    "https://github.com/frankieramirez/comicarr/issues/1261",
-)
 def test_sab_restart_with_a_current_comicvine_issue_id(current_comicvine_issue_id, sab):
     _response, _item = pipeline.send_to_sab(sab.nzb)
     [nzo_id] = sab.jobs
