@@ -1236,10 +1236,15 @@ def test_manga_add_failure_is_narrated_in_activity(recorded, monkeypatch):
     missing = "md-" + manga_fake.MISSING_MANGADEX_ID
 
     queued = add_manga(AppContext(config=comicarr.CONFIG), manga_fake.MISSING_MANGADEX_ID)
-    comicarr.MASS_ADD.join(timeout=30)
+    # An idle worker unpublishes itself as it retires (#1322), so it may be
+    # gone already; a None pool means it has finished.
+    worker = comicarr.MASS_ADD
+    if worker is not None:
+        worker.join(timeout=30)
 
     assert queued["success"] is True and queued["comicid"] == missing
-    assert not comicarr.MASS_ADD.is_alive()
+    assert worker is None or not worker.is_alive()
+    assert comicarr.MASS_ADD is None
     [event] = [event for event in _add_events(missing) if event.get("status") == "failed"]
     assert "MangaDex details fetch failed" in str(event.get("reason_detail"))
     assert any(call["path"] == "/manga/%s" % manga_fake.MISSING_MANGADEX_ID for call in recorded.mangadex.calls)
