@@ -158,8 +158,8 @@ def addvialist(seriesQueue, issueWantQueue):
             time.sleep(1)
             issueItem = issueWantQueue.get(True)
             markIssueWantedById(issueItem)
-        else:
-            seriesQueue.put("exit")
+        elif mass_add_worker_should_retire(seriesQueue, issueWantQueue):
+            break
     return False
 
 
@@ -2888,32 +2888,47 @@ def image_it(comicid, latestissueid, comlocation, ComicImage):
     db.upsert("comics", {"ComicImage": ComicImage}, {"ComicID": comicid})
 
 
+_MASS_ADD_WORKER_LOCK = threading.RLock()
+
+
+def mass_add_worker_should_retire(series_queue, issue_queue):
+    """Atomically decide whether an idle mass-add worker may exit.
+
+    Producers hold the same lock while enqueueing and checking liveness, so an
+    add cannot land between the worker's empty check and its retirement and
+    then sit on the queue with no worker to run it (#1322).
+    """
+    with _MASS_ADD_WORKER_LOCK:
+        if not series_queue.empty() or not issue_queue.empty():
+            return False
+        ctx = _mass_add_runtime_context()
+        worker = ctx.mass_add_pool if ctx is not None else getattr(comicarr, "MASS_ADD", None)
+        if worker is threading.current_thread():
+            _set_mass_add_pool(ctx, None)
+        return True
+
+
 def importer_thread(serieslist):
 
     if type(serieslist) != list:
         serieslist = [(serieslist)]
 
-    threaded_call = True
+    with _MASS_ADD_WORKER_LOCK:
+        ctx = _mass_add_runtime_context()
+        add_list = ctx.add_list if ctx is not None else comicarr.ADD_LIST
+        issue_watch_list = ctx.issue_watch_list if ctx is not None else comicarr.ISSUE_WATCH_LIST
 
-    ctx = _mass_add_runtime_context()
-    add_list = ctx.add_list if ctx is not None else comicarr.ADD_LIST
-    issue_watch_list = ctx.issue_watch_list if ctx is not None else comicarr.ISSUE_WATCH_LIST
+        for series in serieslist:
+            add_list.put(series)
 
-    for series in serieslist:
-        add_list.put(series)
-
-    try:
-        pool = ctx.mass_add_pool if ctx is not None else comicarr.MASS_ADD
-        if pool.is_alive():
+        pool = ctx.mass_add_pool if ctx is not None else getattr(comicarr, "MASS_ADD", None)
+        if pool is not None and getattr(pool, "is_alive", lambda: False)():
             logger.info(
                 "[MASS-ADD] MASS_ADD thread already running. Adding an additional %s items to existing queue"
                 % len(serieslist)
             )
-            threaded_call = False
-    except Exception:
-        pass
+            return
 
-    if threaded_call is True:
         logger.info("[MASS-ADD] MASS_ADD thread not started. Started & submitting.")
         pool = threading.Thread(target=addvialist, args=(add_list, issue_watch_list), name="mass-add")
         _set_mass_add_pool(ctx, pool)
@@ -2924,10 +2939,11 @@ def issue_watcher_thread(issuelist):
     if type(issuelist) != list:
         issuelist = [issuelist]
 
-    ctx = _mass_add_runtime_context()
-    issue_watch_list = ctx.issue_watch_list if ctx is not None else comicarr.ISSUE_WATCH_LIST
-    for issue in issuelist:
-        issue_watch_list.put(issue)
+    with _MASS_ADD_WORKER_LOCK:
+        ctx = _mass_add_runtime_context()
+        issue_watch_list = ctx.issue_watch_list if ctx is not None else comicarr.ISSUE_WATCH_LIST
+        for issue in issuelist:
+            issue_watch_list.put(issue)
 
 
 _REFRESH_WORKER_LOCK = threading.RLock()
