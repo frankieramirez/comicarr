@@ -495,6 +495,11 @@ def recover(release_key):
         payload = journal.load_payload(row.get("payload_json"))
         if isinstance(payload, dict) and payload.get("arc_copy"):
             return _recover_arc_copy(release_key, row, payload)
+        if isinstance(payload, dict) and payload.get("arc_only") and row["stage"] == journal.POST_PROCESSING:
+            from comicarr.app.downloads.postprocess_pipeline import recover_arc_only_placement
+
+            if recover_arc_only_placement(release_key, row, payload) is not None:
+                return PostProcessResult("processed", action="arc-only-finished", outcome=COMPLETED)
         if row["stage"] == journal.MOVED or obligation_already_fulfilled(row):
             finish_obligation(release_key, row, payload)
             action = "moved-finish-dbfacts" if row["stage"] == journal.MOVED else "post_processing-already-fulfilled"

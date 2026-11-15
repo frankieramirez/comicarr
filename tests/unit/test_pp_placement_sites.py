@@ -427,6 +427,38 @@ class TestOneOffAndGrabBagPlacement:
         assert pp.messages[0]["mode"] == "stop"
 
 
+    def test_a_one_off_story_arc_grab_reads_the_arc_volume(self, library, monkeypatch, tmp_path):
+        """storyarcs has no ComicVersion column; the arc's Volume labels the tag (#1296)."""
+        from comicarr.tables import storyarcs
+
+        arc_root = tmp_path / "arcs"
+        arc_root.mkdir()
+        with get_engine().begin() as conn:
+            conn.execute(
+                insert(storyarcs).values(
+                    StoryArcID="SA1",
+                    StoryArc="The Chosen",
+                    IssueArcID="77",
+                    IssueID="I9",
+                    ComicID="C9",
+                    ComicName="Saga",
+                    IssueNumber="1",
+                    ReadingOrder=1,
+                    Publisher="Image",
+                    SeriesYear="2012",
+                    Volume="v2",
+                    Status="Snatched",
+                )
+            )
+        config = Config(STORYARCDIR=True, STORYARC_LOCATION=str(arc_root), ARC_FOLDERFORMAT="$arc")
+
+        _pp, calls, _result = _drive_nzb_or_oneoff(
+            library, monkeypatch, config=config, tinfo_overrides={"issueid": "S77", "sarc": "The Chosen"}
+        )
+
+        assert calls, "the one-off story-arc grab must reach placement"
+
+
 class TestOneOffStoryArcPlacementCallShape:
     """postprocess_pipeline.py -- ``place_arc_only_matches``'s one-off story-arc placement.
 
