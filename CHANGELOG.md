@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.55.0
+
+### Minor Changes
+
+- 27af866: Prowlarr can now sync its Usenet and torrent indexers into Comicarr. In Prowlarr, add Comicarr under Settings → Apps as a **Mylar** application with Comicarr's URL and API key (Settings → API). Prowlarr adds, updates and removes its indexers in Settings → Search as Newznab and Torznab entries named "… (Prowlarr)" with the Comics categories, and turns on Newznab or Torznab search if it was off (torrent indexers still need torrent search and a torrent client). Indexers you added yourself are left alone.
+
+### Patch Changes
+
+- 4b6f096: Creating your account on first run now takes you straight to the sign-in page. The setup screen used to wait a minute for a restart that never happened and then say "Server restart timed out". Stopping the container (`docker stop`, or an update in Unraid or Portainer) also no longer stalls until Docker force-kills Comicarr when it happens while the weekly pull-list check is waiting to retry a pull-list source that is down.
+- dce7921: Import no longer matches two series just because they share a generic word. Words like "Magazine", "Comics" and "The" now count only when nothing else tells the names apart, so `Wizard Magazine 090.cbz` is no longer suggested or auto-imported as MAD Magazine. These words never raise a match score, so series that matched before still match, at the same or a lower confidence.
+- 1b4b920: OPDS reader apps (Panels, Chunky, KyBook and others) can open Recent Additions again when your download history includes a series you have since deleted or an issue whose file is gone; that feed used to fail outright. Recent Additions now lists each issue once even if it was downloaded more than once, and one corrupt archive no longer stops its whole series from loading in the reader.
+- d4c3255: At log level 2 (Debug), a search now says exactly what it did. Each provider request logs a `[SEARCH-QUERY]` line with the series and issue IDs, the provider name, the query text, and how many results came back. Each batch of results logs an `[EVALUATION]` summary, and each release gets a line with its verdict and reason code, such as `reason=rejected.series_mismatch`. Search the Logs page for `issue=<IssueID>` or `reason=` to see why an issue was not grabbed. These lines never include provider URLs or API keys, and searching works the same at every log level.
+- 74fa3c2: The bar that appears when you select issues on Wanted and Releases now follows your light or dark theme instead of always showing bright blue. Success ticks and "Owned"/"Wanted" labels in the import match dialog, AI settings and story-arc generator now use the same status colours as the rest of the app in both themes.
+
 ## 0.54.0
 
 ### Minor Changes
