@@ -10,6 +10,7 @@
 """Validated post-processing commands and symlink-safe directory walks."""
 
 import os
+import re
 from pathlib import Path, PurePath
 
 import comicarr
@@ -18,6 +19,9 @@ import comicarr
 class PostProcessCommandError(ValueError):
     """A post-processing command cannot be proven safe to execute."""
 
+
+# A download client's own name for what failed (NZBGet FAILURE/<cause>, #1264).
+_FAIL_CAUSE = re.compile(r"[a-z0-9_-]{1,32}")
 
 _ROOT_CONFIG_KEYS = (
     "DDL_LOCATION",
@@ -182,6 +186,9 @@ def validate_postprocess_item(item, roots=None, require_exists=True):
     for key in ("issueid", "comicid"):
         if key in command and command[key] is not None and not str(command[key]).strip():
             raise PostProcessCommandError("%s cannot be blank" % key)
+    fail_cause = command.get("fail_cause")
+    if fail_cause is not None and not _FAIL_CAUSE.fullmatch(str(fail_cause)):
+        raise PostProcessCommandError("fail_cause is invalid")
     download_info = command.get("download_info")
     if download_info is not None and not isinstance(download_info, dict):
         raise PostProcessCommandError("download_info must be an object")

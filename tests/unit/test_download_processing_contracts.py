@@ -276,6 +276,22 @@ def test_failed_download_is_not_required_to_sit_under_a_postprocess_root(tmp_pat
         )
 
 
+def test_postprocess_command_carries_only_a_plain_fail_cause(tmp_path):
+    """The client's failure cause lands in fail_reason, so only a short token passes (#1264)."""
+    command = pp_commands.validate_postprocess_item(
+        {"nzb_name": "Saga.001.cbz", "nzb_folder": str(tmp_path), "failed": True, "fail_cause": "par"},
+        roots=[tmp_path],
+    )
+    assert command["fail_cause"] == "par"
+
+    for cause in ("", "PAR", "par:extra", "x" * 33, "../par"):
+        with pytest.raises(pp_commands.PostProcessCommandError, match="fail_cause is invalid"):
+            pp_commands.validate_postprocess_item(
+                {"nzb_name": "Saga.001.cbz", "nzb_folder": str(tmp_path), "failed": True, "fail_cause": cause},
+                roots=[tmp_path],
+            )
+
+
 def test_postprocess_worker_quarantines_owned_failure_and_continues(sqlite_ddl_db, monkeypatch, tmp_path):
     first = {
         "nzb_name": "First.cbz",

@@ -29,6 +29,16 @@ import comicarr
 from comicarr import cdh_mapping, logger
 
 
+def failure_cause(status):
+    """The part of an NZBGet ``FAILURE/<cause>`` history status that names the cause.
+
+    ``FAILURE/PAR`` -> ``par``, ``FAILURE/UNPACK`` -> ``unpack``,
+    ``FAILURE/HEALTH`` -> ``health``. None when the status names no cause.
+    """
+    match = re.match(r"^\s*FAILURE/([A-Za-z0-9_-]{1,32})\s*$", str(status or ""))
+    return match.group(1).lower() if match else None
+
+
 class NZBGet(object):
     def __init__(self):
 
@@ -321,6 +331,7 @@ class NZBGet(object):
                     "name": re.sub(".nzb", "", hq[0]["NZBName"]).strip(),
                     "location": os.path.abspath(os.path.join(hq[0]["DestDir"], os.pardir)),
                     "failed": True,
+                    "fail_cause": failure_cause(hq[0]["Status"]),
                     "issueid": nzbinfo["issueid"],
                     "comicid": nzbinfo["comicid"],
                     "apicall": True,

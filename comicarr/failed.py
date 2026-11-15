@@ -127,12 +127,16 @@ class FailedProcessor(object):
         queue=None,
         oneoffinfo=None,
         journal_release_key=None,
+        fail_cause=None,
     ):
         """
         nzb_name : Full name of the nzb file that has returned as a fail.
         nzb_folder: Full path to the folder of the failed download.
         journal_release_key: Canonical pipeline_journal key when already known
             (PP claim / download_info). Preferred over re-derivation.
+        fail_cause: What the download client says failed (NZBGet ``par``,
+            ``unpack``, ``health``). Appended to the journal fail_reason as
+            ``<base>:<cause>`` so the base token stays classified (#1264).
         """
         self.nzb_name = nzb_name
         self.nzb_folder = nzb_folder
@@ -159,6 +163,7 @@ class FailedProcessor(object):
             self.queue = queue
         self.valreturn = []
         self.journal_release_key = journal_release_key
+        self.fail_cause = fail_cause
 
     def _log(self, message, level=logger):
         """
@@ -437,6 +442,8 @@ class FailedProcessor(object):
                 "(issueid=%s provider=%s)" % (issueid or self.issueid, self.prov)
             )
             return False
+        if self.fail_cause:
+            fail_reason = "%s:%s" % (fail_reason, self.fail_cause)
         return terminalize_failed_download(
             rkey,
             fail_reason,
