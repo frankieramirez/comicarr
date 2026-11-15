@@ -676,3 +676,12 @@ def test_initialize_source_blocks_workers_after_dbcheck_failure():
     assert "except Exception as e:" in dbcheck_branch
     assert "ACQUISITION_WORKERS_BLOCKED = True" in dbcheck_branch
     assert "[SCHEMA-MIGRATION] Worker startup blocked after migration failure" in dbcheck_branch
+
+
+@pytest.mark.parametrize(
+    ("table", "key"),
+    [("search_backlog_state", "pass_kind"), ("import_folder_choices", "folder_key"), ("mcp_tool_calls", "tool_name")],
+)
+def test_a_single_column_primary_key_is_the_upsert_target(table, key):
+    """#1251/#1257 dropped unique=True from these keys; db.upsert must still find them."""
+    assert UPSERT_KEYS[table] == [key]

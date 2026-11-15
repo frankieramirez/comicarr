@@ -1211,8 +1211,11 @@ def _derive_upsert_keys():
                     keys[name] = [col.name]
                     break
         if name not in keys:
+            # A primary key is the conflict target when nothing else is unique.
+            # Single-column keys count too: they no longer repeat unique=True,
+            # which made installs drift (#1251, #1257).
             pk_cols = [col.name for col in table.primary_key.columns]
-            if len(pk_cols) > 1:
+            if pk_cols:
                 keys[name] = pk_cols
     return keys
 
