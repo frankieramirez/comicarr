@@ -306,7 +306,13 @@ def test_byte_cap_returns_only_newest_whole_records(log_ctx, tmp_path):
     assert result["logs"] == [line] * 13
 
 
-@pytest.mark.parametrize("contents", ["x" * (1024 * 1024 + 1), "small continuation\n" * 500000])
+# Explicit ids: the default id is the whole multi-megabyte value, and printing
+# it under `pytest -v` stalled each case for ~12 minutes in GitHub Actions.
+@pytest.mark.parametrize(
+    "contents",
+    ["x" * (1024 * 1024 + 1), "small continuation\n" * 500000],
+    ids=["one-line-over-1mib", "one-record-over-8mib"],
+)
 def test_oversized_line_or_whole_record_errors_instead_of_partial_output(log_ctx, tmp_path, contents):
     (tmp_path / "comicarr.log").write_text(contents)
     with pytest.raises(log_files.LogFileError) as error:

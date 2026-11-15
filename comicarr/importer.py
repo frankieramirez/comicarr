@@ -351,7 +351,12 @@ def addComictoDB(
             }
 
     if dbcomic is None or bypass is False:
-        newValueDict = {"ComicName": "Comic ID: %s" % (comicid), "Status": "Loading"}
+        newValueDict = {"Status": "Loading"}
+        if dbcomic is None:
+            # Only a new series gets the placeholder name: a series already in
+            # the library keeps its name, so a failed fetch cannot rename it
+            # (#1346).
+            newValueDict["ComicName"] = "Comic ID: %s" % (comicid)
         if location:
             comlocation = location
         elif all([imported is not None, imported != "None", comicarr.CONFIG.IMP_PATHS is True]):
@@ -385,7 +390,12 @@ def addComictoDB(
             newValueDict = {"ComicName": "Fetch failed, try refreshing. (%s)" % (comicid), "Status": "Active"}
             failed_add = True
         else:
-            if series_status == "Active" or series_status == "Loading":
+            # Restore the status the series had before this run set it to
+            # Loading; series_status is reset above for a series with no
+            # folder, which would otherwise un-pause it (#1346).
+            if str(dbcomic.get("Status") or "") == "Paused":
+                newValueDict = {"Status": "Paused"}
+            elif series_status == "Active" or series_status == "Loading":
                 newValueDict = {"Status": "Active"}
             else:
                 newValueDict = {"Status": "Paused"}
