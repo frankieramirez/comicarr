@@ -94,10 +94,6 @@ _RETIRED_BEFORE_18 = {("General", "folder_scan_log_verbose"): None}
 _SEARCH_DELAY_SECONDS_BEFORE_19 = {("General", "search_delay"): "60"}  # default 1 minute
 _CURRENT_CONFIG_VERSION = {("General", "config_version"): "19"}
 
-MYLAR_CONFIG_1254_1255 = (
-    "https://github.com/frankieramirez/comicarr/issues/1254 and https://github.com/frankieramirez/comicarr/issues/1255"
-)
-
 
 @dataclass(frozen=True)
 class Row:
@@ -173,9 +169,6 @@ ROWS = (
                 **_CURRENT_CONFIG_VERSION,
                 # Mylar3 writes an empty provider order; Comicarr writes its None.
                 ("Providers", "provider_order"): "None",
-            },
-            xfail={
-                "test_6_config_ini_loads_saves_and_reloads_with_no_key_lost": MYLAR_CONFIG_1254_1255,
             },
         )
         for name in build.MYLAR_ROWS
@@ -510,6 +503,12 @@ def test_6_config_ini_loads_saves_and_reloads_with_no_key_lost(upgraded):
             (section, key): value
             for (section, key), value in era.items()
             if key.upper() in _CONFIG_DEFINITIONS and _CONFIG_DEFINITIONS[key.upper()][1] == section
+        }
+        # Mylar3 writes an unset setting as "None"; the import leaves Comicarr's
+        # own default in place instead of copying the literal (#1255).
+        era = {
+            (section, key): str(_CONFIG_DEFINITIONS[key.upper()][2]) if value.strip().lower() == "none" else value
+            for (section, key), value in era.items()
         }
 
     cfg = upgraded.load_config()
