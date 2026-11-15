@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime, parsedate_to_datetime
 from urllib.parse import parse_qs, quote, urlsplit
 
@@ -211,7 +211,11 @@ def entries_from_response(content, protocol=TORRENT) -> list:
 
 
 def within_retention(entries, retention_days, now=None) -> list:
-    """Drop entries posted longer ago than ``retention_days``; no limit keeps all."""
+    """Drop entries posted longer ago than ``retention_days``; no limit keeps all.
+
+    An entry whose date cannot be read is kept. ``entries_from_response``
+    already drops results with no publish date, as it does for torrents.
+    """
     try:
         days = int(retention_days)
     except (TypeError, ValueError):
@@ -228,7 +232,7 @@ def within_retention(entries, retention_days, now=None) -> list:
             continue
         if posted.tzinfo is None:
             posted = posted.replace(tzinfo=timezone.utc)
-        if (now - posted).days <= days:
+        if now - posted <= timedelta(days=days):
             kept.append(entry)
     return kept
 

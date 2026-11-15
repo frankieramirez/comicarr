@@ -8,8 +8,8 @@
 #  (at your option) any later version.
 
 import json
-from datetime import datetime, timezone
 import types
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -350,7 +350,9 @@ def test_a_newznab_indexer_still_gets_a_newznab_query(prowlarr_env):
 
     _run_usenet(("Indexer", "https://indexer.test", "0", "key", "1#7030", "1", 9))
 
-    assert prowlarr_env.calls == ["https://indexer.test/api?t=search&q=example%20series%20002&o=xml&cat=7030&apikey=key"]
+    assert prowlarr_env.calls == [
+        "https://indexer.test/api?t=search&q=example%20series%20002&o=xml&cat=7030&apikey=key"
+    ]
 
 
 def test_a_torznab_indexer_still_gets_a_torznab_query(prowlarr_env):
@@ -535,3 +537,15 @@ def test_an_old_usenet_result_never_reaches_evaluation(prowlarr_env):
     _run_usenet(prowlarr.usenet_provider_entry(_config(PROWLARR_USENET=True)))
 
     assert all(entries == [] for entries in prowlarr_env.evaluated)
+
+
+def test_a_usenet_result_an_hour_past_retention_is_dropped():
+    now = datetime(2024, 3, 31, 13, 0, tzinfo=timezone.utc)
+    entries = [
+        {"title": "exactly 30 days", "pubdate": "Fri, 01 Mar 2024 13:00:00 +0000"},
+        {"title": "30 days and an hour", "pubdate": "Fri, 01 Mar 2024 12:00:00 +0000"},
+    ]
+
+    kept = prowlarr.within_retention(entries, 30, now=now)
+
+    assert [entry["title"] for entry in kept] == ["exactly 30 days"]
