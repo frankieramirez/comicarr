@@ -254,6 +254,53 @@ def test_add_manga_search_refuses_known_mangadex_id_without_queueing(manga_db):
     mock_thread.assert_not_called()
 
 
+def test_add_manga_search_refuses_mangadex_id_whose_mal_id_is_in_the_library(manga_db):
+    # #1321: the library holds the work only under its MyAnimeList id; MangaDex's
+    # metadata names that id, so the add is refused up front with the real row.
+    _insert(manga_db, ComicID="mal-" + MAL_ID, ComicName="One Piece", MalID=MAL_ID, Status="Active")
+    ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=True, MAL_ENABLED=False, MAL_CLIENT_ID=None))
+    with (
+        patch("comicarr.importer.importer_thread") as mock_thread,
+        patch("comicarr.mangadex.get_manga_details", return_value={"mal_id": MAL_ID}) as details,
+    ):
+        result = add_manga(ctx, "md-" + MD_UUID)
+
+    details.assert_called_once_with("md-" + MD_UUID)
+    assert result["success"] is False
+    assert result["status"] == 409
+    assert result["comicid"] == "mal-" + MAL_ID
+    mock_thread.assert_not_called()
+
+
+def test_add_manga_search_refuses_mangadex_id_whose_mal_id_is_on_another_row(manga_db):
+    _insert(manga_db, ComicID="12345", ComicName="One Piece (other)", MalID=MAL_ID, Status="Active")
+    ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=True, MAL_ENABLED=False, MAL_CLIENT_ID=None))
+    with (
+        patch("comicarr.importer.importer_thread") as mock_thread,
+        patch("comicarr.mangadex.get_manga_details", return_value={"mal_id": MAL_ID}),
+    ):
+        result = add_manga(ctx, "md-" + MD_UUID)
+
+    assert result["status"] == 409
+    assert result["comicid"] == "12345"
+    mock_thread.assert_not_called()
+
+
+@pytest.mark.parametrize("details", [None, {"mal_id": None}, RuntimeError("MangaDex down")])
+def test_add_manga_search_queues_when_mangadex_names_no_known_mal_id(manga_db, details):
+    ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=True, MAL_ENABLED=False, MAL_CLIENT_ID=None))
+    kwargs = {"side_effect": details} if isinstance(details, Exception) else {"return_value": details}
+    with (
+        patch("comicarr.importer.importer_thread") as mock_thread,
+        patch("comicarr.mangadex.get_manga_details", **kwargs),
+    ):
+        result = add_manga(ctx, "md-" + MD_UUID)
+
+    assert result["success"] is True
+    assert result["comicid"] == "md-" + MD_UUID
+    mock_thread.assert_called_once()
+
+
 def test_list_library_marks_mal_id_in_library_for_mangadex_row(manga_db):
     _insert(
         manga_db,

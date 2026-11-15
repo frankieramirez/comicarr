@@ -197,6 +197,20 @@ def add_comic(ctx, comic_id, folder=None, *, want=False):
     }
 
 
+def _mangadex_mal_id(comic_id):
+    """MangaDex's MyAnimeList id for ``comic_id``, or None when it has none or
+    the fetch fails (the worker then reports the failed add itself)."""
+    from comicarr import mangadex
+
+    try:
+        details = mangadex.get_manga_details(comic_id)
+    except Exception as e:
+        logger.fdebug("[SEARCH] MangaDex details lookup failed for %s: %s" % (comic_id, e))
+        return None
+    mal_id = (details or {}).get("mal_id")
+    return str(mal_id) if mal_id else None
+
+
 def add_manga(ctx, manga_id, folder=None, *, want=False):
     """Queue a manga add on the mass-add thread (same contract as add_comic)."""
     mal_ok = getattr(ctx.config, "MAL_ENABLED", False) and getattr(ctx.config, "MAL_CLIENT_ID", None)
@@ -218,6 +232,14 @@ def add_manga(ctx, manga_id, folder=None, *, want=False):
             lookup_ids = {"comic_id": comic_id, "mangadex_id": series_kind.strip_prefix(comic_id)}
         try:
             existing = find_existing_manga_series(**lookup_ids)
+            if not existing and "mangadex_id" in lookup_ids and mdex_ok:
+                # The library may hold this work under its MyAnimeList id, which
+                # only MangaDex's metadata names. The worker would refuse the
+                # add as a duplicate after this call reported success, so look
+                # now; get_manga_details caches, so the worker's fetch is free.
+                mal_id = _mangadex_mal_id(comic_id)
+                if mal_id:
+                    existing = find_existing_manga_series(comic_id=comic_id, mal_id=mal_id)
         except Exception as lookup_error:
             logger.fdebug("[SEARCH] Duplicate manga lookup failed for %s: %s" % (comic_id, lookup_error))
             existing = None
