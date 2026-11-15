@@ -71,6 +71,7 @@ _REVISION_INTRODUCED_TABLES = {
     "0017_activity_actor": frozenset(),
     "0018_mcp_tool_calls": frozenset({"mcp_tool_calls"}),
     "0019_snatched_size_bigint": frozenset(),
+    "0020_drop_redundant_pk_uniques": frozenset(),
 }
 _READINGLIST_TO_STORYARCS_COLUMNS = (
     "StoryArcID",
