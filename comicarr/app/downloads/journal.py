@@ -94,15 +94,39 @@ def stage_rank(stage):
     return STAGE_RANK.get(stage)
 
 
+def _issued_highcount():
+    """The last synthetic IssueID ``updater.nzblog`` handed out, or None."""
+    try:
+        import comicarr
+
+        value = getattr(getattr(comicarr, "CONFIG", None), "HIGHCOUNT", None)
+        value = int(value) if value not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+    if value is None or value < HIGHCOUNT_FLOOR:
+        return None
+    return value
+
+
 def is_synthetic_oneoff(issueid):
-    """A one-off carries a synthetic CONFIG.HIGHCOUNT IssueID (>= 900000)
-    that is not persisted and diverges across restart."""
-    if issueid is None:
+    """True when the IssueID cannot key a release across restart.
+
+    That is a missing IssueID, or one ``updater.nzblog`` synthesised for a
+    one-off. nzblog counts those up from HIGHCOUNT_FLOOR and keeps the last
+    one in CONFIG.HIGHCOUNT, so only IDs inside that issued window are
+    synthetic. A real ComicVine IssueID above the window (current issues are
+    past 1,000,000) keys as ``issueid|provider`` like any other (#1261).
+    """
+    if issueid is None or str(issueid).strip() == "":
         return True
     try:
-        return int(str(issueid).strip()) >= HIGHCOUNT_FLOOR
+        value = int(str(issueid).strip())
     except (TypeError, ValueError):
         return False
+    if value < HIGHCOUNT_FLOOR:
+        return False
+    issued = _issued_highcount()
+    return issued is not None and value <= issued
 
 
 def normalize_provider(provider):

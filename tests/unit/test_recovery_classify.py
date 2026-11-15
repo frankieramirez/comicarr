@@ -33,6 +33,10 @@ from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import annuals, ddl_info, issues, metadata, nzblog, pipeline_journal
 
 
+# nzblog has handed out synthetic one-off IssueIDs 900000..900999 (#1261).
+ISSUED_HIGHCOUNT = 900999
+
+
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
     """Each test gets its own temporary SQLite database (same convention as
@@ -45,7 +49,7 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(
         comicarr,
         "CONFIG",
-        types.SimpleNamespace(HIGHCOUNT=0, SAB_APIKEY="k", SAB_HOST="http://sab.local"),
+        types.SimpleNamespace(HIGHCOUNT=ISSUED_HIGHCOUNT, SAB_APIKEY="k", SAB_HOST="http://sab.local"),
         raising=False,
     )
     monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", set(), raising=False)
@@ -667,9 +671,8 @@ def _imported_oneoff(issueid="1099554", provider="nzbgeek", status="Downloaded",
 def test_oneoff_issue_downloaded_is_a_done_signal():
     """An imported one-off must read as done.
 
-    is_synthetic_oneoff('1099554') is True (>= HIGHCOUNT_FLOOR), so
-    nzblog-presence is advisory only and the issues row is the ONLY
-    done-signal available while the stage is still `snatched`.
+    The issues row is the done-signal checked first, ahead of the nzblog
+    fallback, while the stage is still `snatched`.
     """
     row = _imported_oneoff()
     assert recovery_classify.has_done_signal(row) is True
@@ -707,7 +710,7 @@ def test_oneoff_with_no_issues_row_is_not_a_done_signal():
     row = _insert_journal(
         "oneoff|nzbgeek|missing|missing",
         journal.SNATCHED,
-        issueid="1099555",
+        issueid="900555",
         provider="nzbgeek",
         downloader_type="nzb",
     )
@@ -721,12 +724,10 @@ def _imported_annual(issueid="1099556", provider="nzbgeek", status="Downloaded")
     """An imported annual, written exactly as updater.foundsearch writes one.
 
     mode='want_ann' upserts Status onto *annuals*, never onto *issues*, so an
-    issues-only done-signal lookup cannot see this row. The IssueID is a real
-    ComicVine id above HIGHCOUNT_FLOOR — which is the ordinary case, not a
-    contrived one — so is_synthetic_oneoff() reads True and suppresses the
-    nzblog fallback. The nzblog row is left present and the stage left at
-    `snatched` so neither of the other two done-signals can fire either,
-    isolating the library lookup as the only one available.
+    issues-only done-signal lookup cannot see this row. The nzblog row is
+    left present and the stage left at `snatched` so neither of the other
+    two done-signals can fire, isolating the library lookup as the only one
+    available.
     """
     with get_engine().begin() as conn:
         conn.execute(annuals.insert().values(IssueID=issueid, Status=status))

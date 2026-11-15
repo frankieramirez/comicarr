@@ -11,6 +11,7 @@
 
 import json
 import threading
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -638,7 +639,13 @@ def test_labelled_snatch_then_bare_downloaded_does_not_quarantine():
     assert row["fail_reason"] is None
 
 
-def test_oneoff_release_key_reproducible_across_two_builds():
+@pytest.fixture
+def issued_oneoffs(monkeypatch):
+    """nzblog has handed out synthetic one-off IssueIDs 900000..900999."""
+    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(HIGHCOUNT=900999), raising=False)
+
+
+def test_oneoff_release_key_reproducible_across_two_builds(issued_oneoffs):
     # Synthetic HIGHCOUNT issueid differs across restart, but a stable
     # discriminant (downloader id) reproduces the same key.
     k1 = journal.release_key(900001, "prov", nzbname="One.cbz", discriminant="dl-77")
@@ -647,21 +654,44 @@ def test_oneoff_release_key_reproducible_across_two_builds():
     assert k1.startswith("oneoff|")
 
 
-def test_two_distinct_oneoffs_same_provider_empty_nzbname_differ():
+def test_two_distinct_oneoffs_same_provider_empty_nzbname_differ(issued_oneoffs):
     k1 = journal.release_key(900001, "prov", nzbname="", discriminant="dl-1")
     k2 = journal.release_key(900002, "prov", nzbname="", discriminant="dl-2")
     assert k1 != k2
 
 
-def test_oneoff_without_discriminant_logs_collision_warning(capture_logs):
+def test_oneoff_without_discriminant_logs_collision_warning(issued_oneoffs, capture_logs):
     journal.release_key(900001, "prov", nzbname="")
     assert "NO collision-resistant discriminant" in capture_logs.text
 
 
-def test_derive_release_key_from_item_dict_disambiguates_oneoffs():
+def test_derive_release_key_from_item_dict_disambiguates_oneoffs(issued_oneoffs):
     item_a = {"issueid": 900001, "provider": "prov", "nzbname": "", "comicid": "A"}
     item_b = {"issueid": 900002, "provider": "prov", "nzbname": "", "comicid": "B"}
     assert journal.derive_release_key(item_a) != journal.derive_release_key(item_b)
+
+
+def test_real_issueid_above_the_floor_keys_on_issueid_and_provider(issued_oneoffs):
+    """A current ComicVine IssueID is past 900000 but was never synthesised (#1261)."""
+    assert not journal.is_synthetic_oneoff("1086215")
+    by_indexer_id = journal.release_key("1086215", "prov", nzbname="X", discriminant="nzb-1")
+    by_release_name = journal.release_key("1086215", "prov", nzbname="X", discriminant="X")
+    assert by_indexer_id == by_release_name == "1086215|prov"
+
+
+@pytest.mark.parametrize("highcount", [None, 0, 899999])
+def test_nothing_is_synthetic_before_nzblog_issues_one(monkeypatch, highcount):
+    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(HIGHCOUNT=highcount), raising=False)
+    assert not journal.is_synthetic_oneoff(900000)
+    assert journal.is_synthetic_oneoff(None)
+    assert journal.is_synthetic_oneoff("  ")
+
+
+def test_only_the_issued_window_is_synthetic(issued_oneoffs):
+    assert journal.is_synthetic_oneoff(900000)
+    assert journal.is_synthetic_oneoff("900999")
+    assert not journal.is_synthetic_oneoff(901000)
+    assert not journal.is_synthetic_oneoff("S900001")
 
 
 # ---------------------------------------------------------------------------
