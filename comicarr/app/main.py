@@ -139,6 +139,28 @@ def _drain_worker_pools(timeout, ctx=None):
     return DrainResult(tuple(live_owners))
 
 
+def _shutdown_scheduler(scheduler):
+    """Stop APScheduler, then wait for its running jobs with no scheduler lock held.
+
+    ``BaseScheduler.shutdown(wait=True)`` joins job threads while holding its
+    job-store lock. A running job that reads or moves its own schedule
+    (``get_job``, ``job.modify``, ``pause_job``; the weekly pull does this when
+    upstream sends Retry-After) then blocks on that lock forever, the drain
+    times out, and ``docker stop`` ends in SIGKILL (#1352). So stop dispatch
+    first, which takes and releases the locks at once, then join each
+    executor's pool outside them.
+    """
+    from apscheduler.schedulers.base import BaseScheduler
+
+    if not isinstance(scheduler, BaseScheduler):
+        scheduler.shutdown(wait=True)
+        return
+    executors = list(scheduler._executors.values())
+    scheduler.shutdown(wait=False)
+    for executor in executors:
+        executor.shutdown(wait=True)
+
+
 async def _drain_scheduler(loop, drain_executor, scheduler):
     """Bound scheduler drain and report whether it can still own resources."""
 
@@ -147,7 +169,7 @@ async def _drain_scheduler(loop, drain_executor, scheduler):
     if not scheduler:
         return DrainResult()
     try:
-        scheduler_shutdown = loop.run_in_executor(drain_executor, lambda: scheduler.shutdown(wait=True))
+        scheduler_shutdown = loop.run_in_executor(drain_executor, _shutdown_scheduler, scheduler)
         await asyncio.wait_for(asyncio.shield(scheduler_shutdown), timeout=SCHEDULER_DRAIN_TIMEOUT)
         if getattr(scheduler, "running", True) is not False:
             logger.error("[SHUTDOWN] APScheduler liveness remains active or uncertain after shutdown")

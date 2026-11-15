@@ -1,0 +1,67 @@
+name: Docker first-run smoke
+
+# Builds the image from this commit (never pushed) and boots it the way the
+# README tells operators to: empty /config volume, PUID/PGID, port 8090. Then
+# scripts/docker_first_run_smoke.py completes first-run setup over the HTTP
+# API, signs in, checks /config ownership, and stops and starts the container
+# on the same volume (#1352). The release workflow's build is separate and
+# unchanged.
+
+on:
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "Comicarr.py"
+      - "scripts/docker_first_run_smoke.py"
+      - ".github/workflows/docker-smoke.yml"
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  first-run:
+    name: Build image and complete first-run setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: false
+          load: true
+          tags: comicarr:smoke
+          build-args: |
+            COMICARR_BUILD_ID=smoke-${{ github.run_id }}
+            COMICARR_BUILD_COMMIT=${{ github.sha }}
+          platforms: linux/amd64
+          cache-from: type=gha,scope=docker-smoke
+          cache-to: type=gha,scope=docker-smoke,mode=max
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Boot the image and complete first-run setup
+        run: python3 scripts/docker_first_run_smoke.py --image comicarr:smoke

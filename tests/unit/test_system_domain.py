@@ -368,17 +368,19 @@ class TestAnnounceSetupToken:
 
 class TestInitialSetup:
     @patch("comicarr.encrypted")
-    def test_setup_succeeds(self, mock_encrypted):
-        """Initial setup with valid credentials succeeds."""
+    def test_setup_succeeds(self, mock_encrypted, monkeypatch):
+        """Initial setup with valid credentials succeeds without asking for a restart."""
         ctx = _make_test_ctx()
         ctx.config.HTTP_USERNAME = None
         ctx.config.HTTP_PASSWORD = None
         mock_encrypted.hash_password.return_value = "$2b$12$hashed"
+        monkeypatch.setattr(comicarr, "SIGNAL", None)
 
-        # initial_setup does `import comicarr` locally and sets globals —
-        # this is harmless in tests, just let it run
         result = system_service.initial_setup(ctx, "admin", "password123", None)
-        assert result["success"] is True
+        assert result == {"success": True, "username": "admin", "needs_restart": False}
+        # A parked "restart" turns the next SIGTERM (docker stop) into a re-exec.
+        assert ctx.signal is None
+        assert comicarr.SIGNAL is None
         ctx.config.apply_transaction.assert_called_once_with(
             {
                 "http_username": "admin",

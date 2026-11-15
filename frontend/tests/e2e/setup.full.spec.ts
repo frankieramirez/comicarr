@@ -56,12 +56,21 @@ test.describe.serial("first-run setup", () => {
         response.request().method() === "POST",
     );
     await page.getByRole("button", { name: "Create account" }).click();
-    expect((await setupResponse).ok()).toBe(true);
+    const setupResult = await setupResponse;
+    expect(setupResult.ok()).toBe(true);
+    // The new credentials are live at once; the page must not wait for a
+    // restart nothing sends (#1352).
+    expect((await setupResult.json()).needs_restart).toBe(false);
 
-    await server.restart();
-
-    await expect(page).toHaveURL(/\/login$/, { timeout: 70_000 });
+    await expect(page).toHaveURL(/\/login$/, { timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+
+    // The credentials survive a restart.
+    await server.restart();
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible({
+      timeout: 30_000,
+    });
 
     await page.getByLabel("Username", { exact: true }).fill(ADMIN_USERNAME);
     await page.getByLabel("Password", { exact: true }).fill(ADMIN_PASSWORD);

@@ -379,6 +379,57 @@ class TestHappyPath:
                 scheduler.shutdown(wait=True)
 
     @pytest.mark.asyncio
+    async def test_running_job_that_touches_its_own_schedule_does_not_deadlock_shutdown(
+        self, _isolated_db, monkeypatch
+    ):
+        """APScheduler holds its job-store lock while it waits for jobs (#1352).
+
+        The weekly pull moves its own next run when upstream sends Retry-After.
+        If that lands while shutdown is waiting, ``get_job`` blocks on the lock
+        shutdown holds, and the drain sits out its whole timeout.
+        """
+        from comicarr.app import main as appmain
+
+        # Fail on the assertion below rather than after the 30s production timeout.
+        monkeypatch.setattr(appmain, "SCHEDULER_DRAIN_TIMEOUT", 2.0)
+        started = threading.Event()
+        release = threading.Event()
+        rescheduled = threading.Event()
+        scheduler = BackgroundScheduler()
+        ctx = _make_ctx(scheduler=scheduler)
+
+        def _job_that_reschedules_itself():
+            started.set()
+            assert release.wait(timeout=5)
+            # Same shape as weeklypullit._honor_upstream_retry: a stopped
+            # scheduler answers None, and the job leaves its schedule alone.
+            job = scheduler.get_job("other")
+            if job is not None:
+                job.modify(next_run_time=datetime.datetime.now() + datetime.timedelta(hours=1))
+            rescheduled.set()
+
+        scheduler.add_job(
+            _job_that_reschedules_itself,
+            "date",
+            run_date=datetime.datetime.now() + datetime.timedelta(milliseconds=20),
+        )
+        scheduler.add_job(lambda: None, "interval", hours=6, id="other")
+        scheduler.start()
+        assert started.wait(timeout=2), "scheduled job did not start"
+
+        shutdown_task = asyncio.create_task(_run_shutdown(ctx, scheduler))
+        try:
+            await asyncio.sleep(0.1)  # shutdown is now waiting on the running job
+            release.set()
+            await asyncio.wait_for(shutdown_task, timeout=3)
+            assert rescheduled.is_set()
+            assert ctx.disposed
+        finally:
+            release.set()
+            if not shutdown_task.done():
+                shutdown_task.cancel()
+
+    @pytest.mark.asyncio
     async def test_scheduler_drain_timeout_preserves_resources_for_terminal_exit(self, _isolated_db, monkeypatch):
         """A hung scheduler job cannot make lifespan hang or dispose underneath it."""
         from comicarr.app import main as appmain
