@@ -407,6 +407,27 @@ class Mylar3Migration:
             _migration_lock.release()
 
 
+_NOT_IMPORTED_KEYS = frozenset({"CONFIG_VERSION", "MINIMAL_INI"})
+
+
+def _imported_value(raw_val):
+    """Return a Mylar3 setting as Comicarr should import it, or None to skip it.
+
+    Mylar3 writes an unset setting as the literal string ``None``. Importing
+    that would encrypt ``"None"`` as a credential and hash it as the web
+    password (#1255), so it is treated as absent and Comicarr's own default
+    stays in place.
+    """
+
+    if raw_val is None:
+        return None
+    if isinstance(raw_val, str):
+        raw_val = raw_val.strip()
+        if raw_val.lower() == "none":
+            return None
+    return raw_val
+
+
 def migrate_mylar3_config(source_path):
     config_path = os.path.join(source_path, "config.ini")
     if not os.path.isfile(config_path):
@@ -428,12 +449,17 @@ def migrate_mylar3_config(source_path):
 
     values = {}
     for key, definition in _CONFIG_DEFINITIONS.items():
+        # Mylar3 keeps its own config_version counter. Copying it would make
+        # the next start re-run Comicarr's config migrations on values that
+        # are already Comicarr's (#1254); writeconfig stamps the current one.
+        if key in _NOT_IMPORTED_KEYS:
+            continue
         key_lower = key.lower()
         section = definition[1]
         try:
-            raw_val = source_config.get(section, key_lower)
+            raw_val = _imported_value(source_config.get(section, key_lower))
             if raw_val is not None:
-                values[key] = raw_val.strip() if isinstance(raw_val, str) else raw_val
+                values[key] = raw_val
         except (configparser.NoOptionError, configparser.NoSectionError):
             pass
 
@@ -444,14 +470,14 @@ def migrate_mylar3_config(source_path):
             if old_key is None:
                 continue
             try:
-                old_val = source_config.get(old_section, old_key.lower())
-                if old_val is not None and new_key not in values:
-                    values[new_key] = old_val.strip() if isinstance(old_val, str) else old_val
+                old_val = _imported_value(source_config.get(old_section, old_key.lower()))
+                if old_val is not None and new_key not in values and new_key not in _NOT_IMPORTED_KEYS:
+                    values[new_key] = old_val
                     logger.fdebug("[MIGRATION] Remapped %s.%s -> %s" % (old_section, old_key, new_key))
             except (configparser.NoOptionError, configparser.NoSectionError):
                 pass
 
-    if "HTTP_PASSWORD" in values:
+    if values.get("HTTP_PASSWORD"):
         old_pass = values["HTTP_PASSWORD"]
         migrated = encrypted.migrate_password(old_pass)
         if migrated:

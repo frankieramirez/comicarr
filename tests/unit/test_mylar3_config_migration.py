@@ -153,3 +153,25 @@ class TestDefineHandlesOnly3Tuples:
         key, definition_type, section, ini_key, default = Config._define(object.__new__(Config), "annuals_on")
 
         assert (key, definition_type, section, ini_key, default) == ("ANNUALS_ON", bool, "General", "annuals_on", False)
+
+
+@pytest.mark.parametrize("raw", ["None", "none", "  None  ", None])
+def test_unset_mylar3_setting_is_not_imported(raw):
+    """#1255: Mylar3's literal "None" must not become a credential or password."""
+    from comicarr.migration import _imported_value
+
+    assert _imported_value(raw) is None
+
+
+@pytest.mark.parametrize(("raw", "expected"), [(" secret ", "secret"), ("", ""), ("0", "0"), ("Nonesuch", "Nonesuch")])
+def test_set_mylar3_setting_is_imported_trimmed(raw, expected):
+    from comicarr.migration import _imported_value
+
+    assert _imported_value(raw) == expected
+
+
+def test_mylar3_config_version_is_not_imported():
+    """#1254: Mylar3's own counter would re-run Comicarr's config migrations."""
+    from comicarr.migration import _NOT_IMPORTED_KEYS
+
+    assert {"CONFIG_VERSION", "MINIMAL_INI"} <= _NOT_IMPORTED_KEYS
