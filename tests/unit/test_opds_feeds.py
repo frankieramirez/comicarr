@@ -205,7 +205,7 @@ def test_comic_feed_pages_with_next_and_previous_links(opds):
     _, second = _feed(opds, next_href)
     assert len(second.findall(ATOM + "entry")) == 1
     assert _links(second, "next") == []
-    assert _links(second, "previous") == ["/opds/comics/2914?index=0"]
+    assert _links(second, "previous") == ["/opds/comics/2914"]
 
 
 def test_all_titles_paging_links_resolve(opds, monkeypatch):
@@ -213,7 +213,7 @@ def test_all_titles_paging_links_resolve(opds, monkeypatch):
     _, first = _feed(opds, "/opds/titles")
     (next_href,) = _links(first, "next")
     _, second = _feed(opds, next_href)
-    assert _links(second, "previous") == ["/opds/titles?index=0"]
+    assert _links(second, "previous") == ["/opds/titles"]
 
 
 def test_one_off_entry_downloads_from_grabbag(opds):

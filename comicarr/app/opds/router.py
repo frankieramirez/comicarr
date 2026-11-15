@@ -74,8 +74,30 @@ def _page_links(segments, index, page_size, total):
     if total > index + page_size:
         links.append(_next_link(_opds_url(*segments, index=index + page_size)))
     if index >= page_size:
-        links.append(_prev_link(_opds_url(*segments, index=max(index - page_size, 0))))
+        # The first page's canonical URL carries no index, matching its self link.
+        links.append(_prev_link(_opds_url(*segments, index=(index - page_size) or None)))
     return links
+
+
+def _pse_count(fileloc):
+    """Page count for the OPDS-PSE stream link; 0 when the archive can't be read.
+
+    One missing or corrupt file must not take down the whole feed it is listed in.
+    """
+    try:
+        cb, _ = open_archive(fileloc)
+    except Exception as e:
+        logger.fdebug("[OPDS] Cannot open %s for page streaming: %s" % (fileloc, e))
+        return 0
+    if cb is None:
+        return 0
+    try:
+        return page_count(cb)
+    except Exception as e:
+        logger.fdebug("[OPDS] Cannot count pages in %s: %s" % (fileloc, e))
+        return 0
+    finally:
+        cb.close()
 
 
 def _issue_links(issue_id, filename):
@@ -550,11 +572,7 @@ def opds_comic(
             if not metainfo:
                 metainfo = [{"writer": None, "summary": ""}]
 
-            cb, _ = open_archive(fileloc)
-            if cb is None:
-                pse_count = 0
-            else:
-                pse_count = page_count(cb)
+            pse_count = _pse_count(fileloc)
 
             href, stream = _issue_links(issue["IssueID"], issue["Location"])
             entries.append(
@@ -603,13 +621,17 @@ def opds_recent(
     links = []
     entries = []
 
-    from sqlalchemy import select
+    from sqlalchemy import func, select
 
+    # One row per issue: a re-grab or a manual post-process leaves several
+    # history rows for the same IssueID, and each would list it again.
+    latest = func.max(snatched.c.DateAdded).label("DateAdded")
     with db.get_engine().connect() as conn:
         stmt = (
-            select(snatched)
+            select(snatched.c.IssueID, snatched.c.ComicID, latest)
             .where(snatched.c.Status.in_(["Post-Processed", "Downloaded"]))
-            .order_by(snatched.c.DateAdded.desc())
+            .group_by(snatched.c.IssueID, snatched.c.ComicID)
+            .order_by(latest.desc(), snatched.c.IssueID)
             .limit(120)
         )
         recents = [dict(row._mapping) for row in conn.execute(stmt)]
@@ -691,10 +713,13 @@ def opds_recent(
                     )
 
                 number += 1
-                if not issuebook["Location"]:
+                if not issuebook["Location"] or comic is None:
                     continue
                 location = issuebook["Location"]
                 fileloc = os.path.join(comic["ComicLocation"], issuebook["Location"])
+                if not os.path.isfile(fileloc):
+                    logger.debug("Missing File: %s" % fileloc)
+                    continue
 
                 metainfo = None
                 if comicarr.CONFIG.OPDS_METAINFO:
@@ -705,11 +730,7 @@ def opds_recent(
                     metainfo = {}
                     metainfo[0] = {"writer": None, "summary": ""}
 
-                cb, _ = open_archive(fileloc)
-                if cb is None:
-                    pse_count = 0
-                else:
-                    pse_count = page_count(cb)
+                pse_count = _pse_count(fileloc)
 
                 href, stream = _issue_links(issuebook["IssueID"], location)
                 entries.append(
@@ -794,7 +815,11 @@ def opds_stream(
     if page is None:
         return _error_xml("No page number specified")
 
-    cb, _ = open_archive(file_path)
+    try:
+        cb, _ = open_archive(file_path)
+    except Exception as e:
+        logger.fdebug("[OPDS] Cannot open %s for page streaming: %s" % (file_path, e))
+        cb = None
     if cb is None:
         return _error_xml("Can't open archive")
 
@@ -1025,11 +1050,7 @@ def opds_storyarc(
                 if not metainfo:
                     metainfo = [{"writer": None, "summary": ""}]
                 fileloc = issue["fileloc"]
-                cb, _ = open_archive(fileloc)
-                if cb is None:
-                    pse_count = 0
-                else:
-                    pse_count = page_count(cb)
+                pse_count = _pse_count(fileloc)
                 href, stream = _issue_links(issue["IssueID"], issue["filename"])
                 entries.append(
                     {
@@ -1162,11 +1183,7 @@ def opds_readlist(
                 if not os.path.isfile(fileloc):
                     logger.debug("Missing File: %s" % fileloc)
                     continue
-                cb, _ = open_archive(fileloc)
-                if cb is None:
-                    pse_count = 0
-                else:
-                    pse_count = page_count(cb)
+                pse_count = _pse_count(fileloc)
                 href, stream = _issue_links(issue["IssueID"], issue["filename"])
                 entries.append(
                     {
