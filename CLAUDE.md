@@ -11,7 +11,7 @@ Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19
 ## Architecture
 
 [Comicarr Code Index]|root: ./comicarr
-|Web Layer:{app/main.py:FastAPI app+lifespan,app/<domain>/router.py:HTTP routes,app/core/security.py:JWT+API key+OPDS auth,app/core/middleware.py:CSRF+headers+setup gate,app/mcp/:MCP server at /mcp (docs/architecture/mcp-server.md)}
+|Web Layer:{app/main.py:FastAPI app+lifespan,app/<domain>/router.py:HTTP routes,app/core/security.py:JWT+API key+OPDS auth,app/core/middleware.py:CSRF+headers+setup gate,app/mcp/:MCP server at /mcp (docs/architecture/mcp-server.md),app/indexer_sync/:Mylar3-compatible GET /api?cmd= subset so Prowlarr's Mylar app syncs indexers}
 |Business Logic:{search.py:provider search,app/search/evaluation.py:release-candidate evaluation,postprocessor.py:post-processing folder matcher,cv.py:ComicVine,metron.py:Metron,mangadex.py:MangaDex,myanimelist.py:MyAnimeList,mangasync.py:manga library scan,manga_parser.py:manga filenames,series_kind.py:comic-vs-manga,app/manga/:ledger+sync+bare-numbers+rescan,importer.py:library scanning,rsscheck.py:RSS,weeklypull.py:pull list,app/attention/:needs-attention policy+resolution,app/downloads/:journal+recovery}
 |Config/Data:{config.py:INI config,encrypted.py:Fernet,db.py:SQLAlchemy Core,__init__.py:global state+scheduler,helpers.py:compat re-exports,migration.py:Mylar3 migration}
 |Downloaders:{downloaders/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}

@@ -25,6 +25,7 @@ from starlette.exceptions import HTTPException
 from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
 
+from comicarr.app.core import access_log
 from comicarr.app.core.events import EventBus
 from comicarr.app.core.exceptions import register_exception_handlers
 from comicarr.app.core.middleware import (
@@ -188,6 +189,7 @@ async def lifespan(app: FastAPI):
     loop.set_default_executor(executor)
 
     ctx = get_runtime()
+    access_log.install()
 
     event_bus = ctx.event_bus or EventBus()
     event_bus.set_loop(loop)
@@ -374,6 +376,7 @@ def create_app():
     from comicarr.app.attention.router import router as attention_router
     from comicarr.app.dashboard.router import router as dashboard_router
     from comicarr.app.downloads.router import router as downloads_router
+    from comicarr.app.indexer_sync.router import router as indexer_sync_router
     from comicarr.app.metadata.router import router as metadata_router
     from comicarr.app.opds.router import router as opds_router
     from comicarr.app.search.router import router as search_router
@@ -394,6 +397,7 @@ def create_app():
     app.include_router(search_router)
     app.include_router(downloads_router)
     app.include_router(opds_router)
+    app.include_router(indexer_sync_router)
 
     app.state.mcp = McpEndpoint(lambda: app.state.ctx)
     app.router.routes.append(Route("/mcp", endpoint=app.state.mcp))
