@@ -20,7 +20,10 @@ from comicarr.importer import addvialist
 
 def test_add_manga_queues_prefixed_mangadex_id_and_returns_immediately():
     ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=True, MAL_ENABLED=False, MAL_CLIENT_ID=None))
-    with patch("comicarr.importer.importer_thread") as mock_thread:
+    with (
+        patch("comicarr.importer.importer_thread") as mock_thread,
+        patch("comicarr.mangadex.get_manga_details", return_value=None),
+    ):
         result = add_manga(ctx, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
 
     assert result["success"] is True
