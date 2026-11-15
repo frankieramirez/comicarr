@@ -125,12 +125,12 @@ export function AiTab({ config: _config, formData, onChange }: AiTabProps) {
           {testResult && (
             <div className="flex items-center gap-2">
               {testResult.success ? (
-                <CheckCircle2 className="h-4 w-4 text-green-400" />
+                <CheckCircle2 className="h-4 w-4 text-[var(--status-active)]" />
               ) : (
                 <XCircle className="h-4 w-4 text-destructive" />
               )}
               <span
-                className={`text-sm ${testResult.success ? "text-green-400" : "text-destructive"}`}
+                className={`text-sm ${testResult.success ? "text-[var(--status-active)]" : "text-destructive"}`}
               >
                 {testResult.message}
               </span>
