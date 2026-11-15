@@ -18,6 +18,8 @@ blended search frontier (#1278).
 import datetime
 
 from sqlalchemy import and_, insert, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from comicarr import db
 from comicarr.app.manga.ledger import normalize_volume_number, volume_id
@@ -35,6 +37,14 @@ def _now():
     return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
 
 
+def _insert_if_absent(dialect):
+    if dialect == "postgresql":
+        return pg_insert(manga_volumes).on_conflict_do_nothing(index_elements=["VolumeID"])
+    if dialect == "sqlite":
+        return sqlite_insert(manga_volumes).on_conflict_do_nothing(index_elements=["VolumeID"])
+    return insert(manga_volumes).prefix_with("IGNORE")
+
+
 def record_volume(comic_id, volume_number, status, location=None):
     """Record a volume's status; return its VolumeID, or None for no volume."""
     number = normalize_volume_number(volume_number)
@@ -42,25 +52,29 @@ def record_volume(comic_id, volume_number, status, location=None):
     if identity is None:
         return None
     with db.get_engine().begin() as conn:
-        row = conn.execute(select(manga_volumes).where(manga_volumes.c.VolumeID == identity)).mappings().first()
-        if row is None:
-            conn.execute(
-                insert(manga_volumes).values(
-                    VolumeID=identity,
-                    ComicID=comic_id,
-                    VolumeNumber=number,
-                    Status=status,
-                    Location=location,
-                    updated_at=_now(),
-                )
+        # Insert-if-absent in one statement, so a grab and a post-process
+        # racing on the same volume cannot both try to create it.
+        created = conn.execute(
+            _insert_if_absent(conn.dialect.name).values(
+                VolumeID=identity,
+                ComicID=comic_id,
+                VolumeNumber=number,
+                Status=status,
+                Location=location,
+                updated_at=_now(),
             )
-            return identity
-        if status == SNATCHED and row["Status"] in _PLACED:
+        ).rowcount
+        if created:
             return identity
         values = {"Status": status, "updated_at": _now()}
         if location is not None:
             values["Location"] = location
-        conn.execute(update(manga_volumes).where(manga_volumes.c.VolumeID == identity).values(**values))
+        predicate = manga_volumes.c.VolumeID == identity
+        if status == SNATCHED:
+            # The database applies the guard to the current row: a later grab
+            # never un-owns a volume whose file is already here.
+            predicate = and_(predicate, manga_volumes.c.Status.notin_(sorted(_PLACED)))
+        conn.execute(update(manga_volumes).where(predicate).values(**values))
     return identity
 
 

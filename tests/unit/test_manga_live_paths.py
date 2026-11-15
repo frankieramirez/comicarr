@@ -570,3 +570,16 @@ def test_a_recorded_volume_drops_out_of_the_plan():
     ]
     targets = search_plan_for_series(series, issues, volume_states={"1": "Snatched"})
     assert targets == [{"kind": "volume", "number": "2"}]
+
+
+def test_chapter_mode_skips_chapters_a_downloaded_volume_covers():
+    """#1278: a placed volume covers its chapters; a Snatched one does not yet."""
+    series = {"MonitorMode": "chapters"}
+    issues = [
+        {"IssueID": "md-x-ch1", "ChapterNumber": "1", "VolumeNumber": "01", "Status": "Wanted"},
+        {"IssueID": "md-x-ch2", "ChapterNumber": "2", "VolumeNumber": "2", "Status": "Wanted"},
+    ]
+    downloaded = search_plan_for_series(series, issues, volume_states={"1": "Downloaded"})
+    assert all(target.get("id") != "md-x-ch1" for target in downloaded)
+    snatched = search_plan_for_series(series, issues, volume_states={"1": "Snatched"})
+    assert len(snatched) == len(search_plan_for_series(series, issues))

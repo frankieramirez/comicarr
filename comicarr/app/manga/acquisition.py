@@ -99,6 +99,7 @@ def booktype_bypasses_format_gates(booktype):
 
 _OWNED_STATUSES = frozenset({"Downloaded", "Snatched", "Archived", "Have", "Reserved"})
 _COVERED_STATUSES = frozenset({"Covered"})
+_PLACED_VOLUME_STATUSES = frozenset({"Downloaded", "Archived"})
 
 
 def classify_series_issues(issues, volume_states=None):
@@ -140,6 +141,17 @@ def classify_series_issues(issues, volume_states=None):
         volume = normalize_volume_number(number)
         if volume is not None and status in _OWNED_STATUSES:
             owned_volumes.add(volume)
+    # A volume whose file is here covers its chapters, so chapter-mode
+    # searches skip them too. A Snatched volume covers nothing yet.
+    placed = {
+        normalize_volume_number(number)
+        for number, status in (volume_states or {}).items()
+        if status in _PLACED_VOLUME_STATUSES
+    }
+    placed.discard(None)
+    for chapter in chapters:
+        if chapter["VolumeNumber"] in placed:
+            covered_chapter_ids.add(chapter["id"])
     return {
         "volumes": volumes,
         "chapters": chapters,

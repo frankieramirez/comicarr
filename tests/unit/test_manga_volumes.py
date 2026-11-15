@@ -58,3 +58,24 @@ def test_volumes_are_kept_per_series():
     volumes.record_volume("md-y", "2", volumes.SNATCHED)
     assert volumes.volume_states("md-x") == {"1": "Downloaded"}
     assert volumes.volume_states("md-y") == {"2": "Snatched"}
+
+
+def test_a_snatched_update_never_overwrites_a_row_that_became_downloaded(monkeypatch):
+    """The guard sits in the UPDATE itself, not only in a read before it."""
+    from sqlalchemy import update
+
+    from comicarr.tables import manga_volumes
+
+    volumes.record_volume("md-x", "1", volumes.SNATCHED)
+    # Simulate a concurrent post-process landing between any read and the write.
+    with get_engine().begin() as conn:
+        conn.execute(update(manga_volumes).values(Status=volumes.DOWNLOADED))
+    volumes.record_volume("md-x", "1", volumes.SNATCHED)
+    assert volumes.volume_states("md-x") == {"1": "Downloaded"}
+
+
+def test_recording_an_existing_volume_does_not_raise_on_its_key():
+    volumes.record_volume("md-x", "1", volumes.SNATCHED)
+    volumes.record_volume("md-x", "1", volumes.SNATCHED)
+    volumes.record_volume("md-x", "1", volumes.DOWNLOADED, location="X v01.cbz")
+    assert volumes.volume_states("md-x") == {"1": "Downloaded"}
