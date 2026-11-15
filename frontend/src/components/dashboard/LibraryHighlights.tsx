@@ -128,7 +128,7 @@ export function MostWanted() {
         empty={
           (series.data?.length ?? 0) === 0
             ? "Nothing wanted yet. Add a series to start."
-            : "Every series is complete."
+            : "No active series are missing issues."
         }
         onRetry={() => void series.refetch()}
         isRetrying={series.isFetching}
