@@ -58,6 +58,17 @@ matching rules would be separate behavior changes.
 Provider progress callbacks remain in `progress.py`; they carry only completion
 and failure updates. They do not carry evaluations or determine review mode.
 
+## Debug diagnostics
+
+`evaluate()` ends by passing its finished `outcomes` and `selected` to
+`diagnostics.log_evaluation`, which writes one `[EVALUATION]` summary and one
+verdict line per candidate at Debug. It runs after selection and reads only
+those sequences, so iterator consumption, duplicate history, pack claims and
+selection are the same at every log level. Search call sites write the matching
+`[SEARCH-QUERY]` line from the entries list they already parsed. The line shapes
+are specified on #1017; `diagnostics.safe_provider_name` is the one provider-name
+sanitizer for both these lines and the candidate projection.
+
 ## Verification
 
 `test_release_evaluation.py` retains the rejection and matching regression
