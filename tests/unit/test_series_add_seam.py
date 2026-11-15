@@ -136,7 +136,33 @@ def test_refresh_provider_failure_of_a_library_series_is_not_a_failed_add(librar
     result = series_add.add_series("998")
 
     assert result == {"status": "incomplete"}
-    assert _row(comics, comics.c.ComicID, "998")["Status"] == "Active"
+    row = _row(comics, comics.c.ComicID, "998")
+    assert row["Status"] == "Active"
+    # #1346: a series with no folder used to be renamed "Comic ID: 998".
+    assert row["ComicName"] == "Saga"
+    emit.assert_not_called()
+
+    # A second failed refresh must not mistake it for a placeholder add.
+    assert series_add.add_series("998") == {"status": "incomplete"}
+    row = _row(comics, comics.c.ComicID, "998")
+    assert row["ComicName"] == "Saga"
+    assert row["Status"] == "Active"
+    emit.assert_not_called()
+
+
+def test_refresh_provider_failure_keeps_a_paused_series_name_and_status(library, monkeypatch):
+    with db.get_engine().begin() as conn:
+        conn.execute(comics.insert(), {"ComicID": "997", "ComicName": "Paper Girls", "Status": "Paused"})
+    monkeypatch.setattr(importer.cv, "getComic", MagicMock(return_value=None))
+    monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+    emit = MagicMock()
+    monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", emit)
+
+    assert series_add.add_series("997") == {"status": "incomplete"}
+
+    row = _row(comics, comics.c.ComicID, "997")
+    assert row["ComicName"] == "Paper Girls"
+    assert row["Status"] == "Paused"
     emit.assert_not_called()
 
 
