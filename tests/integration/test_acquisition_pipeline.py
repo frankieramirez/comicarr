@@ -734,16 +734,11 @@ def test_nzbget_health_failure_leads_to_a_retry(nzb, monkeypatch):
     _nzbget_failure_is_retried(nzb, monkeypatch, "health")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Every NZBGet FAILURE/* status records the same failure reason: "
-    "https://github.com/frankieramirez/comicarr/issues/1264",
-)
 @pytest.mark.parametrize("how", ["par", "unpack", "health"])
 def test_nzbget_failure_reason_names_what_failed(nzb, monkeypatch, how):
     row = _nzbget_failure_is_retried(nzb, monkeypatch, how)
 
-    assert how in row["fail_reason"]
+    assert row["fail_reason"] == "download_failed_researching:%s" % how
 
 
 def test_nzbget_restart_after_the_job_finished_resumes_handling(nzb):

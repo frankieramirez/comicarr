@@ -153,6 +153,33 @@ def test_process_terminal_no_auto_lands_on_band_and_leaves_open_stages():
     assert len(_band_rows()) == band_before + 1
 
 
+def test_client_failure_cause_is_appended_to_the_fail_reason():
+    """NZBGet's FAILURE/PAR reaches the journal as <base>:par, still on the band (#1264)."""
+    issueid = "1001"
+    provider = "NZBGeek"
+    nzbname = "Saga.001"
+    key = journal.release_key(issueid, provider)
+    _seed_watchlist_and_nzblog(issueid=issueid, provider=provider, nzbname=nzbname)
+    _open_downloaded(key, issueid=issueid, provider=provider, nzbname=nzbname)
+    band_before = len(_band_rows())
+
+    failed_mod.FailedProcessor(
+        nzb_name=nzbname,
+        nzb_folder="/tmp/saga",
+        id="nzo-1",
+        issueid=issueid,
+        comicid="C1",
+        prov=provider,
+        queue=queuelib.Queue(),
+        journal_release_key=key,
+        fail_cause="par",
+    ).Process()
+
+    row = _row(key)
+    assert row["fail_reason"] == failed_mod.FAIL_REASON_NO_AUTO_HANDLING + ":par"
+    assert len(_band_rows()) == band_before + 1
+
+
 def test_process_failed_auto_stamps_retried_off_band():
     """FAILED_AUTO on → mark_failed + status=retried in one act → band unchanged."""
     issueid = "1002"

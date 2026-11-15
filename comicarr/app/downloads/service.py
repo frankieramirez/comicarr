@@ -2159,6 +2159,7 @@ def run_failed_processor(item):
         issueid=item.get("issueid"),
         comicid=item.get("comicid"),
         journal_release_key=item.get("journal_release_key"),
+        fail_cause=item.get("fail_cause"),
     ).Process()
     return None if messages.empty() else messages.get_nowait()
 
@@ -2378,6 +2379,8 @@ def _cdh_monitor_owned(queue, item, nzstat, readd=False):
                 "ddl": False,
                 "download_info": nzstat.get("download_info"),
             }
+            if nzstat.get("fail_cause"):
+                journal_payload["fail_cause"] = nzstat["fail_cause"]
             rkey = item.get("journal_release_key") or journal.release_key(
                 nzstat.get("issueid"),
                 di.get("provider"),
@@ -2421,19 +2424,20 @@ def _cdh_monitor_owned(queue, item, nzstat, readd=False):
             return
 
         try:
-            comicarr.PP_QUEUE.put(
-                {
-                    "nzb_name": nzstat["name"],
-                    "nzb_folder": nzstat["location"],
-                    "failed": nzstat["failed"],
-                    "issueid": nzstat["issueid"],
-                    "comicid": nzstat["comicid"],
-                    "apicall": nzstat["apicall"],
-                    "ddl": False,
-                    "download_info": nzstat["download_info"],
-                    "journal_release_key": cdh_journal_release_key,
-                }
-            )
+            pp_item = {
+                "nzb_name": nzstat["name"],
+                "nzb_folder": nzstat["location"],
+                "failed": nzstat["failed"],
+                "issueid": nzstat["issueid"],
+                "comicid": nzstat["comicid"],
+                "apicall": nzstat["apicall"],
+                "ddl": False,
+                "download_info": nzstat["download_info"],
+                "journal_release_key": cdh_journal_release_key,
+            }
+            if nzstat["failed"] and nzstat.get("fail_cause"):
+                pp_item["fail_cause"] = nzstat["fail_cause"]
+            comicarr.PP_QUEUE.put(pp_item)
         except Exception as e:
             logger.error("process error: %s" % e)
     return
