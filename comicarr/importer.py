@@ -383,12 +383,18 @@ def addComictoDB(
             # A retry of a failed add fails the same way: keep the marker so
             # the next add retries instead of finding the series "in the library".
             newValueDict = {"ComicName": "Fetch failed, try refreshing. (%s)" % (comicid), "Status": "Active"}
+            failed_add = True
         else:
             if series_status == "Active" or series_status == "Loading":
                 newValueDict = {"Status": "Active"}
             else:
                 newValueDict = {"Status": "Paused"}
+            failed_add = False
         db.upsert("comics", newValueDict, controlValueDict)
+        if failed_add:
+            # Only a new (or still-placeholder) series is a failed add; a
+            # failed refresh of a series already in the library is not.
+            _emit_add_activity("failed", comicid, reason_detail="Metadata provider fetch failed")
         return {"status": "incomplete"}
 
     if comic["ComicName"].startswith("The "):
