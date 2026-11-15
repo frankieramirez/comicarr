@@ -103,7 +103,7 @@ def test_add_series_metadata_only_stores_paused_series_and_skipped_issues(librar
     search.assert_not_called()
 
 
-def test_add_series_provider_failure_leaves_fetch_failed_placeholder(library, monkeypatch):
+def test_add_series_provider_failure_is_reported_as_failed(library, monkeypatch):
     get_comic = MagicMock(return_value=None)
     emit = MagicMock()
     monkeypatch.setattr(importer.cv, "getComic", get_comic)
@@ -112,13 +112,31 @@ def test_add_series_provider_failure_leaves_fetch_failed_placeholder(library, mo
 
     result = series_add.add_series("999")
 
-    # A failed fetch returns instead of raising, and keeps an Active
-    # placeholder row named after the failure; no add activity is narrated.
+    # #1292: a failed fetch returns instead of raising and keeps the Active
+    # placeholder row (so the next add retries it), and records add.failed.
     assert result == {"status": "incomplete"}
     get_comic.assert_called_once_with("999", "comic", series=True)
     row = _row(comics, comics.c.ComicID, "999")
     assert row["ComicName"] == "Fetch failed, try refreshing. (999)"
     assert row["Status"] == "Active"
+    emit.assert_called_once()
+    assert emit.call_args.args == ("add", "failed", "999")
+    assert emit.call_args.kwargs["reason_code"] == "import_failed"
+    assert emit.call_args.kwargs["reason_detail"] == "Metadata provider fetch failed"
+
+
+def test_refresh_provider_failure_of_a_library_series_is_not_a_failed_add(library, monkeypatch):
+    with db.get_engine().begin() as conn:
+        conn.execute(comics.insert(), {"ComicID": "998", "ComicName": "Saga", "Status": "Active"})
+    monkeypatch.setattr(importer.cv, "getComic", MagicMock(return_value=None))
+    monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+    emit = MagicMock()
+    monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", emit)
+
+    result = series_add.add_series("998")
+
+    assert result == {"status": "incomplete"}
+    assert _row(comics, comics.c.ComicID, "998")["Status"] == "Active"
     emit.assert_not_called()
 
 

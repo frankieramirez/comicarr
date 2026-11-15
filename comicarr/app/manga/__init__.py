@@ -19,6 +19,7 @@ from comicarr.app.manga.ledger import (
     merge_refresh_row,
     normalize_volume_number,
     volume_id,
+    volume_number_from_id,
 )
 
 __all__ = [
@@ -31,4 +32,5 @@ __all__ = [
     "merge_refresh_row",
     "normalize_volume_number",
     "volume_id",
+    "volume_number_from_id",
 ]

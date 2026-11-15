@@ -211,17 +211,33 @@ def test_refresh_is_skipped_while_an_import_holds_the_lock(engine, fakes, monkey
     fakes.add.assert_not_called()
 
 
-def test_several_ids_with_refresh_tag_stop_after_the_first(engine, fakes):
-    # Surprise, pinned as-is: with calledfrom="refresh" the loop breaks after
-    # the first series, so later ids in the same call are never refreshed.
+def test_several_ids_with_refresh_tag_refresh_every_series(engine, fakes, monkeypatch):
+    # #1293: with calledfrom="refresh" every id in the call is refreshed, each
+    # with its own refresh.succeeded activity, and without the 15s pacing sleep.
+    _insert_comic(engine, ComicID="mal-1", ContentType="manga")
+    _insert_comic(engine, ComicID="mal-2", ContentType="manga")
+    fakes.add.return_value = {"status": "complete"}
+    sleep = MagicMock()
+    monkeypatch.setattr(updater.time, "sleep", sleep)
+
+    series_refresh.refresh_series_metadata(["mal-1", "mal-2"], calledfrom="refresh")
+
+    assert sorted(c.args[0] for c in fakes.add.call_args_list) == ["mal-1", "mal-2"]
+    assert [c.args[:3] for c in fakes.emit.call_args_list if c.args[:2] == ("refresh", "succeeded")] in (
+        [("refresh", "succeeded", "mal-1"), ("refresh", "succeeded", "mal-2")],
+        [("refresh", "succeeded", "mal-2"), ("refresh", "succeeded", "mal-1")],
+    )
+    sleep.assert_not_called()
+
+
+def test_scheduled_pass_still_refreshes_one_series_per_tick(engine, fakes, monkeypatch):
     _insert_comic(engine, ComicID="mal-1", ContentType="manga")
     _insert_comic(engine, ComicID="mal-2", ContentType="manga")
     fakes.add.return_value = {"status": "complete"}
 
-    series_refresh.refresh_series_metadata(["mal-1", "mal-2"], calledfrom="refresh")
+    updater.dbUpdate(ComicIDList=["mal-1", "mal-2"], sched=True)
 
     assert fakes.add.call_count == 1
-    assert fakes.emit.call_args.args[:2] == ("refresh", "succeeded")
 
 
 def test_dupecheck_refreshes_series_when_have_exceeds_total(engine, tmp_path, monkeypatch):
