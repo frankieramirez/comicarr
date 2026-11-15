@@ -33,6 +33,7 @@ from comicarr.app.downloads.postprocess_pipeline import (
     PostProcessItemDeps,
     PostProcessJournalStage,
     PostProcessRun,
+    place_arc_only_matches,
     process_comic_issue,
     process_manga_download,
 )
@@ -461,6 +462,98 @@ def test_recovering_an_arc_copy_already_made_only_records_it(library, arc, monke
 # ---------------------------------------------------------------------------
 # a manga chapter
 # ---------------------------------------------------------------------------
+
+
+def _arc_only_match(library):
+    """A downloaded file that belongs to the watched arc and no watched series."""
+    grabbed = library.download / "Saga 001.cbz"
+    grabbed.write_bytes(b"arc only")
+    return {
+        "ComicLocation": str(grabbed),
+        "Filename": "Saga 001.cbz",
+        "IssueID": "I1",
+        "IssueArcID": "A1",
+        "StoryArc": "The Chosen",
+        "StoryArcID": "SA1",
+        "Publisher": "Image",
+        "SeriesYear": "2012",
+        "Volume": None,
+        "ComicID": "C1",
+        "ComicName": "Saga",
+        "IssueNumber": "1",
+        "IssueYear": "2012",
+        "ReadingOrder": 1,
+    }
+
+
+def _arc_only_key():
+    return PostProcessJournalStage().release_key(_run(None, issue_id=None).context, issue_arc_id="A1")
+
+
+def test_an_arc_only_move_interrupted_after_placement_finishes_on_recover(library, arc, monkeypatch):
+    """``move`` consumes the source, then the process dies before the arc row is written (#1296).
+
+    The claim names where the file went, so recovery records the placed file
+    instead of re-driving a download that is no longer there.
+    """
+    from comicarr.app.downloads import postprocess_pipeline
+
+    ml = _arc_only_match(library)
+    run = _run(library.download, issue_id=None)
+    config = _arc_config(arc, ARC_FILEOPS="move")
+    (arc / "The Chosen").mkdir()  # validate_directory is faked
+    with (
+        patch.object(comicarr, "CONFIG", config),
+        patch.object(
+            postprocess_pipeline, "_mark_arc_row_downloaded", side_effect=RuntimeError("process killed")
+        ),
+        pytest.raises(RuntimeError),
+    ):
+        place_arc_only_matches(run, Fakes().deps(), [ml])
+
+    arc_file = arc / "The Chosen" / "Saga 001.cbz"
+    key = _arc_only_key()
+    assert arc_file.read_bytes() == b"arc only"
+    assert not (library.download / "Saga 001.cbz").exists()
+    assert _stage(key) == journal.POST_PROCESSING
+    assert _row(storyarcs, IssueArcID="A1")["Status"] == "Snatched"
+
+    executed = []
+    monkeypatch.setattr(comicarr, "APILOCK", threading.Lock(), raising=False)
+    with (
+        patch.object(comicarr, "CONFIG", config),
+        patch.object(postprocessing, "_execute", side_effect=lambda item: executed.append(item)),
+    ):
+        outcome = postprocessing.recover(key)
+
+    assert outcome.action == "arc-only-finished"
+    assert executed == [], "recovery must not re-drive a download the move consumed"
+    assert _stage(key) == journal.POST_PROCESSED
+    arc_row = _row(storyarcs, IssueArcID="A1")
+    assert arc_row["Status"] == "Downloaded"
+    assert arc_row["Location"] == str(arc_file)
+
+
+def test_an_arc_only_claim_without_the_placed_file_is_re_driven(library, arc, monkeypatch):
+    """No file at the destination means placement never happened; the source is re-driven."""
+    from comicarr.app.downloads import postprocess_pipeline
+
+    ml = _arc_only_match(library)
+    run = _run(library.download, issue_id=None)
+    with (
+        patch.object(comicarr, "CONFIG", _arc_config(arc, ARC_FILEOPS="move")),
+        patch.object(postprocess_pipeline.helpers, "get_free_space", return_value=False),
+    ):
+        place_arc_only_matches(run, Fakes().deps(), [ml])
+
+    key = _arc_only_key()
+    assert _stage(key) == journal.POST_PROCESSING
+    assert (library.download / "Saga 001.cbz").exists()
+    assert postprocess_pipeline.recover_arc_only_placement(key, journal.read_one(key), _payload(key)) is None
+
+
+def _payload(key):
+    return journal.load_payload(journal.read_one(key)["payload_json"])
 
 
 def test_a_manga_chapter_is_placed_and_marked_downloaded(tmp_path):
