@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.56.0
+
+### Minor Changes
+
+- daddbfb: Prowlarr search can now include your Usenet indexers. Turn on **Include Usenet indexers** under Settings → Search → Prowlarr, and NZB results come from a provider named Prowlarr (Usenet) and go to your Usenet download client, so Prowlarr counts Comicarr's searches toward each indexer's limits. Results grabbed through Prowlarr, torrent or Usenet, are now told apart correctly in your download history: before this, every Prowlarr result shared one ID.
+- daddbfb: You can now set the order Comicarr searches your providers in, under Settings → Search → Search order. The new order applies from the next search, including issues already on your Wanted list, and a series with its own provider order keeps it. Installs with more than ten providers also stop searching them out of order (the eleventh and later ones were searched before the third).
+
 ## 0.55.0
 
 ### Minor Changes
