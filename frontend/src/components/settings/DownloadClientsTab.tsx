@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useId, useState } from "react";
 import { ArrowRight, ChevronDown, Loader2, Plug, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,7 @@ import {
   type RootRoute,
 } from "@/lib/downloadClients";
 import { cn } from "@/lib/utils";
+import { formatNumber } from "@/lib/intl";
 import type {
   ReadableConfig,
   SettingsFormData,
@@ -162,43 +165,63 @@ function statusOf(
   check: ConnectionCheck | undefined,
 ): { tone: string; label: string; detail: string | null } {
   if (!card.enabled) {
-    return { tone: "var(--muted-foreground)", label: "Off", detail: null };
+    return { tone: "var(--muted-foreground)", label: t`Off`, detail: null };
   }
   if (!check || check.ok === null) {
     return {
       tone: "var(--muted-foreground)",
-      label: check?.result || "Not checked yet",
+      label: check?.result || t`Not checked yet`,
       detail: null,
     };
   }
   if (!check.ok) {
     return {
       tone: "var(--status-error)",
-      label: "Unreachable",
+      label: t`Unreachable`,
       detail: check.result,
     };
   }
   if (card.client.id === "ddl") {
-    return { tone: "var(--status-active)", label: "Ready", detail: "built in" };
+    return {
+      tone: "var(--status-active)",
+      label: t`Ready`,
+      detail: t`built in`,
+    };
   }
   const detail =
     check.active != null
       ? check.active > 0
-        ? `${check.active} active`
-        : "idle"
+        ? t`${ph({ count: check.active })} active`
+        : t`idle`
       : check.latency_label === "local"
-        ? "local folder"
+        ? t`local folder`
         : null;
-  return { tone: "var(--status-active)", label: "Connected", detail };
+  return { tone: "var(--status-active)", label: t`Connected`, detail };
+}
+
+function sendReleasesLabel(kind: ClientKind, client: string): string {
+  switch (kind) {
+    case "usenet":
+      return t`Send Usenet releases to ${client}`;
+    case "torrent":
+      return t`Send torrent releases to ${client}`;
+    default:
+      return t`Send direct downloads to ${client}`;
+  }
 }
 
 function testLine(check: ConnectionCheck | undefined): string | null {
   if (!check || check.checked_at == null) return null;
   if (!check.ok) return check.result;
   return [
-    check.result === "Reachable" ? "Connected" : check.result,
+    check.result === "Reachable" ? t`Connected` : check.result,
     check.version,
-    check.latency_ms != null ? `${Math.round(check.latency_ms)} ms` : null,
+    check.latency_ms != null
+      ? formatNumber(Math.round(check.latency_ms), {
+          style: "unit",
+          unit: "millisecond",
+        })
+      : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -218,7 +241,7 @@ function RootRoutes({
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="text-xs text-foreground-2">
-          Category per library folder
+          <Trans>Category per library folder</Trans>
         </span>
         <button
           type="button"
@@ -229,13 +252,15 @@ function RootRoutes({
           }
           className="text-xs text-foreground-2 hover:text-foreground"
         >
-          + Add folder
+          <Trans>+ Add folder</Trans>
         </button>
       </div>
       {rows.length === 0 ? (
         <p className="rounded-md border border-dashed border-border-subtle px-3 py-2 text-xs text-muted-foreground">
-          Every series uses the category above. Add a library folder to send its
-          series to their own category or save path.
+          <Trans>
+            Every series uses the category above. Add a library folder to send
+            its series to their own category or save path.
+          </Trans>
         </p>
       ) : (
         <div className="divide-y divide-border-subtle rounded-md border border-border-subtle">
@@ -245,7 +270,7 @@ function RootRoutes({
               className="grid grid-cols-[minmax(0,1.4fr)_auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2 px-2 py-1.5"
             >
               <Input
-                aria-label={`Library folder ${index + 1}`}
+                aria-label={t`Library folder ${ph({ number: index + 1 })}`}
                 value={route.root}
                 onChange={(event) =>
                   update(
@@ -261,9 +286,9 @@ function RootRoutes({
                 className="size-3.5 text-muted-foreground"
               />
               <Input
-                aria-label={`Category for folder ${index + 1}`}
+                aria-label={t`Category for folder ${ph({ number: index + 1 })}`}
                 value={route.category}
-                placeholder="category"
+                placeholder={t`category`}
                 onChange={(event) =>
                   update(
                     rows.map((r, i) =>
@@ -274,9 +299,9 @@ function RootRoutes({
                 className="h-7 border-transparent bg-transparent font-mono text-[13px]"
               />
               <Input
-                aria-label={`Save path for folder ${index + 1}`}
+                aria-label={t`Save path for folder ${ph({ number: index + 1 })}`}
                 value={route.savePath}
-                placeholder="save path (optional)"
+                placeholder={t`save path (optional)`}
                 onChange={(event) =>
                   update(
                     rows.map((r, i) =>
@@ -290,7 +315,7 @@ function RootRoutes({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label={`Remove folder ${index + 1}`}
+                aria-label={t`Remove folder ${ph({ number: index + 1 })}`}
                 onClick={() => update(rows.filter((_, i) => i !== index))}
               >
                 <X />
@@ -319,7 +344,7 @@ function ClientFields({
     return value == null ? "" : String(value);
   };
   const saved = (set: boolean | undefined) =>
-    set ? "Saved (enter a new one to change)" : undefined;
+    set ? t`Saved (enter a new one to change)` : undefined;
 
   switch (client.id) {
     case "sabnzbd":
@@ -327,34 +352,34 @@ function ClientFields({
         <div className="grid gap-3 sm:grid-cols-2">
           <Field
             className="sm:col-span-2"
-            label="URL"
+            label={t`URL`}
             value={str("sab_host")}
             placeholder="http://sabnzbd:8080"
             onChange={(v) => onChange("sab_host", v)}
           />
           <Field
-            label="API key"
+            label={t`API key`}
             type="password"
             value={str("sab_apikey")}
-            placeholder={saved(config.sab_apikey_set) ?? "SABnzbd API key"}
+            placeholder={saved(config.sab_apikey_set) ?? t`SABnzbd API key`}
             onChange={(v) => onChange("sab_apikey", v)}
           />
           <Field
-            label="Category"
+            label={t`Category`}
             value={str("sab_category")}
-            placeholder="comics"
+            placeholder={t`comics`}
             onChange={(v) => onChange("sab_category", v)}
           />
           <Field
             className="sm:col-span-2"
-            label="Download directory"
+            label={t`Download directory`}
             value={str("sab_directory")}
             placeholder="/downloads"
             onChange={(v) => onChange("sab_directory", v)}
           />
           <div className="sm:col-span-2">
             <SettingField
-              label="Verify the TLS certificate"
+              label={t`Verify the TLS certificate`}
               type="checkbox"
               checked={Boolean(formData.sab_verify)}
               onChange={(value) => onChange("sab_verify", value as boolean)}
@@ -366,39 +391,39 @@ function ClientFields({
       return (
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
           <Field
-            label="Host"
+            label={t`Host`}
             value={str("nzbget_host")}
             placeholder="http://nzbget"
             onChange={(v) => onChange("nzbget_host", v)}
           />
           <Field
-            label="Port"
+            label={t`Port`}
             value={str("nzbget_port")}
             placeholder="6789"
             onChange={(v) => onChange("nzbget_port", v)}
           />
           <Field
-            label="Username"
+            label={t`Username`}
             value={str("nzbget_username")}
             onChange={(v) => onChange("nzbget_username", v)}
           />
           <Field
-            label="Password"
+            label={t`Password`}
             type="password"
             value={str("nzbget_password")}
             placeholder={saved(config.nzbget_password_set)}
             onChange={(v) => onChange("nzbget_password", v)}
           />
           <Field
-            label="Category"
+            label={t`Category`}
             value={str("nzbget_category")}
-            placeholder="comics"
+            placeholder={t`comics`}
             onChange={(v) => onChange("nzbget_category", v)}
           />
           <Field
-            label="Path"
+            label={t`Path`}
             value={str("nzbget_sub")}
-            placeholder="optional"
+            placeholder={t`optional`}
             onChange={(v) => onChange("nzbget_sub", v)}
           />
         </div>
@@ -407,34 +432,34 @@ function ClientFields({
       return (
         <div className="space-y-3">
           <Field
-            label="URL"
+            label={t`URL`}
             value={str("qbittorrent_host")}
             placeholder="http://qbittorrent:8080"
             onChange={(v) => onChange("qbittorrent_host", v)}
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field
-              label="Username"
+              label={t`Username`}
               value={str("qbittorrent_username")}
               onChange={(v) => onChange("qbittorrent_username", v)}
             />
             <Field
-              label="Password"
+              label={t`Password`}
               type="password"
               value={str("qbittorrent_password")}
               placeholder={saved(config.qbittorrent_password_set)}
               onChange={(v) => onChange("qbittorrent_password", v)}
             />
             <Field
-              label="Category"
+              label={t`Category`}
               value={str("qbittorrent_label")}
-              placeholder="comics"
+              placeholder={t`comics`}
               onChange={(v) => onChange("qbittorrent_label", v)}
             />
             <Field
-              label="Save path"
+              label={t`Save path`}
               value={str("qbittorrent_folder")}
-              placeholder="qBittorrent's default"
+              placeholder={t`qBittorrent's default`}
               onChange={(v) => onChange("qbittorrent_folder", v)}
             />
           </div>
@@ -449,27 +474,27 @@ function ClientFields({
         <div className="grid gap-3 sm:grid-cols-2">
           <Field
             className="sm:col-span-2"
-            label="Host"
+            label={t`Host`}
             value={str("deluge_host")}
             placeholder="deluge:58846"
             onChange={(v) => onChange("deluge_host", v)}
           />
           <Field
-            label="Username"
+            label={t`Username`}
             value={str("deluge_username")}
             onChange={(v) => onChange("deluge_username", v)}
           />
           <Field
-            label="Password"
+            label={t`Password`}
             type="password"
             value={str("deluge_password")}
             placeholder={saved(config.deluge_password_set)}
             onChange={(v) => onChange("deluge_password", v)}
           />
           <Field
-            label="Label"
+            label={t`Label`}
             value={str("deluge_label")}
-            placeholder="comics"
+            placeholder={t`comics`}
             onChange={(v) => onChange("deluge_label", v)}
           />
         </div>
@@ -479,18 +504,18 @@ function ClientFields({
         <div className="grid gap-3 sm:grid-cols-2">
           <Field
             className="sm:col-span-2"
-            label="URL"
+            label={t`URL`}
             value={str("transmission_host")}
             placeholder="http://transmission:9091"
             onChange={(v) => onChange("transmission_host", v)}
           />
           <Field
-            label="Username"
+            label={t`Username`}
             value={str("transmission_username")}
             onChange={(v) => onChange("transmission_username", v)}
           />
           <Field
-            label="Password"
+            label={t`Password`}
             type="password"
             value={str("transmission_password")}
             placeholder={saved(config.transmission_password_set)}
@@ -498,9 +523,9 @@ function ClientFields({
           />
           <Field
             className="sm:col-span-2"
-            label="Download directory"
+            label={t`Download directory`}
             value={str("transmission_directory")}
-            placeholder="Transmission's default"
+            placeholder={t`Transmission's default`}
             onChange={(v) => onChange("transmission_directory", v)}
           />
         </div>
@@ -508,15 +533,16 @@ function ClientFields({
     case "ddl":
       return (
         <p className="text-[13px] text-foreground-2">
-          Built in. Comicarr downloads GetComics, Mega, MediaFire and Pixeldrain
-          links itself, so there is nothing to connect.
+          <Trans>
+            Built in. Comicarr downloads GetComics, Mega, MediaFire and
+            Pixeldrain links itself, so there is nothing to connect.
+          </Trans>
         </p>
       );
     default:
       return (
         <p className="text-[13px] text-foreground-2">
-          {client.label} settings live in the config file shown in the Settings
-          header.
+          {t`${ph({ client: client.label })} settings live in the config file shown in the Settings header.`}
         </p>
       );
   }
@@ -575,7 +601,7 @@ function ClientRow({
             </span>
           </span>
           <span className="mt-0.5 block truncate font-mono text-xs text-muted-foreground">
-            {host || "Not set up yet"}
+            {host || t`Not set up yet`}
           </span>
         </button>
         <span
@@ -601,14 +627,16 @@ function ClientRow({
         <Switch
           checked={card.enabled}
           onChange={onEnable}
-          label={`Send ${KIND_BADGE[client.kind].toLowerCase()} releases to ${client.label}`}
+          label={sendReleasesLabel(client.kind, client.label)}
         />
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
           aria-label={
-            open ? `Collapse ${client.label}` : `Edit ${client.label}`
+            open
+              ? t`Collapse ${ph({ client: client.label })}`
+              : t`Edit ${ph({ client: client.label })}`
           }
           onClick={onToggleOpen}
         >
@@ -621,7 +649,7 @@ function ClientRow({
         <div id={bodyId} className="space-y-4 px-4 pb-4">
           {siblings.length > 1 && (
             <SettingField
-              label="Client"
+              label={t`Client`}
               type="select"
               value={client.id}
               options={siblings.map((other) => ({
@@ -654,11 +682,11 @@ function ClientRow({
                 ) : (
                   <Plug />
                 )}
-                Test connection
+                <Trans>Test connection</Trans>
               </Button>
               <span className="flex items-center gap-2 text-xs text-foreground-2">
                 {dirty || !check ? (
-                  "Save to test these settings."
+                  t`Save to test these settings.`
                 ) : tested ? (
                   <>
                     <span
@@ -673,7 +701,7 @@ function ClientRow({
                     <span className="font-mono">{tested}</span>
                   </>
                 ) : (
-                  "Not checked yet."
+                  t`Not checked yet.`
                 )}
               </span>
             </div>
@@ -723,9 +751,9 @@ export function DownloadClientsTab({
   }
 
   const groups: Array<[ClientKind, string]> = [
-    ["usenet", "Usenet"],
-    ["torrent", "Torrent"],
-    ["ddl", "Direct download"],
+    ["usenet", t`Usenet`],
+    ["torrent", t`Torrent`],
+    ["ddl", t`Direct download`],
   ];
 
   return (
@@ -734,11 +762,13 @@ export function DownloadClientsTab({
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-[15px] font-semibold text-foreground">
-              Download clients
+              <Trans>Download clients</Trans>
             </h2>
             <p className="mt-0.5 text-[13px] text-foreground-2">
-              Where Comicarr sends the releases it picks: one client for each
-              kind of release.
+              <Trans>
+                Where Comicarr sends the releases it picks: one client for each
+                kind of release.
+              </Trans>
             </p>
           </div>
           {addable.length > 0 && (
@@ -749,7 +779,7 @@ export function DownloadClientsTab({
                 }
               >
                 <Plus />
-                Add client
+                <Trans>Add client</Trans>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 {groups.map(([kind, label], index) => {
@@ -802,25 +832,27 @@ export function DownloadClientsTab({
           </div>
         ) : (
           <p className="rounded-lg border border-dashed border-border-subtle px-4 py-6 text-sm text-foreground-2">
-            No download client yet. Add one so Comicarr has somewhere to send
-            the releases it finds.
+            <Trans>
+              No download client yet. Add one so Comicarr has somewhere to send
+              the releases it finds.
+            </Trans>
           </p>
         )}
       </section>
 
       <SettingGroup
-        title="Completed downloads"
-        description="The Folder Monitor checks these folders for finished downloads and imports them."
+        title={t`Completed downloads`}
+        description={t`The Folder Monitor checks these folders for finished downloads and imports them.`}
       >
         <SettingField
-          label="Additional monitored folders"
+          label={t`Additional monitored folders`}
           type="textarea"
           value={formData.additional_check_folders || ""}
           onChange={(v) => onChange("additional_check_folders", v as string)}
           helpText={
             config.check_folder
-              ? `Scanned after the main monitored folder, ${config.check_folder}. One server path per line. In Docker, use the path inside the container.`
-              : "Scanned after the main monitored folder, which is set as CHECK_FOLDER in the config file. These folders are ignored until it is set."
+              ? t`Scanned after the main monitored folder, ${ph({ folder: config.check_folder })}. One server path per line. In Docker, use the path inside the container.`
+              : t`Scanned after the main monitored folder, which is set as CHECK_FOLDER in the config file. These folders are ignored until it is set.`
           }
           placeholder="/downloads/Magazines"
         />

@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,11 +8,11 @@ import { useProviderOrder, useUpdateProviderOrder } from "@/hooks/useConfig";
 import type { ProviderOrderEntry } from "@/types";
 import { SettingGroup } from "./SettingGroup";
 
-const ROUTE_LABEL: Record<ProviderOrderEntry["route"], string> = {
-  nzb: "Usenet",
-  torrent: "Torrent",
-  ddl: "Direct",
-};
+const ROUTE_LABEL = (): Record<ProviderOrderEntry["route"], string> => ({
+  nzb: t`Usenet`,
+  torrent: t`Torrent`,
+  ddl: t`Direct`,
+});
 
 function move<T>(items: T[], from: number, to: number): T[] {
   const next = [...items];
@@ -43,21 +45,21 @@ function OrderEditor({
   const save = async () => {
     try {
       await updateOrder.mutateAsync(providers.map((p) => p.name));
-      addToast({ type: "success", message: "Search order saved" });
+      addToast({ type: "success", message: t`Search order saved` });
     } catch (error) {
       addToast({
         type: "error",
         message:
           error instanceof Error
             ? error.message
-            : "Failed to save search order",
+            : t`Failed to save search order`,
       });
     }
   };
 
   return (
     <>
-      <ol aria-label="Search order" className="divide-y rounded-lg border">
+      <ol aria-label={t`Search order`} className="divide-y rounded-lg border">
         {providers.map((provider, index) => (
           <li key={provider.name} className="flex items-center gap-3 px-3 py-2">
             <span className="mono-meta w-5 text-right text-muted-foreground">
@@ -67,13 +69,13 @@ function OrderEditor({
               {provider.name}
             </span>
             <span className="mono-label text-muted-foreground">
-              {ROUTE_LABEL[provider.route] ?? provider.route}
+              {ROUTE_LABEL()[provider.route] ?? provider.route}
             </span>
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={`Move ${provider.name} up`}
+              aria-label={t`Move ${ph({ provider: provider.name })} up`}
               disabled={index === 0 || updateOrder.isPending}
               onClick={() =>
                 setProviders((current) => move(current, index, index - 1))
@@ -85,7 +87,7 @@ function OrderEditor({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={`Move ${provider.name} down`}
+              aria-label={t`Move ${ph({ provider: provider.name })} down`}
               disabled={index === providers.length - 1 || updateOrder.isPending}
               onClick={() =>
                 setProviders((current) => move(current, index, index + 1))
@@ -101,7 +103,7 @@ function OrderEditor({
         <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
           {isDirty && (
             <span className="text-[11px] text-muted-foreground">
-              Unsaved order changes
+              <Trans>Unsaved order changes</Trans>
             </span>
           )}
           <Button
@@ -111,7 +113,7 @@ function OrderEditor({
             disabled={!isDirty || updateOrder.isPending}
             onClick={() => setProviders(saved)}
           >
-            Reset order
+            <Trans>Reset order</Trans>
           </Button>
           <Button
             type="button"
@@ -120,7 +122,7 @@ function OrderEditor({
             onClick={() => void save()}
           >
             {updateOrder.isPending && <LoaderCircle className="animate-spin" />}
-            Save order
+            <Trans>Save order</Trans>
           </Button>
         </div>
       )}
@@ -139,24 +141,26 @@ export function ProviderOrderSettings({
 
   return (
     <SettingGroup
-      title="Search order"
-      description="Comicarr asks providers in this order and stops at the first good match. The new order applies from the next search, including issues already on your Wanted list. A series with its own provider order keeps using it."
+      title={t`Search order`}
+      description={t`Comicarr asks providers in this order and stops at the first good match. The new order applies from the next search, including issues already on your Wanted list. A series with its own provider order keeps using it.`}
     >
       {orderQuery.isLoading ? (
         <div className="flex items-center gap-2 py-4 text-[12px] text-muted-foreground">
-          <LoaderCircle className="h-4 w-4 animate-spin" /> Loading search
-          order…
+          <LoaderCircle className="h-4 w-4 animate-spin" />{" "}
+          <Trans>Loading search order…</Trans>
         </div>
       ) : orderQuery.error && !orderQuery.data ? (
         <div role="alert" className="py-3 text-[12px] text-destructive">
           {orderQuery.error instanceof Error
             ? orderQuery.error.message
-            : "Could not load the search order"}
+            : t`Could not load the search order`}
         </div>
       ) : saved.length === 0 ? (
         <div className="rounded-lg border border-dashed px-4 py-5 text-[12px] text-muted-foreground">
-          No Search providers are enabled yet. Add an indexer or turn on
-          Prowlarr search to set an order.
+          <Trans>
+            No Search providers are enabled yet. Add an indexer or turn on
+            Prowlarr search to set an order.
+          </Trans>
         </div>
       ) : (
         // Re-keyed on the saved order so a save or an indexer change starts
@@ -165,7 +169,9 @@ export function ProviderOrderSettings({
         <>
           {orderQuery.error && (
             <p role="alert" className="pb-2 text-[12px] text-destructive">
-              Could not refresh the search order. Showing the last one loaded.
+              <Trans>
+                Could not refresh the search order. Showing the last one loaded.
+              </Trans>
             </p>
           )}
           <OrderEditor

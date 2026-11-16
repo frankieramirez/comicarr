@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { CheckCircle2, Loader2, XCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,15 +31,15 @@ interface ProwlarrSettingsProps {
 
 function indexerCount(count: number, kind: string): string {
   return count === 1
-    ? `1 enabled ${kind} indexer`
-    : `${count} enabled ${kind} indexers`;
+    ? t`1 enabled ${kind} indexer`
+    : t`${count} enabled ${kind} indexers`;
 }
 
 function resultMessage(result: ProwlarrTestResult): string {
-  if (!result.success) return result.error || "Connection test failed";
+  if (!result.success) return result.error || t`Connection test failed`;
   const torrents = indexerCount(result.torrent_indexers ?? 0, "torrent");
-  const usenet = indexerCount(result.usenet_indexers ?? 0, "Usenet");
-  return `Connected. Prowlarr has ${torrents} and ${usenet}.`;
+  const usenet = indexerCount(result.usenet_indexers ?? 0, t`Usenet`);
+  return t`Connected. Prowlarr has ${torrents} and ${usenet}.`;
 }
 
 export function ProwlarrSettings({
@@ -73,7 +75,7 @@ export function ProwlarrSettings({
     } catch (err) {
       setTestResult({
         success: false,
-        error: err instanceof Error ? err.message : "Connection test failed",
+        error: err instanceof Error ? err.message : t`Connection test failed`,
       });
     } finally {
       setIsTesting(false);
@@ -82,63 +84,65 @@ export function ProwlarrSettings({
 
   return (
     <SettingGroup
-      title="Prowlarr"
-      description="Search every indexer in Prowlarr with one request. Prowlarr skips indexers it knows are failing and counts Comicarr's searches toward each indexer's limits."
+      title={t`Prowlarr`}
+      description={t`Search every indexer in Prowlarr with one request. Prowlarr skips indexers it knows are failing and counts Comicarr's searches toward each indexer's limits.`}
     >
       <SettingField
-        label="Search with Prowlarr"
+        label={t`Search with Prowlarr`}
         type="checkbox"
         checked={enabled}
         onChange={(value) => onChange("enable_prowlarr", value as boolean)}
-        helpText="Torrent results come from a provider named Prowlarr. You can remove the separate Torznab indexers you copied from it."
+        helpText={t`Torrent results come from a provider named Prowlarr. You can remove the separate Torznab indexers you copied from it.`}
       />
       {enabled && (
         <SettingField
-          label="Include Usenet indexers"
+          label={t`Include Usenet indexers`}
           type="checkbox"
           checked={Boolean(formData.prowlarr_usenet)}
           onChange={(value) => onChange("prowlarr_usenet", value as boolean)}
-          helpText="Usenet results come from a provider named Prowlarr (Usenet) and go to your Usenet download client. Turn this on only if you remove the same indexers from Usenet indexers below, or each search hits them twice."
+          helpText={t`Usenet results come from a provider named Prowlarr (Usenet) and go to your Usenet download client. Turn this on only if you remove the same indexers from Usenet indexers below, or each search hits them twice.`}
         />
       )}
       {enabled &&
         !formData.prowlarr_usenet &&
         config.enable_torrent_search === false && (
           <Callout tone="warning" className="text-[12px]">
-            Torrent search is off and Usenet indexers are not included, so
-            Prowlarr won't be searched. Turn on Include Usenet indexers, or set
-            enable_torrent_search under [Torrents] in the config file shown in
-            the Settings header.
+            <Trans>
+              Torrent search is off and Usenet indexers are not included, so
+              Prowlarr won't be searched. Turn on Include Usenet indexers, or
+              set enable_torrent_search under [Torrents] in the config file
+              shown in the Settings header.
+            </Trans>
           </Callout>
         )}
       <SettingField
-        label="Prowlarr URL"
+        label={t`Prowlarr URL`}
         value={host}
         onChange={(value) => onChange("prowlarr_host", value as string)}
         placeholder="http://prowlarr:9696"
-        helpText="The address Comicarr can reach, including the port and any URL base."
+        helpText={t`The address Comicarr can reach, including the port and any URL base.`}
       />
       <SettingField
-        label="Prowlarr API key"
+        label={t`Prowlarr API key`}
         type="password"
         value={apiKey}
         onChange={(value) => onChange("prowlarr_apikey", value as string)}
         placeholder={
           config.prowlarr_apikey_set
-            ? "API key saved (enter a new value to change)"
-            : "Settings → General → API Key in Prowlarr"
+            ? t`API key saved (enter a new value to change)`
+            : t`Settings → General → API Key in Prowlarr`
         }
-        helpText="Stored encrypted and never returned by the API."
+        helpText={t`Stored encrypted and never returned by the API.`}
       />
       <SettingField
-        label="Prowlarr categories"
+        label={t`Prowlarr categories`}
         value={formData.prowlarr_categories ?? ""}
         onChange={(value) => onChange("prowlarr_categories", value as string)}
         placeholder="7030"
-        helpText="Newznab category numbers, separated by commas. 7030 is comics; add 7010 for magazines."
+        helpText={t`Newznab category numbers, separated by commas. 7030 is comics; add 7010 for magazines.`}
       />
       <SettingField
-        label="Verify Prowlarr TLS certificate"
+        label={t`Verify Prowlarr TLS certificate`}
         type="checkbox"
         checked={formData.prowlarr_verify ?? true}
         onChange={(value) => onChange("prowlarr_verify", value as boolean)}
@@ -154,12 +158,12 @@ export function ProwlarrSettings({
           {isTesting ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Testing...
+              <Trans>Testing...</Trans>
             </>
           ) : (
             <>
               <Zap className="h-4 w-4 mr-2" />
-              Test Connection
+              <Trans>Test Connection</Trans>
             </>
           )}
         </Button>

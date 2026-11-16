@@ -1,3 +1,4 @@
+import { ph, t } from "@lingui/core/macro";
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useConfig, useUpdateConfig } from "@/hooks/useConfig";
@@ -32,48 +33,48 @@ import type {
 } from "@/types/config.generated";
 
 /** The sub-nav, grouped by what the operator is trying to do. */
-const SECTION_GROUPS: {
+const SECTION_GROUPS = (): {
   label: string;
   sections: { id: SectionId; label: string }[];
-}[] = [
+}[] => [
   {
-    label: "Library",
-    sections: [{ id: "media", label: "Folders and naming" }],
+    label: t`Library`,
+    sections: [{ id: "media", label: t`Folders and naming` }],
   },
   {
-    label: "Getting files",
+    label: t`Getting files`,
     sections: [
-      { id: "search", label: "Indexers and search" },
-      { id: "clients", label: "Download clients" },
-      { id: "acquisition", label: "Acquisition health" },
+      { id: "search", label: t`Indexers and search` },
+      { id: "clients", label: t`Download clients` },
+      { id: "acquisition", label: t`Acquisition health` },
     ],
   },
   {
-    label: "Metadata",
-    sections: [{ id: "api", label: "Sources and keys" }],
+    label: t`Metadata`,
+    sections: [{ id: "api", label: t`Sources and keys` }],
   },
   {
-    label: "You",
+    label: t`You`,
     sections: [
-      { id: "notifications", label: "Notifications" },
-      { id: "interface", label: "Interface" },
-      { id: "ai", label: "AI" },
+      { id: "notifications", label: t`Notifications` },
+      { id: "interface", label: t`Interface` },
+      { id: "ai", label: t`AI` },
     ],
   },
   {
-    label: "System",
+    label: t`System`,
     sections: [
-      { id: "general", label: "General" },
-      { id: "agents", label: "Agents (MCP)" },
-      { id: "logs", label: "Logs" },
-      { id: "about", label: "About" },
+      { id: "general", label: t`General` },
+      { id: "agents", label: t`Agents (MCP)` },
+      { id: "logs", label: t`Logs` },
+      { id: "about", label: t`About` },
     ],
   },
 ];
 
-const SECTIONS = SECTION_GROUPS.flatMap((group) => group.sections);
+const SECTIONS = () => SECTION_GROUPS().flatMap((group) => group.sections);
 
-const SECTION_IDS = new Set(SECTIONS.map((s) => s.id));
+const SECTION_IDS = new Set(SECTIONS().map((s) => s.id));
 
 function parseSectionParam(raw: string | null): SectionId | null {
   if (!raw) return null;
@@ -206,24 +207,23 @@ export default function SettingsPage() {
     const mangadexEnabled = data.mangadex_enabled ?? false;
 
     if (!comicvineEnabled && !mangadexEnabled) {
-      errors.comicvine_enabled =
-        "At least one content source (Comics or Manga) must be enabled";
+      errors.comicvine_enabled = t`At least one content source (Comics or Manga) must be enabled`;
     }
     if (comicvineEnabled && comicvineApi && comicvineApi.length !== 40) {
-      errors.comicvine_api = "Comic Vine API key must be 40 characters";
+      errors.comicvine_api = t`Comic Vine API key must be 40 characters`;
     }
     if (data.use_minsize && (!minsize || parseInt(String(minsize)) <= 0)) {
-      errors.minsize = "Minimum size must be a positive number";
+      errors.minsize = t`Minimum size must be a positive number`;
     }
     if (data.use_maxsize && (!maxsize || parseInt(String(maxsize)) <= 0)) {
-      errors.maxsize = "Maximum size must be a positive number";
+      errors.maxsize = t`Maximum size must be a positive number`;
     }
     if (
       data.use_minsize &&
       data.use_maxsize &&
       parseInt(String(minsize)) >= parseInt(String(maxsize))
     ) {
-      errors.minsize = "Minimum size must be less than maximum size";
+      errors.minsize = t`Minimum size must be less than maximum size`;
     }
     const sabSelected =
       Number(data.nzb_downloader ?? config?.nzb_downloader ?? 3) === 0;
@@ -234,14 +234,13 @@ export default function SettingsPage() {
     ) {
       const nextOrigin = httpOrigin(data.sab_host);
       if (!nextOrigin) {
-        errors.sab_host = "SABnzbd URL must use HTTP or HTTPS";
+        errors.sab_host = t`SABnzbd URL must use HTTP or HTTPS`;
       } else if (
         config?.sab_apikey_set &&
         httpOrigin(config.sab_host) !== nextOrigin &&
         !data.sab_apikey
       ) {
-        errors.sab_apikey =
-          "Enter the SABnzbd API key again when changing the server";
+        errors.sab_apikey = t`Enter the SABnzbd API key again when changing the server`;
       }
     }
     const clientSecrets = [
@@ -252,12 +251,12 @@ export default function SettingsPage() {
         "qBittorrent",
       ],
       ["nzbget_host", "nzbget_password", "nzbget_password_set", "NZBGet"],
-      ["deluge_host", "deluge_password", "deluge_password_set", "Deluge"],
+      ["deluge_host", "deluge_password", "deluge_password_set", t`Deluge`],
       [
         "transmission_host",
         "transmission_password",
         "transmission_password_set",
-        "Transmission",
+        t`Transmission`,
       ],
     ] as const;
     for (const [hostField, secretField, setField, label] of clientSecrets) {
@@ -269,7 +268,7 @@ export default function SettingsPage() {
         !data[secretField]
       ) {
         errors[secretField] =
-          `Enter the ${label} password again when changing the server`;
+          t`Enter the ${label} password again when changing the server`;
       }
     }
     return errors;
@@ -280,7 +279,7 @@ export default function SettingsPage() {
     if (Object.keys(errors).length > 0) {
       addToast({
         type: "error",
-        message: `Validation error: ${Object.values(errors)[0]}`,
+        message: t`Validation error: ${ph({ error: Object.values(errors)[0] })}`,
       });
       return;
     }
@@ -290,14 +289,15 @@ export default function SettingsPage() {
       addToast({
         type: "success",
         message: providerDirty
-          ? "Page settings saved; indexer edits still need Save indexers"
-          : "Settings saved successfully",
+          ? t`Page settings saved; indexer edits still need Save indexers`
+          : t`Settings saved successfully`,
       });
       setOriginalData(formData);
     } catch (err) {
       addToast({
         type: "error",
-        message: err instanceof Error ? err.message : "Failed to save settings",
+        message:
+          err instanceof Error ? err.message : t`Failed to save settings`,
       });
     }
   };
@@ -307,8 +307,8 @@ export default function SettingsPage() {
     addToast({
       type: "info",
       message: providerDirty
-        ? "Page settings discarded; unsaved indexer edits remain"
-        : "Changes discarded",
+        ? t`Page settings discarded; unsaved indexer edits remain`
+        : t`Changes discarded`,
     });
   };
 
@@ -327,7 +327,7 @@ export default function SettingsPage() {
       <div className="p-6">
         <ErrorDisplay
           error={error}
-          title="Unable to load settings"
+          title={t`Unable to load settings`}
           onRetry={() => {
             void refetch();
           }}
@@ -360,7 +360,7 @@ export default function SettingsPage() {
   return (
     <div className="h-full flex flex-col page-transition">
       <PageHeader
-        title="Settings"
+        title={t`Settings`}
         meta={
           <span className="font-mono text-xs">
             {version} · {configPath}
@@ -372,10 +372,10 @@ export default function SettingsPage() {
       <div className="md:hidden border-b border-border-subtle overflow-x-auto">
         <div
           role="group"
-          aria-label="Settings sections"
+          aria-label={t`Settings sections`}
           className="flex items-center gap-1.5 px-4 pb-2 whitespace-nowrap"
         >
-          {SECTIONS.map((s) => (
+          {SECTIONS().map((s) => (
             <ToggleChip
               key={s.id}
               pressed={section === s.id}
@@ -391,10 +391,10 @@ export default function SettingsPage() {
       <div className="grid flex-1 min-h-0 grid-cols-1 md:[grid-template-columns:240px_1fr]">
         {/* Desktop left rail */}
         <nav
-          aria-label="Settings sections"
+          aria-label={t`Settings sections`}
           className="hidden md:block overflow-auto pb-8 pl-8 pr-4"
         >
-          {SECTION_GROUPS.map((group) => (
+          {SECTION_GROUPS().map((group) => (
             <div key={group.label} className="mb-4">
               <div className="px-2.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
                 {group.label}

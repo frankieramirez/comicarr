@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 /**
  * Post-upgrade What's New modal (#474 / #451).
  *
@@ -54,14 +56,17 @@ export default function WhatsNewModal() {
 
   const notesSummary =
     notesState === "loading"
-      ? "Loading release notes…"
+      ? t`Loading release notes…`
       : notesState === "unavailable"
-        ? "Release notes could not load."
+        ? t`Release notes could not load.`
         : notesState === "empty"
-          ? "No release notes recorded for this upgrade."
+          ? t`No release notes recorded for this upgrade.`
           : sections.length === 1
-            ? `${bullets} change${bullets === 1 ? "" : "s"} in this release.`
-            : `${bullets} changes across ${sections.length} releases you skipped.`;
+            ? plural(bullets, {
+                one: "# change in this release.",
+                other: "# changes in this release.",
+              })
+            : skippedSummary(bullets, sections.length);
 
   const handleGotIt = async () => {
     try {
@@ -88,7 +93,7 @@ export default function WhatsNewModal() {
         <DialogHeader className="border-b border-border bg-primary/10 px-6 py-4 text-left">
           <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-primary">
             <Sparkles className="h-3.5 w-3.5" />
-            Comicarr updated
+            <Trans>Comicarr updated</Trans>
           </div>
           <DialogTitle className="mt-1.5 font-mono text-lg">
             {from} → {to}
@@ -100,24 +105,28 @@ export default function WhatsNewModal() {
 
         <div className="max-h-[55vh] overflow-y-auto px-6 py-5 space-y-6">
           {notesState === "loading" ? (
-            <p className="text-[12px] text-muted-foreground">Loading…</p>
+            <p className="text-[12px] text-muted-foreground">
+              <Trans>Loading…</Trans>
+            </p>
           ) : notesState === "unavailable" ? (
             <div className="space-y-3">
               <PanelUnavailable
-                label="Release notes"
+                label={t`Release notes`}
                 onRetry={() => void notesQuery.refetch()}
                 isRetrying={notesQuery.isFetching}
               />
               <p className="text-[12px] text-muted-foreground">
-                Notes could not load. You can still read them in{" "}
-                <Link
-                  to={WHATS_NEW_ARCHIVE_PATH}
-                  onClick={() => setOpen(false)}
-                  className="text-primary hover:underline"
-                >
-                  Settings → About
-                </Link>
-                .
+                <Trans>
+                  Notes could not load. You can still read them in{" "}
+                  <Link
+                    to={WHATS_NEW_ARCHIVE_PATH}
+                    onClick={() => setOpen(false)}
+                    className="text-primary hover:underline"
+                  >
+                    Settings → About
+                  </Link>
+                  .
+                </Trans>
               </p>
             </div>
           ) : (
@@ -135,7 +144,10 @@ export default function WhatsNewModal() {
                   onClick={handleOverflow}
                   className="flex items-center gap-1 text-[12px] text-primary hover:underline"
                 >
-                  …and {overflow} earlier release{overflow === 1 ? "" : "s"}
+                  {plural(overflow, {
+                    one: "…and # earlier release",
+                    other: "…and # earlier releases",
+                  })}
                   <ArrowRight className="h-3 w-3" />
                 </button>
               )}
@@ -145,7 +157,9 @@ export default function WhatsNewModal() {
 
         <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-3">
           <span className="text-[11px] text-muted-foreground">
-            Dismissing marks {to} as seen for every user of this install.
+            <Trans>
+              Dismissing marks {to} as seen for every user of this install.
+            </Trans>
           </span>
           <div className="flex flex-col items-end gap-2">
             {dismiss.error ? (
@@ -158,11 +172,16 @@ export default function WhatsNewModal() {
               onClick={() => void handleGotIt()}
               disabled={dismiss.isPending}
             >
-              {dismiss.isPending ? "Saving…" : "Got it"}
+              {dismiss.isPending ? t`Saving…` : t`Got it`}
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
   );
+}
+
+function skippedSummary(changes: number, releases: number) {
+  const changeCount = plural(changes, { one: "# change", other: "# changes" });
+  return t`${changeCount} across ${releases} releases you skipped.`;
 }

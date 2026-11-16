@@ -35,7 +35,9 @@ const local = {
             const name = node.name.type === 'JSXIdentifier' ? node.name.name : null
             const value = node.value
             if (name && VISIBLE_ATTRIBUTES.has(name) && value?.type === 'Literal' &&
-                typeof value.value === 'string' && /[A-Za-z]/.test(value.value)) {
+                typeof value.value === 'string' && /[A-Za-z]/.test(value.value) &&
+                // A URL, host:port, address or path example is not text.
+                !/^[^\s]*[:/@.\d_,][^\s]*$/.test(value.value)) {
               context.report({ node: value, message: 'Visible attribute not marked for translation.' })
             }
           },

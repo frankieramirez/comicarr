@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { SettingGroup } from "./SettingGroup";
 import { SettingField } from "./SettingField";
 import type {
@@ -23,51 +24,51 @@ export function InterfaceTab({
   return (
     <div className="space-y-6">
       <SettingGroup
-        title="Server Settings"
-        description="Basic server configuration (read-only, modify in config.ini)"
+        title={t`Server Settings`}
+        description={t`Basic server configuration (read-only, modify in config.ini)`}
       >
         <SettingField
-          label="Host"
+          label={t`Host`}
           value={config.http_host}
           type="text"
           readOnly
-          helpText="IP address the server listens on"
+          helpText={t`IP address the server listens on`}
         />
         <SettingField
-          label="Port"
+          label={t`Port`}
           value={config.http_port}
           type="number"
           readOnly
-          helpText="Port number for web interface"
+          helpText={t`Port number for web interface`}
         />
         <SettingField
-          label="Username"
+          label={t`Username`}
           value={config.http_username}
           type="text"
           readOnly
-          helpText="HTTP authentication username"
+          helpText={t`HTTP authentication username`}
         />
       </SettingGroup>
 
       <SettingGroup
-        title="Interface Preferences"
-        description="Customize the look and behavior of the web interface"
+        title={t`Interface Preferences`}
+        description={t`Customize the look and behavior of the web interface`}
       >
         <SettingField
-          label="Launch Browser"
+          label={t`Launch Browser`}
           type="checkbox"
           checked={formData.launch_browser}
           onChange={(checked) => onChange("launch_browser", checked as boolean)}
-          helpText="Automatically open browser when Comicarr starts"
+          helpText={t`Automatically open browser when Comicarr starts`}
         />
         <SettingField
-          label="Cover wall on sign-in"
+          label={t`Cover wall on sign-in`}
           type="checkbox"
           checked={formData.login_cover_wall}
           onChange={(checked) =>
             onChange("login_cover_wall", checked as boolean)
           }
-          helpText="Show your library's covers behind the sign-in form. Anyone who can reach the sign-in page sees them. Series rated adult are always left out; unrated series can appear."
+          helpText={t`Show your library's covers behind the sign-in form. Anyone who can reach the sign-in page sees them. Series rated adult are always left out; unrated series can appear.`}
         />
       </SettingGroup>
     </div>

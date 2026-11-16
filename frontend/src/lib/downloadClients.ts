@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import type {
   ReadableConfig,
   SettingsFormData,
@@ -39,7 +40,10 @@ export const CLIENTS: ClientInfo[] = [
   {
     id: "blackhole",
     kind: "usenet",
-    label: "Blackhole folder",
+    // Getters: read in the active language each time, not once at load.
+    get label() {
+      return t`Blackhole folder`;
+    },
     code: 2,
     editable: false,
   },
@@ -75,23 +79,33 @@ export const CLIENTS: ClientInfo[] = [
   {
     id: "watchdir",
     kind: "torrent",
-    label: "Watch folder",
+    get label() {
+      return t`Watch folder`;
+    },
     code: 0,
     editable: false,
   },
   {
     id: "ddl",
     kind: "ddl",
-    label: "Direct downloads",
+    get label() {
+      return t`Direct downloads`;
+    },
     code: null,
     editable: false,
   },
 ];
 
 export const KIND_BADGE: Record<ClientKind, string> = {
-  usenet: "Usenet",
-  torrent: "Torrent",
-  ddl: "DDL",
+  get usenet() {
+    return t`Usenet`;
+  },
+  get torrent() {
+    return t`Torrent`;
+  },
+  get ddl() {
+    return t`DDL`;
+  },
 };
 
 export const DDL_HOSTS = "GetComics · Mega · MediaFire · Pixeldrain";

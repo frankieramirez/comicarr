@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { useId, useState } from "react";
 import { Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -153,7 +154,7 @@ export function SettingField({
             {value ?? "—"}
           </div>
           <span className="font-mono text-[10px] text-muted-foreground shrink-0">
-            read-only
+            <Trans>read-only</Trans>
           </span>
         </div>
       </div>

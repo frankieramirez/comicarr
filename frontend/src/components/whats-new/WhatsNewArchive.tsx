@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 /**
  * Permanent Settings → About "What's new" archive (#474 / #451).
  *
@@ -59,7 +61,7 @@ export default function WhatsNewArchive() {
         className="rounded-lg border px-3 py-3 text-[12.5px] text-muted-foreground"
         style={{ borderColor: "var(--border)", background: "var(--card)" }}
       >
-        Loading release history…
+        <Trans>Loading release history…</Trans>
       </div>
     );
   }
@@ -70,7 +72,7 @@ export default function WhatsNewArchive() {
         className="rounded-lg border px-3 py-3 text-[12.5px] text-muted-foreground"
         style={{ borderColor: "var(--border)", background: "var(--card)" }}
       >
-        Could not load release history.
+        <Trans>Could not load release history.</Trans>
       </div>
     );
   }
@@ -97,7 +99,7 @@ export default function WhatsNewArchive() {
                 data-testid="whats-new-unread"
                 className="rounded-sm bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-primary"
               >
-                {pendingCount} unread
+                <Trans>{pendingCount} unread</Trans>
               </span>
             )}
           </div>
@@ -106,10 +108,10 @@ export default function WhatsNewArchive() {
             data-testid="whats-new-archive-summary"
           >
             {pending
-              ? `You upgraded from ${pending.from}. ${pendingCount} release${pendingCount === 1 ? "" : "s"} · ${pendingBullets} change${pendingBullets === 1 ? "" : "s"}.`
+              ? upgradeSummary(pending.from, pendingCount, pendingBullets)
               : current
-                ? `Running ${current}. Nothing unread — recent history below.`
-                : "Release notes for this install."}
+                ? t`Running ${current}. Nothing unread — recent history below.`
+                : t`Release notes for this install.`}
           </p>
         </div>
         {pending && (
@@ -127,7 +129,7 @@ export default function WhatsNewArchive() {
               }}
               disabled={dismiss.isPending}
             >
-              {dismiss.isPending ? "Saving…" : "Mark as read"}
+              {dismiss.isPending ? t`Saving…` : t`Mark as read`}
             </Button>
           </div>
         )}
@@ -135,7 +137,7 @@ export default function WhatsNewArchive() {
 
       {sections.length === 0 ? (
         <p className="px-4 py-6 text-center text-[12px] text-muted-foreground">
-          No release notes to show.
+          <Trans>No release notes to show.</Trans>
         </p>
       ) : (
         <div className="divide-y divide-border">
@@ -189,8 +191,10 @@ function ArchiveRow({
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary" />
         )}
         <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-          {section.bullets.length} change
-          {section.bullets.length === 1 ? "" : "s"}
+          {plural(section.bullets.length, {
+            one: "# change",
+            other: "# changes",
+          })}
         </span>
       </button>
       {open && (
@@ -200,4 +204,13 @@ function ArchiveRow({
       )}
     </div>
   );
+}
+
+function upgradeSummary(from: string, releases: number, changes: number) {
+  const releaseCount = plural(releases, {
+    one: "# release",
+    other: "# releases",
+  });
+  const changeCount = plural(changes, { one: "# change", other: "# changes" });
+  return t`You upgraded from ${from}. ${releaseCount} · ${changeCount}.`;
 }
