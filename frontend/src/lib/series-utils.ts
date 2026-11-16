@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import type { Comic } from "@/types";
 
 /** Same-origin cover URL. Library/detail views must never hotlink provider CDNs. */
@@ -30,9 +31,10 @@ export function seriesSyncLabel(
   comic: Pick<Comic, "LastUpdated" | "LatestDate">,
 ): string {
   if (isKnownRefreshTimestamp(comic.LastUpdated)) {
-    return `last sync ${comic.LastUpdated.trim()}`;
+    const when = comic.LastUpdated.trim();
+    return t`last sync ${when}`;
   }
-  return "unsynced";
+  return t`unsynced`;
 }
 
 export function getProgressPercentage(comic: Comic): number {

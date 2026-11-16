@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import HealthView from "@/components/activity/health/HealthView";
 import { useCallback, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -45,21 +47,25 @@ import StatusBadge from "@/components/StatusBadge";
 import { useToast } from "@/components/ui/toast";
 import type { PaginationMeta } from "@/types";
 
+// Column ids (data keys), not visible text.
+const PROVIDER_COLUMN = "Provider";
+const STATUS_COLUMN = "Status";
+
 type ActivityView = ActivityTab;
 const PAGE_SIZE = 25;
 
-const ACTIVITY_STATUS_TITLES: Record<string, string> = {
-  failed: "Terminal download failure.",
-  unknown: "Manual review required; it will not retry automatically.",
-  "manual review": "Requires attention and will not retry automatically.",
-  snatched: "Active download.",
-  active: "Active download.",
-  queued: "Waiting for a worker.",
-  pending: "Waiting for a worker.",
-  wanted: "Waiting for a worker.",
-  completed: "Active download.",
-  done: "Active download.",
-};
+const ACTIVITY_STATUS_TITLES = (): Record<string, string> => ({
+  failed: t`Terminal download failure.`,
+  unknown: t`Manual review required; it will not retry automatically.`,
+  "manual review": t`Requires attention and will not retry automatically.`,
+  snatched: t`Active download.`,
+  active: t`Active download.`,
+  queued: t`Waiting for a worker.`,
+  pending: t`Waiting for a worker.`,
+  wanted: t`Waiting for a worker.`,
+  completed: t`Active download.`,
+  done: t`Active download.`,
+});
 
 function activityStatusLabel(status: string): string {
   return status.replace(/_/g, " ");
@@ -67,20 +73,20 @@ function activityStatusLabel(status: string): string {
 
 function activityStatusTitle(status: string): string {
   const key = status.trim().toLowerCase().replace(/_/g, " ");
-  if (ACTIVITY_STATUS_TITLES[key]) return ACTIVITY_STATUS_TITLES[key];
+  if (ACTIVITY_STATUS_TITLES()[key]) return ACTIVITY_STATUS_TITLES()[key];
   if (key.includes("fail") || key.includes("error")) {
-    return ACTIVITY_STATUS_TITLES.failed;
+    return ACTIVITY_STATUS_TITLES().failed;
   }
   if (key.includes("manual") || key.includes("review")) {
-    return ACTIVITY_STATUS_TITLES["manual review"];
+    return ACTIVITY_STATUS_TITLES()["manual review"];
   }
   if (key.includes("snatch") || key.includes("down")) {
-    return "Active download.";
+    return t`Active download.`;
   }
   if (key.includes("queue") || key.includes("pend")) {
-    return "Waiting for a worker.";
+    return t`Waiting for a worker.`;
   }
-  return "Download state reported by the provider.";
+  return t`Download state reported by the provider.`;
 }
 
 function ActivityStatusBadge({ status }: { status: string }) {
@@ -124,18 +130,18 @@ export default function ActivityPage() {
 
   const meta =
     currentView === "timeline"
-      ? "Everything Comicarr did, and what went wrong"
+      ? t`Everything Comicarr did, and what went wrong`
       : currentView === "in_flight"
-        ? "Searches running now and downloads on their way in"
+        ? t`Searches running now and downloads on their way in`
         : currentView === "queue"
-          ? "Direct downloads, live"
+          ? t`Direct downloads, live`
           : currentView === "health"
-            ? "Background jobs and connections, and whether each one is working"
-            : "Every download, newest first";
+            ? t`Background jobs and connections, and whether each one is working`
+            : t`Every download, newest first`;
 
   return (
     <div className="page-transition flex h-full min-h-0 flex-col">
-      <PageHeader title="Activity" meta={meta} />
+      <PageHeader title={t`Activity`} meta={meta} />
 
       <ActivityTabs active={currentView} onSelect={setView} />
 
@@ -171,22 +177,22 @@ function inFlightHref(item: InFlightItem): string | null {
 function inFlightKindLabel(item: InFlightItem): string {
   if (item.kind === "run") {
     const command = (item.command_kind || "").toLowerCase();
-    if (command.includes("refresh")) return "Refreshing";
-    return "Searching";
+    if (command.includes("refresh")) return t`Refreshing`;
+    return t`Searching`;
   }
   switch (item.stage) {
     case "reserved":
-      return "Reserved";
+      return t`Reserved`;
     case "snatched":
-      return "Snatched";
+      return t`Snatched`;
     case "downloaded":
-      return "Downloaded";
+      return t`Downloaded`;
     case "post_processing":
       return "Post-processing";
     case "moved":
-      return "Moving";
+      return t`Moving`;
     default:
-      return item.stage || "In flight";
+      return item.stage || t`In flight`;
   }
 }
 
@@ -219,8 +225,8 @@ function InFlightView() {
     } catch (error) {
       addToast({
         type: "error",
-        title: "Could not stop this item",
-        message: error instanceof Error ? error.message : "Try again.",
+        title: t`Could not stop this item`,
+        message: error instanceof Error ? error.message : t`Try again.`,
       });
     }
   };
@@ -231,14 +237,14 @@ function InFlightView() {
       await retryPostProcess.mutateAsync(item.release_key);
       addToast({
         type: "success",
-        title: "Post-processing queued",
+        title: t`Post-processing queued`,
         message: item.label,
       });
     } catch (error) {
       addToast({
         type: "error",
-        title: "Could not retry post-processing",
-        message: error instanceof Error ? error.message : "Try again.",
+        title: t`Could not retry post-processing`,
+        message: error instanceof Error ? error.message : t`Try again.`,
       });
     }
   };
@@ -252,7 +258,7 @@ function InFlightView() {
       <div className="px-8 py-4">
         <ErrorDisplay
           error={hardError}
-          title="Unable to load in-flight work"
+          title={t`Unable to load in-flight work`}
           onRetry={() => void inflight.refetch()}
         />
       </div>
@@ -264,17 +270,20 @@ function InFlightView() {
       <div className="px-8 py-10">
         <EmptyState
           variant="custom"
-          eyebrow="IN FLIGHT · EMPTY"
-          title="Nothing in flight"
-          description="Running searches and open download or post-processing rows appear here — the same items the status bar counts."
-          action={{ label: "Back to timeline", to: "/activity" }}
+          eyebrow={t`IN FLIGHT · EMPTY`}
+          title={t`Nothing in flight`}
+          description={t`Running searches and open download or post-processing rows appear here — the same items the status bar counts.`}
+          action={{ label: t`Back to timeline`, to: "/activity" }}
         />
       </div>
     );
   }
 
   return (
-    <ul className="flex-1 min-h-0 overflow-auto" aria-label="In-flight items">
+    <ul
+      className="flex-1 min-h-0 overflow-auto"
+      aria-label={t`In-flight items`}
+    >
       {items.map((item) => {
         const href = inFlightHref(item);
         return (
@@ -324,13 +333,13 @@ function InFlightView() {
                   variant="outline"
                   size="compact"
                   mono
-                  aria-label={`Retry post-processing ${item.label}`}
+                  aria-label={t`Retry post-processing ${ph({ label: item.label })}`}
                   disabled={
                     retryPostProcess.isPending || cancelInFlight.isPending
                   }
                   onClick={() => void handleRetryPostProcess(item)}
                 >
-                  Retry post-processing
+                  <Trans>Retry post-processing</Trans>
                 </Button>
               ) : null}
               <Button
@@ -338,13 +347,13 @@ function InFlightView() {
                 variant="outline"
                 size="compact"
                 mono
-                aria-label={`Stop ${item.label}`}
+                aria-label={t`Stop ${ph({ label: item.label })}`}
                 disabled={
                   cancelInFlight.isPending || retryPostProcess.isPending
                 }
                 onClick={() => void handleCancel(item)}
               >
-                Stop
+                <Trans>Stop</Trans>
               </Button>
             </div>
           </li>
@@ -386,8 +395,8 @@ function ActivityToolbar({
         size="icon-sm"
         onClick={onRefresh}
         disabled={isRefreshing}
-        aria-label="Refresh"
-        title="Refresh"
+        aria-label={t`Refresh`}
+        title={t`Refresh`}
       >
         <RefreshCw className={isRefreshing ? "animate-spin" : ""} />
       </Button>
@@ -521,14 +530,16 @@ function ActivityTableView<TData extends RowData>({
           <EmptyState
             variant="custom"
             eyebrow={
-              search ? `${emptyEyebrow} · FILTERED` : `${emptyEyebrow} · EMPTY`
+              search
+                ? t`${emptyEyebrow} · FILTERED`
+                : t`${emptyEyebrow} · EMPTY`
             }
             title={search ? filteredTitle : emptyTitle}
-            description={search ? "Try a different filter." : emptyDescription}
+            description={search ? t`Try a different filter.` : emptyDescription}
             action={
               pagination && pagination.offset > 0
                 ? {
-                    label: "Previous",
+                    label: t`Previous`,
                     onClick: onPrevPage,
                     variant: "outline",
                   }
@@ -589,7 +600,7 @@ function QueueView() {
     async (item: QueueItem) => {
       if (
         !window.confirm(
-          "Requeue this failed direct download? It will be retried by the DDL worker.",
+          t`Requeue this failed direct download? It will be retried by the DDL worker.`,
         )
       ) {
         return;
@@ -599,12 +610,15 @@ function QueueView() {
         await requeueDownload(item.ID);
         addToast({
           type: "success",
-          message: "Direct download requeued.",
+          message: t`Direct download requeued.`,
         });
       } catch (err) {
         addToast({
           type: "error",
-          message: `Unable to requeue direct download: ${err instanceof Error ? err.message : "Unknown error"}`,
+          message:
+            err instanceof Error
+              ? t`Unable to requeue direct download: ${ph({ error: err.message })}`
+              : t`Unable to requeue direct download: Unknown error`,
         });
       }
     },
@@ -616,7 +630,7 @@ function QueueView() {
       queueColumnHelper.columns([
         queueColumnHelper.accessor("series", {
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Series" />
+            <DataTableSortHeader column={column} title={t`Series`} />
           ),
           cell: ({ row }) => {
             const content = (
@@ -645,7 +659,7 @@ function QueueView() {
         queueColumnHelper.accessor("filename", {
           id: "file",
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="File" />
+            <DataTableSortHeader column={column} title={t`File`} />
           ),
           cell: ({ getValue }) => (
             <span className="mono-meta">{getValue() || "—"}</span>
@@ -653,7 +667,7 @@ function QueueView() {
         }),
         queueColumnHelper.accessor("site", {
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Site" />
+            <DataTableSortHeader column={column} title={t`Site`} />
           ),
           cell: ({ getValue }) => (
             <span className="text-muted-foreground">{getValue() || "—"}</span>
@@ -661,20 +675,20 @@ function QueueView() {
         }),
         queueColumnHelper.accessor("status", {
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Status" />
+            <DataTableSortHeader column={column} title={t`Status`} />
           ),
           cell: ({ getValue }) => <ActivityStatusBadge status={getValue()} />,
         }),
         queueColumnHelper.accessor("updated_date", {
           id: "updated",
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Updated" />
+            <DataTableSortHeader column={column} title={t`Updated`} />
           ),
           cell: ({ getValue }) => <RelativeTime value={getValue()} />,
         }),
         queueColumnHelper.display({
           id: "actions",
-          header: "Actions",
+          header: t`Actions`,
           cell: ({ row }) => {
             const item = row.original;
             const isFailed = item.status.trim().toLowerCase() === "failed";
@@ -688,10 +702,14 @@ function QueueView() {
                 disabled={isRequeueing}
                 className="rounded-md border px-2 py-1 font-mono text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-60"
                 style={{ borderColor: "var(--border)" }}
-                aria-label={`Requeue ${item.series || item.filename || "failed direct download"}`}
-                title="Requeue this failed direct download after confirmation"
+                aria-label={
+                  item.series || item.filename
+                    ? t`Requeue ${ph({ name: item.series || item.filename })}`
+                    : t`Requeue failed direct download`
+                }
+                title={t`Requeue this failed direct download after confirmation`}
               >
-                {isRequeueing ? "requeueing…" : "requeue"}
+                {isRequeueing ? t`requeueing…` : t`requeue`}
               </button>
             );
           },
@@ -716,16 +734,16 @@ function QueueView() {
       pagination={data?.pagination}
       search={search}
       onSearchChange={setSearch}
-      filterLabel="Filter queue activity"
-      filterPlaceholder="Filter by series, file, site, or status…"
+      filterLabel={t`Filter queue activity`}
+      filterPlaceholder={t`Filter by series, file, site, or status…`}
       isLoading={isLoading}
       isFetching={isFetching}
       error={error}
-      errorTitle="Unable to load download queue"
+      errorTitle={t`Unable to load download queue`}
       emptyEyebrow="QUEUE"
-      emptyTitle="No active downloads"
-      emptyDescription="Queued and downloading direct downloads will appear here; failures stay visible for review."
-      filteredTitle="No matching queue items"
+      emptyTitle={t`No active downloads`}
+      emptyDescription={t`Queued and downloading direct downloads will appear here; failures stay visible for review.`}
+      filteredTitle={t`No matching queue items`}
       onRefresh={() => void refetch()}
       onNextPage={nextPage}
       onPrevPage={prevPage}
@@ -765,7 +783,7 @@ function HistoryView() {
         historyColumnHelper.accessor("ComicName", {
           id: "series",
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Series" />
+            <DataTableSortHeader column={column} title={t`Series`} />
           ),
           cell: ({ row }) =>
             row.original.ComicID ? (
@@ -784,7 +802,7 @@ function HistoryView() {
         historyColumnHelper.accessor("Issue_Number", {
           id: "issue",
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Issue" />
+            <DataTableSortHeader column={column} title={t`Issue`} />
           ),
           cell: ({ getValue }) => (
             <span className="mono-meta">
@@ -792,26 +810,26 @@ function HistoryView() {
             </span>
           ),
         }),
-        historyColumnHelper.accessor("Provider", {
+        historyColumnHelper.accessor(PROVIDER_COLUMN, {
           id: "provider",
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Provider" />
+            <DataTableSortHeader column={column} title={t`Provider`} />
           ),
           cell: ({ getValue }) => (
             <span className="text-muted-foreground">{getValue() || "—"}</span>
           ),
         }),
-        historyColumnHelper.accessor("Status", {
+        historyColumnHelper.accessor(STATUS_COLUMN, {
           id: "status",
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Status" />
+            <DataTableSortHeader column={column} title={t`Status`} />
           ),
           cell: ({ getValue }) => <ActivityStatusBadge status={getValue()} />,
         }),
         historyColumnHelper.accessor("DateAdded", {
           id: "date",
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Date" />
+            <DataTableSortHeader column={column} title={t`Date`} />
           ),
           cell: ({ getValue }) => <RelativeTime value={getValue()} />,
         }),
@@ -835,16 +853,16 @@ function HistoryView() {
       pagination={data?.pagination}
       search={search}
       onSearchChange={setSearch}
-      filterLabel="Filter download history"
-      filterPlaceholder="Filter by series, issue, provider, status, or file…"
+      filterLabel={t`Filter download history`}
+      filterPlaceholder={t`Filter by series, issue, provider, status, or file…`}
       isLoading={isLoading}
       isFetching={isFetching}
       error={error}
-      errorTitle="Unable to load download history"
+      errorTitle={t`Unable to load download history`}
       emptyEyebrow="HISTORY"
-      emptyTitle="No download history"
-      emptyDescription="Download events will appear here."
-      filteredTitle="No matching history"
+      emptyTitle={t`No download history`}
+      emptyDescription={t`Download events will appear here.`}
+      filteredTitle={t`No matching history`}
       onRefresh={() => void refetch()}
       onNextPage={nextPage}
       onPrevPage={prevPage}

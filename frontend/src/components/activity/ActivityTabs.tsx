@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useNavigate } from "react-router-dom";
 import { Tab, TabRow } from "@/components/layout/PageHeader";
 import { useActivityStatus } from "@/hooks/useActivityStatus";
@@ -41,27 +43,27 @@ export function ActivityTabs({
     <TabRow>
       <Tab
         active={active === "timeline"}
-        label="Timeline"
+        label={t`Timeline`}
         onClick={() => go("timeline")}
       />
       <Tab
         active={active === "in_flight"}
-        label="In flight"
+        label={t`In flight`}
         onClick={() => go("in_flight")}
       />
       <Tab
         active={active === "queue"}
-        label="Direct downloads"
+        label={t`Direct downloads`}
         onClick={() => go("queue")}
       />
       <Tab
         active={active === "history"}
-        label="History"
+        label={t`History`}
         onClick={() => go("history")}
       />
       <Tab
         active={active === "attention"}
-        label="Needs you"
+        label={t`Needs you`}
         meta={
           attention > 0 ? (
             <span style={{ color: "var(--status-error)" }}>{attention}</span>
@@ -71,11 +73,11 @@ export function ActivityTabs({
       />
       <Tab
         active={active === "health"}
-        label="Health"
+        label={t`Health`}
         meta={
           failingJobs > 0 ? (
             <span style={{ color: "var(--status-error)" }}>
-              {failingJobs} failing
+              <Trans>{failingJobs} failing</Trans>
             </span>
           ) : undefined
         }

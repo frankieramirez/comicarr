@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import {
   Component,
   useEffect,
@@ -47,13 +49,15 @@ class RouteErrorBoundary extends Component<
         <section className="flex min-h-[12rem] items-center justify-center p-6">
           <Callout tone="error" className="max-w-md p-5 text-center">
             <h1 className="text-base font-semibold">
-              Unable to load this page
+              <Trans>Unable to load this page</Trans>
             </h1>
             <p className="mt-2 text-[12px] text-muted-foreground">
-              The page code did not load. Try again or choose another section.
+              <Trans>
+                The page code did not load. Try again or choose another section.
+              </Trans>
             </p>
             <Button className="mt-4" onClick={this.props.onRetry} type="button">
-              Try again
+              <Trans>Try again</Trans>
             </Button>
           </Callout>
         </section>
@@ -71,7 +75,7 @@ function RouteLoading() {
       role="status"
       aria-live="polite"
     >
-      Loading page…
+      <Trans>Loading page…</Trans>
     </div>
   );
 }
@@ -153,13 +157,15 @@ function RouteLoadError({
   return (
     <section className="flex min-h-[12rem] items-center justify-center p-6">
       <Callout tone="error" className="max-w-md p-5 text-center">
-        <h1 className="text-base font-semibold">Unable to load this page</h1>
+        <h1 className="text-base font-semibold">
+          <Trans>Unable to load this page</Trans>
+        </h1>
         <p className="mt-2 text-[12px] text-muted-foreground">
           {error.message ||
-            "The page code did not load. Try again or choose another section."}
+            t`The page code did not load. Try again or choose another section.`}
         </p>
         <Button className="mt-4" onClick={onRetry} type="button">
-          Try again
+          <Trans>Try again</Trans>
         </Button>
       </Callout>
     </section>

@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import OnboardingDialog from "@/components/onboarding/OnboardingDialog";
@@ -17,9 +19,9 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           <span
             className="inline-block h-3 w-3 animate-spin rounded-full border-[1.5px] border-solid border-current border-r-transparent"
             role="status"
-            aria-label="Loading"
+            aria-label={t`Loading`}
           />
-          checking session…
+          <Trans>checking session…</Trans>
         </div>
       </div>
     );

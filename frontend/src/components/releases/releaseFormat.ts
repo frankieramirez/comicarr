@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 /**
  * The format chips on Releases (#1383). Comics come from the weekly pull
  * source; manga, manhwa and manhua from MangaUpdates. A library series only
@@ -6,13 +7,13 @@
  */
 export type ReleaseFormat = "all" | "comics" | "manga" | "manhwa" | "manhua";
 
-export const FORMAT_LABEL: Record<ReleaseFormat, string> = {
-  all: "All",
-  comics: "Comics",
-  manga: "Manga",
-  manhwa: "Manhwa",
-  manhua: "Manhua",
-};
+export const FORMAT_LABEL = (): Record<ReleaseFormat, string> => ({
+  all: t`All`,
+  comics: t`Comics`,
+  manga: t`Manga`,
+  manhwa: t`Manhwa`,
+  manhua: t`Manhua`,
+});
 
 export const INDUSTRY_FORMATS: ReleaseFormat[] = [
   "all",

@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -59,7 +61,7 @@ export function ActivityFeedDrawerSlot({
   const { module: Drawer, error } = useLazyModule(
     open,
     load,
-    "AI activity failed to load",
+    t`AI activity failed to load`,
   );
 
   if (Drawer) return <Drawer open={open} onOpenChange={onOpenChange} />;
@@ -78,25 +80,28 @@ function LazyDrawerPlaceholder({
   error: Error | null;
   onDismiss: () => void;
 }) {
-  const card =
-    "fixed right-4 top-4 z-[100] rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg";
+  const card = `fixed right-4 top-4 z-[100] rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg`;
   if (error) {
     return (
       <div className={card}>
-        <p>AI activity failed to load. Reload the page if this persists.</p>
+        <p>
+          <Trans>
+            AI activity failed to load. Reload the page if this persists.
+          </Trans>
+        </p>
         <button
           type="button"
           className="mt-2 text-xs text-primary underline"
           onClick={onDismiss}
         >
-          Dismiss
+          <Trans>Dismiss</Trans>
         </button>
       </div>
     );
   }
   return (
     <div className={card} role="status" aria-live="polite">
-      Loading AI activity…
+      <Trans>Loading AI activity…</Trans>
     </div>
   );
 }
@@ -112,7 +117,7 @@ export function WhatsNewGate({ load = loadWhatsNewModal }: WhatsNewGateProps) {
   const { module: Modal } = useLazyModule(
     shouldLoadModal,
     load,
-    "What's New failed to load",
+    t`What's New failed to load`,
   );
 
   return Modal ? <Modal /> : null;
@@ -150,16 +155,16 @@ export default function Layout({ children }: LayoutProps) {
                   background:
                     "color-mix(in oklab, var(--primary) 12%, transparent)",
                 }}
-                title="Mock data — disable with ?mock=0"
+                title={t`Mock data — disable with ?mock=0`}
               >
-                mock
+                <Trans>mock</Trans>
               </span>
             )}
             {showAiBell && (
               <button
                 onClick={() => setActivityOpen(true)}
                 className="rounded-sm p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                aria-label="AI Activity"
+                aria-label={t`AI Activity`}
               >
                 <Bell className="h-3.5 w-3.5" />
               </button>

@@ -1,3 +1,4 @@
+import { ph, plural, t } from "@lingui/core/macro";
 /**
  * Quiet-count status line for AppStatusBar (Activity Center ADR §9, Variant A).
  * Pure composition — no React, no I/O.
@@ -33,6 +34,10 @@ export type StatusSegmentRole =
 export interface StatusSegment {
   role: StatusSegmentRole;
   text: string;
+  /** Shorter wording for the status bar, where the role is shown by layout. */
+  display?: string;
+  /** The activity segment reports a lost connection, not open work. */
+  unreachable?: boolean;
   href?: string;
 }
 
@@ -41,17 +46,43 @@ export interface QuietStatusMeta {
   segments: StatusSegment[];
 }
 
-function seriesLabel(n: number): string {
-  return n === 1 ? "1 series" : `${n} series`;
+function libraryText(s: ActivityStatusSnapshot): string {
+  if (s.librarySeries === null) return t`library: unavailable`;
+  return plural(s.librarySeries, {
+    one: "library: # series",
+    other: "library: # series",
+  });
 }
 
-function libraryText(s: ActivityStatusSnapshot): string {
-  if (s.librarySeries === null) return "library: unavailable";
-  return `library: ${seriesLabel(s.librarySeries)}`;
+function libraryDisplay(s: ActivityStatusSnapshot): string {
+  if (s.librarySeries === null) return t`unavailable`;
+  return plural(s.librarySeries, { one: "# series", other: "# series" });
+}
+
+function apiDisplay(s: ActivityStatusSnapshot): string {
+  switch (s.api) {
+    case "checking":
+      return t`checking…`;
+    case "online":
+      return t`online`;
+    case "offline":
+      return t`offline`;
+    default:
+      return s.api;
+  }
 }
 
 function apiText(s: ActivityStatusSnapshot): string {
-  return `api: ${s.api === "checking" ? "checking…" : s.api}`;
+  switch (s.api) {
+    case "checking":
+      return t`api: checking…`;
+    case "online":
+      return t`api: online`;
+    case "offline":
+      return t`api: offline`;
+    default:
+      return t`api: ${ph({ api: s.api })}`;
+  }
 }
 
 /**
@@ -61,34 +92,39 @@ function apiText(s: ActivityStatusSnapshot): string {
  */
 export function formatQuietStatus(s: ActivityStatusSnapshot): QuietStatusMeta {
   const segments: StatusSegment[] = [];
-  segments.push({ role: "library", text: libraryText(s) });
+  segments.push({
+    role: "library",
+    text: libraryText(s),
+    display: libraryDisplay(s),
+  });
   segments.push({ role: "separator", text: "·" });
-  segments.push({ role: "api", text: apiText(s) });
+  segments.push({ role: "api", text: apiText(s), display: apiDisplay(s) });
   segments.push({ role: "separator", text: "·" });
 
   if (s.live === "lost" || (s.api === "offline" && s.librarySeries === null)) {
     segments.push({
       role: "activity",
-      text: "unreachable",
+      text: t`unreachable`,
+      unreachable: true,
       href: "/activity",
     });
   } else if (s.inFlight === 0 && s.attention === 0) {
     segments.push({
       role: "idle",
-      text: "idle",
+      text: t`idle`,
       href: "/activity",
     });
   } else {
     if (s.inFlight > 0) {
       segments.push({
         role: "activity",
-        text: `${s.inFlight} in flight`,
+        text: plural(s.inFlight, { one: "# in flight", other: "# in flight" }),
         href: "/activity?state=in_flight",
       });
     } else {
       segments.push({
         role: "idle",
-        text: "idle",
+        text: t`idle`,
         href: "/activity",
       });
     }
@@ -96,7 +132,14 @@ export function formatQuietStatus(s: ActivityStatusSnapshot): QuietStatusMeta {
       segments.push({ role: "separator", text: "·" });
       segments.push({
         role: "attention",
-        text: `⚠ ${s.attention} need attention`,
+        text: plural(s.attention, {
+          one: "⚠ # needs attention",
+          other: "⚠ # need attention",
+        }),
+        display: plural(s.attention, {
+          one: "# needs you",
+          other: "# need you",
+        }),
         href: "/activity/attention",
       });
     }
@@ -117,30 +160,37 @@ export function liveAnnouncement(
   next: ActivityStatusSnapshot,
 ): string {
   if (!prev) {
-    if (next.live === "lost") return "Server unreachable";
-    if (next.api === "offline") return "API offline";
-    if (next.attention > 0) return `${next.attention} need attention`;
+    if (next.live === "lost") return t`Server unreachable`;
+    if (next.api === "offline") return t`API offline`;
+    if (next.attention > 0)
+      return plural(next.attention, {
+        one: "# needs attention",
+        other: "# need attention",
+      });
     return "";
   }
   if (prev.live !== next.live) {
-    if (next.live === "lost") return "Server unreachable";
-    if (prev.live === "lost") return "Reconnected";
+    if (next.live === "lost") return t`Server unreachable`;
+    if (prev.live === "lost") return t`Reconnected`;
   }
   if (prev.api !== next.api) {
-    if (next.api === "offline") return "API offline";
-    if (next.api === "online" && prev.api === "offline") return "API online";
+    if (next.api === "offline") return t`API offline`;
+    if (next.api === "online" && prev.api === "offline") return t`API online`;
   }
   if (prev.attention !== next.attention) {
-    if (next.attention === 0) return "Attention cleared";
-    return `${next.attention} need attention`;
+    if (next.attention === 0) return t`Attention cleared`;
+    return plural(next.attention, {
+      one: "# needs attention",
+      other: "# need attention",
+    });
   }
   const prevBusy = prev.inFlight > 0;
   const nextBusy = next.inFlight > 0;
   if (!prevBusy && nextBusy) {
-    return `${next.inFlight} in flight`;
+    return plural(next.inFlight, { one: "# in flight", other: "# in flight" });
   }
   if (prevBusy && !nextBusy && next.attention === 0) {
-    return "Idle";
+    return t`Idle`;
   }
   return "";
 }

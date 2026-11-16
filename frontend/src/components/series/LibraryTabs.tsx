@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Tab, TabRow } from "@/components/layout/PageHeader";
 import { useSeries } from "@/hooks/useSeries";
@@ -15,16 +16,16 @@ export default function LibraryTabs() {
   const onArcs = pathname.startsWith("/story-arcs");
 
   return (
-    <TabRow ariaLabel="Library views">
+    <TabRow ariaLabel={t`Library views`}>
       <Tab
         active={!onArcs}
-        label="Series"
+        label={t`Series`}
         meta={series.data?.length}
         onClick={() => navigate("/library")}
       />
       <Tab
         active={onArcs}
-        label="Story arcs"
+        label={t`Story arcs`}
         meta={arcs.data?.length}
         onClick={() => navigate("/story-arcs")}
       />

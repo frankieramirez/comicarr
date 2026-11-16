@@ -1,3 +1,6 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
+import { statusTone } from "@/lib/statusTone";
 import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -54,6 +57,9 @@ import {
 } from "@/hooks/useSeries";
 import { useToast } from "@/components/ui/toast";
 import type { Comic } from "@/types";
+
+// Column ids (data keys), not visible text.
+const STATUS_COLUMN = "Status";
 
 const columnHelper = createColumnHelper<ComicarrTableFeatures, Comic>();
 
@@ -146,7 +152,7 @@ export default function SeriesTable({
       columnHelper.columns([
         columnHelper.accessor("ComicName", { id: "ComicName" }),
         columnHelper.accessor("ComicPublisher", { id: "ComicPublisher" }),
-        columnHelper.accessor("Status", { id: "Status" }),
+        columnHelper.accessor(STATUS_COLUMN, { id: STATUS_COLUMN }),
         columnHelper.accessor("ComicYear", { id: "ComicYear" }),
       ]),
     [],
@@ -209,15 +215,18 @@ export default function SeriesTable({
       await bulkDeleteMutation.mutateAsync(selectedSeriesIds);
       addToast({
         type: "success",
-        message: `${selectedSeriesIds.length} series deleted`,
+        message: plural(selectedSeriesIds.length, {
+          one: "# series deleted",
+          other: "# series deleted",
+        }),
       });
       clearSelection();
       setConfirmDeleteFor(null);
     } catch {
       addToast({
         type: "error",
-        title: "Error",
-        description: "Failed to delete series",
+        title: t`Error`,
+        description: t`Failed to delete series`,
       });
     }
   };
@@ -227,14 +236,17 @@ export default function SeriesTable({
       await bulkPauseMutation.mutateAsync(selectedSeriesIds);
       addToast({
         type: "success",
-        message: `${selectedSeriesIds.length} series paused`,
+        message: plural(selectedSeriesIds.length, {
+          one: "# series paused",
+          other: "# series paused",
+        }),
       });
       clearSelection();
     } catch {
       addToast({
         type: "error",
-        title: "Error",
-        description: "Failed to pause series",
+        title: t`Error`,
+        description: t`Failed to pause series`,
       });
     }
   };
@@ -244,14 +256,17 @@ export default function SeriesTable({
       await bulkResumeMutation.mutateAsync(selectedSeriesIds);
       addToast({
         type: "success",
-        message: `${selectedSeriesIds.length} series resumed`,
+        message: plural(selectedSeriesIds.length, {
+          one: "# series resumed",
+          other: "# series resumed",
+        }),
       });
       clearSelection();
     } catch {
       addToast({
         type: "error",
-        title: "Error",
-        description: "Failed to resume series",
+        title: t`Error`,
+        description: t`Failed to resume series`,
       });
     }
   };
@@ -313,8 +328,8 @@ export default function SeriesTable({
         <div className="order-2 w-[min(240px,100%)] sm:w-[240px] shrink-0">
           <FilterField
             type="search"
-            placeholder="Filter series"
-            aria-label="Filter series"
+            placeholder={t`Filter series`}
+            aria-label={t`Filter series`}
             shortcut="/"
             widthCap="full"
             value={search}
@@ -345,15 +360,15 @@ export default function SeriesTable({
 
         <div
           role="group"
-          aria-label="View"
+          aria-label={t`View`}
           className={`order-4 shrink-0 ${SEGMENTED_GROUP}`}
         >
           {(
             [
-              ["grid", "Grid", LayoutGrid],
-              ["list", "List", LayoutList],
+              ["grid", t`Grid`, LayoutGrid, t`Grid view`],
+              ["list", t`List`, LayoutList, t`List view`],
             ] as const
-          ).map(([value, label, Icon]) => {
+          ).map(([value, label, Icon, viewLabel]) => {
             const pressed = value === "grid" ? isGridView : !isGridView;
             return (
               <button
@@ -369,7 +384,7 @@ export default function SeriesTable({
                   clearSelection();
                 }}
                 className={SEGMENTED_ITEM}
-                aria-label={`${label} view`}
+                aria-label={viewLabel}
                 aria-pressed={pressed}
               >
                 <Icon className="size-3.5" aria-hidden="true" />
@@ -384,7 +399,10 @@ export default function SeriesTable({
       {!isGridView && selectedSeriesIds.length > 0 && (
         <div className="shrink-0 mx-8 mb-2 px-3 py-1.5 rounded-md border border-border-subtle bg-surface-1 flex items-center gap-3">
           <span className="text-xs font-medium">
-            {selectedSeriesIds.length} selected
+            {plural(selectedSeriesIds.length, {
+              one: "# selected",
+              other: "# selected",
+            })}
           </span>
           <Button
             size="sm"
@@ -394,7 +412,7 @@ export default function SeriesTable({
             className="h-7 text-xs"
           >
             <Trash2 className="w-3 h-3 mr-1" />
-            {confirmDelete ? "Confirm Delete" : "Delete"}
+            {confirmDelete ? t`Confirm Delete` : t`Delete`}
           </Button>
           <Button
             size="sm"
@@ -404,7 +422,7 @@ export default function SeriesTable({
             className="h-7 text-xs"
           >
             <Pause className="w-3 h-3 mr-1" />
-            Pause
+            <Trans>Pause</Trans>
           </Button>
           <Button
             size="sm"
@@ -414,7 +432,7 @@ export default function SeriesTable({
             className="h-7 text-xs"
           >
             <Play className="w-3 h-3 mr-1" />
-            Resume
+            <Trans>Resume</Trans>
           </Button>
           <Button
             size="sm"
@@ -426,7 +444,7 @@ export default function SeriesTable({
             className="h-7 text-xs ml-auto"
           >
             <X className="w-3 h-3 mr-1" />
-            Clear
+            <Trans>Clear</Trans>
           </Button>
         </div>
       )}
@@ -448,20 +466,20 @@ export default function SeriesTable({
               className={`sticky top-0 z-10 mx-8 px-2 h-8 grid items-center gap-3 border-b border-border-subtle bg-background text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground ${LIST_ROW_COLS}`}
             >
               <Checkbox
-                aria-label="Select all series on page"
+                aria-label={t`Select all series on page`}
                 checked={getIsAllSelected(table)}
                 onCheckedChange={(value) => toggleAllSelected(table, !!value)}
               />
               <span />
               <SortHeader
-                label="title"
+                label={t`title`}
                 active={sorting[0]?.id === "ComicName"}
                 desc={sorting[0]?.id === "ComicName" && sorting[0].desc}
                 onClick={() => toggleSort("ComicName")}
               />
               <div className={DESKTOP_COL}>
                 <SortHeader
-                  label="publisher"
+                  label={t`publisher`}
                   active={sorting[0]?.id === "ComicPublisher"}
                   desc={sorting[0]?.id === "ComicPublisher" && sorting[0].desc}
                   onClick={() => toggleSort("ComicPublisher")}
@@ -469,17 +487,21 @@ export default function SeriesTable({
               </div>
               <div className={DESKTOP_COL}>
                 <SortHeader
-                  label="status"
+                  label={t`status`}
                   active={sorting[0]?.id === "Status"}
                   desc={sorting[0]?.id === "Status" && sorting[0].desc}
-                  onClick={() => toggleSort("Status")}
+                  onClick={() => toggleSort(t`Status`)}
                 />
               </div>
-              <span className={DESKTOP_COL}>issues</span>
-              <span className={DESKTOP_COL}>progress</span>
+              <span className={DESKTOP_COL}>
+                <Trans>issues</Trans>
+              </span>
+              <span className={DESKTOP_COL}>
+                <Trans>progress</Trans>
+              </span>
               <span className={`${DESKTOP_COL} text-right`}>
                 <SortHeader
-                  label="year"
+                  label={t`year`}
                   active={sorting[0]?.id === "ComicYear"}
                   desc={sorting[0]?.id === "ComicYear" && sorting[0].desc}
                   onClick={() => toggleSort("ComicYear")}
@@ -491,7 +513,7 @@ export default function SeriesTable({
             <div className="flex-1">
               {pageRows.length === 0 ? (
                 <div className="px-8 py-10 text-center text-sm text-muted-foreground">
-                  No results.
+                  <Trans>No results.</Trans>
                 </div>
               ) : (
                 pageRows.map((row) => (
@@ -520,7 +542,10 @@ export default function SeriesTable({
         onNextPage={() => table.nextPage()}
         notes={
           selectedSeriesIds.length > 0
-            ? `${selectedSeriesIds.length} selected`
+            ? plural(selectedSeriesIds.length, {
+                one: "# selected",
+                other: "# selected",
+              })
             : undefined
         }
       />
@@ -531,13 +556,13 @@ export default function SeriesTable({
 function columnIdToLabel(id: string): string {
   switch (id) {
     case "ComicName":
-      return "title";
+      return t`title`;
     case "ComicPublisher":
-      return "publisher";
+      return t`publisher`;
     case "Status":
-      return "status";
+      return t`status`;
     case "ComicYear":
-      return "year";
+      return t`year`;
     default:
       return id;
   }
@@ -560,8 +585,8 @@ function SortHeader({
 }: SortHeaderProps) {
   const sortAnnouncement = active
     ? desc
-      ? "sorted descending"
-      : "sorted ascending"
+      ? t`sorted descending`
+      : t`sorted ascending`
     : null;
   return (
     <button
@@ -598,7 +623,10 @@ interface SeriesRowProps {
 
 function SeriesRow({ row, onClick }: SeriesRowProps) {
   const comic = row.original;
-  const kindLabel = seriesKindOf(comic).toUpperCase();
+  const kind = seriesKindOf(comic);
+  const kindLabel = (
+    kind === "manga" ? t`Manga` : kind === "magazine" ? t`Magazine` : t`Comic`
+  ).toUpperCase();
   const have = parseInt(String(comic.Have)) || 0;
   const total = parseInt(String(comic.Total)) || 0;
   const progress = getProgressPercentage(comic);
@@ -609,7 +637,7 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
     comic.ComicPublisher,
     comic.ComicYear ? `(${comic.ComicYear})` : null,
     total > 0 ? `${have}/${total}` : null,
-    status || null,
+    status ? (statusTone(status)?.label.toLowerCase() ?? status) : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -624,7 +652,7 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
     >
       <div onClick={(e) => e.stopPropagation()}>
         <Checkbox
-          aria-label={`Select ${comic.ComicName}`}
+          aria-label={t`Select ${ph({ ComicName: comic.ComicName })}`}
           checked={isSelected}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
         />

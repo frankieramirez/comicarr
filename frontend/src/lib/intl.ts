@@ -87,6 +87,19 @@ export function formatNumber(
   return numberFormat(options).format(value);
 }
 
+/** "a, b, and c" in the reader's language. `type: "disjunction"` gives "or". */
+export function formatList(
+  items: string[],
+  options: Intl.ListFormatOptions = {},
+): string {
+  const opts: Intl.ListFormatOptions = { type: "conjunction", ...options };
+  return cached(
+    "list",
+    opts,
+    () => new Intl.ListFormat(formatLocale(), opts),
+  ).format(items);
+}
+
 /** "1.4 GB". Binary multiples, labelled the way download clients label them. */
 export function formatBytes(bytes: number): string {
   const units = ["byte", "kilobyte", "megabyte", "gigabyte", "terabyte"];

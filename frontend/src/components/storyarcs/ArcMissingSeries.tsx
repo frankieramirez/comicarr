@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { BookPlus, Loader2 } from "lucide-react";
 import { SectionHeader } from "@/components/dashboard/DashboardPanel";
@@ -51,15 +53,19 @@ export default function ArcMissingSeries({
           setConfirming(false);
           addToast({
             type: "success",
-            title: "Adding Series",
-            description: `Adding ${data.queued ?? resolved.length} series — the arc's issues will be marked Wanted as they import.`,
+            title: t`Adding Series`,
+            description: plural(data.queued ?? resolved.length, {
+              one: "Adding # series. The arc's issues will be marked Wanted as they import.",
+              other:
+                "Adding # series. The arc's issues will be marked Wanted as they import.",
+            }),
           });
         },
         onError: () => {
           addToast({
             type: "error",
-            title: "Error",
-            description: "Failed to queue the missing series.",
+            title: t`Error`,
+            description: t`Failed to queue the missing series.`,
           });
         },
       },
@@ -67,15 +73,17 @@ export default function ArcMissingSeries({
   };
 
   return (
-    <section aria-label="Missing from your library" className="mt-6 px-8">
+    <section aria-label={t`Missing from your library`} className="mt-6 px-8">
       <SectionHeader
-        title="Missing from your library"
-        meta={`${missing.length} series · ${totalIssues} ${totalIssues === 1 ? "issue" : "issues"}`}
+        title={t`Missing from your library`}
+        meta={t`${ph({ series: plural(missing.length, { one: "# series", other: "# series" }) })} · ${ph({ issues: plural(totalIssues, { one: "# issue", other: "# issues" }) })}`}
       />
       <div className="flex flex-col gap-3 rounded-md border border-border-subtle bg-surface-1 px-3 py-2 sm:flex-row sm:items-center">
         <p className="flex-1 text-[13px] text-foreground-2">
-          This arc reads through series you don't track yet. Add them and
-          Comicarr marks just the issues the arc needs as Wanted.
+          <Trans>
+            This arc reads through series you don't track yet. Add them and
+            Comicarr marks just the issues the arc needs as Wanted.
+          </Trans>
         </p>
         <Button
           type="button"
@@ -85,7 +93,7 @@ export default function ArcMissingSeries({
           onClick={() => setConfirming(true)}
         >
           <BookPlus />
-          Add what's missing
+          <Trans>Add what's missing</Trans>
         </Button>
       </div>
       <div className="mt-1">
@@ -110,8 +118,10 @@ export default function ArcMissingSeries({
               )}
             </span>
             <span className="shrink-0 text-foreground-2">
-              needs {series.issue_count}{" "}
-              {series.issue_count === 1 ? "issue" : "issues"}
+              {plural(series.issue_count, {
+                one: "needs # issue",
+                other: "needs # issues",
+              })}
             </span>
           </div>
         ))}
@@ -120,24 +130,28 @@ export default function ArcMissingSeries({
       <Dialog open={confirming} onOpenChange={setConfirming}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add what's missing</DialogTitle>
+            <DialogTitle>
+              <Trans>Add what's missing</Trans>
+            </DialogTitle>
             <DialogDescription>
-              These series will be added to your library, and the {totalIssues}{" "}
-              issue{totalIssues !== 1 ? "s" : ""} this arc needs will be marked
-              Wanted — the rest of each series is left alone.
+              {plural(totalIssues, {
+                one: "These series will be added to your library, and the # issue this arc needs will be marked Wanted. The rest of each series is left alone.",
+                other:
+                  "These series will be added to your library, and the # issues this arc needs will be marked Wanted. The rest of each series is left alone.",
+              })}
             </DialogDescription>
           </DialogHeader>
 
           {preview.isPending && (
             <div className="flex items-center gap-2 py-6 justify-center text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
-              Matching series on ComicVine...
+              <Trans>Matching series on ComicVine...</Trans>
             </div>
           )}
 
           {preview.isError && (
             <p className="text-sm text-destructive py-4">
-              Could not look up the missing series. Try again.
+              <Trans>Could not look up the missing series. Try again.</Trans>
             </p>
           )}
 
@@ -170,14 +184,16 @@ export default function ArcMissingSeries({
                           {series.series_name}
                         </span>
                         <p className="text-xs text-muted-foreground">
-                          No ComicVine match — won't be added
+                          <Trans>No ComicVine match — won't be added</Trans>
                         </p>
                       </>
                     )}
                   </div>
                   <span className="text-muted-foreground shrink-0">
-                    {series.issue_count}{" "}
-                    {series.issue_count === 1 ? "issue" : "issues"}
+                    {plural(series.issue_count, {
+                      one: "# issue",
+                      other: "# issues",
+                    })}
                   </span>
                 </div>
               ))}
@@ -190,7 +206,7 @@ export default function ArcMissingSeries({
               onClick={() => setConfirming(false)}
               disabled={addMissing.isPending}
             >
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
             <Button
               onClick={handleConfirm}
@@ -203,10 +219,13 @@ export default function ArcMissingSeries({
               {addMissing.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                  Adding...
+                  <Trans>Adding...</Trans>
                 </>
               ) : (
-                `Add ${resolved.length} series & mark issues Wanted`
+                plural(resolved.length, {
+                  one: "Add # series & mark issues Wanted",
+                  other: "Add # series & mark issues Wanted",
+                })
               )}
             </Button>
           </DialogFooter>

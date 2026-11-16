@@ -45,9 +45,9 @@ function asCount(value: number | undefined | null) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function humanize(value: string | null | undefined, fallback = "unknown") {
+function humanize(value: string | null | undefined, fallback?: string) {
   const text = String(value ?? "").trim();
-  return text ? text.replace(/[_-]+/g, " ") : fallback;
+  return text ? text.replace(/[_-]+/g, " ") : (fallback ?? t`unknown`);
 }
 
 function parseMoment(value: number | string | null | undefined) {
@@ -677,7 +677,7 @@ export function AcquisitionHealthTab() {
             />
             <Metric
               label={t`maintenance`}
-              value={maintenanceBlocked ? "blocked" : "clear"}
+              value={maintenanceBlocked ? t`blocked` : t`clear`}
               tone={maintenanceBlocked ? "warning" : "ready"}
             />
             <Metric

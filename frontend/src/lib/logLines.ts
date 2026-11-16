@@ -1,3 +1,5 @@
+import { plural } from "@lingui/core/macro";
+import { formatNumber } from "@/lib/intl";
 /**
  * Reading `comicarr.log` on the client.
  *
@@ -81,6 +83,9 @@ export function formatRetention(
   files: number | undefined,
 ): string | null {
   if (!bytes || !files) return null;
-  const mb = Math.round(bytes / 1_000_000);
-  return `${mb} MB × ${files} file${files === 1 ? "" : "s"}`;
+  const mb = formatNumber(Math.round(bytes / 1_000_000));
+  return plural(files, {
+    one: `${mb} MB × # file`,
+    other: `${mb} MB × # files`,
+  });
 }

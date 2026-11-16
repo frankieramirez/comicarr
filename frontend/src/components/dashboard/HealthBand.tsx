@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useSyncExternalStore } from "react";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -96,7 +98,7 @@ export default function HealthBand() {
   if (health.isPending) {
     return (
       <section data-testid="health-band-loading">
-        <SectionHeader variant="rail" title="System health" />
+        <SectionHeader variant="rail" title={t`System health`} />
         {/* Rows at the height of the resolved section, so it does not shift. */}
         <div aria-hidden="true" className="flex flex-col gap-3 py-1">
           <Skeleton className="h-2.5 w-56 rounded-sm" />
@@ -117,18 +119,18 @@ export default function HealthBand() {
   const quiet = view.signals.filter((signal) => signal.tone === "healthy");
 
   return (
-    <section aria-label="Acquisition health" data-tone={view.tone}>
+    <section aria-label={t`Acquisition health`} data-tone={view.tone}>
       <div className="mb-2 flex items-center justify-between gap-3">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-          System health
+          <Trans>System health</Trans>
         </h2>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => void health.refetch()}
             disabled={health.isFetching}
-            aria-label="Recheck acquisition health"
-            title={health.isFetching ? "checking…" : "recheck"}
+            aria-label={t`Recheck acquisition health`}
+            title={health.isFetching ? t`checking…` : t`recheck`}
             className="inline-flex size-6 items-center justify-center rounded-control text-muted-foreground hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
           >
             <RefreshCw
@@ -139,7 +141,7 @@ export default function HealthBand() {
             to="/settings?section=acquisition"
             className="inline-flex items-center gap-0.5 text-[13px] text-foreground-2 hover:text-foreground"
           >
-            Details
+            <Trans>Details</Trans>
             <ChevronRight className="size-3.5 text-muted-foreground" />
           </Link>
         </div>

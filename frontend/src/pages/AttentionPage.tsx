@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 /**
  * `/activity/attention` — the needs-attention triage surface (#526).
  *
@@ -69,12 +71,30 @@ function withinAge(value: string, age: AgeFilter): boolean {
 /** Summary toast copy for a multi-status batch (#525) — never a blocking modal. */
 function batchSummary(result: BandBatchResult): string {
   const verb = actionLabel(result.action);
+  const succeeded = result.succeeded;
+  const processed = result.processed;
   const head =
-    result.succeeded === result.processed
-      ? `${verb} — ${result.succeeded} ${result.succeeded === 1 ? "issue" : "issues"}.`
-      : `${verb} ${result.succeeded} of ${result.processed} — ${result.failed} still ${result.failed === 1 ? "needs" : "need"} attention.`;
+    succeeded === processed
+      ? plural(succeeded, {
+          one: `${verb} — # issue.`,
+          other: `${verb} — # issues.`,
+        })
+      : plural(result.failed, {
+          one: `${verb} ${succeeded} of ${processed} — # still needs attention.`,
+          other: `${verb} ${succeeded} of ${processed} — # still need attention.`,
+        });
   if (!result.capped) return head;
-  return `${head} ${result.skipped_for_cap} left for another go (max ${result.cap} at a time).`;
+  return t`${head} ${ph({ skipped_for_cap: result.skipped_for_cap })} left for another go (max ${ph({ cap: result.cap })} at a time).`;
+}
+
+/** "2 problems · 5 issues". */
+function problemsSummary(problems: number, issues: number): string {
+  const problemCount = plural(problems, {
+    one: "# problem",
+    other: "# problems",
+  });
+  const issueCount = plural(issues, { one: "# issue", other: "# issues" });
+  return t`${problemCount} · ${issueCount}`;
 }
 
 export default function AttentionPage() {
@@ -177,7 +197,7 @@ export default function AttentionPage() {
         message:
           err instanceof Error
             ? err.message
-            : `Unable to ${actionLabel(action).toLowerCase()} these issues.`,
+            : t`Unable to apply “${ph({ action: actionLabel(action) })}” to these issues.`,
       });
     }
   };
@@ -196,8 +216,8 @@ export default function AttentionPage() {
         header={
           <>
             <PageHeader
-              title="Activity"
-              meta="What Comicarr can't finish without you"
+              title={t`Activity`}
+              meta={t`What Comicarr can't finish without you`}
             />
             <ActivityTabs active="attention" />
           </>
@@ -218,8 +238,8 @@ export default function AttentionPage() {
         header={
           <>
             <PageHeader
-              title="Activity"
-              meta="What Comicarr can't finish without you"
+              title={t`Activity`}
+              meta={t`What Comicarr can't finish without you`}
             />
             <ActivityTabs active="attention" />
           </>
@@ -228,7 +248,7 @@ export default function AttentionPage() {
         <div className="px-8 py-4">
           <ErrorDisplay
             error={band.error}
-            title="Unable to load needs attention"
+            title={t`Unable to load needs attention`}
             onRetry={() => void band.refetch()}
           />
         </div>
@@ -241,11 +261,11 @@ export default function AttentionPage() {
       header={
         <>
           <PageHeader
-            title="Activity"
+            title={t`Activity`}
             meta={
               groups.length === 0
-                ? "Nothing is waiting on you"
-                : `${groups.length} ${groups.length === 1 ? "problem" : "problems"} · ${band.data?.member_total ?? 0} issues`
+                ? t`Nothing is waiting on you`
+                : problemsSummary(groups.length, band.data?.member_total ?? 0)
             }
           />
           <ActivityTabs active="attention" />
@@ -253,13 +273,15 @@ export default function AttentionPage() {
           {scoped && (
             <div className="flex shrink-0 items-center gap-2 border-b border-border px-8 py-2 mono-meta">
               <span>
-                Scoped to {scope_type}:{scope_id}
+                <Trans>
+                  Scoped to {scope_type}:{scope_id}
+                </Trans>
               </span>
               <Link
                 to="/activity/attention"
                 className="ml-auto hover:text-foreground"
               >
-                clear scope
+                <Trans>clear scope</Trans>
               </Link>
             </div>
           )}
@@ -267,8 +289,8 @@ export default function AttentionPage() {
           <div className="flex shrink-0 flex-wrap items-center gap-2 px-8 pt-1 pb-3">
             <div className="max-w-xs flex-1">
               <FilterField
-                placeholder="Filter by series or reason…"
-                aria-label="Filter needs attention"
+                placeholder={t`Filter by series or reason…`}
+                aria-label={t`Filter needs attention`}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 shortcut="/"
@@ -276,14 +298,14 @@ export default function AttentionPage() {
             </div>
             <div
               role="group"
-              aria-label="Filter by stage"
+              aria-label={t`Filter by stage`}
               className={SEGMENTED_GROUP}
             >
               {(
                 [
-                  ["all", "All"],
-                  ["failed", "Failed"],
-                  ["manual_review", "Manual review"],
+                  ["all", t`All`],
+                  ["failed", t`Failed`],
+                  ["manual_review", t`Manual review`],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -298,15 +320,21 @@ export default function AttentionPage() {
               ))}
             </div>
             <select
-              aria-label="Filter by age"
+              aria-label={t`Filter by age`}
               value={age}
               onChange={(e) => setAge(e.target.value as AgeFilter)}
               className="rounded-control border bg-transparent px-2 py-1.5 mono-meta"
               style={{ borderColor: "var(--border)" }}
             >
-              <option value="all">any age</option>
-              <option value="7d">last 7 days</option>
-              <option value="30d">last 30 days</option>
+              <option value="all">
+                <Trans>any age</Trans>
+              </option>
+              <option value="7d">
+                <Trans>last 7 days</Trans>
+              </option>
+              <option value="30d">
+                <Trans>last 30 days</Trans>
+              </option>
             </select>
             {filteredKeys.length > 0 && (
               <label className="flex cursor-pointer items-center gap-1.5 font-mono text-[10px] text-muted-foreground hover:text-foreground">
@@ -318,20 +346,23 @@ export default function AttentionPage() {
                       node.indeterminate = selectedIssues > 0 && !allSelected;
                   }}
                   onChange={() => setKeysSelected(filteredKeys, !allSelected)}
-                  aria-label={`Select all ${filteredKeys.length} issues`}
+                  aria-label={plural(filteredKeys.length, {
+                    one: "Select all # issue",
+                    other: "Select all # issues",
+                  })}
                 />
-                select all {filteredKeys.length}
+                {t`select all ${ph({ count: filteredKeys.length })}`}
               </label>
             )}
             <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-              unresolved only · History keeps the full ledger
+              <Trans>unresolved only · History keeps the full ledger</Trans>
             </span>
           </div>
 
           {selectedIssues > 0 && (
             <div
               role="group"
-              aria-label="Selected issues"
+              aria-label={t`Selected issues`}
               className="flex shrink-0 flex-wrap items-center gap-2 border-b px-8 py-2"
               style={{
                 borderColor: "var(--border)",
@@ -340,22 +371,22 @@ export default function AttentionPage() {
               }}
             >
               <span className="font-mono text-[11px]">
-                {selectedGroupCount}{" "}
-                {selectedGroupCount === 1 ? "problem" : "problems"} ·{" "}
-                {selectedIssues} {selectedIssues === 1 ? "issue" : "issues"}
+                {problemsSummary(selectedGroupCount, selectedIssues)}
               </span>
               {selectedIssues > 25 && (
                 <span
                   className="font-mono text-[10px]"
                   style={{ color: "var(--status-paused)" }}
                 >
-                  25 at a time — the rest stay here
+                  <Trans>25 at a time — the rest stay here</Trans>
                 </span>
               )}
               {sharedActions(selectedMembers).length === 0 ? (
                 <span className="font-mono text-[10px] text-muted-foreground">
-                  these rows are at different stages — no action fits all of
-                  them
+                  <Trans>
+                    these rows are at different stages — no action fits all of
+                    them
+                  </Trans>
                 </span>
               ) : (
                 sharedActions(selectedMembers).map((action) => (
@@ -391,7 +422,7 @@ export default function AttentionPage() {
                 onClick={() => setSelected(new Set())}
                 className="ml-auto font-mono text-[10px] text-muted-foreground hover:text-foreground"
               >
-                clear selection
+                <Trans>clear selection</Trans>
               </button>
             </div>
           )}
@@ -403,21 +434,23 @@ export default function AttentionPage() {
           <EmptyState
             variant="custom"
             eyebrow={
-              groups.length === 0 ? "ATTENTION · CLEAR" : "ATTENTION · FILTERED"
+              groups.length === 0
+                ? t`ATTENTION · CLEAR`
+                : t`ATTENTION · FILTERED`
             }
             title={
               groups.length === 0
-                ? "Nothing needs your attention"
-                : "Nothing matches these filters"
+                ? t`Nothing needs your attention`
+                : t`Nothing matches these filters`
             }
             description={
               groups.length === 0
-                ? "Failures and stalled imports show up here until you act on them. Finished work lives in History."
-                : "Try a wider stage or age filter."
+                ? t`Failures and stalled imports show up here until you act on them. Finished work lives in History.`
+                : t`Try a wider stage or age filter.`
             }
             action={
               groups.length === 0
-                ? { label: "Back to Activity", to: "/activity" }
+                ? { label: t`Back to Activity`, to: "/activity" }
                 : undefined
             }
           />
@@ -532,7 +565,7 @@ function GroupPanel({
             if (node) node.indeterminate = pickedCount > 0 && !allPicked;
           }}
           onChange={() => onSelect(memberKeys, !allPicked)}
-          aria-label={`Select all ${group.member_count} in ${group.series_label}`}
+          aria-label={t`Select all ${ph({ member_count: group.member_count })} in ${ph({ series_label: group.series_label })}`}
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -569,8 +602,10 @@ function GroupPanel({
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {mixedStages ? (
               <span className="font-mono text-[10px] text-muted-foreground">
-                these issues stopped at different stages — pick the ones you
-                mean
+                <Trans>
+                  these issues stopped at different stages — pick the ones you
+                  mean
+                </Trans>
               </span>
             ) : (
               group.available_actions.map((action) => (
@@ -599,7 +634,12 @@ function GroupPanel({
                 aria-expanded={expanded}
                 className="ml-auto font-mono text-[10px] text-muted-foreground hover:text-foreground"
               >
-                {expanded ? "hide issues" : `show ${group.member_count} issues`}
+                {expanded
+                  ? t`hide issues`
+                  : plural(group.member_count, {
+                      one: "show # issue",
+                      other: "show # issues",
+                    })}
               </button>
             )}
           </div>
@@ -620,7 +660,7 @@ function GroupPanel({
                     onChange={(e) =>
                       onSelect([member.release_key], e.target.checked)
                     }
-                    aria-label={`Select ${member.issue_label}`}
+                    aria-label={t`Select ${ph({ issue_label: member.issue_label })}`}
                   />
                   <span className="truncate">{member.issue_label}</span>
                   {/* Only worth naming when the group can't speak for it. */}

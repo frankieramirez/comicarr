@@ -1,3 +1,4 @@
+import { plural, t } from "@lingui/core/macro";
 import type { AttentionCause } from "@/components/activity/timeline";
 
 /**
@@ -5,17 +6,17 @@ import type { AttentionCause } from "@/components/activity/timeline";
  * folds series into causes; this only phrases what it sent.
  */
 
-export function plural(n: number, word: string) {
-  return `${n} ${word}${n === 1 ? "" : "s"}`;
-}
-
 /** "A", "A and B", "A, B and C", "A, B and 3 more series". */
 export function seriesList(labels: string[]): string {
-  if (labels.length <= 1) return labels[0] ?? "";
-  if (labels.length <= 3) {
-    return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
-  }
-  return `${labels.slice(0, 2).join(", ")} and ${labels.length - 2} more series`;
+  const [first = "", second = "", third = ""] = labels;
+  if (labels.length <= 1) return first;
+  if (labels.length === 2) return t`${first} and ${second}`;
+  if (labels.length === 3) return t`${first}, ${second} and ${third}`;
+  const rest = labels.length - 2;
+  return plural(rest, {
+    one: `${first}, ${second} and # more series`,
+    other: `${first}, ${second} and # more series`,
+  });
 }
 
 /** The sentence under a cause's headline: what it touches, then what fixes it. */
@@ -25,15 +26,26 @@ export function causeSubline(cause: AttentionCause): string {
   if (cause.member_count === 1) {
     where = cause.series[0]?.issue_labels[0] ?? labels[0] ?? "";
   } else if (cause.series.length === 1) {
-    where = `${plural(cause.member_count, "issue")} in ${labels[0]}`;
+    const series = labels[0] ?? "";
+    where = plural(cause.member_count, {
+      one: `# issue in ${series}`,
+      other: `# issues in ${series}`,
+    });
   } else if (
     cause.series.every((s) => s.member_count === cause.series[0].member_count)
   ) {
-    where = `${seriesList(labels)}, ${cause.series[0].member_count} ${
-      cause.series[0].member_count === 1 ? "issue" : "issues"
-    } each`;
+    const list = seriesList(labels);
+    where = plural(cause.series[0].member_count, {
+      one: `${list}, # issue each`,
+      other: `${list}, # issues each`,
+    });
   } else {
-    where = `${plural(cause.member_count, "issue")} in ${seriesList(labels)}`;
+    const list = seriesList(labels);
+    where = plural(cause.member_count, {
+      one: `# issue in ${list}`,
+      other: `# issues in ${list}`,
+    });
   }
-  return cause.hint ? `${where}. ${cause.hint}` : `${where}.`;
+  const hint = cause.hint;
+  return hint ? t`${where}. ${hint}` : t`${where}.`;
 }

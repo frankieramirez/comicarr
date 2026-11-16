@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 /**
  * Setup gaps that stop *every* search: no indexer, or no download client.
  *
@@ -28,21 +29,21 @@ export interface SearchBlocker {
   fix: { label: string; to: string };
 }
 
-const INDEXER: SearchBlocker = {
+const INDEXER = (): SearchBlocker => ({
   key: "indexer",
-  headline: "No indexer, so nothing can be searched",
-  detail: "Add Prowlarr, a Newznab or Torznab indexer, or turn on GetComics.",
-  short: "no indexer",
-  fix: { label: "Add an indexer", to: SETTINGS_INDEXERS },
-};
+  headline: t`No indexer, so nothing can be searched`,
+  detail: t`Add Prowlarr, a Newznab or Torznab indexer, or turn on GetComics.`,
+  short: t`no indexer`,
+  fix: { label: t`Add an indexer`, to: SETTINGS_INDEXERS },
+});
 
-const CLIENT: SearchBlocker = {
+const CLIENT = (): SearchBlocker => ({
   key: "client",
-  headline: "No download client, so nothing can be downloaded",
-  detail: "Add SABnzbd, NZBGet, qBittorrent, or another client.",
-  short: "no download client",
-  fix: { label: "Add a download client", to: SETTINGS_CLIENTS },
-};
+  headline: t`No download client, so nothing can be downloaded`,
+  detail: t`Add SABnzbd, NZBGet, qBittorrent, or another client.`,
+  short: t`no download client`,
+  fix: { label: t`Add a download client`, to: SETTINGS_CLIENTS },
+});
 
 /** Routes that hand a release to an outside client. DDL downloads itself. */
 const CLIENT_ROUTES = ["nzb", "torrent"];
@@ -67,7 +68,7 @@ export function searchBlockers(
     );
 
   const blockers: SearchBlocker[] = [];
-  if (configuredIndexers === 0) blockers.push(INDEXER);
+  if (configuredIndexers === 0) blockers.push(INDEXER());
 
   // A DDL provider downloads by itself, so it needs no client. A client that
   // is chosen but half set up (no host, bad path) is a breakage the health
@@ -77,7 +78,7 @@ export function searchBlockers(
     const route = routes[key];
     return route?.enabled === false || route?.downstream === "disabled";
   });
-  if (noClientChosen && !ddlEnabled) blockers.push(CLIENT);
+  if (noClientChosen && !ddlEnabled) blockers.push(CLIENT());
   return blockers;
 }
 

@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useMemo } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { CircleDot, Download, X } from "lucide-react";
@@ -46,14 +48,14 @@ export function useUpcomingColumns(
         id: "select",
         header: ({ table }) => (
           <Checkbox
-            aria-label="Select all rows"
+            aria-label={t`Select all rows`}
             checked={getIsAllSelected(table)}
             onCheckedChange={(value) => toggleAllSelected(table, !!value)}
           />
         ),
         cell: ({ row }) => (
           <Checkbox
-            aria-label={`Select ${row.original.ComicName}`}
+            aria-label={t`Select ${ph({ series: row.original.ComicName ?? "" })}`}
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
             onClick={(e) => e.stopPropagation()}
@@ -76,7 +78,7 @@ export function useUpcomingColumns(
         enableSorting: false,
       }),
       columnHelper.accessor("ComicName", {
-        header: "Series",
+        header: t`Series`,
         cell: ({ row }) => (
           <div className="flex min-w-0 items-center gap-2">
             <Link
@@ -88,7 +90,7 @@ export function useUpcomingColumns(
             </Link>
             {row.original.ContentType && (
               <span className="shrink-0 rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground max-md:hidden">
-                {row.original.ContentType === "manga" ? "Manga" : "Comic"}
+                {row.original.ContentType === "manga" ? t`Manga` : t`Comic`}
               </span>
             )}
           </div>
@@ -97,7 +99,7 @@ export function useUpcomingColumns(
       }),
       columnHelper.display({
         id: "IssueNumber",
-        header: "Issue",
+        header: t`Issue`,
         cell: ({ row }) => (
           <span className="whitespace-nowrap font-mono text-[13px] text-foreground">
             {releaseNumber(row.original)}
@@ -107,7 +109,7 @@ export function useUpcomingColumns(
       }),
       columnHelper.accessor((row) => row.Publisher ?? "", {
         id: "Publisher",
-        header: "Publisher",
+        header: t`Publisher`,
         cell: ({ getValue }) => (
           <span className="block max-w-[180px] truncate text-[13px] text-foreground-2">
             {getValue() || "—"}
@@ -117,7 +119,11 @@ export function useUpcomingColumns(
       }),
       columnHelper.display({
         id: "Status",
-        header: () => <span className="max-md:sr-only">Status</span>,
+        header: () => (
+          <span className="max-md:sr-only">
+            <Trans>Status</Trans>
+          </span>
+        ),
         cell: ({ row }) => {
           const state = releaseState(
             row.original,
@@ -166,7 +172,7 @@ export function useUpcomingColumns(
                   className="text-muted-foreground hover:text-foreground hover:underline underline-offset-2 max-md:hidden"
                   onClick={(event) => event.stopPropagation()}
                 >
-                  · see why
+                  <Trans>· see why</Trans>
                 </Link>
               ) : state.detail ? (
                 <span className="font-mono text-xs text-muted-foreground max-md:hidden">
@@ -179,7 +185,11 @@ export function useUpcomingColumns(
       }),
       columnHelper.display({
         id: "actions",
-        header: () => <span className="sr-only">Actions</span>,
+        header: () => (
+          <span className="sr-only">
+            <Trans>Actions</Trans>
+          </span>
+        ),
         cell: ({ row }) => {
           const status = row.original.Status?.toLowerCase();
           const issueId = row.original.IssueID;
@@ -222,7 +232,7 @@ export function useUpcomingColumns(
                   className="text-foreground-2"
                 >
                   <CircleDot />
-                  Review releases
+                  <Trans>Review releases</Trans>
                 </Button>
               ) : null}
               {status === "wanted" || status === "skipped" ? (
@@ -237,7 +247,7 @@ export function useUpcomingColumns(
                           onSuccess: () =>
                             addToast({
                               type: "success",
-                              message: "1 issue skipped",
+                              message: t`1 issue skipped`,
                             }),
                           onError: reportMutationError,
                         });
@@ -246,7 +256,7 @@ export function useUpcomingColumns(
                       className="text-foreground-2"
                     >
                       <X />
-                      Skip
+                      <Trans>Skip</Trans>
                     </Button>
                   )}
                   {status === "skipped" && (
@@ -259,7 +269,7 @@ export function useUpcomingColumns(
                           onSuccess: () =>
                             addToast({
                               type: "success",
-                              message: "1 issue queued",
+                              message: t`1 issue queued`,
                             }),
                           onError: reportMutationError,
                         });
@@ -268,7 +278,7 @@ export function useUpcomingColumns(
                       className="text-foreground-2"
                     >
                       <Download />
-                      Want
+                      <Trans>Want</Trans>
                     </Button>
                   )}
                 </>
@@ -282,7 +292,7 @@ export function useUpcomingColumns(
                       onSuccess: () =>
                         addToast({
                           type: "success",
-                          message: "1 issue queued",
+                          message: t`1 issue queued`,
                         }),
                       onError: reportMutationError,
                     });
@@ -291,7 +301,7 @@ export function useUpcomingColumns(
                   className="text-foreground-2"
                 >
                   <Download />
-                  Want
+                  <Trans>Want</Trans>
                 </Button>
               ) : null}
             </div>

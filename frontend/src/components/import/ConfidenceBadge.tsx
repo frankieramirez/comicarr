@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 interface ConfidenceBadgeProps {
   confidence: number | null;
   showLabel?: boolean;
@@ -12,7 +13,7 @@ export default function ConfidenceBadge({
   showLabel = true,
 }: ConfidenceBadgeProps) {
   if (confidence === null || confidence === undefined) {
-    return <span className="mono-meta">{showLabel ? "Unknown" : "?"}</span>;
+    return <span className="mono-meta">{showLabel ? t`Unknown` : "?"}</span>;
   }
 
   const pct = Math.max(0, Math.min(100, confidence));
@@ -26,7 +27,7 @@ export default function ConfidenceBadge({
   return (
     <span
       className="inline-flex items-center gap-2"
-      title={`${pct}% match confidence`}
+      title={t`${pct}% match confidence`}
     >
       <span
         aria-hidden="true"

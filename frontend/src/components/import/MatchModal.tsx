@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { Search, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -93,13 +95,13 @@ function MatchModalContent({
 
   const placeholder =
     searchMode === "manga"
-      ? "Search for a manga series..."
-      : "Search for a comic series...";
+      ? t`Search for a manga series...`
+      : t`Search for a comic series...`;
   const fileCount = importGroup?.FileCount ?? importGroup?.files.length ?? 0;
   const matchContext = importGroup
     ? [
         getImportGroupTypeLabel(importGroup),
-        `${fileCount} file${fileCount === 1 ? "" : "s"}`,
+        plural(fileCount, { one: "# file", other: "# files" }),
         getImportIssueRange(importGroup),
       ].filter(Boolean)
     : [];
@@ -113,7 +115,9 @@ function MatchModalContent({
       finalFocus={() => resolveFocusTarget(finalFocus.current, triggerRowId)}
     >
       <DialogHeader className="space-y-1 border-b border-border p-4 pr-12 text-left">
-        <DialogTitle>Match Import</DialogTitle>
+        <DialogTitle>
+          <Trans>Match Import</Trans>
+        </DialogTitle>
         {matchDescription && (
           <DialogDescription>{matchDescription}</DialogDescription>
         )}
@@ -129,7 +133,7 @@ function MatchModalContent({
               setSelectedComic(null);
               setSearchQuery(e.target.value);
             }}
-            aria-label="Search series"
+            aria-label={t`Search series`}
             aria-describedby={
               searchMode === "comic" ? "match-search-help" : undefined
             }
@@ -143,8 +147,10 @@ function MatchModalContent({
             id="match-search-help"
             className="mt-2 text-sm text-muted-foreground"
           >
-            Search by name, or paste a ComicVine volume ID (4050-12345),
-            ComicVine volume URL, or Metron series URL.
+            <Trans>
+              Search by name, or paste a ComicVine volume ID (4050-12345),
+              ComicVine volume URL, or Metron series URL.
+            </Trans>
           </p>
         )}
       </div>
@@ -153,27 +159,33 @@ function MatchModalContent({
         {mangaLoading && (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">Loading...</span>
+            <span className="ml-2 text-muted-foreground">
+              <Trans>Loading...</Trans>
+            </span>
           </div>
         )}
 
         {mangaBlocked && (
           <div className="py-8 text-center text-muted-foreground">
-            Manga search requires MangaDex or MyAnimeList to be enabled in
-            Settings.
+            <Trans>
+              Manga search requires MangaDex or MyAnimeList to be enabled in
+              Settings.
+            </Trans>
           </div>
         )}
 
         {!mangaBlocked && !mangaLoading && isSearching && (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">Searching...</span>
+            <span className="ml-2 text-muted-foreground">
+              <Trans>Searching...</Trans>
+            </span>
           </div>
         )}
 
         {!mangaBlocked && !mangaLoading && searchError && (
           <div className="py-8 text-center text-destructive">
-            Error searching: {searchError.message}
+            {t`Error searching: ${ph({ error: searchError.message })}`}
           </div>
         )}
 
@@ -184,7 +196,7 @@ function MatchModalContent({
           searchData?.results &&
           searchData.results.length === 0 && (
             <div className="py-8 text-center text-muted-foreground">
-              No results found. Try a different search term.
+              <Trans>No results found. Try a different search term.</Trans>
             </div>
           )}
 
@@ -227,7 +239,7 @@ function MatchModalContent({
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-                          N/A
+                          <Trans>N/A</Trans>
                         </div>
                       )}
                     </div>
@@ -242,7 +254,10 @@ function MatchModalContent({
                       </div>
                       {result.count_of_issues && (
                         <div className="text-xs text-muted-foreground">
-                          {result.count_of_issues} issues
+                          {plural(Number(result.count_of_issues), {
+                            one: "# issue",
+                            other: "# issues",
+                          })}
                         </div>
                       )}
                     </div>
@@ -253,12 +268,12 @@ function MatchModalContent({
 
                     {result.in_library && (
                       <span className="rounded bg-[var(--status-active-bg)] px-2 py-1 text-xs text-[var(--status-active)]">
-                        In Library
+                        <Trans>In Library</Trans>
                       </span>
                     )}
                     {!result.in_library && (
                       <span className="text-xs text-muted-foreground">
-                        Will add unmonitored
+                        <Trans>Will add unmonitored</Trans>
                       </span>
                     )}
                   </button>
@@ -271,32 +286,39 @@ function MatchModalContent({
       {addMissing && selectedComic && (
         <div className="border-t border-border p-4 text-sm" role="status">
           <p>
-            Will add series: {selectedComic.comicname || selectedComic.name} (
-            {selectedComic.comicyear ||
-              selectedComic.start_year ||
-              "Year unknown"}
-            , {selectedComic.publisher || "Publisher unknown"})
+            {t`Will add series: ${ph({
+              series: selectedComic.comicname || selectedComic.name || "",
+            })} (${ph({
+              year:
+                selectedComic.comicyear ||
+                selectedComic.start_year ||
+                t`Year unknown`,
+            })}, ${ph({
+              publisher: selectedComic.publisher || t`Publisher unknown`,
+            })})`}
           </p>
           <p className="text-muted-foreground">
-            Added unmonitored. No downloads will start. Files stay pending until
-            metadata and every issue are matched.
+            <Trans>
+              Added unmonitored. No downloads will start. Files stay pending
+              until metadata and every issue are matched.
+            </Trans>
           </p>
         </div>
       )}
       <DialogFooter className="border-t border-border bg-muted/30 p-4 sm:justify-end">
         <Button variant="outline" onClick={onClose} disabled={isMatching}>
-          Cancel
+          <Trans>Cancel</Trans>
         </Button>
         <Button onClick={handleMatch} disabled={!canMatch || isMatching}>
           {isMatching ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {addMissing ? "Adding and importing..." : "Matching..."}
+              {addMissing ? t`Adding and importing...` : t`Matching...`}
             </>
           ) : addMissing ? (
-            "Add series and import"
+            t`Add series and import`
           ) : (
-            "Match Selected"
+            t`Match Selected`
           )}
         </Button>
       </DialogFooter>

@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { useCallback, useRef, useState, type UIEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -79,7 +81,7 @@ import { DESKTOP_COL } from "@/components/data-table/gridColumns";
 type IssueFilter = "all" | "have" | "wanted" | "not_wanted";
 
 function getIssueStatus(issue: Issue): string {
-  return issue.displayState ?? issue.status ?? issue.Status ?? "Unknown";
+  return issue.displayState ?? issue.status ?? issue.Status ?? t`Unknown`;
 }
 
 function isIssueOwned(issue: Issue): boolean {
@@ -122,7 +124,7 @@ function isIssueNotWanted(issue: Issue): boolean {
  */
 function issueLabel(issue: Issue): string {
   const status = getIssueStatus(issue);
-  return status === "Missing" ? "Wanted" : status;
+  return status === "Missing" ? t`Wanted` : status;
 }
 
 type LedgerKind = "annual" | "chapter" | "volume";
@@ -159,11 +161,11 @@ function getLedgerKind(issue: Issue, isManga: boolean): LedgerKind | null {
   return null;
 }
 
-const LEDGER_KIND_LABEL: Record<LedgerKind, string> = {
-  annual: "Annual",
-  chapter: "Chapter",
-  volume: "Volume",
-};
+const LEDGER_KIND_LABEL = (): Record<LedgerKind, string> => ({
+  annual: t`Annual`,
+  chapter: t`Chapter`,
+  volume: t`Volume`,
+});
 
 function getSeparateIntent(issue: Issue): string | null {
   const intent = issue.acquisitionIntent?.toLowerCase();
@@ -173,51 +175,41 @@ function getSeparateIntent(issue: Issue): string | null {
   return getIssueStatus(issue).toLowerCase() === intent ? null : intent;
 }
 
-const ROUTE_REASON_COPY: Record<string, string> = {
-  no_viable_acquisition_route:
-    "No download route is configured yet. Enable a DDL, Usenet, or torrent route in Settings.",
-  route_health_unavailable:
-    "Route health could not be read. Check the server logs, then refresh this preview.",
-  disabled:
-    "Every download route is disabled. Enable one in Settings, along with at least one provider.",
-  provider_not_configured:
-    "No Usenet indexer is configured. Add and enable one in Search settings.",
-  provider_disabled:
-    "Usenet indexers are configured but disabled. Enable one in Search settings.",
-  downloader_disabled:
-    "The Usenet download client is disabled. Choose one in Download client settings.",
-  client_not_ready:
-    "The download client is missing its host or API key. Finish configuring it in Settings.",
-  path_not_ready:
-    "The configured download directory does not exist on the server. Check the path and any container mounts.",
-  providers_temporarily_blocked:
-    "Every provider is in a temporary backoff. This clears on its own — try again shortly.",
-  unsupported_restart_correlation:
-    "The selected download client cannot correlate downloads across a restart. Choose a client that can.",
-};
+const ROUTE_REASON_COPY = (): Record<string, string> => ({
+  no_viable_acquisition_route: t`No download route is configured yet. Enable a DDL, Usenet, or torrent route in Settings.`,
+  route_health_unavailable: t`Route health could not be read. Check the server logs, then refresh this preview.`,
+  disabled: t`Every download route is disabled. Enable one in Settings, along with at least one provider.`,
+  provider_not_configured: t`No Usenet indexer is configured. Add and enable one in Search settings.`,
+  provider_disabled: t`Usenet indexers are configured but disabled. Enable one in Search settings.`,
+  downloader_disabled: t`The Usenet download client is disabled. Choose one in Download client settings.`,
+  client_not_ready: t`The download client is missing its host or API key. Finish configuring it in Settings.`,
+  path_not_ready: t`The configured download directory does not exist on the server. Check the path and any container mounts.`,
+  providers_temporarily_blocked: t`Every provider is in a temporary backoff. This clears on its own — try again shortly.`,
+  unsupported_restart_correlation: t`The selected download client cannot correlate downloads across a restart. Choose a client that can.`,
+});
 
-const ROUTE_REASON_FIX: Record<string, { label: string; to: string }> = {
+const ROUTE_REASON_FIX = (): Record<string, { label: string; to: string }> => ({
   provider_not_configured: {
-    label: "Open search settings",
+    label: t`Open search settings`,
     to: "/settings?section=search",
   },
   provider_disabled: {
-    label: "Open search settings",
+    label: t`Open search settings`,
     to: "/settings?section=search",
   },
   downloader_disabled: {
-    label: "Open download client settings",
+    label: t`Open download client settings`,
     to: "/settings?section=clients",
   },
   client_not_ready: {
-    label: "Open download client settings",
+    label: t`Open download client settings`,
     to: "/settings?section=clients",
   },
   path_not_ready: {
-    label: "Open download client settings",
+    label: t`Open download client settings`,
     to: "/settings?section=clients",
   },
-};
+});
 
 /**
  * The header's primary action. While setup stops every search, a "Search 117
@@ -245,8 +237,8 @@ function SearchMissingButton({
       >
         <Plus />
         {blocker.key === "indexer"
-          ? "Add an indexer to search"
-          : "Add a download client to search"}
+          ? t`Add an indexer to search`
+          : t`Add a download client to search`}
       </Link>
     );
   }
@@ -259,16 +251,16 @@ function SearchMissingButton({
       aria-label={ariaLabel}
     >
       <Search />
-      {missing > 0 ? `Search ${missing} wanted` : "Search wanted"}
+      {missing > 0 ? t`Search ${missing} wanted` : t`Search wanted`}
     </Button>
   );
 }
 
 function formatRouteReason(reason?: string | null): string {
-  if (!reason) return "No safe acquisition route is currently ready.";
+  if (!reason) return t`No safe acquisition route is currently ready.`;
   return (
-    ROUTE_REASON_COPY[reason] ??
-    `Search is blocked: ${reason.replace(/_/g, " ")}.`
+    ROUTE_REASON_COPY()[reason] ??
+    t`Search is blocked: ${ph({ reason: reason.replace(/_/g, " ") })}.`
   );
 }
 
@@ -287,11 +279,13 @@ function retainedLocations(raw?: string | null): string[] {
 function errorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message
-    : "Unable to load the search preview.";
+    : t`Unable to load the search preview.`;
 }
 
-function pluralize(count: number, singular: string): string {
-  return `${count} ${singular}${count === 1 ? "" : "s"}`;
+/** "Issue 12" / "Annual 3", or just the kind when there is no number. */
+function issueFallbackLabel(issue: Issue, number?: string | null): string {
+  if (!number) return issue.annual ? t`Annual` : t`Issue`;
+  return issue.annual ? t`Annual ${number}` : t`Issue ${number}`;
 }
 
 const ISSUE_GRID_COLS =
@@ -317,9 +311,26 @@ function toReleaseReviewIssue(
 function interactiveSearchLabel(issue: Issue): string {
   const issueName = issue.name ?? issue.IssueName;
   const issueNumber = issue.number ?? issue.Issue_Number;
-  const fallback =
-    `${issue.annual ? "Annual" : "Issue"} ${issueNumber ?? ""}`.trim();
-  return `Interactive Search for ${issueName || fallback}`;
+  const name = issueName || issueFallbackLabel(issue, issueNumber);
+  return t`Interactive Search for ${name}`;
+}
+
+/** "3 matched · 1 no match · 1 failed". */
+function runCountsLine(run: {
+  succeeded_count: number;
+  no_match_count: number;
+  failed_count?: number | null;
+  blocked_count?: number | null;
+}): string {
+  const parts = [
+    t`${ph({ count: run.succeeded_count })} matched`,
+    t`${ph({ count: run.no_match_count })} no match`,
+  ];
+  if (run.failed_count)
+    parts.push(t`${ph({ count: run.failed_count })} failed`);
+  if (run.blocked_count)
+    parts.push(t`${ph({ count: run.blocked_count })} blocked`);
+  return parts.join(" · ");
 }
 
 export default function SeriesDetailPage() {
@@ -408,7 +419,7 @@ export default function SeriesDetailPage() {
       } else if (result.data) {
         setPreview(result.data);
       } else {
-        setSearchError("The search preview did not return a result.");
+        setSearchError(t`The search preview did not return a result.`);
       }
     } catch (previewError) {
       setSearchError(errorMessage(previewError));
@@ -468,7 +479,9 @@ export default function SeriesDetailPage() {
   if (isLoading) {
     return (
       <div className="p-5 space-y-4">
-        <h1 className="sr-only">Series</h1>
+        <h1 className="sr-only">
+          <Trans>Series</Trans>
+        </h1>
         <Skeleton className="h-6 w-64" />
         <div className="grid gap-7 md:grid-cols-[140px_minmax(0,1fr)] xl:grid-cols-[140px_minmax(0,1fr)_260px]">
           <Skeleton className="aspect-[2/3] w-[140px]" />
@@ -488,7 +501,7 @@ export default function SeriesDetailPage() {
       <div className="p-5">
         <ErrorDisplay
           error={error}
-          title="Unable to load series"
+          title={t`Unable to load series`}
           onRetry={() => {
             void refetch();
           }}
@@ -502,15 +515,17 @@ export default function SeriesDetailPage() {
     return (
       <div className="p-5">
         <div className="mx-auto max-w-lg py-16 text-center">
-          <h1 className="text-lg font-semibold">Series not found</h1>
+          <h1 className="text-lg font-semibold">
+            <Trans>Series not found</Trans>
+          </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error?.message || "Series not found."}
+            {error?.message || t`Series not found.`}
           </p>
           <Link
             to="/library"
             className="mt-6 inline-block text-sm text-primary hover:underline"
           >
-            Back to library
+            <Trans>Back to library</Trans>
           </Link>
         </div>
       </div>
@@ -561,8 +576,8 @@ export default function SeriesDetailPage() {
     } catch {
       addToast({
         type: "error",
-        title: "Error",
-        description: "Failed to update search settings",
+        title: t`Error`,
+        description: t`Failed to update search settings`,
       });
     }
   };
@@ -585,8 +600,8 @@ export default function SeriesDetailPage() {
     } catch {
       addToast({
         type: "error",
-        title: "Error",
-        description: "Failed to update search settings",
+        title: t`Error`,
+        description: t`Failed to update search settings`,
       });
     }
   };
@@ -613,23 +628,23 @@ export default function SeriesDetailPage() {
   // keeps a synthesised placeholder ledger reading as chapters, as before.
   const ledgerLabel =
     volumeCount && chapterCount
-      ? "Volumes & chapters"
+      ? t`Volumes & chapters`
       : volumeCount
-        ? "Volumes"
+        ? t`Volumes`
         : chapterCount
-          ? "Chapters"
+          ? t`Chapters`
           : isManga
-            ? "Chapters"
-            : "Issues";
+            ? t`Chapters`
+            : t`Issues`;
   const hasArcs = allIssues.some((issue) => Boolean(issue.Arc));
   const ledgerFacets: string[] = [];
   if (volumeCount && chapterCount) {
-    ledgerFacets.push(`volumes: ${volumeCount}`, `chapters: ${chapterCount}`);
+    ledgerFacets.push(t`volumes: ${volumeCount}`, t`chapters: ${chapterCount}`);
   }
-  if (annualCount) ledgerFacets.push(`annuals: ${annualCount}`);
+  if (annualCount) ledgerFacets.push(t`annuals: ${annualCount}`);
   // "grouped by arc" used to print unconditionally whenever there were no
   // annuals, including on a ledger whose every arc cell reads "—".
-  if (hasArcs) ledgerFacets.push("grouped by arc");
+  if (hasArcs) ledgerFacets.push(t`grouped by arc`);
   const provider = comicId?.startsWith("md-")
     ? "MangaDex"
     : comicId?.startsWith("mal-")
@@ -664,8 +679,10 @@ export default function SeriesDetailPage() {
     } catch {
       addToast({
         type: "error",
-        title: "Error",
-        description: `Failed to ${isPaused ? "resume" : "pause"} series`,
+        title: t`Error`,
+        description: isPaused
+          ? t`Failed to resume series`
+          : t`Failed to pause series`,
       });
     }
   };
@@ -677,8 +694,8 @@ export default function SeriesDetailPage() {
     } catch {
       addToast({
         type: "error",
-        title: "Error",
-        description: "Failed to refresh series",
+        title: t`Error`,
+        description: t`Failed to refresh series`,
       });
     }
   };
@@ -692,16 +709,16 @@ export default function SeriesDetailPage() {
       });
       addToast({
         type: "success",
-        title: "Content kind updated",
+        title: t`Content kind updated`,
         description: result.location_repointed
-          ? `This series is now cataloged as ${nextKind}. New downloads import under the ${nextKind} destination. Files already at the previous path were not moved.`
-          : `This series is now cataloged as ${nextKind}.`,
+          ? t`This series is now cataloged as ${nextKind}. New downloads import under the ${nextKind} destination. Files already at the previous path were not moved.`
+          : t`This series is now cataloged as ${nextKind}.`,
       });
     } catch {
       addToast({
         type: "error",
-        title: "Content kind not updated",
-        description: "Comicarr could not save this classification. Try again.",
+        title: t`Content kind not updated`,
+        description: t`Comicarr could not save this classification. Try again.`,
       });
     }
   };
@@ -714,8 +731,8 @@ export default function SeriesDetailPage() {
     } catch {
       addToast({
         type: "error",
-        title: "Error",
-        description: "Failed to delete series",
+        title: t`Error`,
+        description: t`Failed to delete series`,
       });
     }
   };
@@ -765,8 +782,8 @@ export default function SeriesDetailPage() {
         onError: (statusError) =>
           addToast({
             type: "error",
-            title: "Error",
-            description: `Failed to update status: ${statusError.message}`,
+            title: t`Error`,
+            description: t`Failed to update status: ${ph({ message: statusError.message })}`,
           }),
       },
     );
@@ -785,16 +802,18 @@ export default function SeriesDetailPage() {
           targets: selectedTargets,
           status,
         }),
-        `marked ${status.toLowerCase()}`,
-        "update",
+        `mark-${status.toLowerCase() as Lowercase<SettableIssueStatus>}`,
       );
       addToast({ type, message });
       setSelectedRows(new Set(keep));
     } catch (bulkError) {
       addToast({
         type: "error",
-        title: "Error",
-        description: `Failed to update statuses: ${bulkError instanceof Error ? bulkError.message : "Unknown error"}`,
+        title: t`Error`,
+        description:
+          bulkError instanceof Error
+            ? t`Failed to update statuses: ${ph({ error: bulkError.message })}`
+            : t`Failed to update statuses: Unknown error`,
       });
     }
   };
@@ -810,8 +829,8 @@ export default function SeriesDetailPage() {
     },
   ].filter((segment) => segment.value > 0);
   const progressSummary = [
-    wanted > 0 ? `${wanted} wanted` : null,
-    inFlight > 0 ? `${inFlight} in progress` : null,
+    wanted > 0 ? t`${wanted} wanted` : null,
+    inFlight > 0 ? t`${inFlight} in progress` : null,
   ]
     .filter(Boolean)
     .join(", ");
@@ -821,10 +840,10 @@ export default function SeriesDetailPage() {
       ? "var(--status-ended)"
       : "var(--status-active)";
   const statusWord = isPaused
-    ? "Paused"
+    ? t`Paused`
     : comic.Status?.toLowerCase() === "ended"
-      ? "Ended"
-      : "Continuing";
+      ? t`Ended`
+      : t`Continuing`;
 
   const startMissingReview = (unfiltered: boolean) => {
     if (!comicId) return;
@@ -869,7 +888,7 @@ export default function SeriesDetailPage() {
             {comic.ComicName}
           </span>
           <span className="hidden shrink-0 rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground sm:inline">
-            {isManga ? "Manga" : "Comic"}
+            {isManga ? t`Manga` : t`Comic`}
           </span>
           <div
             aria-hidden="true"
@@ -891,7 +910,7 @@ export default function SeriesDetailPage() {
           </span>
           {wanted > 0 && (
             <span className="hidden shrink-0 text-[13px] text-foreground-2 lg:inline">
-              {wanted} wanted
+              <Trans>{wanted} wanted</Trans>
             </span>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -908,12 +927,12 @@ export default function SeriesDetailPage() {
               className="hidden bg-surface-2 sm:inline-flex"
               onClick={handleRefresh}
               disabled={refreshMutation.isPending}
-              aria-label="Refresh series"
+              aria-label={t`Refresh series`}
             >
               <RefreshCw
                 className={refreshMutation.isPending ? "animate-spin" : ""}
               />
-              Refresh
+              <Trans>Refresh</Trans>
             </Button>
           </div>
         </div>
@@ -950,7 +969,7 @@ export default function SeriesDetailPage() {
 
           <div className="relative px-4 pt-4 md:px-8 md:pt-5">
             <nav
-              aria-label="Breadcrumb"
+              aria-label={t`Breadcrumb`}
               className="mb-4 flex items-center gap-2 text-[13px] text-foreground-2 md:mb-5"
             >
               <Link
@@ -961,7 +980,7 @@ export default function SeriesDetailPage() {
                   className="size-5 -ml-1 md:hidden"
                   aria-hidden="true"
                 />
-                Library
+                <Trans>Library</Trans>
               </Link>
               <span className="text-muted-foreground max-md:hidden">/</span>
               <span className="truncate text-foreground max-md:hidden">
@@ -992,7 +1011,7 @@ export default function SeriesDetailPage() {
                     {comic.ComicName}
                   </h1>
                   <span className="rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-                    {isManga ? "Manga" : "Comic"}
+                    {isManga ? t`Manga` : t`Comic`}
                   </span>
                 </div>
 
@@ -1038,7 +1057,7 @@ export default function SeriesDetailPage() {
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-[12px] text-foreground-2 hover:text-foreground hover:underline"
                       >
-                        View on {link.label}
+                        {t`View on ${ph({ site: link.label })}`}
                         <ExternalLink className="h-3 w-3" aria-hidden="true" />
                       </a>
                     ))}
@@ -1059,7 +1078,7 @@ export default function SeriesDetailPage() {
                       missing={wanted}
                       onClick={handleOpenSearch}
                       disabled={!comicId || searchPreview.isFetching}
-                      aria-label="Search all missing"
+                      aria-label={t`Search all missing`}
                     />
                     <Button
                       type="button"
@@ -1074,7 +1093,7 @@ export default function SeriesDetailPage() {
                           refreshMutation.isPending ? "animate-spin" : ""
                         }
                       />
-                      Refresh
+                      <Trans>Refresh</Trans>
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger
@@ -1083,7 +1102,7 @@ export default function SeriesDetailPage() {
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            aria-label="More series actions"
+                            aria-label={t`More series actions`}
                           >
                             <MoreHorizontal />
                           </Button>
@@ -1093,18 +1112,18 @@ export default function SeriesDetailPage() {
                         <DropdownMenuItem
                           disabled={reviewDisabled}
                           onClick={() => startMissingReview(false)}
-                          aria-label="Interactive Search for missing issues"
+                          aria-label={t`Interactive Search for missing issues`}
                         >
                           <Search />
-                          Review missing
+                          <Trans>Review missing</Trans>
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           disabled={reviewDisabled}
                           onClick={() => startMissingReview(true)}
-                          aria-label="Browse every indexer's releases for this series"
+                          aria-label={t`Browse every indexer's releases for this series`}
                         >
                           <TextSearch />
-                          Browse releases
+                          <Trans>Browse releases</Trans>
                         </DropdownMenuItem>
                         {comicId ? (
                           <DropdownMenuItem
@@ -1113,10 +1132,10 @@ export default function SeriesDetailPage() {
                                 to={`/activity?scope_type=series&scope_id=${encodeURIComponent(comicId)}`}
                               />
                             }
-                            aria-label="View activity for this series"
+                            aria-label={t`View activity for this series`}
                           >
                             <Activity />
-                            Activity
+                            <Trans>Activity</Trans>
                           </DropdownMenuItem>
                         ) : null}
                         <DropdownMenuItem
@@ -1126,7 +1145,7 @@ export default function SeriesDetailPage() {
                           onClick={() => void handlePauseResume()}
                         >
                           {isPaused ? <Play /> : <Pause />}
-                          {isPaused ? "Resume" : "Pause"}
+                          {isPaused ? t`Resume` : t`Pause`}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -1134,7 +1153,7 @@ export default function SeriesDetailPage() {
                           className="text-[var(--status-error)]"
                         >
                           <Trash2 />
-                          Delete
+                          <Trans>Delete</Trans>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -1142,7 +1161,7 @@ export default function SeriesDetailPage() {
                 ) : (
                   <>
                     <span className="text-[13px] text-foreground-2">
-                      Delete this series?
+                      <Trans>Delete this series?</Trans>
                     </span>
                     <Button
                       type="button"
@@ -1153,7 +1172,7 @@ export default function SeriesDetailPage() {
                       className="font-semibold"
                     >
                       <Trash2 />
-                      Confirm delete
+                      <Trans>Confirm delete</Trans>
                     </Button>
                     <Button
                       type="button"
@@ -1161,7 +1180,7 @@ export default function SeriesDetailPage() {
                       size="toolbar"
                       onClick={() => setShowDeleteConfirm(false)}
                     >
-                      Cancel
+                      <Trans>Cancel</Trans>
                     </Button>
                   </>
                 )}
@@ -1172,7 +1191,11 @@ export default function SeriesDetailPage() {
             <div
               className="mt-5 flex h-1 gap-0.5 overflow-hidden rounded-full"
               role="img"
-              aria-label={`${completionPct}% held: ${have} of ${total}${progressSummary ? `, ${progressSummary}` : ""}`}
+              aria-label={
+                progressSummary
+                  ? t`${completionPct}% held: ${have} of ${total}, ${progressSummary}`
+                  : t`${completionPct}% held: ${have} of ${total}`
+              }
             >
               {segments.length === 0 ? (
                 <div className="flex-1 bg-surface-3" />
@@ -1191,7 +1214,7 @@ export default function SeriesDetailPage() {
           </div>
 
           <div className="relative mt-4">
-            <TabRow ariaLabel="Series sections">
+            <TabRow ariaLabel={t`Series sections`}>
               <Tab
                 active={tab === "issues"}
                 label={ledgerLabel}
@@ -1200,7 +1223,7 @@ export default function SeriesDetailPage() {
               />
               <Tab
                 active={tab === "settings"}
-                label="Settings"
+                label={t`Settings`}
                 onClick={() => setTab("settings")}
               />
             </TabRow>
@@ -1215,15 +1238,15 @@ export default function SeriesDetailPage() {
               </div>
               <div
                 role="group"
-                aria-label="Filter issues"
+                aria-label={t`Filter issues`}
                 className={SEGMENTED_GROUP}
               >
                 {(
                   [
-                    ["all", "All", total],
-                    ["have", "Have", have],
-                    ["wanted", "Wanted", wanted],
-                    ["not_wanted", "Not wanted", notWanted],
+                    ["all", t`All`, total],
+                    ["have", t`Have`, have],
+                    ["wanted", t`Wanted`, wanted],
+                    ["not_wanted", t`Not wanted`, notWanted],
                   ] as const
                 ).map(([key, label, count]) => (
                   <button
@@ -1252,7 +1275,10 @@ export default function SeriesDetailPage() {
                   className="mono-label"
                   data-testid="issue-selection-count"
                 >
-                  {selectedTargets.length} selected
+                  {plural(selectedTargets.length, {
+                    one: "# selected",
+                    other: "# selected",
+                  })}
                 </span>
                 <IssueStatusMenu
                   disabled={
@@ -1263,9 +1289,9 @@ export default function SeriesDetailPage() {
                       type="button"
                       variant="outline"
                       size="toolbar"
-                      aria-label="Set status on selected issues"
+                      aria-label={t`Set status on selected issues`}
                     >
-                      Set status
+                      <Trans>Set status</Trans>
                       <ChevronDown aria-hidden="true" />
                     </Button>
                   }
@@ -1277,7 +1303,7 @@ export default function SeriesDetailPage() {
                   disabled={bulkSetIssueStatus.isPending}
                   className="mono-label transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Clear
+                  <Trans>Clear</Trans>
                 </button>
               </div>
             )}
@@ -1300,17 +1326,29 @@ export default function SeriesDetailPage() {
                             : false
                       }
                       onCheckedChange={toggleAllFiltered}
-                      aria-label="Select all visible issues"
+                      aria-label={t`Select all visible issues`}
                       disabled={bulkSetIssueStatus.isPending}
                     />
                   </div>
-                  <div className={DESKTOP_COL}>type</div>
+                  <div className={DESKTOP_COL}>
+                    <Trans>type</Trans>
+                  </div>
                   <div>#</div>
-                  <div>title</div>
-                  <div className={DESKTOP_COL}>arc</div>
-                  <div className={DESKTOP_COL}>date</div>
-                  <div>state</div>
-                  <div className="sr-only">search</div>
+                  <div>
+                    <Trans>title</Trans>
+                  </div>
+                  <div className={DESKTOP_COL}>
+                    <Trans>arc</Trans>
+                  </div>
+                  <div className={DESKTOP_COL}>
+                    <Trans>date</Trans>
+                  </div>
+                  <div>
+                    <Trans>state</Trans>
+                  </div>
+                  <div className="sr-only">
+                    <Trans>search</Trans>
+                  </div>
                 </div>
 
                 {filteredIssues.length === 0 ? (
@@ -1318,7 +1356,7 @@ export default function SeriesDetailPage() {
                     className="px-5 py-8 text-center font-mono text-[11px]"
                     style={{ color: "var(--muted-foreground)" }}
                   >
-                    no issues to display
+                    <Trans>no issues to display</Trans>
                   </div>
                 ) : (
                   filteredIssues.map((issue) => {
@@ -1336,8 +1374,7 @@ export default function SeriesDetailPage() {
                     const ledgerKind = getLedgerKind(issue, isManga);
                     const rowKey = issueRowKey(issue);
                     const rowLabel =
-                      issueName ||
-                      `${issue.annual ? "Annual" : "Issue"} ${issueNumber}`;
+                      issueName || issueFallbackLabel(issue, issueNumber);
                     return (
                       <div
                         key={`${issue.annual ? "annual" : "issue"}-${issueId}`}
@@ -1347,14 +1384,14 @@ export default function SeriesDetailPage() {
                           <Checkbox
                             checked={selectedRows.has(rowKey)}
                             onCheckedChange={() => toggleRowSelected(rowKey)}
-                            aria-label={`Select ${rowLabel}`}
+                            aria-label={t`Select ${rowLabel}`}
                             disabled={!issueId || bulkSetIssueStatus.isPending}
                           />
                         </div>
                         <div className={DESKTOP_COL}>
                           {ledgerKind && (
                             <span className="rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-                              {LEDGER_KIND_LABEL[ledgerKind]}
+                              {LEDGER_KIND_LABEL()[ledgerKind]}
                             </span>
                           )}
                         </div>
@@ -1370,7 +1407,7 @@ export default function SeriesDetailPage() {
                               data-testid="phone-row-id"
                               className="mr-1.5 hidden max-md:inline rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground"
                             >
-                              {LEDGER_KIND_LABEL[ledgerKind]}
+                              {LEDGER_KIND_LABEL()[ledgerKind]}
                             </span>
                           ) : null}
                           <Link
@@ -1378,7 +1415,7 @@ export default function SeriesDetailPage() {
                             className="underline-offset-2 hover:underline"
                           >
                             {issueName ||
-                              `${issue.annual ? "Annual" : "Issue"} ${issueNumber}`}
+                              issueFallbackLabel(issue, issueNumber)}
                           </Link>
                         </div>
                         <div
@@ -1399,7 +1436,7 @@ export default function SeriesDetailPage() {
                         >
                           <IssueStatusMenu
                             current={status}
-                            label={`Change status for ${rowLabel}`}
+                            label={t`Change status for ${rowLabel}`}
                             disabled={
                               !issueId ||
                               setIssueStatus.isPending ||
@@ -1413,7 +1450,7 @@ export default function SeriesDetailPage() {
                             <button
                               type="button"
                               className="rounded-control px-1.5 text-[12px] text-foreground-2 underline-offset-2 opacity-0 transition-opacity hover:text-foreground hover:underline focus-visible:opacity-100 group-hover/row:opacity-100 max-md:opacity-100"
-                              aria-label={`Want ${rowLabel}`}
+                              aria-label={t`Want ${rowLabel}`}
                               disabled={
                                 setIssueStatus.isPending ||
                                 bulkSetIssueStatus.isPending
@@ -1422,7 +1459,7 @@ export default function SeriesDetailPage() {
                                 handleIssueStatusSelect(issue, "Wanted")
                               }
                             >
-                              Want
+                              <Trans>Want</Trans>
                             </button>
                           )}
                           {separateIntent && (
@@ -1430,7 +1467,7 @@ export default function SeriesDetailPage() {
                               className="font-mono text-[9px] lowercase"
                               style={{ color: "var(--muted-foreground)" }}
                             >
-                              intent: {separateIntent}
+                              <Trans>intent: {separateIntent}</Trans>
                             </span>
                           )}
                         </div>
@@ -1441,7 +1478,7 @@ export default function SeriesDetailPage() {
                               className="inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-secondary/50"
                               style={{ color: "var(--muted-foreground)" }}
                               aria-label={interactiveSearchLabel(issue)}
-                              title="Interactive Search"
+                              title={t`Interactive Search`}
                               disabled={!issueId}
                               onClick={() =>
                                 void startReview(
@@ -1502,20 +1539,20 @@ export default function SeriesDetailPage() {
               </section>
             ) : null}
             <section className="rounded-lg border border-border-subtle bg-surface-1 px-4 py-3">
-              <h2 className="mb-1 text-[13px] font-semibold">Matching</h2>
+              <h2 className="mb-1 text-[13px] font-semibold">
+                <Trans>Matching</Trans>
+              </h2>
               {[
                 {
                   key: "allowPacks" as const,
-                  label: "Allow packs",
-                  title:
-                    "Accept pack/bundle releases (multi-issue or volume torrents) when searching",
+                  label: t`Allow packs`,
+                  title: t`Accept pack/bundle releases (multi-issue or volume torrents) when searching`,
                   checked: allowPacks,
                 },
                 {
                   key: "ignoreType" as const,
-                  label: "Ignore book type",
-                  title:
-                    "Match results even when the release's book type (TPB, GN…) differs from this series",
+                  label: t`Ignore book type`,
+                  title: t`Match results even when the release's book type (TPB, GN…) differs from this series`,
                   checked: ignoreType,
                 },
               ].map(({ key, label, title, checked }) => (
@@ -1539,10 +1576,10 @@ export default function SeriesDetailPage() {
                 <div className="mt-2 grid gap-2">
                   <label className="grid gap-1 text-sm">
                     <span style={{ color: "var(--muted-foreground)" }}>
-                      Bare numbers
+                      <Trans>Bare numbers</Trans>
                     </span>
                     <select
-                      aria-label="Bare numbers"
+                      aria-label={t`Bare numbers`}
                       className="h-8 rounded-control border border-border-strong bg-surface-2 px-2"
                       disabled={searchSettingsMutation.isPending}
                       value={comic.BareNumberMode || "auto"}
@@ -1553,17 +1590,23 @@ export default function SeriesDetailPage() {
                         )
                       }
                     >
-                      <option value="auto">Auto</option>
-                      <option value="volumes">Volumes</option>
-                      <option value="chapters">Chapters</option>
+                      <option value="auto">
+                        <Trans>Auto</Trans>
+                      </option>
+                      <option value="volumes">
+                        <Trans>Volumes</Trans>
+                      </option>
+                      <option value="chapters">
+                        <Trans>Chapters</Trans>
+                      </option>
                     </select>
                   </label>
                   <label className="grid gap-1 text-sm">
                     <span style={{ color: "var(--muted-foreground)" }}>
-                      Monitor
+                      <Trans>Monitor</Trans>
                     </span>
                     <select
-                      aria-label="Monitor"
+                      aria-label={t`Monitor`}
                       className="h-8 rounded-control border border-border-strong bg-surface-2 px-2"
                       disabled={searchSettingsMutation.isPending}
                       value={comic.MonitorMode || "blended"}
@@ -1574,9 +1617,15 @@ export default function SeriesDetailPage() {
                         )
                       }
                     >
-                      <option value="blended">Blended frontier</option>
-                      <option value="volumes">Volumes only</option>
-                      <option value="chapters">Chapters only</option>
+                      <option value="blended">
+                        <Trans>Blended frontier</Trans>
+                      </option>
+                      <option value="volumes">
+                        <Trans>Volumes only</Trans>
+                      </option>
+                      <option value="chapters">
+                        <Trans>Chapters only</Trans>
+                      </option>
                     </select>
                   </label>
                 </div>
@@ -1589,10 +1638,14 @@ export default function SeriesDetailPage() {
       <Dialog open={searchDialogOpen} onOpenChange={handleSearchDialogChange}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Search missing issues</DialogTitle>
+            <DialogTitle>
+              <Trans>Search missing issues</Trans>
+            </DialogTitle>
             <DialogDescription>
-              Review the current selection before Comicarr creates one durable
-              search run.
+              <Trans>
+                Review the current selection before Comicarr creates one durable
+                search run.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
 
@@ -1607,7 +1660,7 @@ export default function SeriesDetailPage() {
             {searchError && (
               <Callout tone="error" className="p-3 text-[12px]">
                 <div className="font-semibold">
-                  Unable to confirm this search
+                  <Trans>Unable to confirm this search</Trans>
                 </div>
                 <div className="mt-1">{searchError}</div>
               </Callout>
@@ -1623,15 +1676,19 @@ export default function SeriesDetailPage() {
                   }}
                 >
                   <div className="font-semibold">
-                    {pluralize(preview.eligibleCount, "eligible issue")} will be
-                    searched.
+                    {plural(preview.eligibleCount, {
+                      one: "# eligible issue will be searched.",
+                      other: "# eligible issues will be searched.",
+                    })}
                   </div>
                   <div
                     className="mt-1"
                     style={{ color: "var(--muted-foreground)" }}
                   >
-                    {pluralize(preview.excludedCount, "issue")} are excluded
-                    from this run.
+                    {plural(preview.excludedCount, {
+                      one: "# issue is excluded from this run.",
+                      other: "# issues are excluded from this run.",
+                    })}
                   </div>
                   {preview.eligible?.some(
                     (item) => item.entityType === "annual",
@@ -1640,7 +1697,7 @@ export default function SeriesDetailPage() {
                       className="mt-2 font-mono text-[10px]"
                       style={{ color: "var(--primary)" }}
                     >
-                      Includes annuals when they are eligible.
+                      <Trans>Includes annuals when they are eligible.</Trans>
                     </div>
                   )}
                 </div>
@@ -1648,7 +1705,7 @@ export default function SeriesDetailPage() {
                 {!routeViable ? (
                   <Callout tone="warning" className="p-3 text-[12px]">
                     <div className="font-semibold">
-                      Search configuration needs attention
+                      <Trans>Search configuration needs attention</Trans>
                     </div>
                     <div
                       className="mt-1"
@@ -1665,15 +1722,17 @@ export default function SeriesDetailPage() {
                       </div>
                     )}
                     {preview.route?.reason &&
-                      ROUTE_REASON_FIX[preview.route.reason] && (
+                      ROUTE_REASON_FIX()[preview.route.reason] && (
                         <Button
                           asChild
                           variant="outline"
                           size="sm"
                           className="mt-3"
                         >
-                          <Link to={ROUTE_REASON_FIX[preview.route.reason].to}>
-                            {ROUTE_REASON_FIX[preview.route.reason].label}
+                          <Link
+                            to={ROUTE_REASON_FIX()[preview.route.reason].to}
+                          >
+                            {ROUTE_REASON_FIX()[preview.route.reason].label}
                           </Link>
                         </Button>
                       )}
@@ -1686,15 +1745,17 @@ export default function SeriesDetailPage() {
                       color: "var(--muted-foreground)",
                     }}
                   >
-                    No eligible missing issues remain to search.
+                    <Trans>No eligible missing issues remain to search.</Trans>
                   </div>
                 ) : (
                   <p
                     className="text-[12px]"
                     style={{ color: "var(--muted-foreground)" }}
                   >
-                    Confirmation queues this exact preview once. The run owns
-                    retries and outcome tracking.
+                    <Trans>
+                      Confirmation queues this exact preview once. The run owns
+                      retries and outcome tracking.
+                    </Trans>
                   </p>
                 )}
               </>
@@ -1710,8 +1771,8 @@ export default function SeriesDetailPage() {
               >
                 <div className="font-semibold">
                   {searchOutcome.run_id
-                    ? "Search run accepted"
-                    : "Search result"}
+                    ? t`Search run accepted`
+                    : t`Search result`}
                 </div>
                 <div
                   className="mt-1"
@@ -1719,8 +1780,8 @@ export default function SeriesDetailPage() {
                 >
                   {searchOutcome.message ||
                     (searchOutcome.status === "noop"
-                      ? "No eligible missing issues remain to search."
-                      : "The search request was recorded.")}
+                      ? t`No eligible missing issues remain to search.`
+                      : t`The search request was recorded.`)}
                 </div>
                 {run && (
                   <div
@@ -1729,7 +1790,7 @@ export default function SeriesDetailPage() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span style={{ color: "var(--muted-foreground)" }}>
-                        run state
+                        <Trans>run state</Trans>
                       </span>
                       <span>{run.completion_state}</span>
                     </div>
@@ -1737,12 +1798,7 @@ export default function SeriesDetailPage() {
                       className="mt-1"
                       style={{ color: "var(--muted-foreground)" }}
                     >
-                      {run.succeeded_count} matched · {run.no_match_count} no
-                      match
-                      {run.failed_count ? ` · ${run.failed_count} failed` : ""}
-                      {run.blocked_count
-                        ? ` · ${run.blocked_count} blocked`
-                        : ""}
+                      {runCountsLine(run)}
                     </div>
                   </div>
                 )}
@@ -1751,7 +1807,7 @@ export default function SeriesDetailPage() {
                     className="mt-3 font-mono text-[10px]"
                     style={{ color: "var(--muted-foreground)" }}
                   >
-                    Checking run outcome…
+                    <Trans>Checking run outcome…</Trans>
                   </div>
                 )}
                 {searchRun.isError && (
@@ -1760,8 +1816,10 @@ export default function SeriesDetailPage() {
                     className="mt-3"
                     style={{ color: "var(--status-error)" }}
                   >
-                    Unable to refresh the run outcome. It remains recorded and
-                    can be checked from Activity.
+                    <Trans>
+                      Unable to refresh the run outcome. It remains recorded and
+                      can be checked from Activity.
+                    </Trans>
                   </div>
                 )}
                 {searchOutcome.status === "pending_dispatch" && searchRunId && (
@@ -1773,8 +1831,8 @@ export default function SeriesDetailPage() {
                     disabled={retrySearchRun.isPending}
                   >
                     {retrySearchRun.isPending
-                      ? "Retrying queue handoff…"
-                      : "Retry queue handoff"}
+                      ? t`Retrying queue handoff…`
+                      : t`Retry queue handoff`}
                   </Button>
                 )}
               </div>
@@ -1787,7 +1845,7 @@ export default function SeriesDetailPage() {
               variant="outline"
               onClick={() => handleSearchDialogChange(false)}
             >
-              {searchOutcome ? "Close" : "Cancel"}
+              {searchOutcome ? t`Close` : t`Cancel`}
             </Button>
             {!searchOutcome && (searchError || !routeViable) && (
               <Button
@@ -1796,7 +1854,7 @@ export default function SeriesDetailPage() {
                 onClick={() => void fetchSearchPreview()}
                 disabled={searchPreview.isFetching}
               >
-                Refresh preview
+                <Trans>Refresh preview</Trans>
               </Button>
             )}
             {!searchOutcome && preview && (
@@ -1805,7 +1863,7 @@ export default function SeriesDetailPage() {
                 onClick={() => void handleConfirmSearch()}
                 disabled={!canConfirm || confirmSearch.isPending}
               >
-                {confirmSearch.isPending ? "Confirming…" : "Confirm search"}
+                {confirmSearch.isPending ? t`Confirming…` : t`Confirm search`}
               </Button>
             )}
           </DialogFooter>

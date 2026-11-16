@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import {
   Select,
@@ -89,15 +91,15 @@ export default function SeriesFilters({
       {showTypeFilter && (
         <div
           role="group"
-          aria-label="Kind"
+          aria-label={t`Kind`}
           className={`order-1 ${SEGMENTED_GROUP}`}
         >
           {(
             [
-              ["all", "All"],
-              ["comic", "Comics"],
-              ...(showManga ? [["manga", "Manga"]] : []),
-              ...(hasMagazines ? [["magazine", "Magazines"]] : []),
+              ["all", t`All`],
+              ["comic", t`Comics`],
+              ...(showManga ? [["manga", t`Manga`]] : []),
+              ...(hasMagazines ? [["magazine", t`Magazines`]] : []),
             ] as [TypeFilter, string][]
           ).map(([value, label]) => (
             <button
@@ -117,28 +119,28 @@ export default function SeriesFilters({
       )}
 
       <FilterChip
-        label="Status"
+        label={t`Status`}
         value={statusFilter}
         active={statusFilter !== "all"}
         onValueChange={(v) => onStatusChange(v as StatusFilter)}
         options={[
-          { value: "all", label: "Any" },
-          { value: "Active", label: "Active" },
-          { value: "Paused", label: "Paused" },
-          { value: "Ended", label: "Ended" },
+          { value: "all", label: t`Any` },
+          { value: "Active", label: t`Active` },
+          { value: "Paused", label: t`Paused` },
+          { value: "Ended", label: t`Ended` },
         ]}
       />
 
       <FilterChip
-        label="Progress"
+        label={t`Progress`}
         value={progressFilter}
         active={progressFilter !== "all"}
         onValueChange={(v) => onProgressChange(v as ProgressFilter)}
         options={[
-          { value: "all", label: "Any" },
-          { value: "0", label: "Not started" },
-          { value: "partial", label: "In progress" },
-          { value: "100", label: "Complete" },
+          { value: "all", label: t`Any` },
+          { value: "0", label: t`Not started` },
+          { value: "partial", label: t`In progress` },
+          { value: "100", label: t`Complete` },
         ]}
       />
 
@@ -154,7 +156,7 @@ export default function SeriesFilters({
           }}
           className="order-3 ml-1 px-1 text-[13px] text-foreground-2 underline-offset-2 hover:text-foreground hover:underline"
         >
-          Clear
+          <Trans>Clear</Trans>
         </button>
       )}
 
@@ -162,7 +164,7 @@ export default function SeriesFilters({
         <div className="mono-meta order-3 ml-auto flex items-center gap-1.5">
           {resultCount !== undefined && (
             <span>
-              {resultCount} result{resultCount === 1 ? "" : "s"}
+              {plural(resultCount, { one: "# result", other: "# results" })}
             </span>
           )}
           {resultCount !== undefined && sortLabel && (
@@ -170,7 +172,9 @@ export default function SeriesFilters({
           )}
           {sortLabel && (
             <span>
-              sort: <span className="text-foreground">{sortLabel}</span>
+              <Trans>
+                sort: <span className="text-foreground">{sortLabel}</span>
+              </Trans>
             </span>
           )}
         </div>

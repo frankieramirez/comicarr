@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 export type StatusBadgeVariant =
   | "default"
   | "active"
@@ -25,87 +26,113 @@ const MUTED: Omit<StatusTone, "key" | "label"> = {
 const TONES: Record<string, StatusTone> = {
   active: {
     key: "active",
-    label: "Active",
+    get label() {
+      return t`Active`;
+    },
     token: "var(--status-active)",
     badgeVariant: "active",
     glowColor: "var(--status-active)",
   },
   paused: {
     key: "paused",
-    label: "Paused",
+    get label() {
+      return t`Paused`;
+    },
     token: "var(--status-paused)",
     badgeVariant: "paused",
     glowColor: "var(--status-paused)",
   },
   ended: {
     key: "ended",
-    label: "Ended",
+    get label() {
+      return t`Ended`;
+    },
     token: "var(--status-ended)",
     badgeVariant: "ended",
     glowColor: "var(--status-ended)",
   },
   loading: {
     key: "loading",
-    label: "Loading",
+    get label() {
+      return t`Loading`;
+    },
     ...MUTED,
   },
   downloaded: {
     key: "downloaded",
-    label: "Downloaded",
+    get label() {
+      return t`Downloaded`;
+    },
     token: "var(--status-downloaded)",
     badgeVariant: "downloaded",
     glowColor: "var(--status-downloaded)",
   },
   wanted: {
     key: "wanted",
-    label: "Wanted",
+    get label() {
+      return t`Wanted`;
+    },
     token: "var(--status-wanted)",
     badgeVariant: "wanted",
     glowColor: "var(--status-wanted)",
   },
   skipped: {
     key: "skipped",
-    label: "Skipped",
+    get label() {
+      return t`Skipped`;
+    },
     token: "var(--status-skipped)",
     badgeVariant: "skipped",
     glowColor: "var(--status-skipped)",
   },
   ignored: {
     key: "ignored",
-    label: "Ignored",
+    get label() {
+      return t`Ignored`;
+    },
     token: "var(--status-skipped)",
     badgeVariant: "skipped",
     glowColor: "var(--status-skipped)",
   },
   reserved: {
     key: "reserved",
-    label: "Reserved",
+    get label() {
+      return t`Reserved`;
+    },
     token: "var(--status-paused)",
     badgeVariant: "paused",
     glowColor: "var(--status-paused)",
   },
   snatched: {
     key: "snatched",
-    label: "Snatched",
+    get label() {
+      return t`Snatched`;
+    },
     token: "var(--status-active)",
     badgeVariant: "active",
     glowColor: "var(--status-active)",
   },
   archived: {
     key: "archived",
-    label: "Archived",
+    get label() {
+      return t`Archived`;
+    },
     ...MUTED,
   },
   failed: {
     key: "failed",
-    label: "Failed",
+    get label() {
+      return t`Failed`;
+    },
     token: "var(--status-error)",
     badgeVariant: "error",
     glowColor: "var(--status-error)",
   },
   unknown: {
     key: "unknown",
-    label: "Unknown",
+    get label() {
+      return t`Unknown`;
+    },
     token: "var(--status-paused)",
     badgeVariant: "paused",
     glowColor: "var(--status-paused)",
@@ -114,47 +141,61 @@ const TONES: Record<string, StatusTone> = {
   // intent; on screen it is Wanted, the word every count uses.
   missing: {
     key: "missing",
-    label: "Wanted",
+    get label() {
+      return t`Wanted`;
+    },
     token: "var(--status-wanted)",
     badgeVariant: "wanted",
     glowColor: "var(--status-wanted)",
   },
   queued: {
     key: "queued",
-    label: "Queued",
+    get label() {
+      return t`Queued`;
+    },
     token: "var(--status-paused)",
     badgeVariant: "paused",
     glowColor: "var(--status-paused)",
   },
   pending: {
     key: "pending",
-    label: "Pending",
+    get label() {
+      return t`Pending`;
+    },
     token: "var(--status-paused)",
     badgeVariant: "paused",
     glowColor: "var(--status-paused)",
   },
   completed: {
     key: "completed",
-    label: "Completed",
+    get label() {
+      return t`Completed`;
+    },
     token: "var(--status-active)",
     badgeVariant: "active",
     glowColor: "var(--status-active)",
   },
   done: {
     key: "done",
-    label: "Done",
+    get label() {
+      return t`Done`;
+    },
     token: "var(--status-active)",
     badgeVariant: "active",
     glowColor: "var(--status-active)",
   },
   "manual review": {
     key: "manual review",
-    label: "Manual review",
+    get label() {
+      return t`Manual review`;
+    },
     token: "var(--status-paused)",
     badgeVariant: "paused",
     glowColor: "var(--status-paused)",
   },
 };
+
+const MANUAL_REVIEW_KEY = "manual review";
 
 export const STATUS_TONE_KEYS = Object.keys(TONES);
 
@@ -165,7 +206,7 @@ function resolveKey(raw: string): string {
     return "failed";
   }
   if (normalized.includes("manual") || normalized.includes("review")) {
-    return "manual review";
+    return MANUAL_REVIEW_KEY;
   }
   if (normalized.includes("snatch")) return "snatched";
   if (normalized.includes("down")) return "active";

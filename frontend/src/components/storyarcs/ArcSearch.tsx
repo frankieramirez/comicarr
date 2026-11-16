@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useFindStoryArc } from "@/hooks/useArcSearch";
 import { useContentSources } from "@/hooks/useContentSources";
@@ -84,8 +86,8 @@ export default function ArcSearch({ searchInputRef, formRef }: ArcSearchProps) {
       >
         <FilterField
           ref={searchInputRef}
-          placeholder="Search story arcs on ComicVine…"
-          aria-label="Search story arcs"
+          placeholder={t`Search story arcs on ComicVine…`}
+          aria-label={t`Search story arcs`}
           value={query}
           onChange={handleChange}
           shortcut="↵"
@@ -98,7 +100,7 @@ export default function ArcSearch({ searchInputRef, formRef }: ArcSearchProps) {
           disabled={query.trim().length < 3}
           className="font-semibold"
         >
-          Search
+          <Trans>Search</Trans>
         </Button>
       </form>
 
@@ -108,16 +110,16 @@ export default function ArcSearch({ searchInputRef, formRef }: ArcSearchProps) {
             <EmptyState
               variant="custom"
               icon={Settings}
-              eyebrow="PROVIDER · NOT CONFIGURED"
-              title="Comic Vine API key required"
-              description="Add a Comic Vine API key in Settings → API to search story arcs."
-              action={{ label: "Open settings", to: "/settings" }}
+              eyebrow={t`PROVIDER · NOT CONFIGURED`}
+              title={t`Comic Vine API key required`}
+              description={t`Add a Comic Vine API key in Settings → API to search story arcs.`}
+              action={{ label: t`Open settings`, to: "/settings" }}
             />
           ) : (
             <EmptyState
               variant="custom"
-              eyebrow="SEARCH · ERROR"
-              title="Story arc search failed"
+              eyebrow={t`SEARCH · ERROR`}
+              title={t`Story arc search failed`}
               description={error.message}
             />
           )}
@@ -134,7 +136,7 @@ export default function ArcSearch({ searchInputRef, formRef }: ArcSearchProps) {
 
       {showEmpty && (
         <p className="text-[12px] text-muted-foreground text-center py-6">
-          No story arcs found for &ldquo;{activeQuery}&rdquo;
+          <Trans>No story arcs found for &ldquo;{activeQuery}&rdquo;</Trans>
         </p>
       )}
     </div>
