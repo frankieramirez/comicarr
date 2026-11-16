@@ -168,7 +168,7 @@ async def test_find_series_returns_ids_in_add_series_terms(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_find_series_finds_manga_on_mangadex(monkeypatch):
-    from comicarr import mangadex
+    from comicarr.app.manga import mangadex
 
     monkeypatch.setattr(
         mangadex,
@@ -229,7 +229,7 @@ async def test_find_series_treats_a_returned_provider_error_as_retryable(monkeyp
 
 @pytest.mark.asyncio
 async def test_find_series_keeps_the_provider_total_past_the_last_page(monkeypatch):
-    from comicarr import mangadex
+    from comicarr.app.manga import mangadex
 
     monkeypatch.setattr(mangadex, "search_manga", lambda *_a, **_k: {"results": [], "pagination": {"total": 10}})
     app = make_app()
@@ -300,7 +300,7 @@ async def test_each_tool_answers_with_faked_providers_in_each_protocol_era(monke
 
 def _mangadex_answers(monkeypatch, response):
     """Drive the real mangadex.search_manga with ``response`` from its HTTP layer."""
-    from comicarr import mangadex
+    from comicarr.app.manga import mangadex
 
     monkeypatch.setattr(mangadex, "_make_request", lambda *_a, **_k: response)
     monkeypatch.setattr(mangadex, "listLibrary", lambda: {})
@@ -333,7 +333,7 @@ async def test_find_series_keeps_a_genuine_mangadex_no_match_an_empty_page(monke
 
 
 def test_manga_search_surfaces_a_mangadex_failure_after_a_myanimelist_error(monkeypatch):
-    from comicarr import mangadex, myanimelist
+    from comicarr.app.manga import mangadex, myanimelist
     from comicarr.app.search import service as search_service
 
     def mal_down(*_a, **_k):

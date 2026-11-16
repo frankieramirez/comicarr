@@ -37,7 +37,7 @@ def test_new_chapters_get_a_sort_number(monkeypatch):
             )
         )
     monkeypatch.setattr(
-        "comicarr.mangadex.get_all_chapters",
+        "comicarr.app.manga.mangadex.get_all_chapters",
         lambda _uuid: [
             {"chapter": "12", "title": "Twelve", "publish_at": "2026-11-01T00:00:00"},
             {"chapter": "12.5", "title": "Extra", "publish_at": "2026-11-08T00:00:00"},

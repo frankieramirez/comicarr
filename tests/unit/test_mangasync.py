@@ -21,8 +21,8 @@ def _mock_globals():
 
     with (
         patch("comicarr.CONFIG", mock_config),
-        patch("comicarr.mangasync.logger") as mock_log,
-        patch("comicarr.mangasync.db") as mock_db,
+        patch("comicarr.app.manga.mangasync.logger") as mock_log,
+        patch("comicarr.app.manga.mangasync.db") as mock_db,
     ):
         mock_log.fdebug = lambda *a, **kw: None
         mock_log.info = lambda *a, **kw: None
@@ -34,7 +34,7 @@ def _mock_globals():
 @pytest.fixture
 def mangasync():
     """Import mangasync fresh for each test and reset globals."""
-    from comicarr import mangasync as ms
+    from comicarr.app.manga import mangasync as ms
 
     ms.MANGA_SCAN_STATUS = None
     ms.MANGA_SCAN_PROGRESS = {
@@ -103,7 +103,7 @@ class TestMatchSeries:
             ],
         }
 
-        with patch("comicarr.mangadex.search_manga", return_value=mangadex_results):
+        with patch("comicarr.app.manga.mangadex.search_manga", return_value=mangadex_results):
             result = mangasync._match_series("One Piece", [("/manga/One Piece/v01.cbz", None)])
 
         assert result["matched"] is True
@@ -112,14 +112,14 @@ class TestMatchSeries:
         assert result["match"]["confidence"] == 100
 
     def test_no_match_found(self, mangasync, _mock_globals):
-        with patch("comicarr.mangadex.search_manga", return_value={"results": []}):
+        with patch("comicarr.app.manga.mangadex.search_manga", return_value={"results": []}):
             result = mangasync._match_series("Unknown Manga", [])
 
         assert result["matched"] is False
         assert result["match"] is None
 
     def test_mangadex_unreachable(self, mangasync, _mock_globals):
-        with patch("comicarr.mangadex.search_manga", return_value=None):
+        with patch("comicarr.app.manga.mangadex.search_manga", return_value=None):
             result = mangasync._match_series("Some Manga", [])
 
         assert result["matched"] is False

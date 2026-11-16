@@ -342,8 +342,8 @@ class TestMangaCoverCachePath:
             raising=False,
         )
 
-        monkeypatch.setattr("comicarr.myanimelist.get_manga_details", lambda _id: _mal_details())
-        monkeypatch.setattr("comicarr.mangadex.find_by_mal_id", lambda *a, **k: "uuid-1")
+        monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: _mal_details())
+        monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: "uuid-1")
         monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: None)
         monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: {"status": getimage_status})
         monkeypatch.setattr(importer, "_populate_manga_chapters", lambda *a, **k: None)
@@ -405,7 +405,7 @@ class TestMangaRefreshPreservesLibraryState:
         metadata.create_all(engine)
         self._seed_existing_mal(engine, status="Paused")
         monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
-        monkeypatch.setattr("comicarr.myanimelist.get_manga_details", lambda _id: None)
+        monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: None)
 
         result = importer.addMangaToDB_MAL("mal-13")
 
@@ -419,7 +419,7 @@ class TestMangaRefreshPreservesLibraryState:
         engine = create_engine("sqlite://")
         metadata.create_all(engine)
         monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
-        monkeypatch.setattr("comicarr.myanimelist.get_manga_details", lambda _id: None)
+        monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: None)
 
         result = importer.addMangaToDB_MAL("mal-999")
 
@@ -442,8 +442,8 @@ class TestMangaRefreshPreservesLibraryState:
             SimpleNamespace(CREATE_FOLDERS=False, FOLDER_FORMAT="$Series ($Year)"),
             raising=False,
         )
-        monkeypatch.setattr("comicarr.myanimelist.get_manga_details", lambda _id: _mal_details())
-        monkeypatch.setattr("comicarr.mangadex.find_by_mal_id", lambda *a, **k: None)
+        monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: _mal_details())
+        monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: None)
         monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: str(tmp_path / "manga-dest"))
         monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: {"status": "failed"})
         monkeypatch.setattr(importer, "_populate_manga_chapters", lambda *a, **k: None)
@@ -467,10 +467,10 @@ class TestMangaRefreshPreservesLibraryState:
             raising=False,
         )
         monkeypatch.setattr(
-            "comicarr.mangadex.get_all_chapters",
+            "comicarr.app.manga.mangadex.get_all_chapters",
             lambda _id: [{"chapter": "1", "title": "Romance Dawn", "publish_at": "1997-07-22T00:00:00"}],
         )
-        monkeypatch.setattr("comicarr.mangadex.get_total_chapter_count", lambda _id: 1)
+        monkeypatch.setattr("comicarr.app.manga.mangadex.get_total_chapter_count", lambda _id: 1)
 
         importer._populate_manga_chapters(
             "mal-13",
@@ -529,11 +529,11 @@ class TestMangaRefreshPreservesContentKind:
         monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
 
         if provider == "mangadex":
-            monkeypatch.setattr("comicarr.mangadex.get_manga_details", lambda _id: _mal_details())
+            monkeypatch.setattr("comicarr.app.manga.mangadex.get_manga_details", lambda _id: _mal_details())
             importer.addMangaToDB(comic_id)
         else:
-            monkeypatch.setattr("comicarr.myanimelist.get_manga_details", lambda _id: _mal_details())
-            monkeypatch.setattr("comicarr.mangadex.find_by_mal_id", lambda *a, **k: "uuid-1")
+            monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: _mal_details())
+            monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: "uuid-1")
             importer.addMangaToDB_MAL(comic_id)
 
         with engine.connect() as conn:

@@ -62,7 +62,7 @@ def parse_kwargs_for_series(series, filenames, *, volume_count=None, chapter_cou
 
 def parse_in_series_context(filename, *, series=None, filenames=None, series_name=None, issues=None):
     """Parse one file with the series setting and sibling folder counts."""
-    from comicarr.manga_parser import parse_manga_filename
+    from comicarr.app.manga.manga_parser import parse_manga_filename
 
     siblings = list(filenames or (filename,))
     vol_count, ch_count = (None, None)

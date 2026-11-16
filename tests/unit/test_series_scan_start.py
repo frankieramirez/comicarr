@@ -7,6 +7,7 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
+import importlib
 import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -42,7 +43,7 @@ def test_library_scan_rejects_missing_mount(monkeypatch, scan, config_key, path,
     [
         (
             service.comic_library_scan,
-            "comicsync",
+            "comicarr.comicsync",
             "COMIC_DIR",
             "/library/comics",
             "COMIC_SCAN_STATUS",
@@ -50,7 +51,7 @@ def test_library_scan_rejects_missing_mount(monkeypatch, scan, config_key, path,
         ),
         (
             service.manga_library_scan,
-            "mangasync",
+            "comicarr.app.manga.mangasync",
             "MANGA_DIR",
             "/library/manga",
             "MANGA_SCAN_STATUS",
@@ -61,7 +62,7 @@ def test_library_scan_rejects_missing_mount(monkeypatch, scan, config_key, path,
 def test_library_scan_rejects_duplicate_request_before_starting_another_worker(
     monkeypatch, scan, scanner, config_key, path, status_attr, lock_attr
 ):
-    scanner_module = getattr(__import__("comicarr", fromlist=[scanner]), scanner)
+    scanner_module = importlib.import_module(scanner)
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(**{config_key: path}))
     monkeypatch.setattr(service.os.path, "isdir", MagicMock(return_value=True))
     monkeypatch.setattr(scanner_module, status_attr, None)

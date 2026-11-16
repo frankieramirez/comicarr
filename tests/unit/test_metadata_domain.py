@@ -108,7 +108,7 @@ class TestSearchManga:
         result = metadata_service.search_manga(ctx, name="One Piece")
         assert "error" in result
 
-    @patch("comicarr.mangadex", create=True)
+    @patch("comicarr.app.manga.mangadex", create=True)
     def test_manga_search_delegates(self, mock_mangadex):
         """Manga search delegates to mangadex.search_manga."""
         ctx = _make_test_ctx()

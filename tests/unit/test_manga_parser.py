@@ -11,7 +11,7 @@ class TestUserFilenames:
 
     def test_bleach_volume_based(self):
         """Bleach v1.cbz through Bleach v17.cbz — volume only."""
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         for vol in range(1, 18):
             result = parse_manga_filename("Bleach v%d.cbz" % vol)
@@ -22,7 +22,7 @@ class TestUserFilenames:
 
     def test_chainsaw_man_chapter_based(self):
         """Chainsaw Man 165.cbz through Chainsaw Man 181.cbz — bare number chapter."""
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         for ch in range(165, 182):
             result = parse_manga_filename("Chainsaw Man %d.cbz" % ch)
@@ -36,7 +36,7 @@ class TestScanlatorGroupStyle:
     """Pattern: [Group] Title - c001 (v01) [quality].cbz"""
 
     def test_full_group_pattern(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("[Viz] One Piece - c1044 (v103) [HQ].cbz")
         assert result is not None
@@ -47,7 +47,7 @@ class TestScanlatorGroupStyle:
         assert result["quality"] == "HQ"
 
     def test_group_without_volume(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("[Scanlation] Naruto - c700 [Digital].cbz")
         assert result is not None
@@ -58,7 +58,7 @@ class TestScanlatorGroupStyle:
         assert result["quality"] == "Digital"
 
     def test_group_without_quality(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("[Team] Dragon Ball - c100 (v10).cbr")
         assert result is not None
@@ -69,7 +69,7 @@ class TestScanlatorGroupStyle:
         assert result["quality"] is None
 
     def test_group_minimal(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("[SL] Demon Slayer - c205.cbz")
         assert result is not None
@@ -82,7 +82,7 @@ class TestVolumeChapterStyle:
     """Pattern: Title v01 c001.cbz"""
 
     def test_volume_and_chapter(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Berserk v01 c001.cbz")
         assert result is not None
@@ -93,7 +93,7 @@ class TestVolumeChapterStyle:
         assert result["quality"] is None
 
     def test_high_numbers(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("One Piece v103 c1044.cbz")
         assert result is not None
@@ -106,7 +106,7 @@ class TestExplicitChapterLabel:
     """Pattern: Title - Chapter 001.cbz"""
 
     def test_chapter_label(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Attack on Titan - Chapter 139.cbz")
         assert result is not None
@@ -115,7 +115,7 @@ class TestExplicitChapterLabel:
         assert result["volume_number"] is None
 
     def test_chapter_label_lowercase(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("My Hero Academia - chapter 001.cbz")
         assert result is not None
@@ -127,7 +127,7 @@ class TestFolderContextChapterOnly:
     """Filenames where the parent folder provides the series name."""
 
     def test_chapter_only_label_with_folder_series(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("chapter 1.cbz", series_name="Manga A")
         assert result is not None
@@ -136,7 +136,7 @@ class TestFolderContextChapterOnly:
         assert result["volume_number"] is None
 
     def test_chapter_only_abbreviation_with_folder_series(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Ch. 2.cbz", series_name="Manga A")
         assert result is not None
@@ -144,7 +144,7 @@ class TestFolderContextChapterOnly:
         assert result["chapter_number"] == 2.0
 
     def test_bare_number_with_folder_series(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("001.cbz", series_name="Manga A")
         assert result is not None
@@ -152,7 +152,7 @@ class TestFolderContextChapterOnly:
         assert result["chapter_number"] == 1.0
 
     def test_chapter_only_without_folder_series_stays_unparseable(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("chapter 1.cbz")
         assert result is None
@@ -165,7 +165,7 @@ class TestFolderContextChapterOnly:
         Without a chapter-only retry on the stripped stem, these parse as the
         series "chapter" and the caller's real series name is discarded.
         """
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         for filename in (
             "chapter 1 (Digital).cbz",
@@ -181,13 +181,13 @@ class TestFolderContextChapterOnly:
 
     def test_tagged_chapter_only_without_folder_series_stays_unparseable(self):
         """The tagged form follows the untagged contract above, not its own."""
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         assert parse_manga_filename("chapter 1 (Digital).cbz") is None
 
     def test_a_real_series_with_tags_is_not_read_as_chapter_only(self):
         """The retry must not fire for a stem that has a series in front."""
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Chainsaw Man 165 (Digital).cbz", series_name="Manga A")
         assert result is not None
@@ -195,7 +195,7 @@ class TestFolderContextChapterOnly:
         assert result["chapter_number"] == 165.0
 
     def test_parse_chapter_number_without_series(self):
-        from comicarr.manga_parser import parse_manga_chapter_number
+        from comicarr.app.manga.manga_parser import parse_manga_chapter_number
 
         assert parse_manga_chapter_number("chapter 1.cbz") == 1.0
         assert parse_manga_chapter_number("Ch. 2.cbz") == 2.0
@@ -206,7 +206,7 @@ class TestAbbreviatedVolChapter:
     """Pattern: Title Vol.01 Ch.001.cbz"""
 
     def test_abbreviated_with_dots(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Jujutsu Kaisen Vol.15 Ch.130.cbz")
         assert result is not None
@@ -215,7 +215,7 @@ class TestAbbreviatedVolChapter:
         assert result["volume_number"] == 15
 
     def test_abbreviated_without_dots(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Spy x Family Vol 10 Ch 62.cbz")
         assert result is not None
@@ -228,7 +228,7 @@ class TestBareNumber:
     """Pattern: Title 001.cbz — bare number = chapter"""
 
     def test_bare_number(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Vagabond 327.cbz")
         assert result is not None
@@ -237,7 +237,7 @@ class TestBareNumber:
         assert result["volume_number"] is None
 
     def test_bare_number_zero_padded(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Slam Dunk 001.cbz")
         assert result is not None
@@ -245,7 +245,7 @@ class TestBareNumber:
         assert result["chapter_number"] == 1.0
 
     def test_hash_before_number_parses_like_bare_number(self):
-        from comicarr.manga_parser import parse_manga_chapter_number, parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_chapter_number, parse_manga_filename
 
         for filename in (
             "Midnight X-Men #001 (2026).cbz",
@@ -264,7 +264,7 @@ class TestVolumeOnly:
     """Pattern: Title v01.cbz — volume only"""
 
     def test_volume_only(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Death Note v12.cbz")
         assert result is not None
@@ -273,7 +273,7 @@ class TestVolumeOnly:
         assert result["volume_number"] == 12
 
     def test_volume_only_uppercase_v(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Fullmetal Alchemist V27.cbz")
         assert result is not None
@@ -285,7 +285,7 @@ class TestDecimalChapters:
     """Edge case: decimal chapter numbers like 686.5"""
 
     def test_decimal_chapter_bare(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Bleach 686.5.cbz")
         assert result is not None
@@ -293,7 +293,7 @@ class TestDecimalChapters:
         assert result["chapter_number"] == 686.5
 
     def test_decimal_chapter_with_c_prefix(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Bleach c686.5.cbz")
         assert result is not None
@@ -301,7 +301,7 @@ class TestDecimalChapters:
         assert result["chapter_number"] == 686.5
 
     def test_decimal_chapter_in_group_pattern(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("[Viz] Bleach - c686.5 (v74) [HQ].cbz")
         assert result is not None
@@ -312,14 +312,14 @@ class TestChapterRanges:
     """Edge case: chapter ranges like c001-003 take the first chapter."""
 
     def test_range_with_group(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("[Group] Title - c001-c003 [HQ].cbz")
         assert result is not None
         assert result["chapter_number"] == 1.0
 
     def test_range_without_c_prefix_on_end(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("[Group] Title - c001-003 [HQ].cbz")
         assert result is not None
@@ -330,49 +330,49 @@ class TestValidExtensions:
     """Only .cbr, .cbz, .cb7, .pdf should be accepted."""
 
     def test_cbr_accepted(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Bleach v1.cbr")
         assert result is not None
 
     def test_cbz_accepted(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Bleach v1.cbz")
         assert result is not None
 
     def test_cb7_accepted(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Bleach v1.cb7")
         assert result is not None
 
     def test_pdf_accepted(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Bleach v1.pdf")
         assert result is not None
 
     def test_jpg_rejected(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("cover.jpg")
         assert result is None
 
     def test_txt_rejected(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("readme.txt")
         assert result is None
 
     def test_no_extension_rejected(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Bleach v1")
         assert result is None
 
     def test_case_insensitive_extension(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Bleach v1.CBZ")
         assert result is not None
@@ -382,19 +382,19 @@ class TestUnparseableInput:
     """Filenames with no parseable numbers should return None."""
 
     def test_no_numbers(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Just a Title.cbz")
         assert result is None
 
     def test_empty_string(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("")
         assert result is None
 
     def test_only_extension(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename(".cbz")
         assert result is None
@@ -404,7 +404,7 @@ class TestDirectoryStripping:
     """Parser should handle full paths by stripping directory components."""
 
     def test_full_path(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("/manga/Bleach/Bleach v1.cbz")
         assert result is not None
@@ -412,7 +412,7 @@ class TestDirectoryStripping:
         assert result["volume_number"] == 1
 
     def test_relative_path(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("manga/Chainsaw Man/Chainsaw Man 165.cbz")
         assert result is not None
@@ -424,7 +424,7 @@ class TestResultStructure:
     """Verify the result dict always has the expected keys."""
 
     def test_all_keys_present(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("[Viz] One Piece - c1044 (v103) [HQ].cbz")
         assert result is not None
@@ -432,7 +432,7 @@ class TestResultStructure:
         assert set(result.keys()) == expected_keys
 
     def test_minimal_result_keys(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Bleach v1.cbz")
         assert result is not None
@@ -440,7 +440,7 @@ class TestResultStructure:
         assert set(result.keys()) == expected_keys
 
     def test_chapter_number_is_float_or_none(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         # When present, chapter_number should be a float
         result = parse_manga_filename("Bleach 100.cbz")
@@ -451,7 +451,7 @@ class TestResultStructure:
         assert result["chapter_number"] is None
 
     def test_volume_number_is_int_or_none(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         # When present, volume_number should be an int
         result = parse_manga_filename("Bleach v1.cbz")
@@ -471,7 +471,7 @@ class TestTrailingReleaseTags:
     """
 
     def test_volume_with_trailing_tags(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("One-Punch Man v20 (2020) (Digital) (LuCaZ).cbz")
         assert result is not None
@@ -480,7 +480,7 @@ class TestTrailingReleaseTags:
         assert result["chapter_number"] is None
 
     def test_volume_with_many_trailing_tags(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("One-Punch Man v16 (2019) (F) (digital) (aKraa).cbz")
         assert result is not None
@@ -488,7 +488,7 @@ class TestTrailingReleaseTags:
         assert result["volume_number"] == 16
 
     def test_trailing_bracket_group_is_stripped(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Bleach v7 [Digital] [Group].cbz")
         assert result is not None
@@ -496,7 +496,7 @@ class TestTrailingReleaseTags:
         assert result["volume_number"] == 7
 
     def test_chapter_with_trailing_tags(self):
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("Chainsaw Man c181 (2023) (Digital).cbz")
         assert result is not None
@@ -505,13 +505,13 @@ class TestTrailingReleaseTags:
 
     def test_chapter_number_helper_also_sees_tagged_names(self):
         """parse_manga_chapter_number shares the pattern loop and must agree."""
-        from comicarr.manga_parser import parse_manga_chapter_number
+        from comicarr.app.manga.manga_parser import parse_manga_chapter_number
 
         assert parse_manga_chapter_number("Chainsaw Man c181 (2023) (Digital).cbz") == 181.0
 
     def test_full_stem_match_wins_over_stripping(self):
         """A name that already parses keeps its trailing (vNN)/[quality] captures."""
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         result = parse_manga_filename("[Group] Series - c001 (v03) [HQ].cbz")
         assert result is not None
@@ -521,12 +521,12 @@ class TestTrailingReleaseTags:
 
     def test_tags_without_a_number_stay_unparseable(self):
         """Stripping must not invent a match where there is no volume/chapter."""
-        from comicarr.manga_parser import parse_manga_filename
+        from comicarr.app.manga.manga_parser import parse_manga_filename
 
         assert parse_manga_filename("One-Punch Man (2014) (Digital).cbz") is None
 
     def test_strip_trailing_tags_leaves_untagged_stems_alone(self):
-        from comicarr.manga_parser import strip_trailing_tags
+        from comicarr.app.manga.manga_parser import strip_trailing_tags
 
         assert strip_trailing_tags("One-Punch Man v20") == "One-Punch Man v20"
         assert strip_trailing_tags("One-Punch Man v20 (2020) (LuCaZ)") == "One-Punch Man v20"

@@ -214,7 +214,7 @@ def test_rate_limiter_lock_wait_is_bounded():
 
 def test_mangadex_metadata_add_is_unmonitored_without_placeholder_issues(metadata_environment, monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "comicarr.mangadex.get_manga_details",
+        "comicarr.app.manga.mangadex.get_manga_details",
         lambda _: {
             "id": "md-abc",
             "name": "Example Manga",
@@ -223,7 +223,7 @@ def test_mangadex_metadata_add_is_unmonitored_without_placeholder_issues(metadat
         },
     )
     monkeypatch.setattr(
-        "comicarr.mangadex.get_manga_chapters",
+        "comicarr.app.manga.mangadex.get_manga_chapters",
         lambda *a, **kw: {
             "chapters": [{"chapter": "1", "title": "First", "release_date": "2020-01-01"}],
             "pagination": {"total": 1},
@@ -240,7 +240,7 @@ def test_mangadex_metadata_add_is_unmonitored_without_placeholder_issues(metadat
 
 def test_mal_metadata_requires_exact_chapter_source(metadata_environment, monkeypatch):
     monkeypatch.setattr(
-        "comicarr.myanimelist.get_manga_details",
+        "comicarr.app.manga.myanimelist.get_manga_details",
         lambda _: {
             "name": "Example Manga",
             "year": "2020",
@@ -248,7 +248,7 @@ def test_mal_metadata_requires_exact_chapter_source(metadata_environment, monkey
         },
     )
     resolve = MagicMock(return_value=None)
-    monkeypatch.setattr("comicarr.mangadex.find_by_mal_id", resolve)
+    monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", resolve)
     with pytest.raises(ValueError, match="verified MangaDex"):
         importer.addComictoDB("mal-13", metadata_only=True)
     assert resolve.call_args.kwargs["allow_title_match"] is False

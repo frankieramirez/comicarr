@@ -1697,7 +1697,8 @@ def mangadexNewChapterCheck():
 
     Callable from the scheduler or manually.
     """
-    from comicarr import mangadex, series_kind
+    from comicarr import series_kind
+    from comicarr.app.manga import mangadex
     from comicarr.tables import comics as t_comics
     from comicarr.tables import issues as t_issues
 

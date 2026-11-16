@@ -32,9 +32,9 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr import db, logger, series_kind
+from comicarr.app.imports.scanutil import COMIC_EXTENSIONS, find_best_match
+from comicarr.app.manga.manga_parser import parse_manga_filename
 from comicarr.app.manga.parse import parse_in_series_context
-from comicarr.manga_parser import parse_manga_filename
-from comicarr.scanutil import COMIC_EXTENSIONS, find_best_match
 from comicarr.tables import comics, issues
 
 MANGA_SCAN_STATUS = None
@@ -283,7 +283,7 @@ def _match_series(series_name, files):
 
     Does NOT import — returns match information for user selection.
     """
-    from comicarr import mangadex
+    from comicarr.app.manga import mangadex
 
     result = {
         "series_name": series_name,
@@ -296,7 +296,7 @@ def _match_series(series_name, files):
     mal_client_id = getattr(comicarr.CONFIG, "MAL_CLIENT_ID", None)
 
     if mal_enabled and mal_client_id:
-        from comicarr import myanimelist
+        from comicarr.app.manga import myanimelist
 
         logger.info("[MANGA-SCAN] Searching MAL for: %s" % series_name)
         try:
@@ -386,7 +386,7 @@ def import_selected_manga(selected_ids, scan_id):
     """
     global MANGA_SCAN_RESULTS, MANGA_SCAN_ID
 
-    from comicarr import importer
+    from comicarr.app.series.add import add_manga
 
     if MANGA_SCAN_ID != scan_id:
         return {
@@ -413,10 +413,7 @@ def import_selected_manga(selected_ids, scan_id):
             continue
         try:
             logger.info("[MANGA-SCAN] Importing series: %s" % manga_id)
-            if series_kind.provider_of(manga_id) is series_kind.SeriesProvider.MYANIMELIST:
-                result = importer.addMangaToDB_MAL(manga_id)
-            else:
-                result = importer.addMangaToDB(manga_id)
+            result = add_manga(manga_id)
             if isinstance(result, dict) and result.get("status") != "complete":
                 errors.append(
                     {

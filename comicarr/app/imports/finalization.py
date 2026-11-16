@@ -529,7 +529,7 @@ def _finalize_locked(
         archived = 0
     else:
         if match_source == "inbox-auto":
-            from comicarr.scanutil import COMIC_EXTENSIONS
+            from comicarr.app.imports.scanutil import COMIC_EXTENSIONS
 
             selected_paths = {os.path.abspath(row["ComicLocation"]) for row in rows}
             directories = {os.path.dirname(path) for path in selected_paths}

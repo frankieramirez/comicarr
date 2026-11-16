@@ -128,8 +128,8 @@ def _mal_details():
 def test_a_manga_added_to_a_chosen_folder_keeps_it_through_refresh(empty_library, monkeypatch):
     chosen = str(empty_library.tmp_path / "Magazines" / "One Piece")
     monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
-    monkeypatch.setattr("comicarr.myanimelist.get_manga_details", lambda _id: _mal_details())
-    monkeypatch.setattr("comicarr.mangadex.find_by_mal_id", lambda *a, **k: None)
+    monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: _mal_details())
+    monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: None)
     monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: str(empty_library.tmp_path / "Manga"))
     monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: {"status": "failed"})
     monkeypatch.setattr(importer, "_populate_manga_chapters", lambda *a, **k: None)

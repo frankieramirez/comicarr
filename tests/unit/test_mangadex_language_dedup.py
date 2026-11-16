@@ -42,10 +42,10 @@ def _chapter(num, language, title):
 
 
 class TestLanguageDedup:
-    @patch("comicarr.mangadex.get_manga_chapters")
+    @patch("comicarr.app.manga.mangadex.get_manga_chapters")
     def test_preferred_language_wins_and_fallback_fills_gaps(self, mock_chapters):
         """Each chapter keeps its highest-priority language; lower ones fill only gaps."""
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         mangadex.clear_cache()
         mock_chapters.return_value = {
@@ -67,10 +67,10 @@ class TestLanguageDedup:
         assert by_num["3"]["language"] == "fr"  # fallback fills the gap
         assert len([c for c in result if c["chapter"] == "1"]) == 1  # no duplicate
 
-    @patch("comicarr.mangadex.get_manga_chapters")
+    @patch("comicarr.app.manga.mangadex.get_manga_chapters")
     def test_unnumbered_chapters_are_preserved(self, mock_chapters):
         """Chapters without a number (oneshots) survive de-duplication."""
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         mangadex.clear_cache()
         mock_chapters.return_value = {

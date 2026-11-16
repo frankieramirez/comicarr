@@ -53,7 +53,7 @@ def search_manga(ctx, name, limit=None, offset=None, sort=None):
     if not ctx.config or not getattr(ctx.config, "MANGADEX_ENABLED", False):
         return {"error": "MangaDex integration is not enabled"}
 
-    from comicarr import mangadex
+    from comicarr.app.manga import mangadex
 
     try:
         parsed_limit = int(limit) if limit else None

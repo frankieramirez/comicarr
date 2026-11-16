@@ -90,7 +90,7 @@ class TestChapterPollCoversBothProviders:
         monkeypatch.setattr(rsscheck.db, "select_all", lambda stmt: _select_all(engine, stmt))
 
         polled = []
-        import comicarr.mangadex as mangadex
+        import comicarr.app.manga.mangadex as mangadex
 
         monkeypatch.setattr(
             mangadex,
@@ -182,7 +182,7 @@ class TestMangaDexAddRecordsItsId:
             ),
             raising=False,
         )
-        import comicarr.mangadex as mangadex
+        import comicarr.app.manga.mangadex as mangadex
         from comicarr import config as comicarr_config
 
         monkeypatch.setattr(

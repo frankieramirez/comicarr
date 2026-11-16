@@ -23,7 +23,8 @@ from sqlalchemy import select
 
 import comicarr
 import comicarr.search
-from comicarr import helpers, mangadex, rsscheck
+from comicarr import helpers, rsscheck
+from comicarr.app.manga import mangadex
 from comicarr.app.search import rss
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import comics, issues, metadata, rssdb

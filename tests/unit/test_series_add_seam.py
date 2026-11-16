@@ -174,8 +174,8 @@ def test_refresh_provider_failure_keeps_a_paused_series_name_and_status(library,
     ],
 )
 def test_add_manga_adds_series_from_its_provider(library, tmp_path, monkeypatch, comic_id, name, provider_ids):
-    import comicarr.mangadex as mangadex
-    import comicarr.myanimelist as myanimelist
+    import comicarr.app.manga.mangadex as mangadex
+    import comicarr.app.manga.myanimelist as myanimelist
     from comicarr import config as comicarr_config
 
     details = {

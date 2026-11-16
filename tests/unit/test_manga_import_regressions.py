@@ -32,9 +32,9 @@ def _mal_payload():
 
 
 class TestMalCoverUrls:
-    @patch("comicarr.myanimelist._make_request")
+    @patch("comicarr.app.manga.myanimelist._make_request")
     def test_detail_cover_url_stays_absolute_for_backend_caching(self, mock_request):
-        from comicarr import myanimelist
+        from comicarr.app.manga import myanimelist
 
         mock_request.return_value = _mal_payload()
 
@@ -42,10 +42,10 @@ class TestMalCoverUrls:
 
         assert result["cover_url"] == "https://cdn.myanimelist.net/images/manga/2/253146l.jpg"
 
-    @patch("comicarr.myanimelist.listLibrary", return_value={})
-    @patch("comicarr.myanimelist._make_request")
+    @patch("comicarr.app.manga.myanimelist.listLibrary", return_value={})
+    @patch("comicarr.app.manga.myanimelist._make_request")
     def test_search_cover_url_remains_browser_proxied(self, mock_request, _mock_library):
-        from comicarr import myanimelist
+        from comicarr.app.manga import myanimelist
 
         mock_request.return_value = {"data": [{"node": _mal_payload()}], "paging": {}}
 
@@ -55,9 +55,9 @@ class TestMalCoverUrls:
 
 
 class TestMangaDexMalMatching:
-    @patch("comicarr.mangadex._make_request")
+    @patch("comicarr.app.manga.mangadex._make_request")
     def test_alternate_title_recovers_after_primary_lookup_failure(self, mock_request):
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         mock_request.side_effect = [
             None,
@@ -77,9 +77,9 @@ class TestMangaDexMalMatching:
         assert result == "a1c7c817-4e59-43b7-9365-09675a149a6f"
         assert [call.kwargs["params"]["title"] for call in mock_request.call_args_list] == ["One Piece", "ワンピース"]
 
-    @patch("comicarr.mangadex._make_request")
+    @patch("comicarr.app.manga.mangadex._make_request")
     def test_exact_mal_link_outranks_earlier_fuzzy_title_match(self, mock_request):
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         mock_request.side_effect = [
             {
@@ -106,9 +106,9 @@ class TestMangaDexMalMatching:
 
         assert result == "exact-candidate"
 
-    @patch("comicarr.mangadex._make_request")
+    @patch("comicarr.app.manga.mangadex._make_request")
     def test_exact_only_lookup_skips_title_fallback(self, mock_request):
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         mock_request.return_value = {
             "result": "ok",
@@ -129,11 +129,11 @@ class TestMangaDexMalMatching:
         assert result is None
         assert mangadex.find_by_mal_id("13", title_hint="One Piece") == "fuzzy-candidate"
 
-    @patch("comicarr.mangadex._rate_limit")
-    @patch("comicarr.mangadex.logger")
-    @patch("comicarr.mangadex.requests.get")
+    @patch("comicarr.app.manga.mangadex._rate_limit")
+    @patch("comicarr.app.manga.mangadex.logger")
+    @patch("comicarr.app.manga.mangadex.requests.get")
     def test_bad_request_logs_bounded_provider_details(self, mock_get, mock_logger, _mock_rate_limit):
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         response = MagicMock()
         response.status_code = 400

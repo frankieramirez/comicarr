@@ -528,7 +528,7 @@ def find_by_mal_id(mal_id, title_hint=None, alternate_titles=None, *, allow_titl
 
     logger.info("[MANGADEX] Looking up MangaDex UUID for MAL ID %s using %d title(s)" % (mal_id_str, len(title_hints)))
 
-    from comicarr.scanutil import name_similarity
+    from comicarr.app.imports.scanutil import name_similarity
 
     best_uuid = None
     best_score = 0.0

@@ -21,9 +21,9 @@ MANGA_ID = "15edb207-8ef9-4392-81b1-4ac92b31496b"
 
 
 class TestGetTotalChapterCount:
-    @patch("comicarr.mangadex._make_request")
+    @patch("comicarr.app.manga.mangadex._make_request")
     def test_counts_unique_chapters_across_volumes(self, mock_request):
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         mock_request.return_value = {
             "result": "ok",
@@ -35,18 +35,18 @@ class TestGetTotalChapterCount:
 
         assert mangadex.get_total_chapter_count(MANGA_ID) == 3
 
-    @patch("comicarr.mangadex._make_request")
+    @patch("comicarr.app.manga.mangadex._make_request")
     def test_empty_volumes_list_returns_zero(self, mock_request):
         # MangaDex returns "volumes": [] (a list) when a manga has no chapters.
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         mock_request.return_value = {"result": "ok", "volumes": []}
 
         assert mangadex.get_total_chapter_count(MANGA_ID) == 0
 
-    @patch("comicarr.mangadex._make_request")
+    @patch("comicarr.app.manga.mangadex._make_request")
     def test_volumes_as_list_of_volume_objects(self, mock_request):
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         mock_request.return_value = {
             "result": "ok",
@@ -58,9 +58,9 @@ class TestGetTotalChapterCount:
 
         assert mangadex.get_total_chapter_count(MANGA_ID) == 2
 
-    @patch("comicarr.mangadex._make_request")
+    @patch("comicarr.app.manga.mangadex._make_request")
     def test_chapters_as_list_inside_volume(self, mock_request):
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         mock_request.return_value = {
             "result": "ok",
@@ -69,9 +69,9 @@ class TestGetTotalChapterCount:
 
         assert mangadex.get_total_chapter_count(MANGA_ID) == 2
 
-    @patch("comicarr.mangadex._make_request")
+    @patch("comicarr.app.manga.mangadex._make_request")
     def test_failed_request_returns_zero(self, mock_request):
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         mock_request.return_value = None
 
@@ -80,16 +80,16 @@ class TestGetTotalChapterCount:
 
 class TestAggregateValues:
     def test_dict_yields_values(self):
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         assert list(mangadex._aggregate_values({"a": 1, "b": 2})) == [1, 2]
 
     def test_list_passes_through(self):
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         assert mangadex._aggregate_values([1, 2]) == [1, 2]
 
     def test_none_yields_nothing(self):
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         assert list(mangadex._aggregate_values(None)) == []

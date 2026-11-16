@@ -1442,7 +1442,7 @@ def refresh_import(ctx):
 
 def manga_library_scan(ctx):
     """Trigger a manga library scan in the background."""
-    from comicarr import mangasync
+    from comicarr.app.manga import mangasync
 
     manga_dir = getattr(comicarr.CONFIG, "MANGA_DIR", None) if comicarr.CONFIG else None
     if not manga_dir:
@@ -1464,14 +1464,14 @@ def manga_library_scan(ctx):
 
 def manga_scan_progress():
     """Progress of the current or last manga library scan."""
-    from comicarr import mangasync
+    from comicarr.app.manga import mangasync
 
     return mangasync.get_scan_progress()
 
 
 def manga_scan_confirm(ctx, selected_ids, scan_id):
     """Confirm and import selected manga series from scan results."""
-    from comicarr import mangasync
+    from comicarr.app.manga import mangasync
 
     if not selected_ids:
         return {"success": False, "error": "No series selected"}
