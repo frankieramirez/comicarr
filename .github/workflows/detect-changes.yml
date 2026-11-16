@@ -57,6 +57,7 @@ jobs:
               - 'alembic.ini'
               - '.pre-commit-config.yaml'
               - 'frontend/src/types/config.generated.ts'
+              - 'frontend/src/types/states.generated.ts'
               - '.github/workflows/ci.yml'
               - '.github/workflows/test.yml'
               - '.github/workflows/detect-changes.yml'

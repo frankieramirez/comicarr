@@ -34,6 +34,14 @@ repos:
         entry: python scripts/generate_config_types.py
         files: ^comicarr/app/(config/registry|system/service)\.py$
         pass_filenames: false
+      # Rewrites frontend/src/types/states.generated.ts when the state machine
+      # registry changes, so the frontend unions never trail the backend.
+      - id: generated-state-types
+        name: regenerate state types (state machine registry)
+        language: system
+        entry: python scripts/generate_state_types.py
+        files: ^comicarr/app/common/state_machines\.py$
+        pass_filenames: false
 
       - id: frontend-prettier
         name: prettier (frontend)
