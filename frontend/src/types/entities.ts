@@ -2,48 +2,31 @@
  * Core entity type definitions
  */
 
-/** Comic series status */
-export type SeriesStatus = "Active" | "Paused" | "Ended" | "Loading" | "Error";
+import type {
+  AcquisitionIntent,
+  FulfillmentState,
+  IssueDisplayState,
+  IssueStatus,
+  SearchRunCompletionState,
+  SearchRunDispatchState,
+  SearchRunItemState,
+  SeriesStatus,
+  SettableIssueStatus,
+} from "./states.generated";
 
-/** Issue status */
-export type IssueStatus =
-  | "Downloaded"
-  | "Wanted"
-  | "Skipped"
-  | "Ignored"
-  | "Reserved"
-  | "Snatched"
-  | "Archived"
-  | "Failed";
-
-/** Statuses an operator can set on an issue (PUT /api/series/issues/{id}/status). */
-export type SettableIssueStatus = "Wanted" | "Skipped" | "Ignored" | "Archived";
-
-/** User or policy intent, independent of the acquisition evidence. */
-export type AcquisitionIntent = "policy" | "wanted" | "skipped" | "ignored";
-
-/** Evidence-backed acquisition state, independent of user intent. */
-export type FulfillmentState =
-  | "unknown"
-  | "missing"
-  | "reserved"
-  | "snatched"
-  | "downloaded"
-  | "archived"
-  | "failed";
-
-/** Compact state shown in issue tables and filters. */
-export type IssueDisplayState =
-  | "Unknown"
-  | "Missing"
-  | "Wanted"
-  | "Skipped"
-  | "Ignored"
-  | "Reserved"
-  | "Snatched"
-  | "Downloaded"
-  | "Archived"
-  | "Failed";
+// State vocabularies are generated from the backend registry
+// (comicarr/app/common/state_machines.py). Change a state there, never here.
+export type {
+  AcquisitionIntent,
+  FulfillmentState,
+  IssueDisplayState,
+  IssueStatus,
+  SearchRunCompletionState,
+  SearchRunDispatchState,
+  SearchRunItemState,
+  SeriesStatus,
+  SettableIssueStatus,
+};
 
 /** The policy explanation included with the canonical issue projection. */
 export interface IssueEligibility {
@@ -239,24 +222,6 @@ export interface SearchRunRetryResult {
   run?: SearchRun;
   error?: string;
 }
-
-/** Scheduler acceptance state for a durable search run. */
-export type SearchRunDispatchState =
-  "pending" | "accepted" | "error" | "missed" | "max_instances";
-
-/** Completion state calculated from the run's individual issue outcomes. */
-export type SearchRunCompletionState =
-  "pending" | "running" | "completed" | "partial" | "blocked" | "failed";
-
-export type SearchRunItemState =
-  | "accepted"
-  | "running"
-  | "succeeded"
-  | "no_match"
-  | "blocked"
-  | "failed"
-  | "quarantined"
-  | "cancelled";
 
 /** Sanitized durable search run returned by GET /api/search/runs/{id}. */
 export interface SearchRun {
