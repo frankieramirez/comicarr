@@ -9,6 +9,9 @@ on:
     - cron: "17 8 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   # ===========================================================================
   # Path detection (shared with CI)
