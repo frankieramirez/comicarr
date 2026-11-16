@@ -15,7 +15,7 @@ import "@fontsource/jetbrains-mono/latin-500.css";
 import "@fontsource/jetbrains-mono/latin-ext-500.css";
 import "./index.css";
 import { I18nProvider } from "@lingui/react";
-import App from "./App";
+import LocaleRoot from "@/components/LocaleRoot";
 import { i18n, initI18n } from "@/lib/i18n";
 import { isMockEnabled } from "@/lib/mockData";
 
@@ -44,7 +44,7 @@ void initI18n().finally(() => {
   createRoot(rootElement).render(
     <StrictMode>
       <I18nProvider i18n={i18n}>
-        <App />
+        <LocaleRoot />
       </I18nProvider>
     </StrictMode>,
   );
