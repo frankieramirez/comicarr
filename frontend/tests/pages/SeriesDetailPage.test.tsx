@@ -740,7 +740,9 @@ describe("SeriesDetailPage", () => {
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "All 10" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Have 2" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Missing 6" })).toBeTruthy();
+    // Wanted is missing and still searched; skipped or ignored is Not wanted.
+    expect(screen.getByRole("button", { name: "Wanted 3" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Not wanted 3" })).toBeTruthy();
     expect(screen.getByText(/annuals: 1/)).toBeTruthy();
     expect(screen.getAllByText("Annual").length).toBeGreaterThan(0);
     const phoneAnnual = screen.getByTestId("phone-row-id");
@@ -763,11 +765,40 @@ describe("SeriesDetailPage", () => {
     }
     expect(screen.getAllByText("intent: skipped").length).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole("button", { name: "Missing 6" }));
+    await user.click(screen.getByRole("button", { name: "Wanted 3" }));
     expect(screen.getByText("Unverified copy")).toBeTruthy();
+    expect(screen.getByText("Ready to search")).toBeTruthy();
     expect(screen.getByText("Annual event")).toBeTruthy();
+    expect(screen.queryByText("Explicitly skipped")).toBeNull();
     expect(screen.queryByText("Archived edition")).toBeNull();
     expect(screen.queryByText("Reserved handoff")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Not wanted 3" }));
+    expect(screen.getByText("Failed transfer")).toBeTruthy();
+    expect(screen.getByText("Explicitly ignored")).toBeTruthy();
+    expect(screen.getByText("Explicitly skipped")).toBeTruthy();
+    expect(screen.queryByText("Ready to search")).toBeNull();
+  });
+
+  it("wants a not-wanted issue in one click", async () => {
+    const statuses: string[] = [];
+    server.use(
+      http.put("/api/series/issues/:issueId/status", async ({ request }) => {
+        const body = (await request.json()) as { status: string };
+        statuses.push(body.status);
+        return HttpResponse.json({ success: true });
+      }),
+    );
+    const user = userEvent.setup();
+    renderDetail();
+    await screen.findByRole("heading", { level: 1, name: "Absolute Batman" });
+
+    await user.click(screen.getByRole("button", { name: "Not wanted 3" }));
+    await user.click(
+      screen.getAllByRole("button", { name: /^Want .*Explicitly skipped/ })[0],
+    );
+
+    await waitFor(() => expect(statuses).toEqual(["Wanted"]));
   });
 
   function serveLedger(
@@ -1516,14 +1547,14 @@ describe("SeriesDetailPage", () => {
 
     it("selects only the filtered rows with the header checkbox", async () => {
       const missingCount = [...canonicalIssues, annual].filter(
-        (row) => row.missing === true,
+        (row) => row.missing === true && row.monitored !== false,
       ).length;
       const user = userEvent.setup();
       renderDetail();
       await screen.findByRole("heading", { level: 1, name: "Absolute Batman" });
 
       await user.click(
-        screen.getByRole("button", { name: `Missing ${missingCount}` }),
+        screen.getByRole("button", { name: `Wanted ${missingCount}` }),
       );
       await user.click(
         screen.getByRole("checkbox", { name: "Select all visible issues" }),

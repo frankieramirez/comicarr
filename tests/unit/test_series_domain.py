@@ -83,7 +83,15 @@ def _state_row(**overrides):
         (
             _state_row(status="Skipped", releaseDate="2027-01-01"),
             "Active",
-            {"displayState": "Skipped", "eligibilityReason": "future", "future": True, "eligible": False},
+            # A legacy Skipped status is not wanted, so its date is never consulted.
+            {
+                "displayState": "Skipped",
+                "acquisitionIntent": "policy",
+                "intentExplicit": False,
+                "eligibilityReason": "intent_skipped",
+                "monitored": False,
+                "eligible": False,
+            },
         ),
         (
             _state_row(status="Wanted"),
@@ -194,13 +202,17 @@ def test_absolute_batman_projection_reconciles_18_owned_2_released_2_future(tmp_
         "archived": 0,
         "inFlight": 0,
         "missing": 4,
-        "monitored": 22,
+        # Legacy Skipped rows are not wanted: 18 owned files and 2 future
+        # issues leave only the 2 released, never-marked rows monitored.
+        "monitored": 2,
+        "wantedMissing": 2,
+        "notWanted": 2,
         "wanted": 0,
         "skipped": 0,
         "ignored": 0,
         "failed": 0,
         "unknown": 2,
-        "future": 2,
+        "future": 0,
         "eligible": 2,
         "deferred": 2,
         "completionPercent": 82,

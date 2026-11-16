@@ -64,6 +64,8 @@ export interface Comic {
   Status: SeriesStatus;
   Total?: number;
   Have?: number;
+  /** Issues with Status Wanted, counted the way the Wanted page lists them. */
+  Wanted?: number;
   LatestDate?: string | null;
   LastUpdated?: string | null;
   DateAdded?: string | null;
@@ -153,6 +155,10 @@ export interface SeriesIssueSummary {
   inFlight?: number;
   missing?: number;
   monitored?: number;
+  /** Missing and monitored: what auto-search and the Wanted page go after. */
+  wantedMissing?: number;
+  /** Missing but skipped or ignored. */
+  notWanted?: number;
   wanted?: number;
   skipped?: number;
   ignored?: number;

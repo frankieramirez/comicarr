@@ -15,7 +15,12 @@ from typing import Any, Mapping
 
 import comicarr
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome
-from comicarr.app.acquisition.policy import EligibilityInput, evaluate_eligibility, project_legacy_state
+from comicarr.app.acquisition.policy import (
+    EligibilityInput,
+    effective_intent,
+    evaluate_eligibility,
+    project_legacy_state,
+)
 from comicarr.app.search.queue import INTERACTIVE, RECOVERY, ROUTINE
 
 
@@ -46,7 +51,7 @@ def evaluate_search_candidate(candidate, *, release_date, digital_date, issue_da
             series_active=series_present
             and (series_status is None or series_status in {"active", "loading", "paused"}),
             paused=series_present and series_status == "paused",
-            intent=projection.intent,
+            intent=effective_intent(projection, values.get("legacystatus")),
             fulfillment=projection.fulfillment,
             release_date=release_date,
             digital_date=digital_date,

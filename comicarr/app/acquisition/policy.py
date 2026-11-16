@@ -81,6 +81,29 @@ def project_legacy_state(acquisition_intent, legacy_status):
     return StateProjection(intent=intent, fulfillment=fulfillment, intent_is_explicit=explicit)
 
 
+_LEGACY_NOT_WANTED = {
+    "skipped": AcquisitionIntent.SKIPPED,
+    "ignored": AcquisitionIntent.IGNORED,
+}
+
+
+def effective_intent(projection, legacy_status):
+    """The intent eligibility acts on, without inventing explicit intent.
+
+    Explicit ``AcquisitionIntent`` always wins. Under policy, a legacy
+    ``Skipped`` or ``Ignored`` status still means the issue is not wanted:
+    auto-search and the Wanted page have always read it that way, and a series
+    page's "Search missing" must not search what they leave alone. The
+    projection keeps ``intent_is_explicit`` False, so nothing here becomes an
+    auditable user decision.
+    """
+
+    if projection.intent is not AcquisitionIntent.POLICY:
+        return projection.intent
+    normalized_status = str(legacy_status).strip().lower() if legacy_status is not None else ""
+    return _LEGACY_NOT_WANTED.get(normalized_status, AcquisitionIntent.POLICY)
+
+
 def explicit_intent_values(intent, audit_identity):
     """Return the dual-write fields for a future audited user action.
 

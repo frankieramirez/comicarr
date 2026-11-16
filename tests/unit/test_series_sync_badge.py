@@ -18,7 +18,7 @@ import comicarr
 from comicarr import db
 from comicarr.app.series import queries as series_queries
 from comicarr.app.series import service as series_service
-from comicarr.tables import comics, metadata
+from comicarr.tables import comics, issues, metadata
 
 
 @pytest.fixture
@@ -95,3 +95,25 @@ def test_query_projection_does_not_confuse_latest_release_with_last_refresh(quer
     assert row["LatestDate"] == "Unknown"
     assert row["LastUpdated"] == "2026-08-16 12:00:00"
     assert row["LatestDate"] != row["LastUpdated"]
+
+
+def test_series_list_counts_wanted_the_way_the_wanted_page_does(query_db):
+    _seed(query_db)
+    with query_db.begin() as conn:
+        conn.execute(
+            insert(issues),
+            [
+                {"IssueID": "w1", "ComicID": "md-synced", "Issue_Number": "1", "Status": "Wanted"},
+                {"IssueID": "w2", "ComicID": "md-synced", "Issue_Number": "2", "Status": "Wanted"},
+                {"IssueID": "s1", "ComicID": "md-synced", "Issue_Number": "3", "Status": "Skipped"},
+                {"IssueID": "d1", "ComicID": "md-synced", "Issue_Number": "4", "Status": "Downloaded"},
+            ],
+        )
+    ctx = SimpleNamespace(config=SimpleNamespace())
+
+    by_id = {row["ComicID"]: row for row in series_service.list_comics(ctx)}
+    # Most wanted reads this, so a Skipped issue never counts.
+    assert by_id["md-synced"]["Wanted"] == 2
+    assert by_id["mal-unsynced"]["Wanted"] == 0
+    paged = {row["ComicID"]: row for row in series_queries.list_comics_paginated(10)["results"]}
+    assert paged["md-synced"]["Wanted"] == 2
