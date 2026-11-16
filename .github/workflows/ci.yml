@@ -167,3 +167,9 @@ jobs:
       - name: Check generated settings types are fresh
         if: needs.changes.outputs.backend == 'true'
         run: python scripts/generate_config_types.py --check
+
+      # Same shape: the input is the state machine registry, a stdlib-only leaf
+      # loaded by path.
+      - name: Check generated state types are fresh
+        if: needs.changes.outputs.backend == 'true'
+        run: python scripts/generate_state_types.py --check
