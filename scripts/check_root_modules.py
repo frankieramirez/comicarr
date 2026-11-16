@@ -140,9 +140,7 @@ def _on_disk() -> tuple[set[str], set[str], set[str]]:
     vendor: set[str] = set()
     if vendor_dir.is_dir():
         vendor = {
-            p.name
-            for p in vendor_dir.iterdir()
-            if p.name not in SKIP_DIR_NAMES and (p.is_dir() or p.suffix == ".py")
+            p.name for p in vendor_dir.iterdir() if p.name not in SKIP_DIR_NAMES and (p.is_dir() or p.suffix == ".py")
         } - ALLOWED_VENDOR
     return modules, packages, vendor
 
