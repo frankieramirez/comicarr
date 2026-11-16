@@ -9,7 +9,7 @@
 
 """Private grouping implementation for Needs attention."""
 
-from comicarr.app.attention._policy import STAGE_ACTIONS, base_reason, reason_phrase
+from comicarr.app.attention._policy import DISPLAY_REASON_PHRASES, STAGE_ACTIONS, display_reason, reason_phrase
 from comicarr.app.attention.contracts import AttentionGroup, AttentionMember
 from comicarr.app.downloads import journal
 
@@ -99,7 +99,7 @@ def build_groups(rows):
         payload = _payload_of(row)
         release_key = row.get("release_key")
         identity, has_comicid = _series_key(payload, release_key)
-        token = base_reason(row.get("fail_reason"))
+        token = display_reason(row, payload)
         key = _group_key(identity, token)
         updated = _text(row.get("updated_date")) or ""
         member = AttentionMember(
@@ -118,7 +118,7 @@ def build_groups(rows):
                 "comicid": identity if has_comicid else None,
                 "series_label": _series_label(payload, release_key, has_comicid),
                 "base_reason": token,
-                "reason_phrase": reason_phrase(row.get("fail_reason")),
+                "reason_phrase": DISPLAY_REASON_PHRASES.get(token) or reason_phrase(row.get("fail_reason")),
                 "member_count": 0,
                 "newest_updated_at": updated,
                 "oldest_updated_at": updated,

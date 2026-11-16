@@ -240,10 +240,10 @@ def test_view_folds_series_groups_into_causes(attention_db):
     from comicarr.app.attention._serialization import serialize_view
 
     def saga(**kw):
-        return _journal(payload_json=json.dumps({"comicid": "42", "comicname": "Saga"}), **kw)
+        return _journal(payload_json=json.dumps({"comicid": "42", "comicname": "Saga"}), nzbname="Saga.070", **kw)
 
     def batman(**kw):
-        return _journal(payload_json=json.dumps({"comicid": "7", "comicname": "Batman"}), **kw)
+        return _journal(payload_json=json.dumps({"comicid": "7", "comicname": "Batman"}), nzbname="Batman.150", **kw)
 
     with attention_db.begin() as conn:
         conn.execute(
@@ -276,6 +276,51 @@ def test_view_folds_series_groups_into_causes(attention_db):
     assert rejected["release_keys"] == ["b-2"]
     # Totals across causes equal the series view's member total.
     assert sum(cause["member_count"] for cause in causes) == body["member_total"]
+
+
+def test_post_process_rejections_without_a_release_name_are_their_own_cause(attention_db):
+    """No setting fixes a row that never recorded its release, so it isn't "misconfigured"."""
+    from comicarr.app.attention import PREVIEW_CAP, read
+    from comicarr.app.attention._serialization import serialize_view
+
+    with attention_db.begin() as conn:
+        conn.execute(
+            insert(pipeline_journal),
+            [
+                _journal(
+                    release_key="old-1",
+                    nzbname=None,
+                    issueid="o1",
+                    stage="manual_review",
+                    fail_reason="downloaded_invalid_artifact_command:PostProcessCommandError",
+                    payload_json=json.dumps({"comicid": "18839", "comicname": "Looney Tunes", "nzbname": None}),
+                ),
+                _journal(
+                    release_key="old-2",
+                    nzbname=None,
+                    issueid="o2",
+                    stage="manual_review",
+                    fail_reason="invalid_recovered_postprocess_command:PostProcessCommandError",
+                    payload_json=json.dumps({"comicid": "18839", "comicname": "Looney Tunes"}),
+                ),
+                _journal(
+                    release_key="named-1",
+                    issueid="n1",
+                    stage="manual_review",
+                    nzbname="Saga.070",
+                    fail_reason="invalid_postprocess_command:PostProcessCommandError",
+                ),
+            ],
+        )
+
+    causes = {cause["base_reason"]: cause for cause in serialize_view(read(), preview_cap=PREVIEW_CAP)["causes"]}
+    assert set(causes) == {"untraceable_record", "invalid_postprocess_command"}
+
+    nameless = causes["untraceable_record"]
+    assert nameless["headline"] == "Old downloads with no release name"
+    assert nameless["fix"] is None
+    assert sorted(nameless["release_keys"]) == ["old-1", "old-2"]
+    assert causes["invalid_postprocess_command"]["headline"] == "Post-processing is misconfigured"
 
 
 def test_unmapped_reason_cause_falls_back_to_its_phrase(attention_db):
