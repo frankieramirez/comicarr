@@ -1,5 +1,5 @@
 import { ph, plural, t } from "@lingui/core/macro";
-import type { WantedSeries } from "@/types";
+import type { SearchRunItemState, WantedSeries } from "@/types";
 /**
  * Operator-language labels for Wanted row live-sticky acquisition annotations.
  *
@@ -9,16 +9,8 @@ import type { WantedSeries } from "@/types";
  * `next_attempt_at` countdowns (#429 / #432 / #490).
  */
 
-export type WantedAcquisitionState =
-  | "accepted"
-  | "running"
-  | "succeeded"
-  | "no_match"
-  | "blocked"
-  | "failed"
-  | "quarantined"
-  | "cancelled"
-  | string;
+/** The latest search run item's state; `string` keeps an unknown one renderable. */
+export type WantedAcquisitionState = SearchRunItemState | string;
 
 export interface WantedAcquisitionAnnotation {
   state: WantedAcquisitionState | null;
