@@ -7,11 +7,11 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""Tests for comicarr.cv_cache ComicVine metadata cache."""
+"""Tests for comicarr.app.metadata.cv_cache ComicVine metadata cache."""
 
 import sqlite3
 
-from comicarr.cv_cache import CVCache
+from comicarr.app.metadata.cv_cache import CVCache
 
 
 def test_init_creates_cache_table_and_expiry_index(tmp_path):

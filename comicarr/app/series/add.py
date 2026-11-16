@@ -44,7 +44,8 @@ def add_manga(comic_id: str) -> Any:
     MyAnimeList ids go through ``importer.addMangaToDB_MAL``; everything else
     through ``importer.addMangaToDB`` (MangaDex).
     """
-    from comicarr import importer, series_kind
+    from comicarr import importer
+    from comicarr.app.common import series_kind
 
     if series_kind.provider_of(comic_id) is series_kind.SeriesProvider.MYANIMELIST:
         return importer.addMangaToDB_MAL(comic_id)

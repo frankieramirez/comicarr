@@ -24,7 +24,8 @@ from typing import Any
 
 from sqlalchemy import and_, or_, select, update
 
-from comicarr import db, helpers, logger, series_kind
+from comicarr import db, helpers, logger
+from comicarr.app.common import series_kind
 from comicarr.app.common.numbers import zero_suppression_prefix
 from comicarr.app.common.placement import OnExisting, Outcome, Purpose
 from comicarr.app.common.redaction import redacted_traceback

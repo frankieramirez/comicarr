@@ -17,7 +17,7 @@ decision made somewhere else:
   * and the MangaDex add path never recorded MangaDexID, so a series added that
     way was invisible to every lookup keyed on it.
 
-The rule itself now lives in ``comicarr.series_kind`` and is tested against that
+The rule itself now lives in ``comicarr.app.common.series_kind`` and is tested against that
 interface in ``test_series_kind.py``. What remains here is the integration
 coverage: that each of these three call sites actually asks it.
 """

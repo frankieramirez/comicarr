@@ -136,7 +136,7 @@ def test_repeat_add_reuses_metadata_and_does_not_change_monitoring(metadata_envi
 @pytest.mark.parametrize("mapped", [None, "4050-123"])
 def test_metron_mapping_is_canonical_or_refused_before_writes(metadata_environment, monkeypatch, mapped):
     _, session, _, _ = metadata_environment
-    monkeypatch.setattr("comicarr.metron.get_cv_id", lambda _: mapped)
+    monkeypatch.setattr("comicarr.app.metadata.metron.get_cv_id", lambda _: mapped)
     if mapped:
         result = importer.addComictoDB("metron-789", metadata_only=True)
         assert result["comicid"] == "123"
@@ -190,7 +190,7 @@ def test_active_failed_placeholder_is_retried(metadata_environment):
 
 
 def test_rate_limiter_wait_is_bounded_without_consuming_a_token():
-    from comicarr.rate_limiter import ComicVineRateLimiter
+    from comicarr.app.metadata.rate_limiter import ComicVineRateLimiter
 
     limiter = ComicVineRateLimiter(calls_per_second=0.01)
     limiter.tokens = 0
@@ -201,7 +201,7 @@ def test_rate_limiter_wait_is_bounded_without_consuming_a_token():
 
 
 def test_rate_limiter_lock_wait_is_bounded():
-    from comicarr.rate_limiter import ComicVineRateLimiter
+    from comicarr.app.metadata.rate_limiter import ComicVineRateLimiter
 
     limiter = ComicVineRateLimiter()
     limiter.lock.acquire()
@@ -333,7 +333,7 @@ def test_unresolved_issue_keeps_metadata_and_files_pending_then_retries(pending_
 def test_metron_finalization_propagates_canonical_id_to_imports(pending_import, monkeypatch):
     finalization, ctx, _, _, importresults = pending_import
     mapping = MagicMock(return_value="4050-123")
-    monkeypatch.setattr("comicarr.metron.get_cv_id", mapping)
+    monkeypatch.setattr("comicarr.app.metadata.metron.get_cv_id", mapping)
     result = finalization.finalize_manual_match(ctx, ["pending"], "metron-789", add_missing=True)
     assert result.series_id == "123"
     assert db.select_one(select(importresults))["ComicID"] == "123"

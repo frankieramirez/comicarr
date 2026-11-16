@@ -169,7 +169,7 @@ async def test_a_kind_that_does_not_match_the_provider_is_invalid_argument(provi
 
 @pytest.mark.asyncio
 async def test_an_unreachable_or_disabled_provider_is_provider_unavailable(providers, monkeypatch):
-    monkeypatch.setattr("comicarr.metron.get_cv_id", lambda _id: None)
+    monkeypatch.setattr("comicarr.app.metadata.metron.get_cv_id", lambda _id: None)
     app = make_app(writes=True)
     async with mcp_client(app, **AUTH) as mcp:
         metron = await mcp.call_tool("add_series", {"provider": "metron", "provider_id": "55", "kind": "comic"})

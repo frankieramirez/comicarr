@@ -31,7 +31,8 @@ import traceback
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, logger, series_kind
+from comicarr import db, logger
+from comicarr.app.common import series_kind
 from comicarr.app.imports.scanutil import COMIC_EXTENSIONS, find_best_match
 from comicarr.app.manga.manga_parser import parse_manga_filename
 from comicarr.app.manga.parse import parse_in_series_context

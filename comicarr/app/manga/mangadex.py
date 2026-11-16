@@ -32,7 +32,8 @@ from datetime import datetime
 import requests
 
 import comicarr
-from comicarr import logger, series_kind
+from comicarr import logger
+from comicarr.app.common import series_kind
 from comicarr.helpers import listLibrary
 
 MANGADEX_API_BASE = "https://api.mangadex.org"

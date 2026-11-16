@@ -18,7 +18,7 @@ search run item and never re-reads acquisition state.
 
 import re
 
-from comicarr import series_kind
+from comicarr.app.common import series_kind
 
 # Why an issue is still missing, from its latest search run item.
 NOT_FOUND = "not_found"

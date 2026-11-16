@@ -133,7 +133,7 @@ class TestGetSeriesImage:
         result = metadata_service.get_series_image(ctx, "not-a-number")
         assert result is None
 
-    @patch("comicarr.metron", create=True)
+    @patch("comicarr.app.metadata.metron", create=True)
     def test_delegates_to_metron(self, mock_metron):
         """Valid series ID delegates to metron.get_series_image."""
         ctx = _make_test_ctx()

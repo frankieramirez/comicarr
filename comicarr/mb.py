@@ -152,7 +152,7 @@ def findComic(
 
     if search_type != "story_arc" and not annual_check and comicarr.CONFIG.USE_METRON_SEARCH and comicarr.METRON_API:
         logger.info("[METRON] Using Metron API for search")
-        from comicarr import metron
+        from comicarr.app.metadata import metron
 
         return metron.search_series(
             name, mode=mode, issue=issue, limityear=limityear, limit=limit, offset=offset, sort=sort

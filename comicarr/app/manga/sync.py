@@ -9,7 +9,7 @@
 
 """Scheduled manga ledger refresh and in-place healing.
 
-Selects series with :func:`comicarr.series_kind.manga_sql_clause` so an
+Selects series with :func:`comicarr.app.common.series_kind.manga_sql_clause` so an
 operator-marked classification wins over the ComicID prefix, while unmarked
 legacy ``md-``/``mal-`` rows stay in sync. Does not invent live NAS counts.
 """
@@ -17,7 +17,7 @@ legacy ``md-``/``mal-`` rows stay in sync. Does not invent live NAS counts.
 from sqlalchemy import func, or_, select
 
 from comicarr import db, logger
-from comicarr.series_kind import manga_sql_clause
+from comicarr.app.common.series_kind import manga_sql_clause
 from comicarr.tables import comics as t_comics
 from comicarr.tables import issues as t_issues
 

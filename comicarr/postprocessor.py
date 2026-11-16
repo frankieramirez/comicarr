@@ -44,7 +44,8 @@ from dataclasses import dataclass
 from sqlalchemy import Integer, and_, func, inspect, or_, select
 
 import comicarr
-from comicarr import db, filechecker, getimage, helpers, logger, series_kind, updater, weeklypull
+from comicarr import db, filechecker, getimage, helpers, logger, updater, weeklypull
+from comicarr.app.common import series_kind
 from comicarr.app.common.placement import place
 from comicarr.app.downloads.postprocess_pipeline import PostProcessItemDeps
 from comicarr.app.manga.ledger import normalize_volume_number

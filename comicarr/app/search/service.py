@@ -166,7 +166,7 @@ def find_manga(ctx, name, limit=None, offset=None, sort=None):
 
 def add_comic(ctx, comic_id, folder=None, *, want=False):
     """Add a comic to the watchlist via the Series add seam."""
-    from comicarr import metron
+    from comicarr.app.metadata import metron
     from comicarr.app.series import add as series_add
     from comicarr.app.series import location as series_location
 
@@ -224,7 +224,7 @@ def add_manga(ctx, manga_id, folder=None, *, want=False):
     if not ctx.config or not (mal_ok or mdex_ok):
         return {"success": False, "error": "Manga integration is not enabled"}
 
-    from comicarr import series_kind
+    from comicarr.app.common import series_kind
     from comicarr.app.manga.duplicates import find_existing_manga_series
     from comicarr.app.series import add as series_add
     from comicarr.app.series import location as series_location
@@ -293,7 +293,8 @@ def add_series_from_provider(ctx, provider, provider_id, *, want=False):
     integration is off) or ``"rejected"`` (anything else, such as
     a folder Comicarr cannot use), plus ``error``.
     """
-    from comicarr import metron, series_kind
+    from comicarr.app.common import series_kind
+    from comicarr.app.metadata import metron
     from comicarr.app.series import queries as series_queries
 
     provider_id = str(provider_id).strip()
