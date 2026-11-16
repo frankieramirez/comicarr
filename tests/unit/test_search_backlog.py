@@ -395,3 +395,42 @@ def test_rss_scan_releases_the_pass_lock_after_an_error(rss_watchlist, monkeypat
 
     assert try_acquire_pass() is True
     rss_watchlist.search_lock.acquire.assert_not_called()
+
+
+def _prowlarr_usenet_only(config):
+    """Prowlarr's Usenet side as the only search provider, with SABnzbd (#1442)."""
+    config.ENABLE_DDL = False
+    config.ENABLE_GETCOMICS = False
+    config.ENABLE_PROWLARR = True
+    config.PROWLARR_HOST = "http://prowlarr.example:9696"
+    config.PROWLARR_APIKEY = "key"
+    config.PROWLARR_USENET = True
+    config.NZB_DOWNLOADER = 0
+
+
+def test_rss_scan_runs_with_prowlarr_usenet_as_the_only_provider(rss_watchlist, monkeypatch):
+    _prowlarr_usenet_only(comicarr.CONFIG)
+    monkeypatch.setattr(comicarr, "USE_SABNZBD", True)
+    warnings = []
+    monkeypatch.setattr(rss_watchlist.search.logger, "warn", lambda msg, *a: warnings.append(msg))
+    _seed_watchlist(_wanted("1"))
+
+    rss_watchlist.search.searchforissue(rsschecker="yes")
+
+    assert not [msg for msg in warnings if "no search providers enabled" in msg]
+    # Prowlarr has no RSS feed, so there is nothing in the RSS store to match.
+    assert rss_watchlist.rss_lookups == []
+    assert _seen_ids() == {"1"}
+
+
+def test_issue_list_search_queues_with_prowlarr_usenet_as_the_only_provider(rss_watchlist, monkeypatch):
+    from comicarr.app.search import commands
+
+    _prowlarr_usenet_only(comicarr.CONFIG)
+    queued = []
+    monkeypatch.setattr(commands, "enqueue_search_command", lambda payload, **_kw: queued.append(payload))
+    _seed_watchlist(_wanted("1"))
+
+    rss_watchlist.search.searchIssueIDList(["1"])
+
+    assert [payload["issueid"] for payload in queued] == ["1"]

@@ -78,6 +78,7 @@ from comicarr.app.search.backlog import (
 )
 from comicarr.app.search.evaluation import EvaluationSession
 from comicarr.app.search.evaluation_handoff import handoff_matches
+from comicarr.app.search.health import search_providers_available
 from comicarr.app.search.provider_config import provider_enabled, split_newznab_category_field
 from comicarr.downloaders import external_server as exs
 from comicarr.tables import (
@@ -1975,37 +1976,7 @@ def searchforissue(
         return {"status": "IN PROGRESS"}
 
     ens = [x for x in comicarr.CONFIG.EXTRA_NEWZNABS if provider_enabled(x)]
-    ets = [x for x in comicarr.CONFIG.EXTRA_TORZNABS if provider_enabled(x)]
-    if (
-        (
-            comicarr.CONFIG.ENABLE_DDL is True
-            and any(
-                [
-                    comicarr.CONFIG.ENABLE_GETCOMICS is True,
-                    comicarr.CONFIG.ENABLE_EXTERNAL_SERVER is True,
-                ]
-            )
-        )
-        or all([comicarr.CONFIG.NEWZNAB is True, len(ens) > 0])
-        and any(
-            [
-                comicarr.USE_SABNZBD is True,
-                comicarr.USE_NZBGET is True,
-                comicarr.USE_BLACKHOLE is True,
-            ]
-        )
-    ) or (
-        all(
-            [
-                comicarr.CONFIG.ENABLE_TORRENT_SEARCH is True,
-                comicarr.CONFIG.ENABLE_TORRENTS is True,
-            ]
-        )
-        and (
-            any([comicarr.CONFIG.ENABLE_PUBLIC is True, comicarr.CONFIG.ENABLE_32P is True])
-            or all([comicarr.CONFIG.ENABLE_TORZNAB is True, len(ets) > 0])
-        )
-    ):
+    if search_providers_available(comicarr.CONFIG):
         if not issueid or rsschecker:
             backlog_held = False
             rss_budget = None
@@ -2491,6 +2462,10 @@ def searchforissue(
 
                 if rsschecker:
                     provider_list = provider_order()
+                    # Prowlarr has no RSS feed, so a Prowlarr-only setup has no
+                    # RSS entries to match: skip the lookup instead of iterating
+                    # the issue list as if it were lookup results (#1442).
+                    results = {"entries": []}
                     if all(
                         [comicarr.CONFIG.ENABLE_TORRENTS is True, comicarr.CONFIG.ENABLE_TORRENT_SEARCH is True]
                     ) or (
@@ -2941,33 +2916,7 @@ def searchforissue(
 
 
 def searchIssueIDList(issuelist):
-    ens = [x for x in comicarr.CONFIG.EXTRA_NEWZNABS if provider_enabled(x)]
-    ets = [x for x in comicarr.CONFIG.EXTRA_TORZNABS if provider_enabled(x)]
-    if (
-        (
-            comicarr.CONFIG.ENABLE_DDL is True
-            and any([comicarr.CONFIG.ENABLE_GETCOMICS is True, comicarr.CONFIG.ENABLE_EXTERNAL_SERVER is True])
-        )
-        or all([comicarr.CONFIG.NEWZNAB is True, len(ens) > 0])
-        and any(
-            [
-                comicarr.USE_SABNZBD is True,
-                comicarr.USE_NZBGET is True,
-                comicarr.USE_BLACKHOLE is True,
-            ]
-        )
-    ) or (
-        all(
-            [
-                comicarr.CONFIG.ENABLE_TORRENT_SEARCH is True,
-                comicarr.CONFIG.ENABLE_TORRENTS is True,
-            ]
-        )
-        and (
-            any([comicarr.CONFIG.ENABLE_PUBLIC is True, comicarr.CONFIG.ENABLE_32P is True])
-            or all([comicarr.CONFIG.ENABLE_TORZNAB is True, len(ets) > 0])
-        )
-    ):
+    if search_providers_available(comicarr.CONFIG):
         for issueid in issuelist:
             comicname = None
             entity_type = "issue"
