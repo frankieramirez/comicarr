@@ -17,14 +17,13 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
-import hashlib
 import re
 
 import requests
 
 import comicarr
 from comicarr import logger
-from comicarr._vendor import bencode
+from comicarr.app.common.torrent_hash import info_hash, info_hash_of_file
 
 
 class utorrentclient(object):
@@ -132,12 +131,9 @@ class utorrentclient(object):
         thehash = None
         if link is None:
             if filepath:
-                torrent_file = open(filepath, "rb")
-                metainfo = bencode.decode(torrent_file.read())
+                thehash = info_hash_of_file(filepath)
             else:
-                metainfo = bencode.decode(data)
-            info = metainfo["info"]
-            thehash = hashlib.sha1(bencode.encode(info)).hexdigest().upper()
+                thehash = info_hash(data)
             logger.info("Hash: " + thehash)
         else:
             if link.startswith("magnet:"):
