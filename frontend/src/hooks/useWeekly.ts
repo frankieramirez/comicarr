@@ -61,6 +61,9 @@ export function useWeeklyPullList(week: WeekRef | null) {
           : "/api/weekly",
       ),
     staleTime: 5 * 60 * 1000,
+    // MangaUpdates fills in on a background thread; poll until it is done.
+    refetchInterval: (query) =>
+      query.state.data?.manga?.status === "refreshing" ? 5_000 : false,
   });
 }
 

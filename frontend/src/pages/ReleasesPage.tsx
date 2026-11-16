@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { RefreshCw } from "lucide-react";
 import { useUpcoming } from "@/hooks/useQueue";
 import { useQueryClient } from "@tanstack/react-query";
-import PageHeader, { Tab, TabRow } from "@/components/layout/PageHeader";
+import PageHeader from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -14,6 +14,14 @@ import {
 import IndustryReleasesView from "@/components/releases/IndustryReleasesView";
 import MyReleasesView from "@/components/releases/MyReleasesView";
 import WeekBar from "@/components/releases/WeekBar";
+import ReleasesModeBar from "@/components/releases/ReleasesModeBar";
+import {
+  INDUSTRY_FORMATS,
+  LIBRARY_FORMATS,
+  libraryFormat,
+  releasePrefs,
+  type ReleaseFormat,
+} from "@/components/releases/releaseFormat";
 import type { WeekRef } from "@/pages/weeklyReleaseRowKey";
 
 function readWeek(params: URLSearchParams): WeekRef | null {
@@ -22,12 +30,28 @@ function readWeek(params: URLSearchParams): WeekRef | null {
   return week && year ? { week, year } : null;
 }
 
-type ReleasesView = "mine" | "all";
-
+/**
+ * Releases is one list (#1383): everything out this week, comics and
+ * manga alike, with "Only my library" narrowing it to the library's own
+ * series and what they need. `?view=mine` and `?view=all` still link
+ * straight to either side.
+ */
 export default function ReleasesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const viewParam = searchParams.get("view");
-  const currentView: ReleasesView = viewParam === "all" ? "all" : "mine";
+  const libraryOnly =
+    viewParam === "mine"
+      ? true
+      : viewParam === "all"
+        ? false
+        : releasePrefs.libraryOnly();
+  const [format, setFormatState] = useState<ReleaseFormat>(() =>
+    releasePrefs.format(),
+  );
+  const setFormat = (next: ReleaseFormat) => {
+    releasePrefs.setFormat(next);
+    setFormatState(next);
+  };
   const selectedWeek = readWeek(searchParams);
   const { data: week } = useWeeklyPullList(selectedWeek);
   const mine = useUpcoming(true, selectedWeek);
@@ -70,11 +94,23 @@ export default function ReleasesPage() {
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
   }, [queryClient, refreshObservedActive, refreshRequested, weeklyStatus]);
 
-  const setView = (view: ReleasesView) => {
+  const setLibraryOnly = (value: boolean) => {
+    releasePrefs.setLibraryOnly(value);
     const next = new URLSearchParams(searchParams);
-    next.set("view", view);
+    next.set("view", value ? "mine" : "all");
     setSearchParams(next);
   };
+
+  const modeBar = (counts?: Partial<Record<ReleaseFormat, number>>) => (
+    <ReleasesModeBar
+      formats={libraryOnly ? LIBRARY_FORMATS : INDUSTRY_FORMATS}
+      format={libraryOnly ? libraryFormat(format) : format}
+      onFormatChange={setFormat}
+      counts={counts}
+      libraryOnly={libraryOnly}
+      onLibraryOnlyChange={setLibraryOnly}
+    />
+  );
 
   const goToWeek = (target: WeekRef | null) => {
     const next = new URLSearchParams(searchParams);
@@ -127,9 +163,9 @@ export default function ReleasesPage() {
       <PageHeader
         title="Releases"
         meta={
-          currentView === "mine"
+          libraryOnly
             ? "New issues and chapters from series you follow, week by week"
-            : "Everything out across publishers, from your weekly pull source"
+            : "Everything out this week: comics, manga, manhwa and manhua"
         }
         actions={
           <div className="flex items-center gap-2">
@@ -189,24 +225,11 @@ export default function ReleasesPage() {
         </div>
       )}
 
-      <TabRow>
-        <Tab
-          active={currentView === "mine"}
-          label="Mine"
-          meta={mine.data?.length}
-          onClick={() => setView("mine")}
-        />
-        <Tab
-          active={currentView === "all"}
-          label="Industry"
-          meta={week?.rows.length}
-          onClick={() => setView("all")}
-        />
-      </TabRow>
-
       <div className="flex-1 min-h-0 flex flex-col">
-        {currentView === "mine" ? (
+        {libraryOnly ? (
           <MyReleasesView
+            modeBar={modeBar}
+            format={libraryFormat(format)}
             issues={mine.data ?? []}
             isLoading={mine.isLoading}
             isFetching={mine.isFetching}
@@ -215,7 +238,12 @@ export default function ReleasesPage() {
             start={week?.start}
           />
         ) : (
-          <IndustryReleasesView selectedWeek={selectedWeek} />
+          <IndustryReleasesView
+            selectedWeek={selectedWeek}
+            modeBar={modeBar}
+            format={format}
+            libraryIssues={mine.data ?? []}
+          />
         )}
       </div>
     </div>

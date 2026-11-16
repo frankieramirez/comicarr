@@ -18,6 +18,7 @@ so browsing an old week never changes the library.
 """
 
 import datetime
+import re
 import threading
 import time
 
@@ -177,12 +178,84 @@ def _annotate(rows):
     return annotated
 
 
+def _title_key(value):
+    return re.sub(r"[^0-9a-z]+", "", (value or "").casefold())
+
+
+def _number_key(value):
+    try:
+        return "%g" % float(str(value).strip())
+    except (TypeError, ValueError):
+        return str(value or "").strip()
+
+
+def _annotate_manga(rows):
+    """Mark manga rows whose title matches a library manga series."""
+    by_title = {}
+    for series in weekly_queries.get_library_manga():
+        names = [series.get("ComicName")] + (series.get("AlternateSearch") or "").split("##")
+        for name in names:
+            key = _title_key(name)
+            if key and key != "none":
+                by_title.setdefault(key, series)
+    matched = {row["key"]: by_title.get(_title_key(row["COMIC"])) for row in rows}
+    issues = weekly_queries.get_library_issues({s["ComicID"] for s in matched.values() if s})
+    by_number = {}
+    for issue in issues.values():
+        by_number.setdefault((issue["ComicID"], _number_key(issue["Issue_Number"])), issue)
+
+    annotated = []
+    for row in rows:
+        row = dict(row)
+        series = matched.get(row["key"])
+        issue = by_number.get((series["ComicID"], _number_key(row["ISSUE"]))) if series and row["ISSUE"] else None
+        row["ComicID"] = series["ComicID"] if series else None
+        row["in_library"] = series is not None
+        row["library_issue_id"] = issue["IssueID"] if issue else None
+        row["issue_status"] = issue["Status"] if issue else None
+        row["state"] = library_state(series, issue)
+        annotated.append(row)
+    return annotated
+
+
+def _manga_week(window, force=False):
+    """The week's manga, manhwa and manhua rows from MangaUpdates."""
+    from comicarr.app.weekly import mangaupdates
+
+    if not mangaupdates.is_enabled():
+        return {"status": "disabled", "rows": [], "popular_rank": mangaupdates.POPULAR_RANK}
+    try:
+        status = mangaupdates.ensure_fresh(force=force)
+        rows = _annotate_manga(mangaupdates.week_rows(window["start"], window["end"]))
+    except Exception as e:
+        logger.warn("[PULL-LIST] Manga releases for week %s, %s failed: %s" % (window["week"], window["year"], e))
+        return {"status": "unavailable", "rows": [], "popular_rank": mangaupdates.POPULAR_RANK}
+    return {
+        "status": status,
+        "rows": rows,
+        "error": mangaupdates.last_error(),
+        "popular_rank": mangaupdates.POPULAR_RANK,
+    }
+
+
+def refresh_manga():
+    """Ask for a fresh MangaUpdates fetch, as the Refresh button does."""
+    from comicarr.app.weekly import mangaupdates
+
+    if mangaupdates.is_enabled():
+        mangaupdates.ensure_fresh(force=True)
+
+
 def get_week(week=None, year=None, today=None):
-    """Return one week's releases with library state and navigation."""
+    """Return one week's releases with library state and navigation.
+
+    ``rows`` are comics from the pull list; ``manga`` holds the week's manga,
+    manhwa and manhua from MangaUpdates.
+    """
     window = week_window(week, year, today=today)
     source = _ensure_week(window)
     rows = weekly_queries.get_weekly_releases(window["week"], window["year"]) or []
-    return {**window, "source": source, "rows": _annotate(rows)}
+    return {**window, "source": source, "rows": _annotate(rows), "manga": _manga_week(window)}
 
 
 def add_from_week(ctx, rowid, want=False, folder=None):

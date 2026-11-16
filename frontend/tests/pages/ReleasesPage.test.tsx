@@ -193,7 +193,7 @@ describe("ReleasesPage", () => {
     const row = await screen.findByTestId("weekly-release-row");
     expect(row.className).toMatch(/grid-cols-\[minmax\(0,1fr\)_auto_auto\]/);
     expect(row.className).toMatch(
-      /md:grid-cols-\[minmax\(0,1fr\)_80px_160px_110px_120px\]/,
+      /md:grid-cols-\[minmax\(0,1fr\)_110px_160px_110px_120px\]/,
     );
     expect(row.querySelectorAll(".max-md\\:hidden").length).toBeGreaterThan(0);
     const phoneId = screen.getByTestId("phone-row-id");
@@ -251,7 +251,7 @@ describe("ReleasesPage", () => {
     expect(screen.getByText("In 4 weeks")).toBeTruthy();
   });
 
-  it("filters and sorts the week, and counts who you follow", async () => {
+  it("filters and sorts the week, and counts each format", async () => {
     server.use(
       http.get("/api/weekly", () =>
         HttpResponse.json(
@@ -299,14 +299,10 @@ describe("ReleasesPage", () => {
     expect(titles()).toHaveLength(1);
     expect(titles()[0]).toContain("Amazing Spider-Man");
 
-    const legend = screen.getByTestId("weekly-legend");
-    expect(legend.textContent).toContain("All 3");
-    expect(legend.textContent).toContain("Following 2");
-    expect(legend.textContent).toContain("Not following 1");
-
-    await user.clear(screen.getByLabelText("Filter releases"));
-    await user.click(screen.getByRole("button", { name: /^Following/ }));
-    expect(titles()).toHaveLength(2);
+    const formats = screen.getByTestId("release-formats");
+    expect(formats.textContent).toContain("All3");
+    expect(formats.textContent).toContain("Comics3");
+    expect(formats.textContent).toContain("Manga0");
   });
 
   it("adds a series from the pull list and wants that issue", async () => {
@@ -494,17 +490,217 @@ describe("ReleasesPage", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
   });
 
-  it("exposes aria-pressed on view toggles and flips it when switching", async () => {
+  it("shows only the library by default and flips to everything", async () => {
     const user = userEvent.setup();
     render(<ReleasesPage />);
 
-    const mine = await screen.findByRole("button", { name: "Mine" });
-    const industry = screen.getByRole("button", { name: "Industry" });
-    expect(mine.getAttribute("aria-pressed")).toBe("true");
-    expect(industry.getAttribute("aria-pressed")).toBe("false");
+    const toggle = await screen.findByTestId("library-only-toggle");
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByTestId("popular-only-toggle")).toBeNull();
 
-    await user.click(industry);
-    expect(mine.getAttribute("aria-pressed")).toBe("false");
-    expect(industry.getAttribute("aria-pressed")).toBe("true");
+    await user.click(toggle);
+    expect(
+      (await screen.findByTestId("library-only-toggle")).getAttribute(
+        "aria-pressed",
+      ),
+    ).toBe("false");
+    expect(await screen.findByTestId("popular-only-toggle")).toBeTruthy();
+  });
+
+  it("remembers the library toggle between visits", async () => {
+    const user = userEvent.setup();
+    const first = render(<ReleasesPage />, { useMemoryRouter: true });
+    await user.click(await screen.findByTestId("library-only-toggle"));
+    first.unmount();
+
+    render(<ReleasesPage />, { useMemoryRouter: true, route: "/releases" });
+
+    expect(
+      (await screen.findByTestId("library-only-toggle")).getAttribute(
+        "aria-pressed",
+      ),
+    ).toBe("false");
+  });
+
+  const mangaRow = (overrides: Record<string, unknown> = {}) => ({
+    key: "mu-10",
+    source: "mangaupdates",
+    mu_series_id: "10",
+    COMIC: "Popular Manhwa",
+    ISSUE: "412",
+    chapters: "411–412",
+    volume: "",
+    SHIPDATE: "2026-10-13",
+    PUBLISHER: null,
+    format: "Manhwa",
+    popular_rank: 3,
+    cover: null,
+    url: "https://www.mangaupdates.com/series/abc",
+    ComicID: null,
+    in_library: false,
+    library_issue_id: null,
+    issue_status: null,
+    state: "not_in_library",
+    ...overrides,
+  });
+
+  const withManga = (rows: unknown[], status = "ok") =>
+    weeklyWeek([weeklyRow({ COMIC: "Saga", PUBLISHER: "Image" })], {
+      manga: { status, rows, popular_rank: 500 },
+    });
+
+  it("lists manga by type, popular first, behind the format chips", async () => {
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json(
+          withManga([
+            mangaRow(),
+            mangaRow({
+              key: "mu-20",
+              COMIC: "Quiet Manga",
+              format: "Manga",
+              ISSUE: "75",
+              chapters: "75",
+              popular_rank: null,
+            }),
+            mangaRow({
+              key: "mu-30",
+              COMIC: "Big Manga",
+              format: "Manga",
+              ISSUE: "252",
+              chapters: "252",
+              popular_rank: 15,
+            }),
+          ]),
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderIndustry();
+
+    await screen.findByText("Saga");
+    // Popular only is on: the unranked series stays out of every count.
+    const formats = screen.getByTestId("release-formats");
+    expect(formats.textContent).toContain("All3");
+    expect(formats.textContent).toContain("Manga1");
+    expect(formats.textContent).toContain("Manhwa1");
+    expect(screen.queryByText("Quiet Manga")).toBeNull();
+    expect(screen.getAllByText("Ch. 411–412").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByTestId("weekly-publisher-group").map((g) => g.textContent),
+    ).toEqual(["Image1", "Manga1", "Manhwa1"]);
+
+    await user.click(screen.getByTestId("popular-only-toggle"));
+    expect(await screen.findByText("Quiet Manga")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /^Manga/ }));
+    expect(screen.queryByText("Saga")).toBeNull();
+    expect(screen.queryByText("Popular Manhwa")).toBeNull();
+    const titles = screen
+      .getAllByTestId("weekly-release-row")
+      .map((row) => row.querySelector("[data-grid-title]")?.textContent);
+    expect(titles).toEqual(["Big Manga Ch. 252", "Quiet Manga Ch. 75"]);
+    expect(screen.getByText(/release data from/)).toBeTruthy();
+  });
+
+  it("filters manga to one day from the day strip", async () => {
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json(
+          withManga([
+            mangaRow({ format: "Manga" }),
+            mangaRow({
+              key: "mu-30",
+              COMIC: "Big Manga",
+              format: "Manga",
+              SHIPDATE: "2026-10-15",
+              popular_rank: 15,
+            }),
+          ]),
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderIndustry();
+    await screen.findByText("Saga");
+    expect(screen.queryByTestId("industry-day-strip")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /^Manga/ }));
+    const strip = await screen.findByTestId("industry-day-strip");
+    const thursday = Array.from(strip.querySelectorAll("button")).find((b) =>
+      b.textContent?.startsWith("Thu"),
+    );
+    await user.click(thursday!);
+
+    expect(screen.getAllByTestId("weekly-release-row")).toHaveLength(1);
+    expect(screen.getByText("Big Manga")).toBeTruthy();
+  });
+
+  it("keeps library releases the pull list does not list", async () => {
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json(weeklyWeek([], { source: "unavailable" })),
+      ),
+      http.get("/api/upcoming", () =>
+        HttpResponse.json([{ ...upcomingIssue, Publisher: "DC" }]),
+      ),
+    );
+    renderIndustry();
+
+    expect(await screen.findByText("Absolute Batman")).toBeTruthy();
+    expect(screen.getAllByText("#19").length).toBeGreaterThan(0);
+  });
+
+  it("explains manga releases need a manga provider", async () => {
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json(withManga([], "disabled")),
+      ),
+    );
+    const user = userEvent.setup();
+    renderIndustry();
+    await screen.findByText("Saga");
+
+    await user.click(screen.getByRole("button", { name: /^Manhwa/ }));
+
+    expect(
+      await screen.findByText(/Turn on MangaDex or MyAnimeList/),
+    ).toBeTruthy();
+  });
+
+  it("adds a manga release through its MangaDex match", async () => {
+    let added: unknown = null;
+    server.use(
+      http.get("/api/weekly", () => HttpResponse.json(withManga([mangaRow()]))),
+      http.post("/api/search/manga", () =>
+        HttpResponse.json({
+          results: [
+            {
+              id: "md-abc",
+              name: "Popular Manhwa",
+              comicyear: "2024",
+              metadata_source: "mangadex",
+              haveit: "No",
+            },
+          ],
+          pagination: { total: 1, limit: 20, offset: 0, returned: 1 },
+        }),
+      ),
+      http.post("/api/search/add-manga", async ({ request }) => {
+        added = await request.json();
+        return HttpResponse.json({ success: true, comicid: "md-abc" });
+      }),
+    );
+    const user = userEvent.setup();
+    renderIndustry();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Add Popular Manhwa" }),
+    );
+    expect(await screen.findByRole("radio", { checked: true })).toBeTruthy();
+    expect(screen.getByText(/MangaDex · 2024/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Add series" }));
+
+    await waitFor(() => expect(added).toEqual({ id: "md-abc" }));
   });
 });
