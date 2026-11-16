@@ -118,6 +118,15 @@ test("wanted releases support an explainable interactive grab", async ({
 }) => {
   let grabBody: unknown;
 
+  // The seeded server has no indexer, so Releases would read "Can't search"
+  // and hide Review releases. This test is about the review flow, not setup.
+  await page.route("**/api/search/health", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: { ...(await response.json()), viable_route: true },
+    });
+  });
   await page.route("**/api/upcoming**", async (route) => {
     await route.fulfill({
       contentType: "application/json",
