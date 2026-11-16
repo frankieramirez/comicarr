@@ -11,6 +11,7 @@ import { server } from "../mocks/server";
 import { render, screen, waitFor, within } from "../test-utils";
 import WantedPage from "@/pages/WantedPage";
 import { wantedSeriesWhy } from "@/lib/wantedAnnotation";
+import { UNCONFIGURED_SEARCH_HEALTH } from "../mocks/searchHealth";
 
 const counts = { all: 251, not_found: 2, searching: 0, queued: 249 };
 
@@ -40,6 +41,48 @@ describe("Wanted by series", () => {
       "Not found",
     );
     expect(wantedSeriesWhy({ why: "queued", max_attempts: 0 })).toBe("Queued");
+  });
+
+  it("says search is paused, not queued, when there is no indexer", async () => {
+    server.use(
+      http.get("/api/search/health", () =>
+        HttpResponse.json(UNCONFIGURED_SEARCH_HEALTH),
+      ),
+      http.get("/api/wanted/series", () =>
+        HttpResponse.json({
+          series: [
+            series({
+              why: "queued",
+              max_attempts: 0,
+              eta_hours: 50,
+            }),
+          ],
+          counts,
+          pagination: { total: 1, limit: 50, offset: 0, has_more: false },
+          pacing: {
+            state: "checking",
+            per_hour: 612,
+            per_pass: 50,
+            checked: 0,
+            total: 251,
+            indexers: 0,
+            new_issue_days: 30,
+            search_interval_minutes: 1440,
+            next_pass_at: null,
+          },
+        }),
+      ),
+    );
+
+    render(<WantedPage />);
+
+    expect((await screen.findByTestId("search-blocked")).textContent).toContain(
+      "Nothing can be searched until you add an indexer",
+    );
+    const row = await screen.findByTestId("wanted-series-row");
+    expect(row.textContent).toContain("Search paused");
+    expect(row.textContent).not.toContain("Queued");
+    expect(screen.queryByTestId("wanted-pacing")).toBeNull();
   });
 
   it("is the default view, with reason tabs and series totals", async () => {

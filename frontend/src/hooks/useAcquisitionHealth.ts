@@ -4,6 +4,11 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import {
+  searchBlockers,
+  searchPausedReason,
+  type SearchBlocker,
+} from "@/lib/searchBlockers";
 
 const HEALTH_POLL_MS = 15_000;
 const REPAIR_POLL_MS = 2_000;
@@ -298,6 +303,20 @@ export function useSearchHealth() {
     staleTime: 5_000,
     refetchInterval: HEALTH_POLL_MS,
   });
+}
+
+/**
+ * Setup gaps that stop every search (no indexer, no download client), from the
+ * same cached health read. `pausedReason` is null while health loads or fails,
+ * so a screen keeps its normal wording until there is evidence to change it.
+ */
+export function useSearchBlockers(): {
+  blockers: SearchBlocker[];
+  pausedReason: string | null;
+} {
+  const health = useSearchHealth();
+  const blockers = searchBlockers(health.isError ? null : health.data);
+  return { blockers, pausedReason: searchPausedReason(blockers) };
 }
 
 /**

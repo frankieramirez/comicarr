@@ -17,6 +17,7 @@ import InFlightLine from "@/components/dashboard/InFlightLine";
 import NeedsAttentionBand from "@/components/dashboard/NeedsAttentionBand";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import { panelState, type PanelState } from "@/lib/panelState";
+import { useSearchBlockers } from "@/hooks/useAcquisitionHealth";
 import PageHeader from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
@@ -83,10 +84,13 @@ export default function DashboardPage() {
     ? "Scan configured comic and manga libraries"
     : "Configure a library directory first";
 
+  const { pausedReason } = useSearchBlockers();
   const summary = summarize(
     libraryState,
     "library",
-    `${activeSeries.toLocaleString()} series · ${totalIssues.toLocaleString()} issues`,
+    `${activeSeries.toLocaleString()} series · ${totalIssues.toLocaleString()} issues${
+      pausedReason ? " · search paused" : ""
+    }`,
   );
 
   const handleLibraryScan = async () => {

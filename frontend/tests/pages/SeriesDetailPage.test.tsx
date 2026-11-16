@@ -6,6 +6,7 @@ import { http, HttpResponse } from "msw";
 import { server } from "../mocks/server";
 import { render, screen } from "../test-utils";
 import SeriesDetailPage from "@/pages/SeriesDetailPage";
+import { UNCONFIGURED_SEARCH_HEALTH } from "../mocks/searchHealth";
 
 const canonicalIssues = [
   {
@@ -221,6 +222,29 @@ describe("SeriesDetailPage", () => {
         }),
       ),
     );
+  });
+
+  it("points the search button at the fix when nothing can be searched", async () => {
+    server.use(
+      http.get("/api/search/health", () =>
+        HttpResponse.json(UNCONFIGURED_SEARCH_HEALTH),
+      ),
+    );
+
+    renderDetail();
+
+    const fixes = await screen.findAllByRole("link", {
+      name: "Add an indexer to search",
+    });
+    expect(fixes.length).toBeGreaterThan(0);
+    for (const fix of fixes)
+      expect(fix.getAttribute("href")).toBe("/settings?section=search");
+    expect(
+      screen.queryByRole("button", { name: "Search all missing" }),
+    ).toBeNull();
+    expect(
+      screen.queryAllByRole("button", { name: /^Interactive Search for/ }),
+    ).toHaveLength(0);
   });
 
   it("shows last sync from LastUpdated and renders the description", async () => {

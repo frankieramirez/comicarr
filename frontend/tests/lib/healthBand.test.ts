@@ -4,6 +4,7 @@ import {
   healthBandView,
 } from "@/lib/healthBand";
 import type { AcquisitionHealthResponse } from "@/hooks/useAcquisitionHealth";
+import { UNCONFIGURED_SEARCH_HEALTH } from "../mocks/searchHealth";
 
 const NOW = Date.UTC(2026, 7, 8, 12, 0, 0);
 const MINUTE = 60;
@@ -189,6 +190,21 @@ describe("healthBandView", () => {
 
       expect(result.tone).toBe("degraded");
       expect(signal(result, "gate")!.text).toBe("2 producers deferred");
+    });
+  });
+
+  describe("not set up yet", () => {
+    it("says search is paused instead of running, in amber", () => {
+      const result = view(UNCONFIGURED_SEARCH_HEALTH);
+
+      expect(result.tone).toBe("degraded");
+      expect(signal(result, "workers")).toMatchObject({
+        tone: "degraded",
+        text: "Search paused: no indexer",
+        fix: { label: "add an indexer", to: "/settings?section=search" },
+      });
+      expect(signal(result, "route")!.tone).toBe("degraded");
+      expect(result.signals.map((s) => s.text)).not.toContain("Search running");
     });
   });
 

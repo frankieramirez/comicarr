@@ -22,6 +22,7 @@ import { useTableState } from "@/components/data-table/useTableState";
 import { useDebounce } from "@/hooks/use-debounce";
 import WantedBySeries from "@/components/queue/WantedBySeries";
 import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
+import { useSearchBlockers } from "@/hooks/useAcquisitionHealth";
 
 export default function WantedPage() {
   const { limit, offset, nextPage, prevPage, resetPage } = useServerPage(50);
@@ -59,6 +60,7 @@ export default function WantedPage() {
   const pagination = data?.pagination;
 
   const forceSearch = useForceSearch();
+  const { pausedReason } = useSearchBlockers();
   const searchWantedIssue = useSearchWantedIssue();
   const bulkUnqueue = useBulkUnqueueIssues();
   const { addToast } = useToast();
@@ -214,7 +216,7 @@ export default function WantedPage() {
               </Link>
             </Button>
             {/* By series, the pacing banner carries "Search now". */}
-            {view === "issue" && (
+            {view === "issue" && !pausedReason && (
               <Button
                 type="button"
                 variant="outline"

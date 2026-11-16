@@ -14,11 +14,14 @@ export default function WeekStrip({
   issues,
   start,
   today = new Date(),
+  searchPaused = null,
 }: {
   issues: UpcomingIssue[];
   /** ISO Sunday that opens the shown week. */
   start: string;
   today?: Date;
+  /** The setup gap that stops every search, so dashes match the rows. */
+  searchPaused?: string | null;
 }) {
   const todayKey = isoDay(today);
 
@@ -63,7 +66,14 @@ export default function WeekStrip({
                 <span
                   key={issue.IssueID}
                   className="h-1 w-3 rounded-full"
-                  style={{ background: releaseState(issue, todayKey).tone }}
+                  style={{
+                    background: releaseState(
+                      issue,
+                      todayKey,
+                      today,
+                      searchPaused,
+                    ).tone,
+                  }}
                 />
               ))}
             </div>

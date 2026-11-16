@@ -30,6 +30,8 @@ export function useUpcomingColumns(
   today: string = isoDay(new Date()),
   /** Needs attention base reason to the one place that fixes it. */
   fixes?: ReadonlyMap<string, { label: string; href: string }>,
+  /** The setup gap that stops every search ("no indexer"), if there is one. */
+  searchPaused: string | null = null,
 ) {
   const queueIssueMutation = useQueueIssue();
   const unqueueIssueMutation = useUnqueueIssue();
@@ -117,7 +119,12 @@ export function useUpcomingColumns(
         id: "Status",
         header: () => <span className="max-md:sr-only">Status</span>,
         cell: ({ row }) => {
-          const state = releaseState(row.original, today);
+          const state = releaseState(
+            row.original,
+            today,
+            undefined,
+            searchPaused,
+          );
           return (
             <span className="inline-flex min-w-0 items-center gap-2 whitespace-nowrap text-[13px]">
               <span
@@ -153,7 +160,7 @@ export function useUpcomingColumns(
                   </span>
                 </span>
               )}
-              {state.bucket === "needs_you" ? (
+              {state.bucket === "needs_you" && !state.setupBlocked ? (
                 <Link
                   to={`/library/${row.original.ComicID}/issue/${row.original.IssueID}`}
                   className="text-muted-foreground hover:text-foreground hover:underline underline-offset-2 max-md:hidden"
@@ -201,7 +208,10 @@ export function useUpcomingColumns(
               {/* A pull-list row can arrive before the series refresh creates
                   its issue; without an IssueID there is nothing to search,
                   and the button used to do nothing at all. */}
-              {status === "wanted" && onReview && row.original.IssueID ? (
+              {status === "wanted" &&
+              onReview &&
+              row.original.IssueID &&
+              !searchPaused ? (
                 <Button
                   size="compact"
                   variant="ghost"
@@ -294,6 +304,7 @@ export function useUpcomingColumns(
     fixes,
     onReview,
     queueIssueMutation,
+    searchPaused,
     today,
     unqueueIssueMutation,
   ]);

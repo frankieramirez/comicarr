@@ -31,6 +31,8 @@ import {
 import { dayHeading, isoDay, weekStart } from "@/lib/releaseWeek";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useActivityBand } from "@/hooks/useActivity";
+import { useSearchBlockers } from "@/hooks/useAcquisitionHealth";
+import SearchBlockedBanner from "@/components/releases/SearchBlockedBanner";
 import type { UpcomingIssue } from "@/types";
 
 type StateTab = "all" | Exclude<ReleaseBucket, "other">;
@@ -88,6 +90,7 @@ export default function MyReleasesView({
   const bulkUnqueueMutation = useBulkUnqueueIssues();
   const { addToast } = useToast();
   const { startReview, reviewSheetProps } = useInteractiveReview();
+  const { blockers, pausedReason } = useSearchBlockers();
 
   const startIssueReview = (issue: UpcomingIssue) =>
     startReview(issue, {
@@ -116,20 +119,22 @@ export default function MyReleasesView({
       coming_up: 0,
     };
     for (const issue of kindAndText) {
-      const bucket = releaseState(issue, today).bucket;
+      const bucket = releaseState(issue, today, undefined, pausedReason).bucket;
       if (bucket !== "other") tally[bucket] += 1;
     }
     return tally;
-  }, [kindAndText, today]);
+  }, [kindAndText, today, pausedReason]);
 
   const rows = useMemo(
     () =>
       kindAndText
         .filter(
-          (issue) => tab === "all" || releaseState(issue, today).bucket === tab,
+          (issue) =>
+            tab === "all" ||
+            releaseState(issue, today, undefined, pausedReason).bucket === tab,
         )
         .sort(byDayThenName),
-    [kindAndText, tab, today],
+    [kindAndText, tab, today, pausedReason],
   );
 
   const dayCounts = useMemo(() => {
@@ -155,6 +160,7 @@ export default function MyReleasesView({
     (issue) => void startIssueReview(issue),
     today,
     fixes,
+    pausedReason,
   );
   const { table, selectedIds, clearSelection } = useTableState({
     data: rows,
@@ -244,7 +250,17 @@ export default function MyReleasesView({
     <div className="flex h-full min-h-0 flex-col">
       {!isLoading && !error && (
         <div className="shrink-0 px-4 pt-4 md:px-8">
-          <WeekStrip issues={issues} start={start ?? weekStart(new Date())} />
+          <WeekStrip
+            issues={issues}
+            start={start ?? weekStart(new Date())}
+            searchPaused={pausedReason}
+          />
+        </div>
+      )}
+
+      {blockers[0] && (
+        <div className="shrink-0 px-4 pt-3 md:px-8">
+          <SearchBlockedBanner blocker={blockers[0]} />
         </div>
       )}
 
@@ -324,16 +340,19 @@ export default function MyReleasesView({
                 : "Retry queue handoff"}
             </Button>
           )}
-          <Button
-            type="button"
-            variant="outline"
-            size="toolbar"
-            onClick={handleForceSearch}
-            disabled={forceSearchMutation.isPending}
-          >
-            <Search />
-            <span className="max-md:sr-only">Force search</span>
-          </Button>
+          {/* With nothing to search with, the banner's fix is the action. */}
+          {!pausedReason && (
+            <Button
+              type="button"
+              variant="outline"
+              size="toolbar"
+              onClick={handleForceSearch}
+              disabled={forceSearchMutation.isPending}
+            >
+              <Search />
+              <span className="max-md:sr-only">Force search</span>
+            </Button>
+          )}
         </div>
       </div>
 

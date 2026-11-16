@@ -21,6 +21,7 @@ import type {
   AcquisitionWorkerHealth,
 } from "@/hooks/useAcquisitionHealth";
 import { sanitizeAcquisitionMessage } from "@/hooks/useAcquisitionHealth";
+import { searchBlockers, type SearchBlocker } from "@/lib/searchBlockers";
 
 /** Quiet, amber, red — in escalating order, which is also their precedence. */
 export type HealthTone = "healthy" | "degraded" | "blocked";
@@ -330,6 +331,32 @@ function lastSearchLine(
   };
 }
 
+/**
+ * A route that was never set up is a step still to take, not a breakage: amber,
+ * not red. Red stays for a route that was configured and stopped working.
+ */
+function setupTone(
+  signal: HealthSignal,
+  blockers: SearchBlocker[],
+): HealthSignal {
+  return blockers.length > 0 && signal.tone === "blocked"
+    ? { ...signal, tone: "degraded" }
+    : signal;
+}
+
+/**
+ * With nothing to search, an idle search worker is not news, and "Search
+ * running" reads as progress that cannot happen.
+ */
+function pausedSignal(blocker: SearchBlocker): HealthSignal {
+  return {
+    key: "workers",
+    tone: "degraded",
+    text: `Search paused: ${blocker.short}`,
+    fix: { label: blocker.fix.label.toLowerCase(), to: blocker.fix.to },
+  };
+}
+
 function worstTone(tones: HealthTone[]): HealthTone {
   return tones.reduce<HealthTone>(
     (worst, tone) => (TONE_RANK[tone] > TONE_RANK[worst] ? tone : worst),
@@ -369,10 +396,11 @@ export function healthBandView({
   }
 
   const gate = gateSignal(health);
+  const blockers = searchBlockers(health);
   const signals: HealthSignal[] = [
-    routeSignal(health),
+    setupTone(routeSignal(health), blockers),
     indexerSignal(health),
-    workerSignal(health),
+    blockers.length > 0 ? pausedSignal(blockers[0]) : workerSignal(health),
     ...(gate ? [gate] : []),
   ];
 
