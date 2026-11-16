@@ -2925,6 +2925,10 @@ msgstr "{label} konnte nicht getaggt werden"
 msgid "Cover wall on sign-in"
 msgstr "Cover-Wand bei der Anmeldung"
 
+#: src/lib/statusTone.ts
+msgid "Covered"
+msgstr "Abgedeckt"
+
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "covers {coverage}"
 msgstr "deckt {coverage} ab"
@@ -3490,6 +3494,7 @@ msgstr "Gib deinen 40-stelligen Comic-Vine-API-Schlüssel ein"
 #: src/components/storyarcs/ArcIssueTable.tsx
 #: src/components/storyarcs/ArcMissingSeries.tsx
 #: src/components/storyarcs/ArcSearchResultCard.tsx
+#: src/lib/statusTone.ts
 #: src/pages/IssueDetailPage.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Error"
