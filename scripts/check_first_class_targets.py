@@ -64,12 +64,24 @@ PENDING = {
 }
 
 # Group -> (module paths relative to the repo root, line-coverage floor in percent).
-# A path ending in "/" covers every .py file below it. Floors only rise: when a
-# change raises a figure, record the new one here and in the doc.
+# A path ending in "/" covers every .py file below it, and a path starting with
+# "!" leaves a file out of its group. Floors only rise: when a change raises a
+# figure, record the new one here and in the doc.
+#
+# "Manga providers" are the MangaDex, MyAnimeList, scan and filename modules
+# moved under app/manga/ from the package root (#1406). They arrived with their
+# own coverage, so they keep their own floor instead of lowering Manga's.
+MANGA_PROVIDERS = (
+    "comicarr/app/manga/mangadex.py",
+    "comicarr/app/manga/myanimelist.py",
+    "comicarr/app/manga/mangasync.py",
+    "comicarr/app/manga/manga_parser.py",
+)
 COVERAGE_FLOORS = {
     "SABnzbd": (("comicarr/sabnzbd.py",), 82.3),
     "NZBGet": (("comicarr/nzbget.py",), 56.4),
-    "Manga": (("comicarr/app/manga/",), 91.3),
+    "Manga": (("comicarr/app/manga/",) + tuple("!" + path for path in MANGA_PROVIDERS), 91.3),
+    "Manga providers": (MANGA_PROVIDERS, 77.3),
     "Downloads": (
         (
             "comicarr/app/downloads/handoff.py",
@@ -202,6 +214,8 @@ def measure(coverage_xml: Path, floors: dict) -> dict[str, tuple[int, int]]:
         filename = cls.get("filename", "")
         rel = filename if filename.startswith("comicarr/") else "comicarr/" + filename
         for group, (paths, _floor) in floors.items():
+            if "!" + rel in paths:
+                continue
             if any(rel == p or (p.endswith("/") and rel.startswith(p)) for p in paths):
                 lines = list(cls.iter("line"))
                 totals[group][0] += sum(1 for line in lines if int(line.get("hits", "0")) > 0)
@@ -219,7 +233,7 @@ def check_coverage(coverage_xml: Path, floors: dict) -> list[str]:
         percent = 100.0 * hit / total
         gap = max(0.0, COVERAGE_TARGET - percent)
         print(
-            "%-10s %5.1f%% of %d lines (floor %.1f%%, %.1f points to %d%%)"
+            "%-15s %5.1f%% of %d lines (floor %.1f%%, %.1f points to %d%%)"
             % (group, percent, total, floor, gap, COVERAGE_TARGET)
         )
         if round(percent, 1) < floor:
