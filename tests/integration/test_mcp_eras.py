@@ -41,11 +41,12 @@ CALLS = {
     "list_series": ({"kind": "manga"}, lambda page: [s["series_id"] for s in page["series"]] == ["md-abc"]),
     "get_series": ({"series_id": "1001"}, lambda out: out["name"] == "Saga" and out["counts"]["issues"] == 2),
     "list_issues": (
-        {"series_id": "1001", "state": "Missing"},
+        # 5001 carries a legacy Skipped status, which reads as Skipped, not Missing (#1375).
+        {"series_id": "1001", "state": "Skipped"},
         lambda page: [i["issue_id"] for i in page["issues"]] == ["5001"],
     ),
     "list_wanted": ({"group_by": "series"}, lambda page: page["group_by"] == "series" and page["total"] == 0),
-    "get_issue_story": ({"issue_id": "5001"}, lambda out: out["state"] == "Missing" and out["last_search"] is None),
+    "get_issue_story": ({"issue_id": "5001"}, lambda out: out["state"] == "Skipped" and out["last_search"] is None),
     "list_activity": ({"series_id": "1001"}, lambda page: page["total"] == 0 and page["events"] == []),
     "list_in_flight": ({}, lambda page: page["total"] == 0 and page["stuck"] == 0),
     "list_attention": ({}, lambda page: page["total"] == 0 and page["problems"] == []),
