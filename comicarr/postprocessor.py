@@ -312,6 +312,23 @@ class _Scan:
         )
 
 
+def _manga_series_by_rebuilt_key(loopchk):
+    """Manga Series whose stored lookup key predates :func:`filechecker.dynamic_series_key`.
+
+    Manga added before that fix stored ``DynamicComicName`` as the plain
+    lower-cased title ("one piece"), which never equals the key a filename
+    produces ("onepiece"), so their downloads matched nothing. Rebuild the key
+    from each manga title instead of trusting the stored column.
+    """
+    wanted = {x.lower() for x in loopchk}
+    rows = db.select_all(
+        select(comics).where(
+            series_kind.manga_sql_clause(comics.c.ComicID, comics.c.ContentType, comics.c.ContentKindSetBy)
+        )
+    )
+    return [row for row in rows if row.get("ComicName") and filechecker.dynamic_series_key(row["ComicName"]) in wanted]
+
+
 def match_folder(
     nzb_name: str,
     nzb_folder: str,
@@ -811,6 +828,8 @@ def match_folder(
                 comicseries = db.select_all(
                     select(comics).where(func.lower(comics.c.DynamicComicName).in_([x.lower() for x in loopchk]))
                 )
+                if not comicseries:
+                    comicseries = _manga_series_by_rebuilt_key(loopchk)
 
             if not comicseries or orig_seriesname != mod_seriesname:
                 if any(["special" in orig_seriesname.lower(), "annual" in orig_seriesname.lower()]) and all(
