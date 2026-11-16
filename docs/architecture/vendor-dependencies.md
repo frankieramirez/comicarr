@@ -30,7 +30,6 @@ fill missing third-party notice or source-revision evidence.
 | Vendor root | Runtime role | Source/version evidence | License evidence in copied tree | Redistribution status |
 | --- | --- | --- | --- | --- |
 | `comictaggerlib/` | ComicTagger metadata/archive behavior | Bundled version `1.3.5` in `ctversion.py` | Apache-2.0 notices in source files | `evidence-recorded` |
-| `deluge_client/` | Deluge RPC | Mylar3 import; exact upstream version unidentified | Bundled `LICENSE` (MIT) | `evidence-recorded` |
 | `rtorrent/` | rTorrent XML-RPC/SCGI | Version `0.2.9` in source | Mixed: MIT; GPL-2.0-or-later with OpenSSL exception; embedded Secret Labs terms | `evidence-recorded` |
 | `transmissionrpc/` | Transmission RPC | Version `0.11` in source | MIT notice in source | `evidence-recorded` |
 
