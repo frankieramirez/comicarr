@@ -1331,7 +1331,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None, location=None):
     else:
         sortname = manga_name
 
-    dynamic_name = helpers.filesafe(re.sub(r"[\'\!\@\#\$\%\:\;\/\\]", "", manga_name).lower())
+    dynamic_name = filechecker.dynamic_series_key(manga_name)
 
     manga_dest = get_manga_destination()
     if manga_dest and not comlocation:
@@ -1505,7 +1505,7 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None, location=None):
     else:
         sortname = manga_name
 
-    dynamic_name = helpers.filesafe(re.sub(r"[\'\!\@\#\$\%\:\;\/\\]", "", manga_name).lower())
+    dynamic_name = filechecker.dynamic_series_key(manga_name)
 
     manga_dest = get_manga_destination()
     if manga_dest and not comlocation:

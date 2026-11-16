@@ -1860,6 +1860,7 @@ def mangadexNewChapterCheck():
                         "ComicID": comic_id,
                         "IssueDate": issue_date,
                         "ReleaseDate": issue_date,
+                        "Int_IssueNumber": helpers.issuedigits(str(ch_num)),
                         "ChapterNumber": str(ch_num),
                         "VolumeNumber": str(ch.get("volume")) if ch.get("volume") else None,
                     },

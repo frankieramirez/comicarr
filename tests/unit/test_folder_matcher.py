@@ -428,3 +428,76 @@ def test_the_arc_row_is_written_before_its_journal_row_reaches_moved(tmp_path, l
 
     assert (journal.MOVED, "Downloaded") in seen
     assert all(status == "Downloaded" for _stage, status in seen)
+
+
+MANGA_ID = "md-00000000-0000-4000-8000-000000000001"
+
+
+def _manga_series(tmp_path, *, name, dynamic_name):
+    series_root = tmp_path / "manga" / name
+    series_root.mkdir(parents=True)
+    row = pipeline.comic_series_row(series_root)
+    row.update(
+        ComicID=MANGA_ID,
+        ComicName=name,
+        ComicSortName=name,
+        ComicName_Filesafe=name,
+        DynamicComicName=dynamic_name,
+        ComicPublisher="Example Press",
+        ComicPublished="Continuing",
+        Type="Manga",
+        ContentType="manga",
+        LatestIssue="12",
+        intLatestIssue=12,
+        Total=12,
+    )
+    issue = pipeline.comic_issue_row()
+    issue.update(
+        IssueID="%s-ch12" % MANGA_ID,
+        ComicID=MANGA_ID,
+        ComicName=name,
+        Issue_Number="12",
+        Int_IssueNumber=12000,
+        ChapterNumber="12",
+        Status="Snatched",
+    )
+    with db.get_engine().begin() as conn:
+        conn.execute(comics.insert().values(**row))
+        conn.execute(issues.insert().values(**issue))
+
+
+@pytest.mark.parametrize(
+    "name, stored_key",
+    [
+        ("Moon Garden", "moon garden"),
+        ("Sand and Sky", "sand and sky"),
+    ],
+)
+def test_a_manga_chapter_matches_a_series_stored_with_the_old_lookup_key(tmp_path, name, stored_key):
+    _manga_series(tmp_path, name=name, dynamic_name=stored_key)
+    path = _download(tmp_path, "%s 12.cbz" % name)
+
+    found = _scan(path.parent)
+
+    assert found["library"] == [(MANGA_ID, "%s-ch12" % MANGA_ID, "12", str(path))]
+
+
+def test_a_manga_chapter_matches_a_series_stored_with_the_shared_lookup_key(tmp_path):
+    from comicarr import filechecker
+
+    _manga_series(tmp_path, name="Sand and Sky", dynamic_name=filechecker.dynamic_series_key("Sand and Sky"))
+    path = _download(tmp_path, "Sand and Sky 12.cbz")
+
+    found = _scan(path.parent)
+
+    assert found["library"] == [(MANGA_ID, "%s-ch12" % MANGA_ID, "12", str(path))]
+
+
+def test_the_old_lookup_key_fallback_only_considers_manga(tmp_path, library):
+    with db.get_engine().begin() as conn:
+        conn.execute(comics.update().where(comics.c.ComicID == pipeline.COMIC_ID).values(DynamicComicName="stale key"))
+    path = _download(tmp_path, pipeline.FILENAME)
+
+    found = _scan(path.parent)
+
+    assert found["library"] == []

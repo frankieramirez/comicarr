@@ -2241,3 +2241,14 @@ def check_valid_perms(chowner, chgroup):
             )
 
         return {"status": True, "owner": chowner, "group": chgroup}
+
+
+def dynamic_series_key(series_name):
+    """The ``DynamicComicName`` lookup key post-processing matches files against.
+
+    Post-processing runs a filename's series through :meth:`FileChecker.dynamic_replace`
+    and drops spaces and ``|`` before comparing it with this column, so every
+    writer must store it the same way.
+    """
+    mod_name = FileChecker(watchcomic=series_name).dynamic_replace(series_name)["mod_seriesname"]
+    return re.sub(r"[\|\s]", "", mod_name.lower()).strip()
