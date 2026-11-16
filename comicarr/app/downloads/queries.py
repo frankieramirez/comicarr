@@ -22,6 +22,7 @@ from comicarr.app.core.database import paginated_query as _paginated_query
 from comicarr.tables import annuals as t_annuals
 from comicarr.tables import comics as t_comics
 from comicarr.tables import ddl_info as t_ddl_info
+from comicarr.tables import failed as t_failed
 from comicarr.tables import issues as t_issues
 from comicarr.tables import snatched as t_snatched
 
@@ -230,3 +231,25 @@ def get_issue_file_info(issue_id):
         .where(t_annuals.c.IssueID == issue_id)
     )
     return db.select_one(stmt)
+
+
+def forgive_rejected_submission(issue_id, provider):
+    """Lift the bad-download marks a downloader rejection left on an issue's releases.
+
+    When the download client refuses a submission, the searcher also marks the
+    release as a bad download. That mark outlives whatever made the client
+    refuse it, so later searches find the same release and skip it. An
+    operator retrying the rejection says the release is fine, so drop the
+    marks for that issue and provider. Returns how many marks were removed.
+    """
+    if not issue_id or not provider:
+        return 0
+    with db.get_engine().begin() as conn:
+        result = conn.execute(
+            delete(t_failed).where(
+                t_failed.c.IssueID == str(issue_id),
+                t_failed.c.Status == "Failed",
+                func.lower(t_failed.c.Provider) == str(provider).strip().lower(),
+            )
+        )
+    return result.rowcount or 0
