@@ -13,6 +13,7 @@ import {
 } from "@/hooks/useWeekly";
 import IndustryReleasesView from "@/components/releases/IndustryReleasesView";
 import MyReleasesView from "@/components/releases/MyReleasesView";
+import { withLibraryManga } from "@/components/releases/industryRows";
 import WeekBar from "@/components/releases/WeekBar";
 import ReleasesModeBar from "@/components/releases/ReleasesModeBar";
 import {
@@ -230,12 +231,13 @@ export default function ReleasesPage() {
           <MyReleasesView
             modeBar={modeBar}
             format={libraryFormat(format)}
-            issues={mine.data ?? []}
+            issues={withLibraryManga(week, mine.data ?? [])}
             isLoading={mine.isLoading}
             isFetching={mine.isFetching}
             error={mine.error}
             refetch={mine.refetch}
             start={week?.start}
+            pullUnavailable={week?.source === "unavailable"}
           />
         ) : (
           <IndustryReleasesView

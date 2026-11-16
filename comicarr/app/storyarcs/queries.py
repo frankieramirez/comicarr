@@ -329,3 +329,36 @@ def get_upcoming(week, year, include_downloaded=False):
         .order_by(t_comics.c.ComicSortName)
     )
     return db.select_all(stmt)
+
+
+def get_library_releases(start, end, include_downloaded=False):
+    """Library issues whose store date falls between ``start`` and ``end``.
+
+    Releases reads the weekly pull list first; these rows keep a monitored
+    series' week visible when the pull source is down or has not published
+    the week yet. Dates are ISO ``YYYY-MM-DD`` strings, compared as text.
+    """
+    if include_downloaded:
+        status_list = ["Wanted", "Snatched", "Downloaded"]
+    else:
+        status_list = ["Wanted"]
+
+    stmt = (
+        select(
+            t_comics.c.ComicName.label("ComicName"),
+            func.coalesce(t_issues.c.Issue_Number, t_issues.c.ChapterNumber).label("IssueNumber"),
+            t_issues.c.ComicID,
+            t_issues.c.IssueID,
+            t_issues.c.ReleaseDate.label("IssueDate"),
+            t_issues.c.Status,
+            t_comics.c.ComicName.label("DisplayComicName"),
+            t_comics.c.ComicPublisher.label("Publisher"),
+            t_comics.c.ContentType,
+        )
+        .select_from(t_issues.join(t_comics, t_issues.c.ComicID == t_comics.c.ComicID))
+        .where(func.substr(t_issues.c.ReleaseDate, 1, 10) >= start)
+        .where(func.substr(t_issues.c.ReleaseDate, 1, 10) <= end)
+        .where(t_issues.c.Status.in_(status_list))
+        .order_by(t_comics.c.ComicSortName)
+    )
+    return db.select_all(stmt)

@@ -947,6 +947,7 @@ def get_upcoming(include_downloaded=False, week=None, year=None):
         week, year = get_current_week()
 
     rows = [dict(row) for row in arc_queries.get_upcoming(week, year, include_downloaded=include_downloaded)]
+    rows.extend(_library_releases(rows, week, year, include_downloaded))
     reasons = _attention_reasons() if rows else {}
     for row in rows:
         reason = reasons.get(str(row.get("IssueID") or ""))
@@ -954,6 +955,35 @@ def get_upcoming(include_downloaded=False, week=None, year=None):
         row["attention_reason"] = reason[1] if reason else None
     _attach_progress(rows)
     return rows
+
+
+def _library_releases(pull_rows, week, year, include_downloaded):
+    """This week's library releases the pull list does not already carry.
+
+    The pull list only knows a week once its source publishes it, and manga
+    never reaches it, so a monitored series' own store dates fill the rest.
+    """
+    from comicarr.app.weekly.service import week_sunday
+
+    try:
+        sunday = week_sunday(week, year)
+    except (TypeError, ValueError):
+        return []
+    saturday = sunday + datetime.timedelta(days=6)
+    seen = {str(row.get("IssueID") or "") for row in pull_rows}
+    seen_numbers = {(str(row.get("ComicID") or ""), str(row.get("IssueNumber") or "")) for row in pull_rows}
+    extra = []
+    for row in arc_queries.get_library_releases(
+        sunday.isoformat(), saturday.isoformat(), include_downloaded=include_downloaded
+    ):
+        row = dict(row)
+        issue_id = str(row.get("IssueID") or "")
+        number = (str(row.get("ComicID") or ""), str(row.get("IssueNumber") or ""))
+        if issue_id in seen or number in seen_numbers:
+            continue
+        seen.add(issue_id)
+        extra.append(row)
+    return extra
 
 
 def _attach_progress(rows):

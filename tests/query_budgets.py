@@ -36,6 +36,7 @@ BUDGETS = {
     "dashboard_library": 4,
     # GET /api/dashboard/activity: recent activity events.
     "dashboard_activity": 1,
-    # GET /api/dashboard/upcoming: this week's pull, Needs attention, finished times.
-    "dashboard_upcoming": 3,
+    # GET /api/dashboard/upcoming: this week's pull, library store dates,
+    # Needs attention, finished times.
+    "dashboard_upcoming": 4,
 }

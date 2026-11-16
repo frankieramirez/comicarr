@@ -603,6 +603,81 @@ describe("ReleasesPage", () => {
     expect(screen.getByText(/release data from/)).toBeTruthy();
   });
 
+  it("shows library manga chapters from MangaUpdates under Only my library", async () => {
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json(
+          withManga([
+            mangaRow({
+              key: "mu-40",
+              COMIC: "Dandadan",
+              format: "Manga",
+              ISSUE: "252",
+              chapters: "252",
+              ComicID: "md-dandadan",
+              in_library: true,
+              library_issue_id: "md-dandadan-252",
+              issue_status: "Wanted",
+              state: "wanted",
+            }),
+            // In the library but this chapter is not, or the series is not.
+            mangaRow({
+              key: "mu-41",
+              COMIC: "Followed Manhwa",
+              ComicID: "md-followed",
+              in_library: true,
+              state: "in_library",
+            }),
+            mangaRow(),
+          ]),
+        ),
+      ),
+    );
+    render(<ReleasesPage />, {
+      useMemoryRouter: true,
+      route: "/releases?view=mine",
+    });
+
+    expect(await screen.findByText("Dandadan")).toBeTruthy();
+    expect(screen.queryByText("Followed Manhwa")).toBeNull();
+    expect(screen.queryByText("Popular Manhwa")).toBeNull();
+    expect(screen.getByTestId("release-formats").textContent).toContain(
+      "Manga1",
+    );
+  });
+
+  it("explains an empty library week when the pull list is unavailable", async () => {
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json(weeklyWeek([], { source: "unavailable" })),
+      ),
+    );
+    render(<ReleasesPage />, {
+      useMemoryRouter: true,
+      route: "/releases?view=mine",
+    });
+
+    expect(
+      await screen.findByText("This week's pull list isn't available yet"),
+    ).toBeTruthy();
+  });
+
+  it("notes missing comics when store dates stand in for the pull list", async () => {
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json(weeklyWeek([], { source: "unavailable" })),
+      ),
+      http.get("/api/upcoming", () => HttpResponse.json([upcomingIssue])),
+    );
+    render(<ReleasesPage />, {
+      useMemoryRouter: true,
+      route: "/releases?view=mine",
+    });
+
+    await screen.findByText("Absolute Batman");
+    expect(screen.getByTestId("pull-unavailable-note")).toBeTruthy();
+  });
+
   it("filters manga to one day from the day strip", async () => {
     server.use(
       http.get("/api/weekly", () =>

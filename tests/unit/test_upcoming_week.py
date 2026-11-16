@@ -92,7 +92,9 @@ def _seed(engine):
 
 def _view(*members):
     groups = tuple(
-        SimpleNamespace(reason_phrase=phrase, base_reason="postprocess_failed", members=(SimpleNamespace(issue_id=issue_id),))
+        SimpleNamespace(
+            reason_phrase=phrase, base_reason="postprocess_failed", members=(SimpleNamespace(issue_id=issue_id),)
+        )
         for issue_id, phrase in members
     )
     return SimpleNamespace(groups=groups)
@@ -155,3 +157,115 @@ def test_router_rejects_weeks_outside_the_window(monkeypatch):
     monkeypatch.setattr(weekly_service, "week_window", out_of_range)
     response = arc_router.get_upcoming(include_downloaded=False, week=40, year=2030)
     assert response.status_code == 400
+
+
+def _seed_library_only(engine):
+    """No pull list for the week: only the series' own store dates know it."""
+    with engine.begin() as conn:
+        conn.execute(
+            insert(comics),
+            [
+                {
+                    "ComicID": "c-dc",
+                    "ComicName": "Absolute Batman",
+                    "ComicSortName": "Absolute Batman",
+                    "ComicPublisher": "DC Comics",
+                    "ContentType": "comic",
+                },
+                {
+                    "ComicID": "c-manga",
+                    "ComicName": "Dandadan",
+                    "ComicSortName": "Dandadan",
+                    "ComicPublisher": "Shueisha",
+                    "ContentType": "manga",
+                },
+            ],
+        )
+        conn.execute(
+            insert(issues),
+            [
+                {
+                    "IssueID": "i-dc",
+                    "ComicID": "c-dc",
+                    "Issue_Number": "23",
+                    "Status": "Wanted",
+                    "ReleaseDate": "2026-02-04",
+                },
+                {
+                    "IssueID": "i-manga",
+                    "ComicID": "c-manga",
+                    "Issue_Number": "213",
+                    "Status": "Downloaded",
+                    "ReleaseDate": "2026-02-07",
+                },
+                # Outside the week, skipped, or undated: never shown.
+                {
+                    "IssueID": "i-next",
+                    "ComicID": "c-dc",
+                    "Issue_Number": "24",
+                    "Status": "Wanted",
+                    "ReleaseDate": "2026-02-08",
+                },
+                {
+                    "IssueID": "i-skip",
+                    "ComicID": "c-dc",
+                    "Issue_Number": "22",
+                    "Status": "Skipped",
+                    "ReleaseDate": "2026-02-04",
+                },
+                {
+                    "IssueID": "i-undated",
+                    "ComicID": "c-dc",
+                    "Issue_Number": "21",
+                    "Status": "Wanted",
+                    "ReleaseDate": None,
+                },
+            ],
+        )
+
+
+def test_library_store_dates_fill_a_week_without_a_pull_list(upcoming_db, monkeypatch):
+    _seed_library_only(upcoming_db)
+    from comicarr.app import attention
+
+    monkeypatch.setattr(attention, "read", lambda: _view())
+
+    rows = {row["IssueID"]: row for row in arc_service.get_upcoming(include_downloaded=True, week="05", year="2026")}
+
+    assert set(rows) == {"i-dc", "i-manga"}
+    assert rows["i-dc"]["ComicName"] == "Absolute Batman"
+    assert rows["i-dc"]["IssueNumber"] == "23"
+    assert rows["i-dc"]["IssueDate"] == "2026-02-04"
+    assert rows["i-dc"]["Publisher"] == "DC Comics"
+    assert rows["i-manga"]["ContentType"] == "manga"
+    assert rows["i-manga"]["Status"] == "Downloaded"
+    # Without downloaded issues only the wanted one is left.
+    wanted = arc_service.get_upcoming(include_downloaded=False, week="05", year="2026")
+    assert [row["IssueID"] for row in wanted] == ["i-dc"]
+
+
+def test_pull_list_rows_are_not_repeated_from_store_dates(upcoming_db, monkeypatch):
+    _seed(upcoming_db)
+    from comicarr.app import attention
+
+    monkeypatch.setattr(attention, "read", lambda: _view())
+    with upcoming_db.begin() as conn:
+        conn.execute(
+            issues.update().where(issues.c.IssueID == "i-dc").values(Issue_Number="23", ReleaseDate="2026-02-04")
+        )
+        # Same number under another id (a refreshed series): still one row.
+        conn.execute(
+            insert(issues),
+            [
+                {
+                    "IssueID": "i-dc-dupe",
+                    "ComicID": "c-dc",
+                    "Issue_Number": "23",
+                    "Status": "Wanted",
+                    "ReleaseDate": "2026-02-04",
+                }
+            ],
+        )
+
+    rows = arc_service.get_upcoming(include_downloaded=True, week="05", year="2026")
+    assert sorted(row["IssueID"] for row in rows) == ["i-dc", "i-manga"]
