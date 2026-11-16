@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { SettingGroup } from "./SettingGroup";
 import { SettingField } from "./SettingField";
 import { SupportBundleSection } from "./SupportBundleSection";
@@ -46,39 +48,39 @@ export function AboutTab({ config, formData, onChange }: AboutTabProps) {
       addToast({
         type: "error",
         message:
-          err instanceof Error ? err.message : "Could not check for updates",
+          err instanceof Error ? err.message : t`Could not check for updates`,
       });
     }
   };
 
   const buildRows: Array<[string, string]> = [
     ["version", formatAppVersion(false)],
-    ["config path", config.config_path || "/config/config.ini"],
-    ["data directory", config.data_dir || "—"],
+    [t`config path`, config.config_path || "/config/config.ini"],
+    [t`data directory`, config.data_dir || "—"],
     ["python", config.python_version || "—"],
   ];
 
   return (
     <div className="space-y-6">
       <SettingGroup
-        title="Updates"
-        description="Automatic release checks and outbound announcements."
+        title={t`Updates`}
+        description={t`Automatic release checks and outbound announcements.`}
       >
         <SettingField
-          label="Check for updates"
+          label={t`Check for updates`}
           type="checkbox"
           checked={checkForUpdates}
           onChange={(checked) => onChange("check_github", checked as boolean)}
-          helpText="When enabled, Comicarr checks for new releases automatically on a schedule. Turn off to stop automatic checks; you can still use Check now."
+          helpText={t`When enabled, Comicarr checks for new releases automatically on a schedule. Turn off to stop automatic checks; you can still use Check now.`}
         />
         <SettingField
-          label="Announce releases to notifiers"
+          label={t`Announce releases to notifiers`}
           type="checkbox"
           checked={announceReleases}
           onChange={(checked) =>
             onChange("announce_releases", checked as boolean)
           }
-          helpText="When enabled, send a message through enabled notifiers when a new release is available. Uses enabled notifiers only; does not reuse snatch or grab flags."
+          helpText={t`When enabled, send a message through enabled notifiers when a new release is available. Uses enabled notifiers only; does not reuse snatch or grab flags.`}
         />
 
         <div
@@ -90,7 +92,7 @@ export function AboutTab({ config, formData, onChange }: AboutTabProps) {
           data-testid="update-diagnostic"
         >
           <div className="text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
-            Status
+            <Trans>Status</Trans>
           </div>
           <div className="mt-0.5 text-[13px]">{diagnostic}</div>
         </div>
@@ -103,14 +105,14 @@ export function AboutTab({ config, formData, onChange }: AboutTabProps) {
             onClick={handleCheckNow}
             disabled={forceCheck.isPending}
           >
-            {forceCheck.isPending ? "Checking…" : "Check now"}
+            {forceCheck.isPending ? t`Checking…` : t`Check now`}
           </Button>
         </div>
       </SettingGroup>
 
       <SettingGroup
-        title="What's new"
-        description="Release notes for this install, newest first."
+        title={t`What's new`}
+        description={t`Release notes for this install, newest first.`}
       >
         <WhatsNewArchive />
       </SettingGroup>
@@ -118,8 +120,8 @@ export function AboutTab({ config, formData, onChange }: AboutTabProps) {
       <SupportBundleSection />
 
       <SettingGroup
-        title="Build / environment"
-        description="Install identity and paths for this instance."
+        title={t`Build / environment`}
+        description={t`Install identity and paths for this instance.`}
       >
         <div
           className="rounded-lg border divide-y"

@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+
 /**
  * Operator-facing copy for update diagnostics (Settings → About → Updates).
  * Codes match GET /api/system/version update_reason when update_state is unknown.
@@ -7,15 +9,17 @@ export type UpdateState = "behind" | "current" | "unknown" | string;
 export type UpdateReason =
   "never_checked" | "unreachable" | "rate_limited" | string | null | undefined;
 
-const UNKNOWN_REASON_COPY: Record<string, string> = {
-  never_checked: "Not checked yet",
-  unreachable: "Could not reach the release source",
-  rate_limited: "Rate limited — will retry on the normal schedule",
-};
-
 export function formatUnknownUpdateReason(reason: UpdateReason): string {
-  if (!reason) return UNKNOWN_REASON_COPY.never_checked;
-  return UNKNOWN_REASON_COPY[reason] ?? "Update status is unavailable";
+  switch (reason || "never_checked") {
+    case "never_checked":
+      return t`Not checked yet`;
+    case "unreachable":
+      return t`Could not reach the release source`;
+    case "rate_limited":
+      return t`Rate limited — will retry on the normal schedule`;
+    default:
+      return t`Update status is unavailable`;
+  }
 }
 
 /** Open-closed pending range ends for post-upgrade What's New (#474). */
@@ -40,16 +44,16 @@ export interface VersionInfo {
 
 /** One-line diagnostic for the Updates group (not a second badge). */
 export function formatUpdateDiagnostic(info: VersionInfo | undefined): string {
-  if (!info) return "Loading update status…";
+  if (!info) return t`Loading update status…`;
 
   const state = info.update_state ?? "unknown";
   if (state === "behind") {
     const current = info.release_version || "—";
     const latest = info.latest_version || "—";
-    return `Update available: ${current} → ${latest}`;
+    return t`Update available: ${current} → ${latest}`;
   }
   if (state === "current") {
-    return "Up to date";
+    return t`Up to date`;
   }
   return formatUnknownUpdateReason(info.update_reason);
 }

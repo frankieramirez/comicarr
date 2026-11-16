@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { BookMarked } from "lucide-react";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -11,12 +12,12 @@ export default function StoryArcEmptyState({
   return (
     <EmptyState
       icon={BookMarked}
-      title="No story arcs tracked"
-      description="Search for story arcs above to add them to your watchlist. Track reading progress across multiple series and issues."
+      title={t`No story arcs tracked`}
+      description={t`Search for story arcs above to add them to your watchlist. Track reading progress across multiple series and issues.`}
       action={
         onSearchFocus
           ? {
-              label: "Search Story Arcs",
+              label: t`Search Story Arcs`,
               onClick: onSearchFocus,
             }
           : undefined

@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { SettingGroup } from "./SettingGroup";
 import { SettingField } from "./SettingField";
 import { Button } from "@/components/ui/button";
@@ -10,6 +12,9 @@ import type {
   SettingsFormData,
   WritableConfig,
 } from "../../types/config.generated";
+
+// A language code example, the same in every language.
+const LANGUAGE_CODE_EXAMPLE = "en";
 
 interface ApiTabProps {
   config: ReadableConfig;
@@ -42,7 +47,7 @@ export function ApiTab({
     if (!displayedApiKey) {
       addToast({
         type: "error",
-        message: "Regenerate the API key before copying it.",
+        message: t`Regenerate the API key before copying it.`,
       });
       return;
     }
@@ -51,12 +56,12 @@ export function ApiTab({
       await navigator.clipboard.writeText(displayedApiKey);
       addToast({
         type: "success",
-        message: "API key copied to clipboard",
+        message: t`API key copied to clipboard`,
       });
     } catch {
       addToast({
         type: "error",
-        message: "Failed to copy API key",
+        message: t`Failed to copy API key`,
       });
     }
   };
@@ -65,8 +70,8 @@ export function ApiTab({
     if (
       !confirm(
         mcpEnabled
-          ? "Are you sure you want to regenerate the API key? This will invalidate any existing API integrations and disconnect every MCP agent."
-          : "Are you sure you want to regenerate the API key? This will invalidate any existing API integrations.",
+          ? t`Are you sure you want to regenerate the API key? This will invalidate any existing API integrations and disconnect every MCP agent.`
+          : t`Are you sure you want to regenerate the API key? This will invalidate any existing API integrations.`,
       )
     ) {
       return;
@@ -77,12 +82,12 @@ export function ApiTab({
       onRegeneratedApiKey(newApiKey);
       addToast({
         type: "success",
-        message: "API key regenerated.",
+        message: t`API key regenerated.`,
       });
     } catch {
       addToast({
         type: "error",
-        message: "Failed to regenerate API key",
+        message: t`Failed to regenerate API key`,
       });
     }
   };
@@ -93,12 +98,12 @@ export function ApiTab({
   return (
     <div className="space-y-6">
       <SettingGroup
-        title="Comicarr API Key"
-        description="This key is used to authenticate API requests to Comicarr"
+        title={t`Comicarr API Key`}
+        description={t`This key is used to authenticate API requests to Comicarr`}
       >
         <div className="space-y-2">
           <label htmlFor="settings-api-key" className="text-sm font-medium">
-            API Key
+            <Trans>API Key</Trans>
           </label>
           <div className="flex space-x-2">
             <input
@@ -107,8 +112,8 @@ export function ApiTab({
               value={displayedApiKey}
               placeholder={
                 apiKeyIsSet
-                  ? "Configured - regenerate to view a new key"
-                  : "No API key configured"
+                  ? t`Configured - regenerate to view a new key`
+                  : t`No API key configured`
               }
               readOnly
               className="flex-1 px-3 py-2 border border-input rounded-md bg-background font-mono text-sm"
@@ -119,7 +124,7 @@ export function ApiTab({
               size="icon"
               onClick={handleCopyApiKey}
               disabled={!displayedApiKey}
-              title="Copy to clipboard"
+              title={t`Copy to clipboard`}
             >
               <Copy className="h-4 w-4" />
             </Button>
@@ -129,7 +134,7 @@ export function ApiTab({
               size="icon"
               onClick={handleRegenerateApiKey}
               disabled={generateApiKey.isPending}
-              title="Regenerate API key"
+              title={t`Regenerate API key`}
             >
               <RefreshCw
                 className={`h-4 w-4 ${generateApiKey.isPending ? "animate-spin" : ""}`}
@@ -137,15 +142,17 @@ export function ApiTab({
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Use this key in API requests and integrations
+            <Trans>Use this key in API requests and integrations</Trans>
           </p>
           {mcpEnabled && (
             <p
               data-testid="mcp-rotation-note"
               className="text-xs text-foreground-2"
             >
-              MCP is on. Regenerating this key disconnects every connected MCP
-              agent at once; each one needs the new key.
+              <Trans>
+                MCP is on. Regenerating this key disconnects every connected MCP
+                agent at once; each one needs the new key.
+              </Trans>
             </p>
           )}
         </div>
@@ -153,128 +160,128 @@ export function ApiTab({
 
       {comicvineEnabled && (
         <SettingGroup
-          title="Comic Vine"
-          description="Configure Comic Vine integration for metadata"
+          title={t`Comic Vine`}
+          description={t`Configure Comic Vine integration for metadata`}
         >
           <SettingField
-            label="Comic Vine API Key"
+            label={t`Comic Vine API Key`}
             value={formData.comicvine_api || ""}
             type="password"
             onChange={(value) => onChange("comicvine_api", value as string)}
             placeholder={
               comicvineApiIsSet
-                ? "Key saved (enter new value to change)"
-                : "Enter your 40-character Comic Vine API key"
+                ? t`Key saved (enter new value to change)`
+                : t`Enter your 40-character Comic Vine API key`
             }
             helpText={
               comicvineApiIsSet && !formData.comicvine_api
-                ? "Comic Vine API key is configured. Enter a new value to change it."
-                : "Get your API key from https://comicvine.gamespot.com/api/"
+                ? t`Comic Vine API key is configured. Enter a new value to change it.`
+                : t`Get your API key from https://comicvine.gamespot.com/api/`
             }
           />
           <SettingField
-            label="Verify SSL"
+            label={t`Verify SSL`}
             type="checkbox"
             checked={formData.cv_verify}
             onChange={(checked) => onChange("cv_verify", checked as boolean)}
-            helpText="Verify SSL certificates when connecting to Comic Vine"
+            helpText={t`Verify SSL certificates when connecting to Comic Vine`}
           />
           <SettingField
-            label="Comic Vine Only"
+            label={t`Comic Vine Only`}
             type="checkbox"
             checked={formData.cv_only}
             onChange={(checked) => onChange("cv_only", checked as boolean)}
-            helpText="Use only Comic Vine for metadata (ignore local cache)"
+            helpText={t`Use only Comic Vine for metadata (ignore local cache)`}
           />
         </SettingGroup>
       )}
 
       {comicvineEnabled && (
         <SettingGroup
-          title="Metron"
-          description="Use Metron API for comic search (fixes sorting issues)"
+          title={t`Metron`}
+          description={t`Use Metron API for comic search (fixes sorting issues)`}
         >
           <SettingField
-            label="Use Metron for Search"
+            label={t`Use Metron for Search`}
             type="checkbox"
             checked={formData.use_metron_search}
             onChange={(checked) =>
               onChange("use_metron_search", checked as boolean)
             }
-            helpText="Use Metron API instead of Comic Vine for search results"
+            helpText={t`Use Metron API instead of Comic Vine for search results`}
           />
           <SettingField
-            label="Metron Username"
+            label={t`Metron Username`}
             value={formData.metron_username}
             type="text"
             onChange={(value) => onChange("metron_username", value as string)}
-            placeholder="Your Metron username"
-            helpText="Register at https://metron.cloud"
+            placeholder={t`Your Metron username`}
+            helpText={t`Register at https://metron.cloud`}
           />
           <SettingField
-            label="Metron Password"
+            label={t`Metron Password`}
             value={formData.metron_password}
             type="password"
             onChange={(value) => onChange("metron_password", value as string)}
             placeholder={
               metronPasswordIsSet
-                ? "Password saved (enter new value to change)"
-                : "Your Metron password"
+                ? t`Password saved (enter new value to change)`
+                : t`Your Metron password`
             }
             helpText={
               metronPasswordIsSet && !formData.metron_password
-                ? "Metron password is configured. Enter a new value to change it."
-                : "Register at https://metron.cloud"
+                ? t`Metron password is configured. Enter a new value to change it.`
+                : t`Register at https://metron.cloud`
             }
           />
         </SettingGroup>
       )}
 
       <SettingGroup
-        title="MyAnimeList"
-        description="Use MAL as primary manga metadata source for better search coverage"
+        title={t`MyAnimeList`}
+        description={t`Use MAL as primary manga metadata source for better search coverage`}
       >
         <SettingField
-          label="Enable MAL"
+          label={t`Enable MAL`}
           type="checkbox"
           checked={formData.mal_enabled}
           onChange={(checked) => onChange("mal_enabled", checked as boolean)}
-          helpText="Use MyAnimeList for manga search and metadata (MangaDex still provides chapter data)"
+          helpText={t`Use MyAnimeList for manga search and metadata (MangaDex still provides chapter data)`}
         />
         <SettingField
-          label="MAL Client ID"
+          label={t`MAL Client ID`}
           value={formData.mal_client_id}
           type="password"
           onChange={(value) => onChange("mal_client_id", value as string)}
-          placeholder="Your MAL API Client ID"
-          helpText="Get your Client ID from https://myanimelist.net/apiconfig"
+          placeholder={t`Your MAL API Client ID`}
+          helpText={t`Get your Client ID from https://myanimelist.net/apiconfig`}
         />
       </SettingGroup>
 
       {mangadexEnabled && (
         <SettingGroup
-          title="MangaDex"
-          description="Configure MangaDex integration for chapter data"
+          title={t`MangaDex`}
+          description={t`Configure MangaDex integration for chapter data`}
         >
           <SettingField
-            label="Languages"
+            label={t`Languages`}
             value={formData.mangadex_languages}
             type="text"
             onChange={(value) =>
               onChange("mangadex_languages", value as string)
             }
-            placeholder="en"
-            helpText="Comma-separated language codes (e.g., en,ja)"
+            placeholder={LANGUAGE_CODE_EXAMPLE}
+            helpText={t`Comma-separated language codes (e.g., en,ja)`}
           />
           <SettingField
-            label="Content Rating"
+            label={t`Content Rating`}
             value={formData.mangadex_content_rating}
             type="text"
             onChange={(value) =>
               onChange("mangadex_content_rating", value as string)
             }
             placeholder="safe,suggestive"
-            helpText="Comma-separated ratings: safe, suggestive, erotica, pornographic"
+            helpText={t`Comma-separated ratings: safe, suggestive, erotica, pornographic`}
           />
         </SettingGroup>
       )}

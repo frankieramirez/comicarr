@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import SeriesCard from "./SeriesCard";
 import type { ComicarrRow } from "@/components/data-table/useTableState";
 import type { Comic } from "@/types";
@@ -11,7 +12,7 @@ export default function SeriesGrid({ rows, onCardClick }: SeriesGridProps) {
   if (rows.length === 0) {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
-        No results.
+        <Trans>No results.</Trans>
       </div>
     );
   }

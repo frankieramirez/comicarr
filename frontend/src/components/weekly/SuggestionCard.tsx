@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -36,7 +37,7 @@ export function SuggestionCard({ suggestion, onAdd }: SuggestionCardProps) {
         }
       >
         <Plus className="w-3.5 h-3.5 mr-1" />
-        Add
+        <Trans>Add</Trans>
       </Button>
     </div>
   );

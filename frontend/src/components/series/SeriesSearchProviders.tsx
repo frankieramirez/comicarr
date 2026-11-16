@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { ArrowDown, ArrowUp, ListOrdered, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -94,14 +96,14 @@ export function SeriesSearchProviders({
       addToast({
         type: "success",
         title: result.provider_override
-          ? "Search providers changed"
-          : "Search providers follow the global order again",
+          ? t`Search providers changed`
+          : t`Search providers follow the global order again`,
       });
     } catch (saveError) {
       setError(
         saveError instanceof ApiError
           ? saveError.userMessage
-          : "Comicarr could not save the providers. Try again.",
+          : t`Comicarr could not save the providers. Try again.`,
       );
     }
   };
@@ -118,21 +120,21 @@ export function SeriesSearchProviders({
               id="series-providers-title"
               className="text-[13px] font-semibold"
             >
-              Search providers
+              <Trans>Search providers</Trans>
             </span>
             <span className="mono-label">
-              {override ? "custom" : "global order"}
+              {override ? t`custom` : t`global order`}
             </span>
           </div>
           <p
             className="mono-meta mt-1 break-words"
             data-testid="series-providers"
           >
-            {used.length > 0 ? used.join(" → ") : "No providers enabled"}
+            {used.length > 0 ? used.join(" → ") : t`No providers enabled`}
           </p>
           {skipped.length > 0 ? (
             <p className="mt-1 text-[13px] leading-relaxed text-foreground-2">
-              Skips {skipped.join(", ")} for this series.
+              {t`Skips ${ph({ providers: skipped.join(", ") })} for this series.`}
             </p>
           ) : null}
         </div>
@@ -143,7 +145,7 @@ export function SeriesSearchProviders({
           disabled={available.length === 0}
         >
           <ListOrdered aria-hidden="true" />
-          Change providers
+          <Trans>Change providers</Trans>
         </Button>
       </div>
 
@@ -153,10 +155,14 @@ export function SeriesSearchProviders({
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Search providers</DialogTitle>
+            <DialogTitle>
+              <Trans>Search providers</Trans>
+            </DialogTitle>
             <DialogDescription>
-              Searches for this series try providers from the top down. Untick a
-              provider to skip it for this series only.
+              <Trans>
+                Searches for this series try providers from the top down. Untick
+                a provider to skip it for this series only.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
 
@@ -203,7 +209,7 @@ export function SeriesSearchProviders({
                     size="icon-sm"
                     disabled={index === 0}
                     onClick={() => move(index, -1)}
-                    aria-label={`Move ${row.name} up`}
+                    aria-label={t`Move ${ph({ name: row.name })} up`}
                   >
                     <ArrowUp aria-hidden="true" />
                   </Button>
@@ -213,7 +219,7 @@ export function SeriesSearchProviders({
                     size="icon-sm"
                     disabled={index === rows.length - 1}
                     onClick={() => move(index, 1)}
-                    aria-label={`Move ${row.name} down`}
+                    aria-label={t`Move ${ph({ name: row.name })} down`}
                   >
                     <ArrowDown aria-hidden="true" />
                   </Button>
@@ -223,8 +229,10 @@ export function SeriesSearchProviders({
 
             {rows.every((row) => !row.used) ? (
               <p className="text-xs text-muted-foreground">
-                With every provider skipped, searches for this series stop
-                without trying anything.
+                <Trans>
+                  With every provider skipped, searches for this series stop
+                  without trying anything.
+                </Trans>
               </p>
             ) : null}
 
@@ -242,7 +250,7 @@ export function SeriesSearchProviders({
                   disabled={mutation.isPending}
                   onClick={() => void save(null)}
                 >
-                  Use global order
+                  <Trans>Use global order</Trans>
                 </Button>
               ) : (
                 <span />
@@ -254,7 +262,7 @@ export function SeriesSearchProviders({
                   disabled={mutation.isPending}
                   onClick={() => setOpen(false)}
                 >
-                  Cancel
+                  <Trans>Cancel</Trans>
                 </Button>
                 <Button
                   type="submit"
@@ -267,7 +275,7 @@ export function SeriesSearchProviders({
                       aria-hidden="true"
                     />
                   ) : null}
-                  {mutation.isPending ? "Saving…" : "Save providers"}
+                  {mutation.isPending ? t`Saving…` : t`Save providers`}
                 </Button>
               </div>
             </DialogFooter>

@@ -1,3 +1,5 @@
+import { plural, ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 // Copyright (C) 2025–2026 Comicarr contributors
 
 import { useMemo, useState } from "react";
@@ -27,7 +29,7 @@ import {
   type AcquisitionWorkerHealth,
   type ScheduledJobHealth,
 } from "@/hooks/useAcquisitionHealth";
-import { formatDate } from "@/lib/intl";
+import { formatCompactDuration, formatDate } from "@/lib/intl";
 
 type Tone = "ready" | "warning" | "danger" | "neutral";
 
@@ -43,9 +45,9 @@ function asCount(value: number | undefined | null) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function humanize(value: string | null | undefined, fallback = "unknown") {
+function humanize(value: string | null | undefined, fallback?: string) {
   const text = String(value ?? "").trim();
-  return text ? text.replace(/[_-]+/g, " ") : fallback;
+  return text ? text.replace(/[_-]+/g, " ") : (fallback ?? t`unknown`);
 }
 
 function parseMoment(value: number | string | null | undefined) {
@@ -72,12 +74,8 @@ function formatAge(value: number | string | null | undefined) {
   const date = parseMoment(value);
   if (!date) return "—";
   const elapsedSeconds = Math.round((Date.now() - date.getTime()) / 1000);
-  const prefix = elapsedSeconds < 0 ? "in " : "";
-  const seconds = Math.abs(elapsedSeconds);
-  if (seconds < 60) return `${prefix}${seconds}s`;
-  if (seconds < 3_600) return `${prefix}${Math.round(seconds / 60)}m`;
-  if (seconds < 86_400) return `${prefix}${Math.round(seconds / 3_600)}h`;
-  return `${prefix}${Math.round(seconds / 86_400)}d`;
+  const compact = formatCompactDuration(elapsedSeconds * 1000);
+  return elapsedSeconds < 0 ? t`in ${compact}` : compact;
 }
 
 function errorMessage(error: unknown) {
@@ -228,40 +226,48 @@ function RouteCard({
           {route}
         </div>
         <HealthStatus
-          label={ready ? "ready" : humanize(health.reason, "not ready")}
+          label={ready ? t`ready` : humanize(health.reason, t`not ready`)}
           tone={routeTone}
         />
       </div>
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-[11px] sm:grid-cols-4">
         <div>
-          <dt className="text-muted-foreground">downstream</dt>
+          <dt className="text-muted-foreground">
+            <Trans>downstream</Trans>
+          </dt>
           <dd className="mt-0.5 font-mono">
-            {humanize(health.downstream, "not configured")}
+            {humanize(health.downstream, t`not configured`)}
           </dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">client</dt>
+          <dt className="text-muted-foreground">
+            <Trans>client</Trans>
+          </dt>
           <dd className="mt-0.5">
             <HealthStatus
-              label={health.client_ready ? "ready" : "not ready"}
+              label={health.client_ready ? t`ready` : t`not ready`}
               tone={toneForBoolean(health.client_ready)}
             />
           </dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">path</dt>
+          <dt className="text-muted-foreground">
+            <Trans>path</Trans>
+          </dt>
           <dd className="mt-0.5">
             <HealthStatus
-              label={health.path_ready ? "ready" : "not ready"}
+              label={health.path_ready ? t`ready` : t`not ready`}
               tone={toneForBoolean(health.path_ready)}
             />
           </dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">restart</dt>
+          <dt className="text-muted-foreground">
+            <Trans>restart</Trans>
+          </dt>
           <dd className="mt-0.5">
             <HealthStatus
-              label={health.restart_safe ? "safe" : "manual review"}
+              label={health.restart_safe ? t`safe` : t`manual review`}
               tone={toneForBoolean(health.restart_safe)}
             />
           </dd>
@@ -271,9 +277,15 @@ function RouteCard({
         className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t pt-2 font-mono text-[10px] text-muted-foreground"
         style={{ borderColor: "var(--border)" }}
       >
-        <span>{asCount(health.configured_provider_count)} configured</span>
-        <span>{asCount(health.executable_provider_count)} executable</span>
-        <span>{asCount(health.attempted_provider_count)} attempted</span>
+        <span>
+          {t`${ph({ count: asCount(health.configured_provider_count) })} configured`}
+        </span>
+        <span>
+          {t`${ph({ count: asCount(health.executable_provider_count) })} executable`}
+        </span>
+        <span>
+          {t`${ph({ count: asCount(health.attempted_provider_count) })} attempted`}
+        </span>
       </div>
       {health.last_error && (
         <p
@@ -309,10 +321,10 @@ function WorkerCard({
       <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
         <span>
           {health.healthy
-            ? "healthy"
+            ? t`healthy`
             : health.alive
-              ? "needs attention"
-              : "not live"}
+              ? t`needs attention`
+              : t`not live`}
         </span>
         <span className="font-mono">{formatMoment(health.last_heartbeat)}</span>
       </div>
@@ -363,12 +375,12 @@ function RunCard({ kind, run }: { kind: string; run: AcquisitionRunHealth }) {
         />
       </div>
       <div className="mt-2 grid grid-cols-3 gap-2 font-mono text-[10px] text-muted-foreground">
-        <span>{asCount(run.accepted)} accepted</span>
-        <span>{asCount(run.matched)} matched</span>
-        <span>{asCount(run.no_match)} no match</span>
-        <span>{asCount(run.deferred)} deferred</span>
-        <span>{asCount(run.failed)} failed</span>
-        <span>{formatAge(run.oldest_backlog)} oldest</span>
+        <span>{t`${ph({ count: asCount(run.accepted) })} accepted`}</span>
+        <span>{t`${ph({ count: asCount(run.matched) })} matched`}</span>
+        <span>{t`${ph({ count: asCount(run.no_match) })} no match`}</span>
+        <span>{t`${ph({ count: asCount(run.deferred) })} deferred`}</span>
+        <span>{t`${ph({ count: asCount(run.failed) })} failed`}</span>
+        <span>{t`${ph({ age: formatAge(run.oldest_backlog) })} oldest`}</span>
       </div>
       {(run.error || run.reason) && (
         <p className="mt-2 break-words font-mono text-[10px] text-muted-foreground">
@@ -382,26 +394,32 @@ function RunCard({ kind, run }: { kind: string; run: AcquisitionRunHealth }) {
 function PreviewSummary({ preview }: { preview: AcquisitionRepairPreview }) {
   const summary = preview.summary;
   return (
-    <div className="flex flex-wrap gap-1.5" aria-label="Repair preview summary">
-      <HealthStatus label={`${asCount(summary.owned)} owned`} tone="ready" />
+    <div
+      className="flex flex-wrap gap-1.5"
+      aria-label={t`Repair preview summary`}
+    >
       <HealthStatus
-        label={`${asCount(summary.optional_wanted)} optional Wanted`}
+        label={t`${ph({ count: asCount(summary.owned) })} owned`}
+        tone="ready"
+      />
+      <HealthStatus
+        label={t`${ph({ count: asCount(summary.optional_wanted) })} optional Wanted`}
         tone="warning"
       />
       <HealthStatus
-        label={`${asCount(summary.future)} future`}
+        label={t`${ph({ count: asCount(summary.future) })} future`}
         tone="neutral"
       />
       <HealthStatus
-        label={`${asCount(summary.in_flight)} in flight`}
+        label={t`${ph({ count: asCount(summary.in_flight) })} in flight`}
         tone="warning"
       />
       <HealthStatus
-        label={`${asCount(summary.failed)} failed`}
+        label={t`${ph({ count: asCount(summary.failed) })} failed`}
         tone={asCount(summary.failed) ? "danger" : "neutral"}
       />
       <HealthStatus
-        label={`${asCount(summary.unknown)} unknown`}
+        label={t`${ph({ count: asCount(summary.unknown) })} unknown`}
         tone={asCount(summary.unknown) ? "warning" : "neutral"}
       />
     </div>
@@ -411,24 +429,24 @@ function PreviewSummary({ preview }: { preview: AcquisitionRepairPreview }) {
 function repairHeading(state: string | null | undefined) {
   switch (state) {
     case "completed":
-      return "Repair completed";
+      return t`Repair completed`;
     case "needs_review":
-      return "Repair needs review";
+      return t`Repair needs review`;
     case "rolled_back":
-      return "Repair rolled back";
+      return t`Repair rolled back`;
     case "rollback_needs_review":
-      return "Rollback needs review";
+      return t`Rollback needs review`;
     case "waiting_for_drain":
     case "rollback_waiting_for_drain":
-      return "Waiting for acquisition work to drain";
+      return t`Waiting for acquisition work to drain`;
     case "applying":
-      return "Repair applying";
+      return t`Repair applying`;
     case "rolling_back":
-      return "Rollback applying";
+      return t`Rollback applying`;
     case "confirmed":
-      return "Manifest confirmed";
+      return t`Manifest confirmed`;
     default:
-      return `Repair ${humanize(state)}`;
+      return t`Repair ${ph({ state: humanize(state) })}`;
   }
 }
 
@@ -529,7 +547,7 @@ export function AcquisitionHealthTab() {
       );
       setPreviewAcknowledged(false);
       setOperatorMessage(
-        "Repair preview is read-only. Review the grouped evidence before confirming it.",
+        t`Repair preview is read-only. Review the grouped evidence before confirming it.`,
       );
     } catch (error) {
       setPreview(null);
@@ -562,7 +580,7 @@ export function AcquisitionHealthTab() {
       setPollRepair(false);
       setPreviewAcknowledged(false);
       setOperatorMessage(
-        "Manifest confirmed. No repair data has changed until you apply this exact manifest.",
+        t`Manifest confirmed. No repair data has changed until you apply this exact manifest.`,
       );
     } catch (error) {
       setPollRepair(false);
@@ -580,8 +598,8 @@ export function AcquisitionHealthTab() {
       setLastRepairResult(result);
       setOperatorMessage(
         result.state === "completed"
-          ? "Repair completed."
-          : "Repair started; its durable state is being refreshed.",
+          ? t`Repair completed.`
+          : t`Repair started; its durable state is being refreshed.`,
       );
     } catch (error) {
       setPollRepair(false);
@@ -602,7 +620,7 @@ export function AcquisitionHealthTab() {
       });
       setLastRepairResult(result);
       setOperatorMessage(
-        "Conditional rollback started; its durable state is being refreshed.",
+        t`Conditional rollback started; its durable state is being refreshed.`,
       );
     } catch (error) {
       setPollRepair(false);
@@ -622,8 +640,8 @@ export function AcquisitionHealthTab() {
       const replayed = result.runtime?.replayed;
       setOperatorMessage(
         replayed
-          ? `Automatic acquisition resumed. Replayed ${asCount(replayed.search)} search and ${asCount(replayed.refresh)} refresh obligations.`
-          : "Automatic acquisition resumed. Refreshing health now.",
+          ? t`Automatic acquisition resumed. Replayed ${ph({ search: asCount(replayed.search) })} search and ${ph({ refresh: asCount(replayed.refresh) })} refresh obligations.`
+          : t`Automatic acquisition resumed. Refreshing health now.`,
       );
       setResumeReason("");
     } catch (error) {
@@ -643,13 +661,13 @@ export function AcquisitionHealthTab() {
   return (
     <div className="space-y-6">
       <SettingGroup
-        title="Acquisition health"
-        description="Live, sanitized readiness for routes, durable workers, and repair maintenance."
+        title={t`Acquisition health`}
+        description={t`Live, sanitized readiness for routes, durable workers, and repair maintenance.`}
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-3">
             <Metric
-              label="build"
+              label={t`build`}
               value={operations.diagnostics.data?.build?.id || "unknown"}
               tone={
                 operations.diagnostics.data?.build?.verified
@@ -658,12 +676,12 @@ export function AcquisitionHealthTab() {
               }
             />
             <Metric
-              label="maintenance"
-              value={maintenanceBlocked ? "blocked" : "clear"}
+              label={t`maintenance`}
+              value={maintenanceBlocked ? t`blocked` : t`clear`}
               tone={maintenanceBlocked ? "warning" : "ready"}
             />
             <Metric
-              label="route readiness"
+              label={t`route readiness`}
               value={health?.viable_route ? "ready" : "not ready"}
               tone={health?.viable_route ? "ready" : "danger"}
             />
@@ -674,10 +692,10 @@ export function AcquisitionHealthTab() {
             size="sm"
             onClick={() => void operations.refresh()}
             disabled={isRefreshing || Boolean(currentMutation)}
-            title="Refresh acquisition health"
+            title={t`Refresh acquisition health`}
           >
             <RefreshCw className={isRefreshing ? "animate-spin" : ""} />
-            Refresh
+            <Trans>Refresh</Trans>
           </Button>
         </div>
 
@@ -685,12 +703,12 @@ export function AcquisitionHealthTab() {
           {operations.diagnostics.data?.build?.verified ? (
             <span className="inline-flex items-center gap-1">
               <ShieldCheck className="h-3.5 w-3.5 text-[var(--status-active)]" />
-              Verified build
+              <Trans>Verified build</Trans>
             </span>
           ) : (
             <span className="inline-flex items-center gap-1">
               <CircleAlert className="h-3.5 w-3.5 text-[var(--status-paused)]" />
-              Build commit is not verified
+              <Trans>Build commit is not verified</Trans>
             </span>
           )}
           {operations.diagnostics.data?.build?.commit && (
@@ -703,15 +721,23 @@ export function AcquisitionHealthTab() {
           {maintenance?.active_leases !== undefined &&
             maintenance?.active_leases !== null && (
               <span>
-                {maintenance.active_leases} active lease
-                {maintenance.active_leases === 1 ? "" : "s"}
+                {plural(maintenance.active_leases, {
+                  one: "# active lease",
+                  other: "# active leases",
+                })}
               </span>
             )}
-          {maintenance?.drained === false && <span>draining active work</span>}
+          {maintenance?.drained === false && (
+            <span>
+              <Trans>draining active work</Trans>
+            </span>
+          )}
           {health?.blocked_producer_count !== undefined && (
             <span>
-              {asCount(health.blocked_producer_count)} blocked producer
-              {asCount(health.blocked_producer_count) === 1 ? "" : "s"}
+              {plural(asCount(health.blocked_producer_count), {
+                one: "# blocked producer",
+                other: "# blocked producers",
+              })}
             </span>
           )}
         </div>
@@ -719,13 +745,12 @@ export function AcquisitionHealthTab() {
         {maintenanceBlocked && (
           <div className="mt-3">
             <Message tone={blockedByAnotherOperation ? "danger" : "warning"}>
-              Acquisition maintenance is active
               {maintenance?.reason
-                ? `: ${sanitizeAcquisitionMessage(maintenance.reason)}`
-                : "."}
+                ? t`Acquisition maintenance is active: ${ph({ reason: sanitizeAcquisitionMessage(maintenance.reason) })}`
+                : t`Acquisition maintenance is active.`}{" "}
               {blockedByAnotherOperation
-                ? " Mutating controls are disabled until the owning operation releases it."
-                : " This repair owns the fence; wait for durable progress before another action."}
+                ? t`Mutating controls are disabled until the owning operation releases it.`
+                : t`This repair owns the fence; wait for durable progress before another action.`}
             </Message>
           </div>
         )}
@@ -739,8 +764,8 @@ export function AcquisitionHealthTab() {
       </SettingGroup>
 
       <SettingGroup
-        title="Route readiness"
-        description="A ready route has a configured provider, client, path, and restart-safe handoff correlation."
+        title={t`Route readiness`}
+        description={t`A ready route has a configured provider, client, path, and restart-safe handoff correlation.`}
       >
         {health?.routes && Object.keys(health.routes).length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2">
@@ -752,21 +777,23 @@ export function AcquisitionHealthTab() {
           </div>
         ) : (
           <Message>
-            No route readiness has been reported yet. Configure a supported
-            provider and download client, then refresh.
+            <Trans>
+              No route readiness has been reported yet. Configure a supported
+              provider and download client, then refresh.
+            </Trans>
           </Message>
         )}
       </SettingGroup>
 
       <SettingGroup
-        title="Workers, schedules, and backlog"
-        description="Scheduler dispatch is separate from item completion, so a job can run while acquisition still needs attention."
+        title={t`Workers, schedules, and backlog`}
+        description={t`Scheduler dispatch is separate from item completion, so a job can run while acquisition still needs attention.`}
       >
         <div className="space-y-4">
-          <section aria-label="Worker liveness">
+          <section aria-label={t`Worker liveness`}>
             <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">
               <Clock3 className="h-3.5 w-3.5" />
-              Worker liveness
+              <Trans>Worker liveness</Trans>
             </div>
             {health?.workers && Object.keys(health.workers).length > 0 ? (
               <div className="grid gap-3 sm:grid-cols-2">
@@ -782,15 +809,15 @@ export function AcquisitionHealthTab() {
               </div>
             ) : (
               <p className="text-[12px] text-muted-foreground">
-                No worker heartbeat is available yet.
+                <Trans>No worker heartbeat is available yet.</Trans>
               </p>
             )}
           </section>
 
-          <section aria-label="Scheduled jobs">
+          <section aria-label={t`Scheduled jobs`}>
             <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">
               <LoaderCircle className="h-3.5 w-3.5" />
-              Scheduled jobs
+              <Trans>Scheduled jobs</Trans>
             </div>
             {operations.jobs.data?.jobs?.length ? (
               <div
@@ -800,12 +827,18 @@ export function AcquisitionHealthTab() {
                 <table className="w-full min-w-[520px] text-left">
                   <thead className="text-[10px] uppercase tracking-[0.07em] text-muted-foreground">
                     <tr>
-                      <th className="px-3 py-2 font-medium">job</th>
-                      <th className="px-3 py-2 font-medium">status</th>
-                      <th className="hidden px-3 py-2 font-medium sm:table-cell">
-                        next run
+                      <th className="px-3 py-2 font-medium">
+                        <Trans>job</Trans>
                       </th>
-                      <th className="px-3 py-2 font-medium">last error</th>
+                      <th className="px-3 py-2 font-medium">
+                        <Trans>status</Trans>
+                      </th>
+                      <th className="hidden px-3 py-2 font-medium sm:table-cell">
+                        <Trans>next run</Trans>
+                      </th>
+                      <th className="px-3 py-2 font-medium">
+                        <Trans>last error</Trans>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -817,15 +850,15 @@ export function AcquisitionHealthTab() {
               </div>
             ) : (
               <p className="text-[12px] text-muted-foreground">
-                No scheduler jobs are available.
+                <Trans>No scheduler jobs are available.</Trans>
               </p>
             )}
           </section>
 
-          <section aria-label="Durable acquisition runs">
+          <section aria-label={t`Durable acquisition runs`}>
             <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              Durable acquisition runs
+              <Trans>Durable acquisition runs</Trans>
             </div>
             {health?.acquisition &&
             Object.keys(health.acquisition).length > 0 ? (
@@ -836,7 +869,9 @@ export function AcquisitionHealthTab() {
               </div>
             ) : (
               <p className="text-[12px] text-muted-foreground">
-                No durable acquisition runs have been recorded yet.
+                <Trans>
+                  No durable acquisition runs have been recorded yet.
+                </Trans>
               </p>
             )}
           </section>
@@ -844,8 +879,8 @@ export function AcquisitionHealthTab() {
       </SettingGroup>
 
       <SettingGroup
-        title="Evidence-driven repair"
-        description="Create a read-only series preview first. The one-time token and immutable fingerprint are held only in this browser session and never displayed."
+        title={t`Evidence-driven repair`}
+        description={t`Create a read-only series preview first. The one-time token and immutable fingerprint are held only in this browser session and never displayed.`}
       >
         <div className="space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -854,14 +889,14 @@ export function AcquisitionHealthTab() {
                 htmlFor="repair-series-id"
                 className="mb-1 block text-[12px] font-medium"
               >
-                Series ID
+                <Trans>Series ID</Trans>
               </label>
               <input
                 id="repair-series-id"
                 value={seriesId}
                 onChange={(event) => setSeriesId(event.target.value)}
                 inputMode="numeric"
-                placeholder="e.g. 160294"
+                placeholder={t`e.g. 160294`}
                 className="h-9 w-full rounded-md border bg-background px-3 font-mono text-sm"
                 style={{ borderColor: "var(--border)" }}
               />
@@ -874,13 +909,15 @@ export function AcquisitionHealthTab() {
               {operations.previewRepair.isPending && (
                 <LoaderCircle className="animate-spin" />
               )}
-              Preview repair
+              <Trans>Preview repair</Trans>
             </Button>
           </div>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Preview does not alter issue status, files, queues, or aggregates.
-            It remains available while another maintenance operation blocks
-            writes.
+            <Trans>
+              Preview does not alter issue status, files, queues, or aggregates.
+              It remains available while another maintenance operation blocks
+              writes.
+            </Trans>
           </p>
 
           {preview && (
@@ -893,9 +930,11 @@ export function AcquisitionHealthTab() {
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-[13px] font-semibold">Repair preview</h3>
+                  <h3 className="text-[13px] font-semibold">
+                    <Trans>Repair preview</Trans>
+                  </h3>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    Run {preview.run_id}
+                    {t`Run ${ph({ run: preview.run_id })}`}
                   </p>
                 </div>
                 <PreviewSummary preview={preview} />
@@ -920,11 +959,13 @@ export function AcquisitionHealthTab() {
                   style={{ borderColor: "var(--border)" }}
                 >
                   <legend className="px-0 text-[12px] font-medium">
-                    Optional Wanted candidates
+                    <Trans>Optional Wanted candidates</Trans>
                   </legend>
                   <p className="text-[11px] text-muted-foreground">
-                    These are not selected by default. Select only released,
-                    missing rows you explicitly want to mark Wanted.
+                    <Trans>
+                      These are not selected by default. Select only released,
+                      missing rows you explicitly want to mark Wanted.
+                    </Trans>
                   </p>
                   {optionalItems.map((item) => (
                     <label
@@ -940,7 +981,7 @@ export function AcquisitionHealthTab() {
                         checked={selectedOptionalKeys.has(item.entity_key)}
                         disabled={previewAlreadyConfirmed}
                         onChange={() => toggleOptionalItem(item.entity_key)}
-                        aria-label={`Select optional ${item.entity_key}`}
+                        aria-label={t`Select optional ${ph({ item: item.entity_key })}`}
                       />
                       <span className="min-w-0">
                         <span className="font-mono">{item.entity_key}</span>
@@ -968,7 +1009,9 @@ export function AcquisitionHealthTab() {
                   }
                 />
                 <span>
-                  I reviewed this immutable preview and want to freeze it
+                  <Trans>
+                    I reviewed this immutable preview and want to freeze it
+                  </Trans>
                 </span>
               </label>
               <div className="flex flex-wrap items-center gap-2">
@@ -986,16 +1029,20 @@ export function AcquisitionHealthTab() {
                   {operations.confirmRepair.isPending && (
                     <LoaderCircle className="animate-spin" />
                   )}
-                  Confirm preview
+                  <Trans>Confirm preview</Trans>
                 </Button>
                 {blockedByAnotherOperation && (
                   <span className="text-[11px] text-muted-foreground">
-                    A different maintenance operation owns the write fence.
+                    <Trans>
+                      A different maintenance operation owns the write fence.
+                    </Trans>
                   </span>
                 )}
                 {previewAlreadyConfirmed && (
                   <span className="text-[11px] text-muted-foreground">
-                    This preview is already frozen into the manifest below.
+                    <Trans>
+                      This preview is already frozen into the manifest below.
+                    </Trans>
                   </span>
                 )}
               </div>
@@ -1021,25 +1068,25 @@ export function AcquisitionHealthTab() {
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Metric
-                  label="selected"
+                  label={t`selected`}
                   value={asCount(visibleRun.selected_count)}
                 />
                 <Metric
-                  label="applied"
+                  label={t`applied`}
                   value={asCount(visibleRun.applied_count)}
                   tone={
                     asCount(visibleRun.conflict_count) ? "warning" : "ready"
                   }
                 />
                 <Metric
-                  label="conflicts"
+                  label={t`conflicts`}
                   value={asCount(visibleRun.conflict_count)}
                   tone={
                     asCount(visibleRun.conflict_count) ? "danger" : "neutral"
                   }
                 />
                 <Metric
-                  label="rolled back"
+                  label={t`rolled back`}
                   value={asCount(visibleRun.rollback_count)}
                 />
               </div>
@@ -1056,11 +1103,13 @@ export function AcquisitionHealthTab() {
                     {operations.applyRepair.isPending && (
                       <LoaderCircle className="animate-spin" />
                     )}
-                    Apply confirmed repair
+                    <Trans>Apply confirmed repair</Trans>
                   </Button>
                   <span className="text-[11px] text-muted-foreground">
-                    Apply uses the confirmed manifest only and fences new
-                    acquisition work first.
+                    <Trans>
+                      Apply uses the confirmed manifest only and fences new
+                      acquisition work first.
+                    </Trans>
                   </span>
                 </div>
               )}
@@ -1074,7 +1123,7 @@ export function AcquisitionHealthTab() {
                       htmlFor="repair-rollback-reason"
                       className="mb-1 block text-[12px] font-medium"
                     >
-                      Rollback reason
+                      <Trans>Rollback reason</Trans>
                     </label>
                     <input
                       id="repair-rollback-reason"
@@ -1082,7 +1131,7 @@ export function AcquisitionHealthTab() {
                       onChange={(event) =>
                         setRollbackReason(event.target.value)
                       }
-                      placeholder="Why this conditional rollback is needed"
+                      placeholder={t`Why this conditional rollback is needed`}
                       className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                       style={{ borderColor: "var(--border)" }}
                     />
@@ -1100,7 +1149,7 @@ export function AcquisitionHealthTab() {
                     {operations.rollbackRepair.isPending && (
                       <LoaderCircle className="animate-spin" />
                     )}
-                    Conditional rollback
+                    <Trans>Conditional rollback</Trans>
                   </Button>
                 </div>
               )}
@@ -1120,22 +1169,22 @@ export function AcquisitionHealthTab() {
       </SettingGroup>
 
       <SettingGroup
-        title="Resume automatic acquisition"
-        description="Only release automatic work after repair is complete, routes are ready, and you have recorded why this instance is safe to resume."
+        title={t`Resume automatic acquisition`}
+        description={t`Only release automatic work after repair is complete, routes are ready, and you have recorded why this instance is safe to resume.`}
       >
         <div className="space-y-2">
           <label
             htmlFor="reconciliation-reason"
             className="text-[12px] font-medium"
           >
-            Resume reason
+            <Trans>Resume reason</Trans>
           </label>
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
               id="reconciliation-reason"
               value={resumeReason}
               onChange={(event) => setResumeReason(event.target.value)}
-              placeholder="e.g. repair run reviewed and one supported route is ready"
+              placeholder={t`e.g. repair run reviewed and one supported route is ready`}
               className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
               style={{ borderColor: "var(--border)" }}
             />
@@ -1153,19 +1202,23 @@ export function AcquisitionHealthTab() {
               {operations.markReconciliationReady.isPending && (
                 <LoaderCircle className="animate-spin" />
               )}
-              Resume automatic acquisition
+              <Trans>Resume automatic acquisition</Trans>
             </Button>
           </div>
           {maintenanceBlocked && (
             <p className="text-[11px] text-muted-foreground">
-              Automatic acquisition cannot be resumed while maintenance is
-              active.
+              <Trans>
+                Automatic acquisition cannot be resumed while maintenance is
+                active.
+              </Trans>
             </p>
           )}
           {!maintenanceBlocked && !health?.viable_route && (
             <p className="text-[11px] text-muted-foreground">
-              Configure at least one restart-safe route before resuming
-              automatic acquisition.
+              <Trans>
+                Configure at least one restart-safe route before resuming
+                automatic acquisition.
+              </Trans>
             </p>
           )}
         </div>
@@ -1190,8 +1243,10 @@ export function AcquisitionHealthTab() {
       {!isLoading && !health && (
         <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
           <CircleX className="h-3.5 w-3.5" />
-          Health data is unavailable. You can still create a read-only repair
-          preview once the server responds.
+          <Trans>
+            Health data is unavailable. You can still create a read-only repair
+            preview once the server responds.
+          </Trans>
         </div>
       )}
     </div>

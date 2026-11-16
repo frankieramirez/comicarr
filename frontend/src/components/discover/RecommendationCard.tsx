@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, Image as ImageIcon, Loader2, Plus } from "lucide-react";
@@ -23,7 +25,9 @@ export function RecommendationCard({
   const meta = [
     recommendation.comicyear,
     recommendation.publisher,
-    recommendation.issues ? `${recommendation.issues} issues` : null,
+    recommendation.issues
+      ? plural(recommendation.issues, { one: "# issue", other: "# issues" })
+      : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -44,18 +48,18 @@ export function RecommendationCard({
       onQueued(recommendation, response?.comicid ?? recommendation.comicid);
       addToast({
         type: "success",
-        title: "Adding Comic...",
-        description: `${recommendation.comic_name} is being added to your library.`,
+        title: t`Adding Comic...`,
+        description: t`${ph({ comic_name: recommendation.comic_name })} is being added to your library.`,
         duration: 5000,
       });
     } catch (err) {
       addToast({
         type: "error",
-        title: "Failed to Add Series",
+        title: t`Failed to Add Series`,
         description:
           err instanceof Error
             ? err.message
-            : "An error occurred while adding the series.",
+            : t`An error occurred while adding the series.`,
       });
     }
   };
@@ -79,7 +83,7 @@ export function RecommendationCard({
         {recommendation.because_of && (
           <div className="absolute bottom-2 left-2 right-2">
             <span className="mono-label inline-flex max-w-full items-center rounded-full bg-black/60 px-2 py-0.5 text-white truncate">
-              Because you read {recommendation.because_of}
+              {t`Because you read ${ph({ title: recommendation.because_of })}`}
             </span>
           </div>
         )}
@@ -103,17 +107,17 @@ export function RecommendationCard({
             {isQueued ? (
               <>
                 <Check className="w-3.5 h-3.5 mr-1" />
-                Queued
+                <Trans>Queued</Trans>
               </>
             ) : addComicMutation.isPending ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                Adding…
+                <Trans>Adding…</Trans>
               </>
             ) : (
               <>
                 <Plus className="w-3.5 h-3.5 mr-1" />
-                Add
+                <Trans>Add</Trans>
               </>
             )}
           </Button>

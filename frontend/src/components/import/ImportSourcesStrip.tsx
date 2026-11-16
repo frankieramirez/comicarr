@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Link } from "react-router-dom";
 import { Inbox, Library } from "lucide-react";
 import { useConfig } from "@/hooks/useConfig";
@@ -20,19 +22,23 @@ export default function ImportSourcesStrip() {
     >
       <Source
         icon={<Inbox className="size-4" />}
-        title="Inbox"
-        state={inbox ? "Watching" : "Not set"}
+        title={t`Inbox`}
+        state={inbox ? t`Watching` : t`Not set`}
         live={Boolean(inbox)}
         paths={inbox ? [inbox] : []}
-        empty="Set an import directory to watch for new files"
+        empty={t`Set an import directory to watch for new files`}
       />
       <Source
         icon={<Library className="size-4" />}
-        title="Library folders"
-        state={folders.length ? `${folders.length} configured` : "Not set"}
+        title={t`Library folders`}
+        state={
+          folders.length
+            ? t`${ph({ count: folders.length })} configured`
+            : t`Not set`
+        }
         live={false}
         paths={folders}
-        empty="Set a comic or manga directory to scan"
+        empty={t`Set a comic or manga directory to scan`}
         divided
       />
     </div>
@@ -81,7 +87,7 @@ function Source({
         to="/settings?section=media"
         className="shrink-0 text-[13px] text-foreground-2 hover:text-foreground"
       >
-        Change
+        <Trans>Change</Trans>
       </Link>
     </div>
   );

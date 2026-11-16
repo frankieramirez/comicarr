@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { useNavigate } from "react-router-dom";
 import type { ChatResult } from "@/types/chat";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +33,7 @@ export function ChatResultCard({ result }: ChatResultCardProps) {
           />
         ) : (
           <div className="flex size-full items-center justify-center font-mono text-[9px] text-muted-foreground">
-            NO COVER
+            <Trans>NO COVER</Trans>
           </div>
         )}
       </div>

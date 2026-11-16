@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,10 +18,12 @@ export default function SeriesListPage() {
   if (error) {
     return (
       <div className="p-8">
-        <h1 className="sr-only">Library</h1>
+        <h1 className="sr-only">
+          <Trans>Library</Trans>
+        </h1>
         <ErrorDisplay
           error={error}
-          title="Unable to load your library"
+          title={t`Unable to load your library`}
           onRetry={() => window.location.reload()}
         />
       </div>
@@ -29,7 +33,7 @@ export default function SeriesListPage() {
   return (
     <div className="h-full flex flex-col page-transition">
       <PageHeader
-        title="Library"
+        title={t`Library`}
         meta={summary}
         actions={
           <>
@@ -41,12 +45,12 @@ export default function SeriesListPage() {
               onClick={() => navigate("/import")}
             >
               <RefreshCw />
-              Scan libraries
+              <Trans>Scan libraries</Trans>
             </Button>
             <Button size="toolbar" asChild>
-              <Link to="/search" title="Add series (N)">
+              <Link to="/search" title={t`Add series (N)`}>
                 <Plus />
-                Add series
+                <Trans>Add series</Trans>
               </Link>
             </Button>
           </>

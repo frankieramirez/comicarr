@@ -1,3 +1,4 @@
+import { plural, t } from "@lingui/core/macro";
 import { Link } from "react-router-dom";
 import { Image as ImageIcon } from "lucide-react";
 import type { StoryArc } from "@/types";
@@ -65,7 +66,9 @@ export default function StoryArcCard({ arc }: StoryArcCardProps) {
           aria-hidden="true"
         />
         <span className={complete ? "text-foreground" : "text-foreground-2"}>
-          {complete ? "Complete" : `${missing} missing`}
+          {complete
+            ? t`Complete`
+            : plural(missing, { one: "# missing", other: "# missing" })}
         </span>
       </div>
     </Link>

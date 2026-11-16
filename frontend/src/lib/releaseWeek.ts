@@ -1,3 +1,4 @@
+import { plural, t } from "@lingui/core/macro";
 import { formatDate } from "@/lib/intl";
 /**
  * Week helpers shared by Releases > Mine and Industry. Weeks are
@@ -53,8 +54,10 @@ export function dayHeading(iso: string): string {
 }
 
 export function weekLabel(offset: number): string {
-  if (offset === 0) return "This week";
-  if (offset === 1) return "Next week";
-  if (offset === -1) return "Last week";
-  return offset > 1 ? `In ${offset} weeks` : `${-offset} weeks ago`;
+  if (offset === 0) return t`This week`;
+  if (offset === 1) return t`Next week`;
+  if (offset === -1) return t`Last week`;
+  return offset > 1
+    ? plural(offset, { one: "In # week", other: "In # weeks" })
+    : plural(-offset, { one: "# week ago", other: "# weeks ago" });
 }

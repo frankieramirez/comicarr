@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { cn } from "@/lib/utils";
 import type { ReleaseNotesSection } from "@/types/version";
 
@@ -115,7 +116,7 @@ export function VersionSection({
             compact ? "text-[11px]" : "text-[12px]",
           )}
         >
-          No notes recorded for this release.
+          <Trans>No notes recorded for this release.</Trans>
         </p>
       ) : (
         <ul

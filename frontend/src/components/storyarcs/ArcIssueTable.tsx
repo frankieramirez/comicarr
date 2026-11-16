@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -37,10 +39,14 @@ interface ArcIssueTableProps {
 }
 
 const columnHelper = createColumnHelper<ComicarrTableFeatures, ArcIssue>();
+const STATUS_COLUMN = "Status";
+const WANTED = "Wanted";
+const READ = "Read";
+const SKIPPED = "Skipped";
 
 /** Read issues are held issues; the dot says so while the word stays "Read". */
 function toneFor(status: ArcIssueStatus): string {
-  return status === "Read" ? "Downloaded" : status;
+  return status === "Read" ? t`Downloaded` : status;
 }
 
 function ArcIssueRowMenu({
@@ -56,7 +62,7 @@ function ArcIssueRowMenu({
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const confirmRef = useRef<HTMLDivElement>(null);
-  const triggerLabel = `Actions for ${issue.ComicName} #${issue.IssueNumber}`;
+  const triggerLabel = t`Actions for ${ph({ ComicName: issue.ComicName })} #${ph({ IssueNumber: issue.IssueNumber })}`;
 
   useLayoutEffect(() => {
     if (confirmDelete) confirmRef.current?.focus();
@@ -80,36 +86,36 @@ function ArcIssueRowMenu({
       <DropdownMenuContent align="end" className="min-w-[10rem]">
         <DropdownMenuItem onClick={() => onInteractiveSearch(issue)}>
           <Search className="h-4 w-4" />
-          Interactive Search
+          <Trans>Interactive Search</Trans>
         </DropdownMenuItem>
         {issue.Status === "Read" ? (
           <DropdownMenuItem
-            onClick={() => onStatusChange(issue.IssueArcID, "Wanted")}
+            onClick={() => onStatusChange(issue.IssueArcID, WANTED)}
           >
             <EyeOff className="h-4 w-4" />
-            Mark as Unread
+            <Trans>Mark as Unread</Trans>
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem
-            onClick={() => onStatusChange(issue.IssueArcID, "Read")}
+            onClick={() => onStatusChange(issue.IssueArcID, READ)}
           >
             <Eye className="h-4 w-4" />
-            Mark as Read
+            <Trans>Mark as Read</Trans>
           </DropdownMenuItem>
         )}
         {issue.Status !== "Wanted" && issue.Status !== "Read" && (
           <DropdownMenuItem
-            onClick={() => onStatusChange(issue.IssueArcID, "Wanted")}
+            onClick={() => onStatusChange(issue.IssueArcID, WANTED)}
           >
             <Search className="h-4 w-4" />
-            Mark as Wanted
+            <Trans>Mark as Wanted</Trans>
           </DropdownMenuItem>
         )}
         <DropdownMenuItem
-          onClick={() => onStatusChange(issue.IssueArcID, "Skipped")}
+          onClick={() => onStatusChange(issue.IssueArcID, SKIPPED)}
         >
           <BookOpen className="h-4 w-4" />
-          Mark as Skipped
+          <Trans>Mark as Skipped</Trans>
         </DropdownMenuItem>
 
         {issue.ComicID && (
@@ -119,7 +125,7 @@ function ArcIssueRowMenu({
               render={<Link to={`/library/${issue.ComicID}`} />}
             >
               <ExternalLink className="h-4 w-4" />
-              View in Library
+              <Trans>View in Library</Trans>
             </DropdownMenuItem>
           </>
         )}
@@ -132,13 +138,13 @@ function ArcIssueRowMenu({
               className="text-destructive focus:text-destructive"
               onClick={() => onRemove(issue.IssueArcID)}
             >
-              Confirm
+              <Trans>Confirm</Trans>
             </DropdownMenuItem>
             <DropdownMenuItem
               closeOnClick={false}
               onClick={() => setConfirmDelete(false)}
             >
-              Cancel
+              <Trans>Cancel</Trans>
             </DropdownMenuItem>
           </>
         ) : (
@@ -148,7 +154,7 @@ function ArcIssueRowMenu({
             onClick={() => setConfirmDelete(true)}
           >
             <Trash2 className="h-4 w-4" />
-            Remove from Arc
+            <Trans>Remove from Arc</Trans>
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
@@ -173,8 +179,8 @@ export default function ArcIssueTable({
         onError: () => {
           addToast({
             type: "error",
-            title: "Error",
-            description: "Failed to update status.",
+            title: t`Error`,
+            description: t`Failed to update status.`,
           });
         },
       },
@@ -188,15 +194,15 @@ export default function ArcIssueTable({
         onSuccess: () => {
           addToast({
             type: "success",
-            title: "Removed",
-            description: "Issue removed from arc.",
+            title: t`Removed`,
+            description: t`Issue removed from arc.`,
           });
         },
         onError: () => {
           addToast({
             type: "error",
-            title: "Error",
-            description: "Failed to remove issue.",
+            title: t`Error`,
+            description: t`Failed to remove issue.`,
           });
         },
       },
@@ -231,7 +237,7 @@ export default function ArcIssueTable({
     }),
     columnHelper.display({
       id: "issue",
-      header: "Issue",
+      header: t`Issue`,
       cell: ({ row }) => {
         const issue = row.original;
         const label = (
@@ -267,14 +273,14 @@ export default function ArcIssueTable({
       },
     }),
     columnHelper.accessor("IssueDate", {
-      header: "Date",
+      header: t`Date`,
       cell: ({ getValue }) => (
         <span className="mono-meta">{getValue() || "—"}</span>
       ),
       size: 120,
     }),
-    columnHelper.accessor("Status", {
-      header: "Status",
+    columnHelper.accessor(STATUS_COLUMN, {
+      header: t`Status`,
       cell: ({ getValue }) => (
         <StatusBadge
           variant="dot"
@@ -286,7 +292,11 @@ export default function ArcIssueTable({
     }),
     columnHelper.display({
       id: "actions",
-      header: () => <span className="sr-only">Actions</span>,
+      header: () => (
+        <span className="sr-only">
+          <Trans>Actions</Trans>
+        </span>
+      ),
       cell: ({ row }) => (
         <div className="flex justify-end">
           <ArcIssueRowMenu

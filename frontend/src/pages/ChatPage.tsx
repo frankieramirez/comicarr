@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -274,9 +276,8 @@ export default function ChatPage() {
           setRetryMessageId(undefined);
           addToast({
             type: "error",
-            title: "This model cannot read images",
-            message:
-              "Your draft is intact. Choose a vision-capable model in AI Settings.",
+            title: t`This model cannot read images`,
+            message: t`Your draft is intact. Choose a vision-capable model in AI Settings.`,
           });
         } else {
           if (savedUserMessageId !== optimisticUser.id) {
@@ -329,7 +330,9 @@ export default function ChatPage() {
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
-        setComposerError("Response stopped. Send again to retry this message.");
+        setComposerError(
+          t`Response stopped. Send again to retry this message.`,
+        );
         if (savedUserMessageId !== optimisticUser.id) {
           setRetryMessageId(savedUserMessageId);
         }
@@ -342,7 +345,7 @@ export default function ChatPage() {
         );
       } else {
         const message =
-          error instanceof Error ? error.message : "Chat request failed.";
+          error instanceof Error ? error.message : t`Chat request failed.`;
         setComposerError(message);
         if (savedUserMessageId !== optimisticUser.id) {
           setRetryMessageId(savedUserMessageId);
@@ -430,7 +433,7 @@ export default function ChatPage() {
       await renameChatThread(id, title);
       await refreshThreads(id);
     } catch {
-      addToast({ type: "error", message: "Could not rename this chat." });
+      addToast({ type: "error", message: t`Could not rename this chat.` });
     }
   };
 
@@ -440,7 +443,7 @@ export default function ChatPage() {
       if (id === threadId) navigate("/chat", { replace: true });
       await refreshThreads();
     } catch {
-      addToast({ type: "error", message: "Could not delete this chat." });
+      addToast({ type: "error", message: t`Could not delete this chat.` });
     }
   };
 
@@ -460,7 +463,7 @@ export default function ChatPage() {
       hasMore={Boolean(threadsQuery.hasNextPage)}
       isLoading={threadsQuery.isLoading}
       isLoadingMore={threadsQuery.isFetchingNextPage}
-      error={threadsQuery.isError ? "Could not load saved chats." : undefined}
+      error={threadsQuery.isError ? t`Could not load saved chats.` : undefined}
       seriesIndexed={aiStatus?.library_series}
       onBack={() => navigate("/")}
       onNew={handleNew}
@@ -491,12 +494,14 @@ export default function ChatPage() {
           onClick={() => navigate("/")}
         >
           <ArrowLeft />
-          Back to Comicarr
+          <Trans>Back to Comicarr</Trans>
         </Button>
         <LoaderCircle className="animate-spin text-muted-foreground" />
-        <h1 className="sr-only">Chat</h1>
-        <p className="sr-only" role="status" aria-label="Loading chat">
-          Loading chat
+        <h1 className="sr-only">
+          <Trans>Chat</Trans>
+        </h1>
+        <p className="sr-only" role="status" aria-label={t`Loading chat`}>
+          <Trans>Loading chat</Trans>
         </p>
       </div>
     );
@@ -513,7 +518,7 @@ export default function ChatPage() {
           onClick={() => navigate("/")}
         >
           <ArrowLeft />
-          Back to Comicarr
+          <Trans>Back to Comicarr</Trans>
         </Button>
         {/* EmptyState's shape, with the title as this route's h1. */}
         <div className="flex flex-col items-center px-6 py-16 text-center">
@@ -524,13 +529,17 @@ export default function ChatPage() {
               aria-hidden="true"
             />
           </div>
-          <div className="mono-label mb-2">Chat · AI</div>
+          <div className="mono-label mb-2">
+            <Trans>Chat · AI</Trans>
+          </div>
           <h1 className="mb-1.5 text-[15px] font-semibold tracking-tight">
-            Connect an AI provider
+            <Trans>Connect an AI provider</Trans>
           </h1>
           <p className="mb-5 max-w-[340px] text-xs leading-relaxed text-muted-foreground">
-            Chat needs an OpenAI-compatible provider and model before it can
-            read your collection.
+            <Trans>
+              Chat needs an OpenAI-compatible provider and model before it can
+              read your collection.
+            </Trans>
           </p>
           <Button
             type="button"
@@ -538,7 +547,7 @@ export default function ChatPage() {
             onClick={() => navigate("/settings?tab=ai")}
           >
             <Settings />
-            Open AI Settings
+            <Trans>Open AI Settings</Trans>
           </Button>
         </div>
       </div>
@@ -559,18 +568,21 @@ export default function ChatPage() {
               size="icon"
               className="shrink-0 lg:hidden"
               onClick={() => setThreadsOpen(true)}
-              aria-label="Chat history"
+              aria-label={t`Chat history`}
             >
               <Menu />
             </Button>
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-[15px] font-semibold tracking-tight">
-                {selectedThread?.title || "New chat"}
+                {selectedThread?.title || t`New chat`}
               </h1>
               <p className="mono-meta mt-0.5 truncate">
                 {selectedThread
-                  ? `saved · ${selectedThread.message_count} messages`
-                  : "draft · not saved yet"}
+                  ? plural(selectedThread.message_count, {
+                      one: "saved · # message",
+                      other: "saved · # messages",
+                    })
+                  : t`draft · not saved yet`}
               </p>
             </div>
             {aiStatus?.model && (
@@ -593,7 +605,7 @@ export default function ChatPage() {
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Rename chat"
+                  aria-label={t`Rename chat`}
                   onClick={() =>
                     renameThread(selectedThread.id, selectedThread.title)
                   }
@@ -604,7 +616,7 @@ export default function ChatPage() {
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Delete chat"
+                  aria-label={t`Delete chat`}
                   onClick={() =>
                     confirmDeleteThread(selectedThread.id, selectedThread.title)
                   }
@@ -619,7 +631,7 @@ export default function ChatPage() {
               size="icon"
               className="shrink-0 lg:hidden"
               onClick={handleNew}
-              aria-label="New chat"
+              aria-label={t`New chat`}
             >
               <Plus />
             </Button>
@@ -629,17 +641,21 @@ export default function ChatPage() {
             {threadQuery.isLoading && threadId ? (
               <div className="flex size-full items-center justify-center">
                 <LoaderCircle className="animate-spin text-muted-foreground" />
-                <span className="sr-only">Loading conversation</span>
+                <span className="sr-only">
+                  <Trans>Loading conversation</Trans>
+                </span>
               </div>
             ) : threadQuery.isError && threadId ? (
               <div className="flex size-full flex-col items-center justify-center gap-3 px-5 text-center text-sm text-muted-foreground">
-                <p>Could not load this conversation.</p>
+                <p>
+                  <Trans>Could not load this conversation.</Trans>
+                </p>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => void threadQuery.refetch()}
                 >
-                  Try again
+                  <Trans>Try again</Trans>
                 </Button>
               </div>
             ) : messages.length === 0 ? (
@@ -705,9 +721,11 @@ export default function ChatPage() {
       <Drawer open={threadsOpen} onOpenChange={setThreadsOpen}>
         <DrawerContent className="h-[82dvh]">
           <DrawerHeader className="sr-only">
-            <DrawerTitle>Chat history</DrawerTitle>
+            <DrawerTitle>
+              <Trans>Chat history</Trans>
+            </DrawerTitle>
             <DrawerDescription>
-              Open, rename, or delete a saved conversation.
+              <Trans>Open, rename, or delete a saved conversation.</Trans>
             </DrawerDescription>
           </DrawerHeader>
           {threadList}

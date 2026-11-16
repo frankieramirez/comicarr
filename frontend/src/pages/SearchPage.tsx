@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -43,29 +45,29 @@ interface SortOption {
   label: string;
 }
 
-const COMIC_SORT_OPTIONS: SortOption[] = [
-  { value: "relevance", label: "Relevance" },
-  { value: "year_desc", label: "Year (Newest)" },
-  { value: "year_asc", label: "Year (Oldest)" },
-  { value: "name_asc", label: "Name (A-Z)" },
-  { value: "name_desc", label: "Name (Z-A)" },
-  { value: "issues_desc", label: "Most Issues" },
-  { value: "issues_asc", label: "Fewest Issues" },
+const COMIC_SORT_OPTIONS = (): SortOption[] => [
+  { value: "relevance", label: t`Relevance` },
+  { value: "year_desc", label: t`Year (Newest)` },
+  { value: "year_asc", label: t`Year (Oldest)` },
+  { value: "name_asc", label: t`Name (A-Z)` },
+  { value: "name_desc", label: t`Name (Z-A)` },
+  { value: "issues_desc", label: t`Most Issues` },
+  { value: "issues_asc", label: t`Fewest Issues` },
 ];
 
-const MANGA_SORT_OPTIONS: SortOption[] = [
-  { value: "relevance", label: "Relevance" },
-  { value: "year_desc", label: "Year (Newest)" },
-  { value: "year_asc", label: "Year (Oldest)" },
-  { value: "name_asc", label: "Name (A-Z)" },
-  { value: "name_desc", label: "Name (Z-A)" },
-  { value: "follows", label: "Most Followed" },
-  { value: "latest", label: "Latest Upload" },
+const MANGA_SORT_OPTIONS = (): SortOption[] => [
+  { value: "relevance", label: t`Relevance` },
+  { value: "year_desc", label: t`Year (Newest)` },
+  { value: "year_asc", label: t`Year (Oldest)` },
+  { value: "name_asc", label: t`Name (A-Z)` },
+  { value: "name_desc", label: t`Name (Z-A)` },
+  { value: "follows", label: t`Most Followed` },
+  { value: "latest", label: t`Latest Upload` },
 ];
 
 const SORT_OPTIONS: Record<ContentType, SortOption[]> = {
-  comic: COMIC_SORT_OPTIONS,
-  manga: MANGA_SORT_OPTIONS,
+  comic: COMIC_SORT_OPTIONS(),
+  manga: MANGA_SORT_OPTIONS(),
 };
 
 const comicSortMapping: Record<string, string | null> = {
@@ -198,34 +200,38 @@ export default function SearchPage() {
   const showBothTabs = comicsEnabled && mangaEnabled;
 
   const resultCount = pagination?.total ?? 0;
-  const modeLabel = searchMode === "manga" ? "manga" : "comics";
   const providerNote =
     searchMode === "manga"
-      ? "Searched MangaDex"
-      : "Searched ComicVine and Metron";
+      ? t`Searched MangaDex`
+      : t`Searched ComicVine and Metron`;
 
   return (
     <div className="page-transition flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       <div data-testid="page-header" className="shrink-0 px-8 pt-5">
         <nav
-          aria-label="Breadcrumb"
+          aria-label={t`Breadcrumb`}
           className="mb-5 flex items-center gap-2 text-[13px] text-foreground-2"
         >
           <Link to="/library" className="hover:text-foreground">
-            Library
+            <Trans>Library</Trans>
           </Link>
           <span className="text-muted-foreground">/</span>
-          <span className="text-foreground">Add a series</span>
+          <span className="text-foreground">
+            <Trans>Add a series</Trans>
+          </span>
         </nav>
         <h1 className="text-2xl font-semibold leading-tight tracking-tight">
-          Add a series
+          <Trans>Add a series</Trans>
         </h1>
         <p data-testid="page-header-meta" className="sr-only">
           {urlQuery
             ? isLoading
-              ? `searching "${urlQuery}"…`
-              : `${resultCount} results for "${urlQuery}"`
-            : "find comics and manga to add"}
+              ? t`searching "${urlQuery}"…`
+              : plural(resultCount, {
+                  one: `# result for "${urlQuery}"`,
+                  other: `# results for "${urlQuery}"`,
+                })
+            : t`find comics and manga to add`}
         </p>
 
         <form onSubmit={handleSearch} className="mt-5">
@@ -234,14 +240,22 @@ export default function SearchPage() {
             <input
               ref={inputRef}
               autoFocus={!urlQuery}
-              aria-label={`Search ${modeLabel}`}
-              placeholder={`Search ${modeLabel} by title, or paste a ComicVine or MangaDex link`}
+              aria-label={
+                searchMode === "manga" ? t`Search manga` : t`Search comics`
+              }
+              placeholder={
+                searchMode === "manga"
+                  ? t`Search manga by title, or paste a ComicVine or MangaDex link`
+                  : t`Search comics by title, or paste a ComicVine or MangaDex link`
+              }
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
             />
             {urlQuery && !isLoading && pagination && (
-              <span className="mono-meta shrink-0">{resultCount} results</span>
+              <span className="mono-meta shrink-0">
+                <Trans>{resultCount} results</Trans>
+              </span>
             )}
             <Button
               type="submit"
@@ -250,7 +264,7 @@ export default function SearchPage() {
               disabled={searchQuery.trim().length < 3}
               className="sr-only focus-visible:not-sr-only"
             >
-              Search
+              <Trans>Search</Trans>
             </Button>
           </label>
         </form>
@@ -259,7 +273,7 @@ export default function SearchPage() {
           {showBothTabs && (
             <div
               role="group"
-              aria-label="Content kind"
+              aria-label={t`Content kind`}
               className={SEGMENTED_GROUP}
             >
               {(["comic", "manga"] as const).map((mode) => (
@@ -270,7 +284,7 @@ export default function SearchPage() {
                   onClick={() => handleSearchModeChange(mode)}
                   className={SEGMENTED_ITEM}
                 >
-                  {mode === "manga" ? "Manga" : "Comics"}
+                  {mode === "manga" ? t`Manga` : t`Comics`}
                   {searchMode === mode && urlQuery && pagination && (
                     <span className="mono-meta">{resultCount}</span>
                   )}
@@ -280,7 +294,7 @@ export default function SearchPage() {
           )}
           {urlQuery && pagination && !isLoading && (
             <span className="mono-meta">
-              {startIndex}–{endIndex} of {pagination.total}
+              {t`${startIndex}–${endIndex} of ${ph({ total: pagination.total })}`}
             </span>
           )}
           <div className="ml-auto flex items-center gap-3">
@@ -291,7 +305,7 @@ export default function SearchPage() {
             )}
             <Select value={urlSort} onValueChange={handleSortChange}>
               <SelectTrigger
-                aria-label="Sort results"
+                aria-label={t`Sort results`}
                 className="h-8 w-[150px] text-[13px]"
               >
                 <SelectValue>
@@ -308,12 +322,12 @@ export default function SearchPage() {
                 ))}
               </SelectContent>
             </Select>
-            <div role="group" aria-label="View" className={SEGMENTED_GROUP}>
+            <div role="group" aria-label={t`View`} className={SEGMENTED_GROUP}>
               <button
                 type="button"
                 onClick={() => handleViewChange("list")}
                 aria-pressed={!isGridView}
-                aria-label="List view"
+                aria-label={t`List view`}
                 className={SEGMENTED_ITEM}
               >
                 <LayoutList className="size-3.5" />
@@ -322,7 +336,7 @@ export default function SearchPage() {
                 type="button"
                 onClick={() => handleViewChange("grid")}
                 aria-pressed={isGridView}
-                aria-label="Grid view"
+                aria-label={t`Grid view`}
                 className={SEGMENTED_ITEM}
               >
                 <LayoutGrid className="size-3.5" />
@@ -359,16 +373,16 @@ export default function SearchPage() {
               <EmptyState
                 variant="custom"
                 icon={Settings}
-                eyebrow="PROVIDER · NOT CONFIGURED"
-                title="Comic Vine API key required"
-                description="Add a Comic Vine API key in Settings → API to search comics."
-                action={{ label: "Open settings", to: "/settings" }}
+                eyebrow={t`PROVIDER · NOT CONFIGURED`}
+                title={t`Comic Vine API key required`}
+                description={t`Add a Comic Vine API key in Settings → API to search comics.`}
+                action={{ label: t`Open settings`, to: "/settings" }}
               />
             ) : (
               <EmptyState
                 variant="custom"
-                eyebrow="SEARCH · ERROR"
-                title="Search failed"
+                eyebrow={t`SEARCH · ERROR`}
+                title={t`Search failed`}
                 description={error.message}
               />
             )}
@@ -379,8 +393,8 @@ export default function SearchPage() {
           <div className="px-8 py-6">
             <EmptyState
               variant="search"
-              eyebrow="SEARCH · NO MATCH"
-              description={`No results for "${urlQuery}". Try a different query or check spelling.`}
+              eyebrow={t`SEARCH · NO MATCH`}
+              description={t`No results for "${urlQuery}". Try a different query or check spelling.`}
             />
           </div>
         )}
@@ -398,7 +412,10 @@ export default function SearchPage() {
 
         {!isLoading && !error && searchResults.length > 0 && (
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 px-8 py-6 text-[13px] text-muted-foreground">
-            Not finding it? Search by ComicVine or MangaDex ID, or paste a link.
+            <Trans>
+              Not finding it? Search by ComicVine or MangaDex ID, or paste a
+              link.
+            </Trans>
             <button
               type="button"
               onClick={() => {
@@ -407,7 +424,7 @@ export default function SearchPage() {
               }}
               className="inline-flex items-center gap-0.5 font-medium text-foreground hover:text-foreground-2"
             >
-              Search by ID
+              <Trans>Search by ID</Trans>
               <ChevronRight className="size-3.5 text-muted-foreground" />
             </button>
           </p>
@@ -418,9 +435,13 @@ export default function SearchPage() {
             <EmptyState
               variant="custom"
               icon={SearchIcon}
-              eyebrow="SEARCH · READY"
-              title={`Find ${searchMode === "manga" ? "manga" : "comics"} to add`}
-              description="Type at least 3 characters to search across your configured providers."
+              eyebrow={t`SEARCH · READY`}
+              title={
+                searchMode === "manga"
+                  ? t`Find manga to add`
+                  : t`Find comics to add`
+              }
+              description={t`Type at least 3 characters to search across your configured providers.`}
             />
           </div>
         )}

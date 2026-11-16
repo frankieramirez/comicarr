@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Check, FolderPlus, Loader2 } from "lucide-react";
@@ -40,7 +42,6 @@ export default function SearchAddButton({
   const [folderError, setFolderError] = useState<string | null>(null);
 
   const isManga = contentType === "manga";
-  const itemLabel = isManga ? "Manga" : "Comic";
 
   useEffect(() => {
     if (!isProcessing || !comicIdRef.current) return;
@@ -58,9 +59,9 @@ export default function SearchAddButton({
           } else if (data.status === "failure") {
             addToast({
               type: "error",
-              title: "Failed to Add Series",
+              title: t`Failed to Add Series`,
               description:
-                data.message || "An error occurred while adding the series.",
+                data.message || t`An error occurred while adding the series.`,
             });
             setIsProcessing(false);
             setIsAdded(false);
@@ -98,10 +99,10 @@ export default function SearchAddButton({
       setIsAdded(true);
       addToast({
         type: "success",
-        title: `Adding ${itemLabel}...`,
+        title: isManga ? t`Adding manga...` : t`Adding comic...`,
         description: folder
-          ? `${comic.name} is being added to ${folder}. Please wait...`
-          : `${comic.name} is being added to your library. Please wait...`,
+          ? t`${ph({ name: comic.name })} is being added to ${folder}. Please wait...`
+          : t`${ph({ name: comic.name })} is being added to your library. Please wait...`,
         duration: 5000,
       });
     } catch (err) {
@@ -119,8 +120,8 @@ export default function SearchAddButton({
     } catch (err) {
       addToast({
         type: "error",
-        title: `Failed to Add ${itemLabel}`,
-        description: err instanceof Error ? err.message : "Unknown error",
+        title: isManga ? t`Failed to Add Manga` : t`Failed to Add Comic`,
+        description: err instanceof Error ? err.message : t`Unknown error`,
       });
     }
   };
@@ -131,22 +132,22 @@ export default function SearchAddButton({
       await add(folder.trim());
       setFolderOpen(false);
     } catch (err) {
-      setFolderError(err instanceof Error ? err.message : "Unknown error");
+      setFolderError(err instanceof Error ? err.message : t`Unknown error`);
     }
   };
 
-  const base = `inline-flex h-8 items-center justify-center gap-1.5 rounded-control border border-border-strong bg-surface-1 px-3 text-[13px] font-medium transition-colors ${className}`;
+  const baseClass = `inline-flex h-8 items-center justify-center gap-1.5 rounded-control border border-border-strong bg-surface-1 px-3 text-[13px] font-medium transition-colors ${className}`;
 
   if (isAdded) {
     return (
       <button
         type="button"
         disabled
-        aria-label={`${comic.name} added`}
-        className={`${base} text-foreground-2`}
+        aria-label={t`${ph({ name: comic.name })} added`}
+        className={`${baseClass} text-foreground-2`}
       >
         <Check className="size-3.5 text-[var(--status-active)]" />
-        Added
+        <Trans>Added</Trans>
       </button>
     );
   }
@@ -156,11 +157,11 @@ export default function SearchAddButton({
       <button
         type="button"
         disabled
-        aria-label={`Adding ${comic.name}`}
-        className={`${base} text-muted-foreground`}
+        aria-label={t`Adding ${ph({ name: comic.name })}`}
+        className={`${baseClass} text-muted-foreground`}
       >
         <Loader2 className="size-3.5 animate-spin" />
-        Adding…
+        <Trans>Adding…</Trans>
       </button>
     );
   }
@@ -175,11 +176,11 @@ export default function SearchAddButton({
         type="button"
         onClick={handleAdd}
         disabled={isPending}
-        aria-label={`Add ${comic.name}`}
-        className={`${base} flex-1 text-foreground hover:border-border-emphasis hover:bg-surface-2`}
+        aria-label={t`Add ${ph({ name: comic.name })}`}
+        className={`${baseClass} flex-1 text-foreground hover:border-border-emphasis hover:bg-surface-2`}
       >
         <Plus className="size-3.5" />
-        {isPending ? "Adding…" : "Add"}
+        {isPending ? t`Adding…` : t`Add`}
       </button>
       <button
         type="button"
@@ -189,8 +190,8 @@ export default function SearchAddButton({
           setFolderOpen(true);
         }}
         disabled={isPending}
-        aria-label={`Add ${comic.name} to a chosen folder`}
-        title="Add to a chosen folder"
+        aria-label={t`Add ${ph({ name: comic.name })} to a chosen folder`}
+        title={t`Add to a chosen folder`}
         className="inline-flex h-8 w-8 items-center justify-center rounded-control border border-border-subtle text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
       >
         <FolderPlus className="size-3.5" aria-hidden="true" />
@@ -202,10 +203,14 @@ export default function SearchAddButton({
           onClick={(e) => e.stopPropagation()}
         >
           <DialogHeader>
-            <DialogTitle>Add {comic.name} to a folder</DialogTitle>
+            <DialogTitle>
+              {t`Add ${ph({ name: comic.name })} to a folder`}
+            </DialogTitle>
             <DialogDescription>
-              Choose a folder on the server, inside one of your library roots.
-              Leave it empty to use the automatic folder.
+              <Trans>
+                Choose a folder on the server, inside one of your library roots.
+                Leave it empty to use the automatic folder.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
           <form
@@ -217,7 +222,7 @@ export default function SearchAddButton({
           >
             <div className="grid gap-1.5">
               <Label htmlFor={`add-folder-${comic.comicid ?? comic.id}`}>
-                Folder
+                <Trans>Folder</Trans>
               </Label>
               <Input
                 id={`add-folder-${comic.comicid ?? comic.id}`}
@@ -229,8 +234,10 @@ export default function SearchAddButton({
                 spellCheck={false}
               />
               <p className="text-xs text-muted-foreground">
-                Use the path Comicarr sees. In Docker, that is the path inside
-                the container. Extra roots are listed under Settings → Media.
+                <Trans>
+                  Use the path Comicarr sees. In Docker, that is the path inside
+                  the container. Extra roots are listed under Settings → Media.
+                </Trans>
               </p>
             </div>
             {folderError ? (
@@ -244,10 +251,10 @@ export default function SearchAddButton({
                 variant="outline"
                 onClick={() => setFolderOpen(false)}
               >
-                Cancel
+                <Trans>Cancel</Trans>
               </Button>
               <Button type="submit" disabled={isPending}>
-                Add {itemLabel.toLowerCase()}
+                {isManga ? t`Add manga` : t`Add comic`}
               </Button>
             </DialogFooter>
           </form>

@@ -1,3 +1,6 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { errorText } from "@/lib/api";
+import { Trans } from "@lingui/react/macro";
 import { useCallback, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { RefreshCw, Search, SlidersHorizontal } from "lucide-react";
@@ -79,7 +82,6 @@ export default function WantedPage() {
     try {
       const { type, message, keep } = describeBulkResult(
         await bulkUnqueue.mutateAsync(selectedIds),
-        "skipped",
         "skip",
       );
       addToast({ type, message });
@@ -87,27 +89,30 @@ export default function WantedPage() {
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to skip issues: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to skip issues: ${ph({ error: errorText(err) })}`,
       });
     }
   };
 
   const handleForceSearch = async () => {
-    if (window.confirm("Manual search may take several minutes. Continue?")) {
+    if (window.confirm(t`Manual search may take several minutes. Continue?`)) {
       try {
         const result = await forceSearch.mutateAsync();
-        const withRunReference = (message: string) =>
-          result.run_id
-            ? `${message}${/[.!?]$/.test(message) ? "" : "."} Run ${result.run_id}.`
-            : message;
+        const withRunReference = (message: string) => {
+          if (!result.run_id) return message;
+          const run = result.run_id;
+          return /[.!?]$/.test(message)
+            ? t`${message} Run ${run}.`
+            : t`${message}. Run ${run}.`;
+        };
 
         if (result.success && result.status === "no_match") {
           addToast({
             type: "info",
-            title: "Nothing to search",
+            title: t`Nothing to search`,
             message: withRunReference(
               result.message ||
-                "No eligible wanted issues are ready to search.",
+                t`No eligible wanted issues are ready to search.`,
             ),
           });
         } else if (
@@ -117,43 +122,46 @@ export default function WantedPage() {
           const accepted = result.accepted;
           const acceptedMessage =
             typeof accepted === "number"
-              ? `Search accepted — ${accepted} wanted issue${accepted === 1 ? "" : "s"} queued.`
-              : "Search accepted — wanted issues will be processed.";
+              ? plural(accepted, {
+                  one: "Search accepted — # wanted issue queued.",
+                  other: "Search accepted — # wanted issues queued.",
+                })
+              : t`Search accepted — wanted issues will be processed.`;
           addToast({
             type: "info",
-            title: "Search accepted",
+            title: t`Search accepted`,
             message: withRunReference(acceptedMessage),
           });
         } else if (result.success && result.status === "partial") {
           addToast({
             type: "info",
-            title: "Search partially accepted",
+            title: t`Search partially accepted`,
             message: withRunReference(
               result.message ||
-                "Some Wanted issues were queued, but others need attention.",
+                t`Some Wanted issues were queued, but others need attention.`,
             ),
           });
         } else if (result.status === "blocked") {
           addToast({
             type: "info",
-            title: "Search blocked",
+            title: t`Search blocked`,
             message:
               result.message ||
               result.error ||
-              "Search is blocked until a complete acquisition route is ready.",
+              t`Search is blocked until a complete acquisition route is ready.`,
           });
         } else {
           addToast({
             type: "error",
-            title: "Search failed",
+            title: t`Search failed`,
             message:
-              result.message || result.error || "Search failed to start.",
+              result.message || result.error || t`Search failed to start.`,
           });
         }
       } catch (err) {
         addToast({
           type: "error",
-          message: `Failed to start search: ${err instanceof Error ? err.message : "Unknown error"}`,
+          message: t`Failed to start search: ${ph({ error: errorText(err) })}`,
         });
       }
     }
@@ -161,21 +169,21 @@ export default function WantedPage() {
 
   const handleSearchSelected = async () => {
     const issueId = selectedIds[0];
-    if (!issueId || !window.confirm("Search this one Wanted issue?")) return;
+    if (!issueId || !window.confirm(t`Search this one Wanted issue?`)) return;
     try {
       const result = await searchWantedIssue.mutateAsync(issueId);
       addToast({
         type: result.success ? "info" : "error",
-        title: result.success ? "Search accepted" : "Search failed",
+        title: result.success ? t`Search accepted` : t`Search failed`,
         message:
-          result.message || result.error || "Unable to start this search.",
+          result.message || result.error || t`Unable to start this search.`,
       });
       if (result.success) clearSelection();
     } catch (err) {
       addToast({
         type: "error",
         message:
-          err instanceof Error ? err.message : "Unable to start this search.",
+          err instanceof Error ? err.message : t`Unable to start this search.`,
       });
     }
   };
@@ -187,15 +195,18 @@ export default function WantedPage() {
   return (
     <div className="page-transition flex h-full min-h-0 flex-col">
       <PageHeader
-        title="Wanted"
+        title={t`Wanted`}
         meta={
           view === "series"
             ? seriesTotals
-              ? `${formatNumber(seriesTotals.issues)} missing in ${formatNumber(seriesTotals.series)} series`
-              : "loading…"
+              ? t`${ph({ issues: formatNumber(seriesTotals.issues) })} missing in ${ph({ series: formatNumber(seriesTotals.series) })} series`
+              : t`loading…`
             : isLoading
-              ? "loading…"
-              : `${formatNumber(total)} missing issue${total === 1 ? "" : "s"}`
+              ? t`loading…`
+              : plural(total, {
+                  one: "# missing issue",
+                  other: "# missing issues",
+                })
         }
         actions={
           <>
@@ -205,15 +216,17 @@ export default function WantedPage() {
               size="icon-sm"
               onClick={() => refetch()}
               disabled={isFetching}
-              aria-label="Refresh"
-              title="Refresh"
+              aria-label={t`Refresh`}
+              title={t`Refresh`}
             >
               <RefreshCw className={isFetching ? "animate-spin" : ""} />
             </Button>
             <Button variant="ghost" size="toolbar" asChild>
               <Link to="/settings?section=search">
                 <SlidersHorizontal />
-                <span className="max-md:sr-only">Search settings</span>
+                <span className="max-md:sr-only">
+                  <Trans>Search settings</Trans>
+                </span>
               </Link>
             </Button>
             {/* By series, the pacing banner carries "Search now". */}
@@ -227,7 +240,9 @@ export default function WantedPage() {
                 disabled={forceSearch.isPending}
               >
                 <Search />
-                <span className="max-md:sr-only">Force search</span>
+                <span className="max-md:sr-only">
+                  <Trans>Force search</Trans>
+                </span>
               </Button>
             )}
           </>
@@ -239,10 +254,10 @@ export default function WantedPage() {
           <FilterField
             placeholder={
               view === "series"
-                ? "Filter series or issue…"
-                : "Filter wanted issues…"
+                ? t`Filter series or issue…`
+                : t`Filter wanted issues…`
             }
-            aria-label="Filter wanted issues"
+            aria-label={t`Filter wanted issues`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             shortcut="/"
@@ -250,13 +265,12 @@ export default function WantedPage() {
         </div>
         {view === "issue" && matchCount !== null && (
           <div className="mono-meta">
-            {matchCount} match
-            {matchCount === 1 ? "" : "es"}
+            {plural(matchCount, { one: "# match", other: "# matches" })}
           </div>
         )}
         <div
           role="group"
-          aria-label="Group Wanted"
+          aria-label={t`Group Wanted`}
           className={`${SEGMENTED_GROUP} ml-auto max-md:hidden`}
         >
           <button
@@ -265,7 +279,7 @@ export default function WantedPage() {
             className={SEGMENTED_ITEM}
             onClick={() => setView("series")}
           >
-            By series
+            <Trans>By series</Trans>
           </button>
           <button
             type="button"
@@ -273,7 +287,7 @@ export default function WantedPage() {
             className={SEGMENTED_ITEM}
             onClick={() => setView("issue")}
           >
-            By issue
+            <Trans>By issue</Trans>
           </button>
         </div>
       </div>
@@ -302,7 +316,7 @@ export default function WantedPage() {
             <div className="px-8 py-4">
               <ErrorDisplay
                 error={error}
-                title="Unable to load wanted issues"
+                title={t`Unable to load wanted issues`}
                 onRetry={() => refetch()}
               />
             </div>

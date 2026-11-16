@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import {
   File as FileIcon,
@@ -124,13 +126,14 @@ export default function ImportPickPanel({
 
   const fileCount = group.FileCount ?? group.files.length;
   const size = formatBytes(panel?.total_bytes);
-  const found = panel?.found_at
-    ? `found in ${panel.source === "inbox" ? "inbox" : "a library scan"} ${ago(
-        new Date(panel.found_at),
-      )}`
+  const foundAgo = panel?.found_at ? ago(new Date(panel.found_at)) : null;
+  const found = foundAgo
+    ? panel?.source === "inbox"
+      ? t`found in inbox ${foundAgo}`
+      : t`found in a library scan ${foundAgo}`
     : null;
   const meta = [
-    `${fileCount} file${fileCount === 1 ? "" : "s"}`,
+    plural(fileCount, { one: "# file", other: "# files" }),
     size,
     found,
   ].filter(Boolean);
@@ -147,7 +150,7 @@ export default function ImportPickPanel({
 
   return (
     <aside
-      aria-label={`Pick a series for ${title}`}
+      aria-label={t`Pick a series for ${title}`}
       data-testid="import-pick-panel"
       className="flex min-h-0 flex-col rounded-lg border border-border-subtle bg-surface-1"
     >
@@ -162,7 +165,7 @@ export default function ImportPickPanel({
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Close pick panel"
+          aria-label={t`Close pick panel`}
           onClick={onClose}
         >
           <X />
@@ -179,7 +182,7 @@ export default function ImportPickPanel({
         )}
         {panelQuery.error && (
           <p className="p-4 text-sm text-destructive">
-            Unable to load candidates: {panelQuery.error.message}
+            {t`Unable to load candidates: ${ph({ error: panelQuery.error.message })}`}
           </p>
         )}
 
@@ -195,12 +198,12 @@ export default function ImportPickPanel({
 
             <section className="px-4 pt-4">
               <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-                Pick a series
+                <Trans>Pick a series</Trans>
               </h3>
               {candidates.length > 0 ? (
                 <div
                   role="radiogroup"
-                  aria-label="Pick a series"
+                  aria-label={t`Pick a series`}
                   className="space-y-2"
                 >
                   {candidates.map((candidate) => {
@@ -242,19 +245,19 @@ export default function ImportPickPanel({
               ) : (
                 !remoteQuery.isFetching && (
                   <p className="text-sm text-foreground-2">
-                    No series scored close enough to suggest.
+                    <Trans>No series scored close enough to suggest.</Trans>
                   </p>
                 )
               )}
               {remoteQuery.isFetching && (
                 <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="size-3 animate-spin" />
-                  Looking for series outside your library…
+                  <Trans>Looking for series outside your library…</Trans>
                 </p>
               )}
               {remoteQuery.data?.error && (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Provider search unavailable: {remoteQuery.data.error}
+                  {t`Provider search unavailable: ${ph({ error: remoteQuery.data.error })}`}
                 </p>
               )}
               <Button
@@ -266,7 +269,7 @@ export default function ImportPickPanel({
                 onClick={(event) => onSearchDifferent(event.currentTarget)}
               >
                 <Search />
-                Search for a different series
+                <Trans>Search for a different series</Trans>
               </Button>
             </section>
           </>
@@ -275,7 +278,7 @@ export default function ImportPickPanel({
         <section className="px-4 pb-4 pt-3">
           <div className="mb-1 flex items-center justify-between gap-2">
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-              Files
+              <Trans>Files</Trans>
             </h3>
             {onIssueNumberChange && (
               <button
@@ -285,8 +288,10 @@ export default function ImportPickPanel({
                 className="text-xs text-foreground-2 underline-offset-2 hover:text-foreground hover:underline"
               >
                 {editingNumbers
-                  ? "Done"
-                  : `Edit ${getImportIssueLabel(group).toLowerCase()} numbers`}
+                  ? t`Done`
+                  : detectImportSearchMode(group) === "manga"
+                    ? t`Edit chapter numbers`
+                    : t`Edit issue numbers`}
               </button>
             )}
           </div>
@@ -332,7 +337,7 @@ export default function ImportPickPanel({
                   onClick={() => setShowAllFiles(true)}
                   className="mt-1 text-xs text-foreground-2 hover:text-foreground"
                 >
-                  + {hidden} more
+                  <Trans>+ {hidden} more</Trans>
                 </button>
               )}
             </>
@@ -348,14 +353,14 @@ export default function ImportPickPanel({
           disabled={isBusy}
           onClick={() => onIgnore(!ignored)}
         >
-          {ignored ? "Unignore" : "Ignore"}
+          {ignored ? t`Unignore` : t`Ignore`}
         </Button>
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Delete import record"
-          title="Delete the import record (files on disk are untouched)"
+          aria-label={t`Delete import record`}
+          title={t`Delete the import record (files on disk are untouched)`}
           disabled={isBusy}
           className="text-muted-foreground hover:text-destructive"
           onClick={onDelete}
@@ -372,8 +377,10 @@ export default function ImportPickPanel({
           {isImporting && <Loader2 className="animate-spin" />}
           <span className="truncate">
             {selected
-              ? `${selected.in_library ? "Import" : "Add and import"} as ${candidateTitle(selected)}`
-              : "Pick a series"}
+              ? selected.in_library
+                ? t`Import as ${ph({ series: candidateTitle(selected) })}`
+                : t`Add and import as ${ph({ series: candidateTitle(selected) })}`
+              : t`Pick a series`}
           </span>
         </Button>
       </div>

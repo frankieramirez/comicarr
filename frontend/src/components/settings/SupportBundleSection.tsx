@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -91,12 +93,10 @@ export function SupportBundleSection() {
     let canRetry = error.isRetryable;
 
     if (error.status === 401) {
-      message =
-        "Your session has expired. Sign in again before creating a support bundle.";
+      message = t`Your session has expired. Sign in again before creating a support bundle.`;
       canRetry = false;
     } else if (error.status === 403) {
-      message =
-        "Comicarr blocked the request. Refresh the page before trying again.";
+      message = t`Comicarr blocked the request. Refresh the page before trying again.`;
       canRetry = false;
     } else if (
       code === "support_bundle_validation_failed" ||
@@ -105,8 +105,7 @@ export function SupportBundleSection() {
       message = SAFETY_MESSAGE;
       canRetry = false;
     } else if (code === "support_bundle_in_progress") {
-      message =
-        "Another support bundle is being created. Try again in a moment.";
+      message = t`Another support bundle is being created. Try again in a moment.`;
       canRetry = true;
     }
 
@@ -134,7 +133,7 @@ export function SupportBundleSection() {
     setRetryable(false);
     setRetryEnabled(true);
     setPhase("creating");
-    setStatusMessage("Creating support bundle. This may take a moment.");
+    setStatusMessage(t`Creating support bundle. This may take a moment.`);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -185,8 +184,8 @@ export function SupportBundleSection() {
 
   return (
     <SettingGroup
-      title="Support bundle"
-      description="Create a diagnostic archive to help troubleshoot Comicarr."
+      title={t`Support bundle`}
+      description={t`Create a diagnostic archive to help troubleshoot Comicarr.`}
     >
       <div
         className="rounded-lg border px-3.5 py-3 space-y-3"
@@ -196,16 +195,16 @@ export function SupportBundleSection() {
         <ol className="grid gap-3 sm:grid-cols-3 sm:gap-0 sm:divide-x">
           {[
             [
-              "1. Create",
-              "Comicarr builds a fresh archive of allowlisted diagnostic facts.",
+              t`1. Create`,
+              t`Comicarr builds a fresh archive of allowlisted diagnostic facts.`,
             ],
             [
-              "2. Inspect",
-              "Open the ZIP and read README.txt, manifest.json, and diagnostics.json.",
+              t`2. Inspect`,
+              t`Open the ZIP and read README.txt, manifest.json, and diagnostics.json.`,
             ],
             [
-              "3. Share",
-              "Attach it publicly only when comfortable; otherwise send it privately to a maintainer.",
+              t`3. Share`,
+              t`Attach it publicly only when comfortable; otherwise send it privately to a maintainer.`,
             ],
           ].map(([label, copy]) => (
             <li
@@ -223,8 +222,10 @@ export function SupportBundleSection() {
         </ol>
 
         <p className="text-[12.5px] text-muted-foreground leading-relaxed">
-          It does not include your database, settings values, raw log lines,
-          library names, paths, chat content, or other free text.
+          <Trans>
+            It does not include your database, settings values, raw log lines,
+            library names, paths, chat content, or other free text.
+          </Trans>
         </p>
 
         <div className="flex flex-wrap items-center gap-2 pt-0.5">
@@ -237,7 +238,7 @@ export function SupportBundleSection() {
             disabled={busy}
             aria-busy={busy || undefined}
           >
-            Create support bundle
+            <Trans>Create support bundle</Trans>
           </Button>
         </div>
 
@@ -264,10 +265,14 @@ export function SupportBundleSection() {
           aria-describedby={descriptionId}
         >
           <DialogHeader>
-            <DialogTitle id={titleId}>Create a support bundle?</DialogTitle>
+            <DialogTitle id={titleId}>
+              <Trans>Create a support bundle?</Trans>
+            </DialogTitle>
             <DialogDescription id={descriptionId}>
-              Comicarr will create and download a ZIP of allowlisted diagnostic
-              facts. It does not change your library or settings.
+              <Trans>
+                Comicarr will create and download a ZIP of allowlisted
+                diagnostic facts. It does not change your library or settings.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
 
@@ -276,9 +281,11 @@ export function SupportBundleSection() {
               className="rounded-md border px-3 py-2 text-[13px] leading-snug"
               style={{ borderColor: "var(--border)" }}
             >
-              Review the files before attaching the bundle to a public issue. If
-              anything looks sensitive, share it privately with a maintainer
-              instead.
+              <Trans>
+                Review the files before attaching the bundle to a public issue.
+                If anything looks sensitive, share it privately with a
+                maintainer instead.
+              </Trans>
             </div>
           )}
 
@@ -301,7 +308,7 @@ export function SupportBundleSection() {
                   onClick={() => closeDialog(false)}
                   data-testid="support-bundle-error-close"
                 >
-                  Close
+                  <Trans>Close</Trans>
                 </Button>
                 {retryable && (
                   <Button
@@ -310,7 +317,7 @@ export function SupportBundleSection() {
                     disabled={!retryEnabled}
                     data-testid="support-bundle-error-retry"
                   >
-                    Try again
+                    <Trans>Try again</Trans>
                   </Button>
                 )}
               </>
@@ -323,7 +330,7 @@ export function SupportBundleSection() {
                   onClick={() => closeDialog(phase === "creating")}
                   disabled={false}
                 >
-                  Cancel
+                  <Trans>Cancel</Trans>
                 </Button>
                 <Button
                   type="button"
@@ -337,10 +344,10 @@ export function SupportBundleSection() {
                         className="h-4 w-4 animate-spin"
                         aria-hidden="true"
                       />
-                      Creating…
+                      <Trans>Creating…</Trans>
                     </span>
                   ) : (
-                    "Create and download"
+                    t`Create and download`
                   )}
                 </Button>
               </>

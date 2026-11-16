@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import type { ReactElement } from "react";
 import { Check } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
@@ -12,12 +14,30 @@ import {
 import { cn } from "@/lib/utils";
 import type { SettableIssueStatus } from "@/types";
 
+// API status values; the menu shows statusLabel() for each.
+const WANTED = "Wanted";
+const SKIPPED = "Skipped";
+const IGNORED = "Ignored";
+const ARCHIVED = "Archived";
 const SETTABLE_ISSUE_STATUSES: SettableIssueStatus[] = [
-  "Wanted",
-  "Skipped",
-  "Ignored",
-  "Archived",
+  WANTED,
+  SKIPPED,
+  IGNORED,
+  ARCHIVED,
 ];
+
+function statusLabel(status: SettableIssueStatus): string {
+  switch (status) {
+    case "Wanted":
+      return t`Wanted`;
+    case "Skipped":
+      return t`Skipped`;
+    case "Ignored":
+      return t`Ignored`;
+    case "Archived":
+      return t`Archived`;
+  }
+}
 
 interface IssueStatusMenuProps {
   /** Current display state; matching option is checked. Omit for bulk use. */
@@ -50,8 +70,8 @@ export default function IssueStatusMenu({
       ) : (
         <DropdownMenuTrigger
           disabled={disabled}
-          aria-label={label ?? "Change status"}
-          title="Change status"
+          aria-label={label ?? t`Change status`}
+          title={t`Change status`}
           className="cursor-pointer rounded-full outline-none transition-shadow focus-visible:ring-1 focus-visible:ring-ring data-disabled:cursor-not-allowed data-disabled:opacity-60"
         >
           <StatusBadge status={current} />
@@ -60,7 +80,7 @@ export default function IssueStatusMenu({
       <DropdownMenuContent align="start" sideOffset={4}>
         <DropdownMenuGroup>
           <DropdownMenuLabel className="mono-label">
-            Set status
+            <Trans>Set status</Trans>
           </DropdownMenuLabel>
           {SETTABLE_ISSUE_STATUSES.map((option) => (
             <DropdownMenuItem key={option} onClick={() => onSelect(option)}>
@@ -71,7 +91,7 @@ export default function IssueStatusMenu({
                 )}
                 aria-hidden="true"
               />
-              {option}
+              {statusLabel(option)}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>

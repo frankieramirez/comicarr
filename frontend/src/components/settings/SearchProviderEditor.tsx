@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useEffect, useMemo, useState } from "react";
 import { LoaderCircle, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,54 +54,50 @@ type EditorCopy = {
   showRssUid: boolean;
 };
 
-const COPY: Record<SearchProviderKind, EditorCopy> = {
+const COPY = (): Record<SearchProviderKind, EditorCopy> => ({
   newznab: {
-    enableLabel: "Enable Newznab indexers",
-    enableHelp: "At least one enabled indexer is required for Usenet search.",
-    empty:
-      "No Usenet indexers are configured. Add a Newznab-compatible indexer to make the NZB route searchable.",
-    add: "Add indexer",
-    reset: "Reset indexers",
-    save: "Save indexers",
-    saved: "Search indexers saved",
-    unsaved: "Unsaved indexer changes",
-    heading: (index) => `Indexer ${index}`,
-    remove: (index) => `Remove indexer ${index}`,
-    name: "Indexer name",
-    host: "Indexer URL",
+    enableLabel: t`Enable Newznab indexers`,
+    enableHelp: t`At least one enabled indexer is required for Usenet search.`,
+    empty: t`No Usenet indexers are configured. Add a Newznab-compatible indexer to make the NZB route searchable.`,
+    add: t`Add indexer`,
+    reset: t`Reset indexers`,
+    save: t`Save indexers`,
+    saved: t`Search indexers saved`,
+    unsaved: t`Unsaved indexer changes`,
+    heading: (index) => t`Indexer ${index}`,
+    remove: (index) => t`Remove indexer ${index}`,
+    name: t`Indexer name`,
+    host: t`Indexer URL`,
     hostPlaceholder: "https://indexer.example/api",
-    key: "Indexer API key",
-    categoriesHelp:
-      "Newznab category IDs, comma-separated. 7030 is Books/Comics.",
-    enableRow: (index) => `Enable indexer ${index}`,
-    verifyRow: (index) => `Verify TLS for indexer ${index}`,
+    key: t`Indexer API key`,
+    categoriesHelp: t`Newznab category IDs, comma-separated. 7030 is Books/Comics.`,
+    enableRow: (index) => t`Enable indexer ${index}`,
+    verifyRow: (index) => t`Verify TLS for indexer ${index}`,
     idPrefix: "indexer",
     showRssUid: true,
   },
   torznab: {
-    enableLabel: "Enable Torznab indexers",
-    enableHelp: "At least one enabled indexer is required for torrent search.",
-    empty:
-      "No torrent indexers are configured. Add a Torznab-compatible indexer to make the torrent route searchable.",
-    add: "Add Torznab indexer",
-    reset: "Reset Torznab indexers",
-    save: "Save Torznab indexers",
-    saved: "Torznab indexers saved",
-    unsaved: "Unsaved Torznab indexer changes",
-    heading: (index) => `Torznab indexer ${index}`,
-    remove: (index) => `Remove Torznab indexer ${index}`,
-    name: "Torznab indexer name",
-    host: "Torznab indexer URL",
+    enableLabel: t`Enable Torznab indexers`,
+    enableHelp: t`At least one enabled indexer is required for torrent search.`,
+    empty: t`No torrent indexers are configured. Add a Torznab-compatible indexer to make the torrent route searchable.`,
+    add: t`Add Torznab indexer`,
+    reset: t`Reset Torznab indexers`,
+    save: t`Save Torznab indexers`,
+    saved: t`Torznab indexers saved`,
+    unsaved: t`Unsaved Torznab indexer changes`,
+    heading: (index) => t`Torznab indexer ${index}`,
+    remove: (index) => t`Remove Torznab indexer ${index}`,
+    name: t`Torznab indexer name`,
+    host: t`Torznab indexer URL`,
     hostPlaceholder: "https://prowlarr.example/1/api",
-    key: "Torznab indexer API key",
-    categoriesHelp:
-      "Torznab category IDs, comma-separated. Use the IDs your indexer documents for comics.",
-    enableRow: (index) => `Enable Torznab indexer ${index}`,
-    verifyRow: (index) => `Verify TLS for Torznab indexer ${index}`,
+    key: t`Torznab indexer API key`,
+    categoriesHelp: t`Torznab category IDs, comma-separated. Use the IDs your indexer documents for comics.`,
+    enableRow: (index) => t`Enable Torznab indexer ${index}`,
+    verifyRow: (index) => t`Verify TLS for Torznab indexer ${index}`,
     idPrefix: "torznab-indexer",
     showRssUid: false,
   },
-};
+});
 
 function blankProvider(kind: SearchProviderKind): EditableProvider {
   return {
@@ -123,7 +121,7 @@ export function SearchProviderEditor({
   initial: ProviderGroup;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
-  const copy = COPY[kind];
+  const copy = COPY()[kind];
   const { addToast } = useToast();
   const updateProviders = useUpdateSearchProviders();
   const [enabled, setEnabled] = useState(initial.enabled);
@@ -169,7 +167,7 @@ export function SearchProviderEditor({
     if (incomplete) {
       addToast({
         type: "error",
-        message: "Each indexer needs a name, URL, and API key.",
+        message: t`Each indexer needs a name, URL, and API key.`,
       });
       return;
     }
@@ -185,7 +183,7 @@ export function SearchProviderEditor({
     if (redirectedSecret) {
       addToast({
         type: "error",
-        message: "Enter the API key again when changing an indexer server.",
+        message: t`Enter the API key again when changing an indexer server.`,
       });
       return;
     }
@@ -205,7 +203,7 @@ export function SearchProviderEditor({
       addToast({
         type: "error",
         message:
-          error instanceof Error ? error.message : "Failed to save indexers",
+          error instanceof Error ? error.message : t`Failed to save indexers`,
       });
     }
   };
@@ -221,8 +219,10 @@ export function SearchProviderEditor({
       />
 
       <p className="text-[12px] text-muted-foreground">
-        Indexer edits are saved separately from the page-level settings
-        controls.
+        <Trans>
+          Indexer edits are saved separately from the page-level settings
+          controls.
+        </Trans>
       </p>
 
       {providers.length === 0 ? (
@@ -299,8 +299,8 @@ export function SearchProviderEditor({
                       value={provider.api_key}
                       placeholder={
                         provider.api_key_set
-                          ? "API key saved (enter a new value to change)"
-                          : "Enter the indexer API key"
+                          ? t`API key saved (enter a new value to change)`
+                          : t`Enter the indexer API key`
                       }
                       onChange={(event) =>
                         updateProvider(index, { api_key: event.target.value })
@@ -309,7 +309,7 @@ export function SearchProviderEditor({
                   </div>
                   <div>
                     <Label htmlFor={`${copy.idPrefix}-categories-${suffix}`}>
-                      Categories
+                      <Trans>Categories</Trans>
                     </Label>
                     <Input
                       id={`${copy.idPrefix}-categories-${suffix}`}
@@ -329,7 +329,7 @@ export function SearchProviderEditor({
                   {copy.showRssUid ? (
                     <div>
                       <Label htmlFor={`${copy.idPrefix}-rss-uid-${suffix}`}>
-                        RSS user ID
+                        <Trans>RSS user ID</Trans>
                       </Label>
                       <Input
                         id={`${copy.idPrefix}-rss-uid-${suffix}`}
@@ -343,8 +343,11 @@ export function SearchProviderEditor({
                         }
                       />
                       <p className="mt-1 text-[11px] text-muted-foreground">
-                        The <code>i=</code> parameter of this indexer&rsquo;s
-                        RSS URL. Leave as 1 unless your indexer says otherwise.
+                        <Trans>
+                          The <code>i=</code> parameter of this indexer&rsquo;s
+                          RSS URL. Leave as 1 unless your indexer says
+                          otherwise.
+                        </Trans>
                       </p>
                     </div>
                   ) : null}

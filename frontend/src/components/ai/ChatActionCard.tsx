@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ChatAction, ChatActionCandidate } from "@/types/chat";
@@ -59,12 +61,19 @@ function CandidateRow({
             {candidate.publisher && (
               <span className="truncate">{candidate.publisher}</span>
             )}
-            {candidate.issues != null && <span>{candidate.issues} issues</span>}
+            {candidate.issues != null && (
+              <span>
+                {plural(candidate.issues, {
+                  one: "# issue",
+                  other: "# issues",
+                })}
+              </span>
+            )}
           </span>
         </span>
         {candidate.in_library && (
           <Badge variant="secondary" className="shrink-0 uppercase">
-            In library
+            <Trans>In library</Trans>
           </Badge>
         )}
       </span>
@@ -124,7 +133,9 @@ export function ChatActionCard({
       onActionChange?.(response.action);
     } catch (err) {
       setLocalError(
-        err instanceof Error ? err.message : "The action could not be applied.",
+        err instanceof Error
+          ? err.message
+          : t`The action could not be applied.`,
       );
     } finally {
       setBusy(false);
@@ -139,7 +150,7 @@ export function ChatActionCard({
       onActionChange?.(response.action);
     } catch (err) {
       setLocalError(
-        err instanceof Error ? err.message : "Could not dismiss this action.",
+        err instanceof Error ? err.message : t`Could not dismiss this action.`,
       );
     } finally {
       setBusy(false);
@@ -151,12 +162,14 @@ export function ChatActionCard({
   return (
     <div className="w-full max-w-2xl rounded-lg border bg-card p-3">
       <div className="flex items-center gap-2">
-        <span className="mono-label shrink-0">Suggested action</span>
+        <span className="mono-label shrink-0">
+          <Trans>Suggested action</Trans>
+        </span>
         <span className="h-px flex-1 bg-border" />
       </div>
 
       <p className="mt-2 text-sm font-medium text-foreground">
-        {action.summary || "Apply this change?"}
+        {action.summary || t`Apply this change?`}
       </p>
 
       {action.status === "error" && (
@@ -164,7 +177,7 @@ export function ChatActionCard({
           {action.error ||
             action.result?.message ||
             action.result?.error ||
-            "This action could not be prepared."}
+            t`This action could not be prepared.`}
         </p>
       )}
 
@@ -188,7 +201,7 @@ export function ChatActionCard({
             <p className="mono-meta">
               {preview?.comic_name}
               {preview?.comic_year ? ` (${preview.comic_year})` : ""} ·{" "}
-              {preview?.scope === "annuals" ? "annuals" : "issues"}
+              {preview?.scope === "annuals" ? t`annuals` : t`issues`}
             </p>
             <div className="mt-2 flex flex-wrap gap-1">
               {displayIssues.slice(0, 40).map((item) => (
@@ -196,7 +209,7 @@ export function ChatActionCard({
                   key={item.issue_id}
                   className="mono-meta rounded border bg-secondary/40 px-1.5 py-0.5"
                 >
-                  {item.kind === "annual" ? "Annual " : "#"}
+                  {item.kind === "annual" ? `${t`Annual`} ` : "#"}
                   {item.number ?? item.issue_id}
                   {action.status === "partial" &&
                     (() => {
@@ -204,19 +217,23 @@ export function ChatActionCard({
                         `${item.kind}:${item.issue_id}`,
                       );
                       if (outcome?.search_handoff === "failed")
-                        return " · Search not queued";
+                        return ` · ${t`Search not queued`}`;
                       if (outcome?.outcome === "failed")
-                        return " · Update failed";
-                      if (outcome?.outcome === "applied") return " · Applied";
+                        return ` · ${t`Update failed`}`;
+                      if (outcome?.outcome === "applied")
+                        return ` · ${t`Applied`}`;
                       if (outcome?.outcome === "stale")
-                        return " · Skipped (changed since preview)";
+                        return ` · ${t`Skipped (changed since preview)`}`;
                       return null;
                     })()}
                 </span>
               ))}
               {affected.length > 40 && (
                 <span className="mono-meta px-1.5 py-0.5">
-                  +{affected.length - 40} more
+                  {plural(affected.length - 40, {
+                    one: "+# more",
+                    other: "+# more",
+                  })}
                 </span>
               )}
             </div>
@@ -225,8 +242,11 @@ export function ChatActionCard({
 
       {action.status === "processing" && (
         <p className="mt-2 text-sm text-muted-foreground" role="status">
-          Confirmation is in progress. Reload to check the result. If the server
-          restarted, check your library before proposing this action again.
+          <Trans>
+            Confirmation is in progress. Reload to check the result. If the
+            server restarted, check your library before proposing this action
+            again.
+          </Trans>
         </p>
       )}
 
@@ -235,7 +255,7 @@ export function ChatActionCard({
           {action.result?.message ||
             action.error ||
             action.result?.error ||
-            "Some changes could not be completed."}
+            t`Some changes could not be completed.`}
           {action.result?.error &&
             (action.result.message || action.error) &&
             action.result.error !== action.result.message &&
@@ -251,14 +271,16 @@ export function ChatActionCard({
             className="size-4 shrink-0"
             style={{ color: "var(--status-active)" }}
           />
-          <span>{action.result?.message || "Done."}</span>
+          <span>{action.result?.message || t`Done.`}</span>
         </div>
       )}
 
       {action.status === "dismissed" && (
         <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
           <CircleOff className="size-4 shrink-0" />
-          <span>Dismissed</span>
+          <span>
+            <Trans>Dismissed</Trans>
+          </span>
         </div>
       )}
 
@@ -286,7 +308,7 @@ export function ChatActionCard({
               {busy && (
                 <LoaderCircle className="animate-spin motion-reduce:animate-none" />
               )}
-              {retryable ? "Retry unfinished" : "Confirm"}
+              {retryable ? t`Retry unfinished` : t`Confirm`}
             </Button>
             {action.status === "pending" && (
               <Button
@@ -295,7 +317,7 @@ export function ChatActionCard({
                 onClick={() => void dismiss()}
                 disabled={busy || messageId.startsWith("local-")}
               >
-                Dismiss
+                <Trans>Dismiss</Trans>
               </Button>
             )}
           </>
@@ -306,7 +328,7 @@ export function ChatActionCard({
             variant="outline"
             onClick={() => navigate(`/library/${resultComicId}`)}
           >
-            Open series
+            <Trans>Open series</Trans>
           </Button>
         )}
       </div>

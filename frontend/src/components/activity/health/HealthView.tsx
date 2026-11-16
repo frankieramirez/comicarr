@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -80,8 +82,8 @@ function JobLine({ job }: { job: JobRow }) {
       addToast({
         type: result.accepted ? "success" : "error",
         message: result.accepted
-          ? `${job.label} will run in a moment.`
-          : result.error || `${job.label} didn't start.`,
+          ? t`${ph({ label: job.label })} will run in a moment.`
+          : result.error || t`${ph({ label: job.label })} didn't start.`,
       });
     } catch (err) {
       addToast({ type: "error", message: getErrorMessage(err) });
@@ -124,11 +126,11 @@ function JobLine({ job }: { job: JobRow }) {
             type="button"
             size="compact"
             variant={job.failing ? "default" : "ghost"}
-            aria-label={`Run ${job.label} now`}
+            aria-label={t`Run ${ph({ label: job.label })} now`}
             disabled={run.isPending || job.busy}
             onClick={() => void start()}
           >
-            {job.busy ? "Queued" : "Run now"}
+            {job.busy ? t`Queued` : t`Run now`}
           </Button>
         )}
       </span>
@@ -147,7 +149,9 @@ function ConnectionLine({ row }: { row: ConnectionRow }) {
       if (result.ok === false)
         addToast({
           type: "error",
-          message: `${result.label}: ${result.result ?? "check failed"}`,
+          message: result.result
+            ? t`${ph({ label: result.label })}: ${ph({ result: result.result })}`
+            : t`${ph({ label: result.label })}: check failed`,
         });
     } catch (err) {
       addToast({ type: "error", message: getErrorMessage(err) });
@@ -172,7 +176,7 @@ function ConnectionLine({ row }: { row: ConnectionRow }) {
         className="truncate text-foreground-2 max-md:col-span-2 max-md:row-start-2 max-md:pl-3.5"
         title={row.result}
       >
-        {test.isPending ? "Checking…" : row.result}
+        {test.isPending ? t`Checking…` : row.result}
       </span>
       <span className="flex justify-end max-md:col-start-2 max-md:row-start-1">
         {row.testKey ? (
@@ -180,18 +184,20 @@ function ConnectionLine({ row }: { row: ConnectionRow }) {
             type="button"
             size="compact"
             variant="ghost"
-            aria-label={many ? "Test all indexers" : `Test ${row.label}`}
+            aria-label={
+              many ? t`Test all indexers` : t`Test ${ph({ label: row.label })}`
+            }
             disabled={test.isPending}
             onClick={() => void start()}
           >
-            {many ? "Test all" : "Test"}
+            {many ? t`Test all` : t`Test`}
           </Button>
         ) : (
           <Link
             to={row.settings}
             className="px-2 text-[13px] text-foreground-2 hover:text-foreground"
           >
-            Settings
+            <Trans>Settings</Trans>
           </Link>
         )}
       </span>
@@ -220,10 +226,10 @@ function DeprecationLine({ entry }: { entry: DeprecationInUse }) {
           href={entry.docs_url}
           target="_blank"
           rel="noreferrer"
-          aria-label={`Read about ${entry.name}`}
+          aria-label={t`Read about ${ph({ name: entry.name })}`}
           className="px-2 text-[13px] text-foreground-2 hover:text-foreground"
         >
-          Details
+          <Trans>Details</Trans>
         </a>
       </span>
     </div>
@@ -239,13 +245,13 @@ function DeprecationsSection() {
     <section aria-labelledby="health-deprecations" className="mb-8">
       <div id="health-deprecations">
         <SectionHeading
-          title="Deprecated features in use"
-          meta={`${entries.length} still working`}
+          title={t`Deprecated features in use`}
+          meta={t`${ph({ length: entries.length })} still working`}
         />
       </div>
       <ColumnHeads
         cols={DEPRECATION_COLS}
-        heads={["Feature", "Use instead", "Removable from", "Docs"]}
+        heads={[t`Feature`, t`Use instead`, t`Removable from`, t`Docs`]}
       />
       {entries.map((entry) => (
         <DeprecationLine key={entry.id} entry={entry} />
@@ -276,12 +282,12 @@ export default function HealthView() {
       <section aria-labelledby="health-jobs">
         <div id="health-jobs">
           <SectionHeading
-            title="Background jobs"
+            title={t`Background jobs`}
             meta={
               jobs.data
                 ? failing > 0
-                  ? `${failing} of ${rows.length} failing`
-                  : `${rows.length} running on schedule`
+                  ? t`${failing} of ${ph({ length: rows.length })} failing`
+                  : t`${ph({ length: rows.length })} running on schedule`
                 : ""
             }
           />
@@ -295,18 +301,26 @@ export default function HealthView() {
         ) : jobs.error ? (
           <ErrorDisplay
             error={jobs.error}
-            title="Unable to load background jobs"
+            title={t`Unable to load background jobs`}
             onRetry={() => void jobs.refetch()}
           />
         ) : rows.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">
-            The scheduler isn't running, so no background jobs are scheduled.
+            <Trans>
+              The scheduler isn't running, so no background jobs are scheduled.
+            </Trans>
           </p>
         ) : (
           <div>
             <ColumnHeads
               cols={JOB_COLS}
-              heads={["Job", "Last run", "Next run", "Last result", "Actions"]}
+              heads={[
+                t`Job`,
+                t`Last run`,
+                t`Next run`,
+                t`Last result`,
+                t`Actions`,
+              ]}
             />
             {rows.map((job) => (
               <JobLine key={job.id} job={job} />
@@ -318,10 +332,10 @@ export default function HealthView() {
       <section aria-labelledby="health-connections" className="mt-8">
         <div id="health-connections">
           <SectionHeading
-            title="Connections"
+            title={t`Connections`}
             meta={
               health.data
-                ? `${reachable} of ${connections.length} reachable`
+                ? t`${reachable} of ${ph({ length: connections.length })} reachable`
                 : ""
             }
           />
@@ -334,30 +348,32 @@ export default function HealthView() {
         ) : health.error ? (
           <ErrorDisplay
             error={health.error}
-            title="Unable to load connections"
+            title={t`Unable to load connections`}
             onRetry={() => void health.refetch()}
           />
         ) : connections.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">
-            No download client or indexer is set up yet.{" "}
-            <Link
-              to="/settings?section=clients"
-              className="text-foreground underline underline-offset-2"
-            >
-              Add one in Settings
-            </Link>
-            .
+            <Trans>
+              No download client or indexer is set up yet.{" "}
+              <Link
+                to="/settings?section=clients"
+                className="text-foreground underline underline-offset-2"
+              >
+                Add one in Settings
+              </Link>
+              .
+            </Trans>
           </p>
         ) : (
           <div>
             <ColumnHeads
               cols={CONNECTION_COLS}
               heads={[
-                "Connection",
-                "Response",
-                "Last checked",
-                "Result",
-                "Actions",
+                t`Connection`,
+                t`Response`,
+                t`Last checked`,
+                t`Result`,
+                t`Actions`,
               ]}
             />
             {connections.map((row) => (

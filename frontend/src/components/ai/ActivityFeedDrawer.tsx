@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import {
   Sheet,
   SheetContent,
@@ -30,16 +32,18 @@ export function ActivityFeedDrawer({
         <SheetHeader className="px-4 pt-6 pb-4 border-b border-border">
           <SheetTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5" />
-            AI Activity
+            <Trans>AI Activity</Trans>
           </SheetTitle>
-          <SheetDescription>Recent AI processing activity</SheetDescription>
+          <SheetDescription>
+            <Trans>Recent AI processing activity</Trans>
+          </SheetDescription>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto">
           {state === "loading" && (
             <div className="flex items-center justify-center py-12">
               <p className="text-sm text-muted-foreground">
-                Loading activity...
+                <Trans>Loading activity...</Trans>
               </p>
             </div>
           )}
@@ -47,7 +51,7 @@ export function ActivityFeedDrawer({
           {state === "unavailable" && (
             <div className="px-4">
               <PanelUnavailable
-                label="AI activity"
+                label={t`AI activity`}
                 onRetry={() => void query.refetch()}
                 isRetrying={query.isFetching}
               />
@@ -58,10 +62,12 @@ export function ActivityFeedDrawer({
             <div className="flex flex-col items-center justify-center py-12 px-4">
               <Activity className="h-8 w-8 text-muted-foreground mb-3" />
               <p className="text-sm text-muted-foreground text-center">
-                No AI activity yet
+                <Trans>No AI activity yet</Trans>
               </p>
               <p className="text-xs text-muted-foreground text-center mt-1">
-                Activity will appear here when AI features are used
+                <Trans>
+                  Activity will appear here when AI features are used
+                </Trans>
               </p>
             </div>
           )}

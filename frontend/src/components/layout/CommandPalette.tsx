@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import {
   useEffect,
   useMemo,
@@ -25,14 +27,19 @@ import { OPEN_PALETTE_EVENT } from "@/lib/commandPalette";
 
 const SERIES_LIMIT = 5;
 
-const PAGES: { label: string; to: string; kbd: string; icon: ReactNode }[] = [
-  { label: "Dashboard", to: "/", kbd: "G D", icon: <LayoutDashboard /> },
-  { label: "Library", to: "/library", kbd: "G L", icon: <BookOpen /> },
-  { label: "Wanted", to: "/wanted", kbd: "G W", icon: <ListTodo /> },
-  { label: "Releases", to: "/releases", kbd: "G R", icon: <Calendar /> },
-  { label: "Activity", to: "/activity", kbd: "G Y", icon: <Activity /> },
-  { label: "Import", to: "/import", kbd: "G I", icon: <FolderInput /> },
-  { label: "Settings", to: "/settings", kbd: "G S", icon: <Settings /> },
+const PAGES = (): {
+  label: string;
+  to: string;
+  kbd: string;
+  icon: ReactNode;
+}[] => [
+  { label: t`Dashboard`, to: "/", kbd: "G D", icon: <LayoutDashboard /> },
+  { label: t`Library`, to: "/library", kbd: "G L", icon: <BookOpen /> },
+  { label: t`Wanted`, to: "/wanted", kbd: "G W", icon: <ListTodo /> },
+  { label: t`Releases`, to: "/releases", kbd: "G R", icon: <Calendar /> },
+  { label: t`Activity`, to: "/activity", kbd: "G Y", icon: <Activity /> },
+  { label: t`Import`, to: "/import", kbd: "G I", icon: <FolderInput /> },
+  { label: t`Settings`, to: "/settings", kbd: "G S", icon: <Settings /> },
 ];
 
 interface Item {
@@ -103,7 +110,7 @@ export default function CommandPalette() {
           {
             id: "add",
             section: "Actions",
-            label: `Add a series matching “${query.trim()}”`,
+            label: t`Add a series matching “${ph({ query: query.trim() })}”`,
             to: `/search?q=${encodeURIComponent(query.trim())}&page=1`,
             icon: <Plus />,
           },
@@ -112,22 +119,22 @@ export default function CommandPalette() {
           {
             id: "search-wanted",
             section: "Actions",
-            label: "Review Wanted issues",
+            label: t`Review Wanted issues`,
             to: "/wanted",
             icon: <Search />,
           },
         ];
 
-    const pages: Item[] = PAGES.filter(
-      (p) => !needle || p.label.toLowerCase().includes(needle),
-    ).map((p) => ({
-      id: `page:${p.to}`,
-      section: "Go to",
-      label: p.label,
-      to: p.to,
-      icon: p.icon,
-      meta: <Kbd className="font-mono text-[10px]">{p.kbd}</Kbd>,
-    }));
+    const pages: Item[] = PAGES()
+      .filter((p) => !needle || p.label.toLowerCase().includes(needle))
+      .map((p) => ({
+        id: `page:${p.to}`,
+        section: "Go to",
+        label: p.label,
+        to: p.to,
+        icon: p.icon,
+        meta: <Kbd className="font-mono text-[10px]">{p.kbd}</Kbd>,
+      }));
 
     return [...seriesItems, ...actions, ...pages];
   }, [query, series]);
@@ -156,7 +163,7 @@ export default function CommandPalette() {
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/60 transition-opacity data-starting-style:opacity-0 data-ending-style:opacity-0" />
         <DialogPrimitive.Popup
-          aria-label="Command palette"
+          aria-label={t`Command palette`}
           className="fixed left-1/2 top-[12vh] z-50 w-[min(640px,calc(100vw-32px))] -translate-x-1/2 overflow-hidden rounded-xl border border-border-strong bg-surface-1 shadow-2xl transition-[opacity,transform] duration-150 data-starting-style:scale-[0.98] data-starting-style:opacity-0 data-ending-style:opacity-0"
         >
           <div className="flex items-center gap-3 border-b border-border-subtle px-4 py-3">
@@ -169,8 +176,8 @@ export default function CommandPalette() {
                 setActive(0);
               }}
               onKeyDown={onKeyDown}
-              placeholder="Find a series, run an action, or go to a page"
-              aria-label="Command palette search"
+              placeholder={t`Find a series, run an action, or go to a page`}
+              aria-label={t`Command palette search`}
               role="combobox"
               aria-expanded="true"
               aria-controls="command-palette-list"
@@ -185,7 +192,7 @@ export default function CommandPalette() {
           <ul
             id="command-palette-list"
             role="listbox"
-            aria-label="Results"
+            aria-label={t`Results`}
             className="max-h-[56vh] overflow-auto p-1.5"
           >
             {items.map((item, index) => (
@@ -205,13 +212,19 @@ export default function CommandPalette() {
 
           <div className="flex items-center gap-4 border-t border-border-subtle px-4 py-2 text-[12px] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
-              <Kbd className="font-mono text-[10px]">↑↓</Kbd> to move
+              <Trans>
+                <Kbd className="font-mono text-[10px]">↑↓</Kbd> to move
+              </Trans>
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <Kbd className="font-mono text-[10px]">↵</Kbd> to open
+              <Trans>
+                <Kbd className="font-mono text-[10px]">↵</Kbd> to open
+              </Trans>
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <Kbd className="font-mono text-[10px]">⌘K</Kbd> anywhere
+              <Trans>
+                <Kbd className="font-mono text-[10px]">⌘K</Kbd> anywhere
+              </Trans>
             </span>
           </div>
         </DialogPrimitive.Popup>

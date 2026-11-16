@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 /**
  * Client contract for the single `activity` SSE stream (Activity Center ADR §8).
  *
@@ -135,7 +136,7 @@ export function latchOnEvent(
   }
   return {
     latch: { latched: true, since: now },
-    toast: { title: "Needs attention", description: sentenceFor(event) },
+    toast: { title: t`Needs attention`, description: sentenceFor(event) },
   };
 }
 

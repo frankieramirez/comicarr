@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDay, weekLabel } from "@/lib/releaseWeek";
@@ -20,13 +22,13 @@ export default function WeekBar({
           size="compact"
           onClick={() => onNavigate(null)}
         >
-          This week
+          <Trans>This week</Trans>
         </Button>
       )}
       <div className="inline-flex h-8 items-stretch overflow-hidden rounded-md border border-border-strong">
         <button
           type="button"
-          aria-label="Previous week"
+          aria-label={t`Previous week`}
           disabled={!week?.prev}
           onClick={() => week?.prev && onNavigate(week.prev)}
           className="flex w-8 items-center justify-center text-foreground-2 hover:bg-surface-2 disabled:opacity-40"
@@ -38,7 +40,7 @@ export default function WeekBar({
           aria-live="polite"
         >
           <span className="whitespace-nowrap text-[13px] font-medium">
-            {week ? weekLabel(week.offset) : "Loading week…"}
+            {week ? weekLabel(week.offset) : t`Loading week…`}
           </span>
           {week && (
             <span className="mono-meta truncate max-sm:hidden">
@@ -48,7 +50,7 @@ export default function WeekBar({
         </div>
         <button
           type="button"
-          aria-label="Next week"
+          aria-label={t`Next week`}
           disabled={!week?.next}
           onClick={() => week?.next && onNavigate(week.next)}
           className="flex w-8 items-center justify-center text-foreground-2 hover:bg-surface-2 disabled:opacity-40"

@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { type ReactNode, useEffect, useRef } from "react";
 
 interface PageHeaderProps {
@@ -58,7 +59,7 @@ export function TabRow({ children, ariaLabel }: TabRowProps) {
   return (
     <div
       role="group"
-      aria-label={ariaLabel ?? "View toggles"}
+      aria-label={ariaLabel ?? t`View toggles`}
       className="shrink-0 mx-8 border-b border-border-subtle flex items-end gap-6 max-md:gap-5 max-md:overflow-x-auto max-md:[scrollbar-width:none]"
     >
       {children}

@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { Plus, Check, Loader2, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,15 +34,15 @@ export default function ArcSearchResultCard({
           setAdded(true);
           addToast({
             type: "success",
-            title: "Arc Added",
-            description: `Adding ${result.name}...`,
+            title: t`Arc Added`,
+            description: t`Adding ${ph({ name: result.name })}...`,
           });
         },
         onError: () => {
           addToast({
             type: "error",
-            title: "Error",
-            description: "Failed to add story arc.",
+            title: t`Error`,
+            description: t`Failed to add story arc.`,
           });
         },
       },
@@ -71,7 +73,9 @@ export default function ArcSearchResultCard({
         </h4>
         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
           {result.publisher && <span>{result.publisher}</span>}
-          <span>{result.issues} issues</span>
+          <span>
+            {plural(result.issues, { one: "# issue", other: "# issues" })}
+          </span>
         </div>
 
         {result.description && (
@@ -84,7 +88,7 @@ export default function ArcSearchResultCard({
           {added ? (
             <Button variant="outline" size="sm" className="w-full" disabled>
               <Check className="w-4 h-4 mr-1" />
-              Added
+              <Trans>Added</Trans>
             </Button>
           ) : (
             <Button
@@ -99,7 +103,7 @@ export default function ArcSearchResultCard({
               ) : (
                 <Plus className="w-4 h-4 mr-1" />
               )}
-              Add Arc
+              <Trans>Add Arc</Trans>
             </Button>
           )}
         </div>

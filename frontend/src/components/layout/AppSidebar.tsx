@@ -1,6 +1,6 @@
 import { useEffect, useState, SubmitEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { msg } from "@lingui/core/macro";
+import { msg, plural } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { AVAILABLE_LOCALES, chooseLocale, localeName } from "@/lib/i18n";
@@ -207,7 +207,10 @@ export default function AppSidebar() {
               {count ? (
                 <span
                   className="font-mono text-xs text-[var(--status-error)] group-data-[collapsible=icon]:hidden"
-                  aria-label={t`${count} need you`}
+                  aria-label={plural(count, {
+                    one: "# needs you",
+                    other: "# need you",
+                  })}
                 >
                   {count}
                 </span>

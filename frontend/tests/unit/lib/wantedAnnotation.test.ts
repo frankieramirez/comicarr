@@ -1,21 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   formatWantedAcquisitionAnnotation,
-  WANTED_ANNOTATION_NEVER_SEARCHED,
-  WANTED_ANNOTATION_SEARCHING,
 } from "@/lib/wantedAnnotation";
 
 describe("formatWantedAcquisitionAnnotation", () => {
   it("labels missing annotations as never searched", () => {
     expect(formatWantedAcquisitionAnnotation(null)).toBe(
-      WANTED_ANNOTATION_NEVER_SEARCHED,
+      "never searched",
     );
     expect(formatWantedAcquisitionAnnotation(undefined)).toBe(
-      WANTED_ANNOTATION_NEVER_SEARCHED,
+      "never searched",
     );
     expect(
       formatWantedAcquisitionAnnotation({ state: null, attempt_count: 0 }),
-    ).toBe(WANTED_ANNOTATION_NEVER_SEARCHED);
+    ).toBe("never searched");
   });
 
   it("labels accepted and running as searching… without inventing progress", () => {
@@ -24,20 +22,20 @@ describe("formatWantedAcquisitionAnnotation", () => {
         state: "accepted",
         attempt_count: 0,
       }),
-    ).toBe(WANTED_ANNOTATION_SEARCHING);
+    ).toBe("searching…");
     expect(
       formatWantedAcquisitionAnnotation({
         state: "running",
         attempt_count: 2,
       }),
-    ).toBe(WANTED_ANNOTATION_SEARCHING);
+    ).toBe("searching…");
     // attempt_count > 0 with accepted is retry-pending (#432) — still searching…
     expect(
       formatWantedAcquisitionAnnotation({
         state: "accepted",
         attempt_count: 3,
       }),
-    ).toBe(WANTED_ANNOTATION_SEARCHING);
+    ).toBe("searching…");
   });
 
   it("labels no_match with sticky try counts and no countdown", () => {
