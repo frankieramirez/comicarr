@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import EmptyState from "@/components/ui/EmptyState";
 import { DataTable } from "@/components/data-table/DataTable";
@@ -30,8 +31,8 @@ export default function ImportTable({
   onPrevPage,
   onOpenGroup,
   openRowId,
-  emptyTitle = "No pending imports",
-  emptyDescription = "All files have been imported or there are no files to import.",
+  emptyTitle = t`No pending imports`,
+  emptyDescription = t`All files have been imported or there are no files to import.`,
 }: ImportTableProps) {
   if (table.getCoreRowModel().rows.length === 0) {
     return (

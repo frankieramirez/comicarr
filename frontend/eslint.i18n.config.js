@@ -99,7 +99,7 @@ export default tseslint.config(
             'navigate', 'querySelector', 'querySelectorAll', '*.addEventListener', '*.removeEventListener',
             'localStorage.*', 'sessionStorage.*', 'useQueryState', 'parseAsString*', 'z.*', 'require',
             'new Date', 'Date.parse', '*.startsWith', '*.endsWith', '*.includes', '*.split', '*.replace',
-            '*.replaceAll', '*.accessor', '*.match', '*.test', 'RegExp', 'invariant', 'encodeURIComponent', 'postMessage',
+            '*.replaceAll', '*.match', '*.test', 'RegExp', 'invariant', 'encodeURIComponent', 'postMessage',
             'dispatchEvent', 'CustomEvent', 'Event', 'matchMedia', '*.getItem', '*.setItem', '*.removeItem',
             'document.*', 'window.*', 'expect',
           ],

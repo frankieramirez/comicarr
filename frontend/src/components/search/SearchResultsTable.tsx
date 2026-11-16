@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, ExternalLink, ImageOff } from "lucide-react";
@@ -84,7 +86,11 @@ export default function SearchResultsTable({
         const meta = [
           publisher,
           year,
-          count != null ? `${count} ${unit}` : null,
+          count != null
+            ? unit === "chapters"
+              ? plural(count, { one: "# chapter", other: "# chapters" })
+              : plural(count, { one: "# issue", other: "# issues" })
+            : null,
           sourceName,
         ].filter((part): part is string => part != null);
 
@@ -107,7 +113,7 @@ export default function SearchResultsTable({
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
                     className="shrink-0 text-muted-foreground hover:text-foreground"
-                    aria-label={`Open ${comic.name} on provider site`}
+                    aria-label={t`Open ${ph({ name: comic.name })} on provider site`}
                   >
                     <ExternalLink className="size-3" />
                   </a>
@@ -131,18 +137,20 @@ export default function SearchResultsTable({
               {comic.in_library && libraryId ? (
                 <>
                   <span className="hidden items-center gap-1.5 text-[13px] text-foreground sm:inline-flex">
-                    <span
-                      aria-hidden
-                      className="size-1.5 rounded-full bg-[var(--status-active)]"
-                    />
-                    In library
+                    <Trans>
+                      <span
+                        aria-hidden
+                        className="size-1.5 rounded-full bg-[var(--status-active)]"
+                      />
+                      In library
+                    </Trans>
                   </span>
                   <Link
                     to={`/library/${libraryId}`}
-                    aria-label={`Open ${comic.name}`}
+                    aria-label={t`Open ${ph({ name: comic.name })}`}
                     className="inline-flex items-center gap-0.5 text-[13px] font-medium text-foreground hover:text-foreground-2"
                   >
-                    Open
+                    <Trans>Open</Trans>
                     <ChevronRight className="size-3.5 text-muted-foreground" />
                   </Link>
                 </>

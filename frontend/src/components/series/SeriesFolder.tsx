@@ -130,7 +130,7 @@ export function SeriesFolder({
               <Trans>Library folder</Trans>
             </span>
             <span className="mono-label">
-              {override ? "chosen" : "automatic"}
+              {override ? t`chosen` : t`automatic`}
             </span>
           </div>
           <p className="mono-meta mt-1 break-all" data-testid="series-folder">

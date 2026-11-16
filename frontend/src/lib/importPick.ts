@@ -1,9 +1,11 @@
+import { ph, plural, t } from "@lingui/core/macro";
 import type { ImportCandidate, ImportPickPanel } from "@/types";
+import { formatNumber } from "@/lib/intl";
 
 /** "1.4 GB", "248 MB", "12 KB". Decimal units, as file managers show them. */
 export function formatBytes(bytes: number | null | undefined): string | null {
   if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return null;
-  if (bytes < 1000) return `${bytes} B`;
+  if (bytes < 1000) return t`${ph({ size: formatNumber(bytes) })} B`;
   const units = ["KB", "MB", "GB", "TB"];
   let value = bytes / 1000;
   let unit = 0;
@@ -12,7 +14,12 @@ export function formatBytes(bytes: number | null | undefined): string | null {
     unit += 1;
   }
   const digits = value >= 10 || unit < 2 ? 0 : 1;
-  return `${value.toFixed(digits)} ${units[unit]}`;
+  const size = formatNumber(value, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+  const symbol = units[unit];
+  return `${size} ${symbol}`;
 }
 
 /**
@@ -55,9 +62,9 @@ export function candidateMeta(candidate: ImportCandidate): string {
   const parts: string[] = [];
   if (candidate.publisher) parts.push(candidate.publisher);
   if (candidate.issues != null) {
-    parts.push(`${candidate.issues} issue${candidate.issues === 1 ? "" : "s"}`);
+    parts.push(plural(candidate.issues, { one: "# issue", other: "# issues" }));
   }
-  parts.push(candidate.in_library ? "in library" : "not in library");
+  parts.push(candidate.in_library ? t`in library` : t`not in library`);
   return parts.join(" · ");
 }
 
@@ -67,42 +74,45 @@ export function pickNote(panel: ImportPickPanel): string {
   let why: string;
   switch (panel.reason) {
     case "remembered":
-      why = `You matched this folder to ${
-        panel.remembered?.comic_name || "a series"
-      } before, so that pick is selected.`;
+      why = panel.remembered?.comic_name
+        ? t`You matched this folder to ${ph({ series: panel.remembered.comic_name })} before, so that pick is selected.`
+        : t`You matched this folder to a series before, so that pick is selected.`;
       break;
     case "tied":
-      why = `${
-        panel.tied === 2 ? "Two series" : `${panel.tied} series`
-      } in your library share this title, so this one needs a check.`;
+      why =
+        panel.tied === 2
+          ? t`Two series in your library share this title, so this one needs a check.`
+          : t`${ph({ count: panel.tied })} series in your library share this title, so this one needs a check.`;
       break;
     case "mixed_years":
-      why = `The files name more than one year (${panel.years.join(", ")}), so they may not be one series.`;
+      why = t`The files name more than one year (${ph({ years: panel.years.join(", ") })}), so they may not be one series.`;
       break;
     case "other_year": {
       const top = panel.candidates[0];
-      why = `The files name ${panel.years.join(", ")}, but ${
-        top ? candidateTitle(top) : "the closest series"
-      } started in ${top?.year ?? "another year"}. Files often carry the issue's cover year, so check it's the right volume.`;
+      const years = panel.years.join(", ");
+      why =
+        top && top.year
+          ? t`The files name ${years}, but ${ph({ series: candidateTitle(top) })} started in ${ph({ year: top.year })}. Files often carry the issue's cover year, so check it's the right volume.`
+          : t`The files name ${years}, but the closest series started in another year. Files often carry the issue's cover year, so check it's the right volume.`;
       break;
     }
     case "below_bar":
-      why = `The best guess scored ${best}%, under your ${panel.confidence_bar}% auto-import bar.`;
+      why = t`The best guess scored ${best}%, under your ${ph({ confidence_bar: panel.confidence_bar })}% auto-import bar.`;
       break;
     case "confident":
-      why = `This match clears your ${panel.confidence_bar}% auto-import bar.`;
+      why = t`This match clears your ${ph({ confidence_bar: panel.confidence_bar })}% auto-import bar.`;
       break;
     default:
-      why = "Nothing in your library looks like this.";
+      why = t`Nothing in your library looks like this.`;
   }
-  const extras: string[] = [];
-  if (panel.pick && panel.reason !== "remembered") {
-    extras.push("Comicarr's pick is selected");
+  const picked = Boolean(panel.pick) && panel.reason !== "remembered";
+  const remembers = Boolean(panel.remembers) && panel.reason !== "remembered";
+  if (picked && remembers) {
+    return t`${why} Comicarr's pick is selected; your choice is remembered for future files from this folder.`;
   }
-  if (panel.remembers && panel.reason !== "remembered") {
-    extras.push("your choice is remembered for future files from this folder");
+  if (picked) return t`${why} Comicarr's pick is selected.`;
+  if (remembers) {
+    return t`${why} Your choice is remembered for future files from this folder.`;
   }
-  if (!extras.length) return why;
-  const tail = extras.join("; ");
-  return `${why} ${tail[0].toUpperCase()}${tail.slice(1)}.`;
+  return why;
 }

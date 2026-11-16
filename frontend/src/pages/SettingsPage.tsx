@@ -106,7 +106,7 @@ export default function SettingsPage() {
       section === "search" &&
       id !== "search" &&
       providerDirty &&
-      !window.confirm("Discard unsaved indexer changes?")
+      !window.confirm(t`Discard unsaved indexer changes?`)
     ) {
       return;
     }
@@ -169,7 +169,7 @@ export default function SettingsPage() {
         url.hash === location.hash
       )
         return;
-      if (!window.confirm("Discard unsaved indexer changes?")) {
+      if (!window.confirm(t`Discard unsaved indexer changes?`)) {
         event.preventDefault();
         event.stopPropagation();
       }

@@ -1,3 +1,5 @@
+import { plural } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Download, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -24,7 +26,10 @@ export default function BulkActionBar({
     <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-popover text-popover-foreground shadow-lg z-50">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="text-sm font-medium">
-          {selectedCount} issue{selectedCount !== 1 ? "s" : ""} selected
+          {plural(selectedCount, {
+            one: "# issue selected",
+            other: "# issues selected",
+          })}
         </div>
         <div className="flex items-center space-x-2">
           {onMarkWanted && (
@@ -35,7 +40,7 @@ export default function BulkActionBar({
               className="text-foreground hover:bg-accent"
             >
               <Download className="w-4 h-4 mr-2" />
-              Mark Wanted
+              <Trans>Mark Wanted</Trans>
             </Button>
           )}
           {onSearch && selectedCount === 1 && (
@@ -46,7 +51,7 @@ export default function BulkActionBar({
               className="text-foreground hover:bg-accent"
             >
               <Search className="w-4 h-4 mr-2" />
-              Search selected
+              <Trans>Search selected</Trans>
             </Button>
           )}
           <Button
@@ -56,14 +61,14 @@ export default function BulkActionBar({
             className="text-foreground hover:bg-accent"
           >
             <X className="w-4 h-4 mr-2" />
-            Skip
+            <Trans>Skip</Trans>
           </Button>
           <Button
             variant="ghost"
             onClick={onClear}
             className="text-foreground hover:bg-accent"
           >
-            Clear Selection
+            <Trans>Clear Selection</Trans>
           </Button>
         </div>
       </div>

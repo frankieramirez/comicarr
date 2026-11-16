@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 /**
  * Comicarr API Client
  * Handles all API calls to the Comicarr backend
@@ -106,6 +107,11 @@ export class ApiError extends Error {
 /**
  * Get a user-friendly error message from any error
  */
+/** The error's own message, for "Failed to …: {error}" toasts. */
+export function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : t`Unknown error`;
+}
+
 export function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     return error.userMessage;

@@ -7,14 +7,41 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: en\n"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid " · available until {until}"
+msgstr " · available until {until}"
+
 #: src/components/settings/NotificationsTab.tsx
 msgid "-1007356238347 or -1007356238347:15"
 msgstr "-1007356238347 or -1007356238347:15"
+
+#: src/components/queue/upcomingColumns.tsx
+msgid "· see why"
+msgstr "· see why"
+
+#: src/components/import/LibraryScanResults.tsx
+msgid "({count} selected)"
+msgstr "({count} selected)"
+
+#. placeholder {0}: group.providers.length
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "{0, plural, one { · # provider} other { · # providers}}"
+msgstr "{0, plural, one { · # provider} other { · # providers}}"
+
+#. placeholder {0}: result.file_count
+#: src/components/import/LibraryScanResults.tsx
+msgid "{0, plural, one {(# file)} other {(# files)}}"
+msgstr "{0, plural, one {(# file)} other {(# files)}}"
 
 #. placeholder {0}: down.length
 #: src/lib/healthBand.ts
 msgid "{0, plural, one {{downNames} worker not running} other {{downNames} workers not running}}"
 msgstr "{0, plural, one {{downNames} worker not running} other {{downNames} workers not running}}"
+
+#. placeholder {0}: result.groups
+#: src/pages/ImportPage.tsx
+msgid "{0, plural, one {{files} from # confident match} other {{files} from # confident matches}}"
+msgstr "{0, plural, one {{files} from # confident match} other {{files} from # confident matches}}"
 
 #. placeholder {0}: failed.length
 #: src/hooks/useQueue.ts
@@ -25,6 +52,11 @@ msgstr "{0, plural, one {{landed} — # failed: {error}} other {{landed} — # f
 #: src/lib/attentionCause.ts
 msgid "{0, plural, one {{list}, # issue each} other {{list}, # issues each}}"
 msgstr "{0, plural, one {{list}, # issue each} other {{list}, # issues each}}"
+
+#. placeholder {0}: providers.length - 2
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "{0, plural, one {{shown} and # more} other {{shown} and # more}}"
+msgstr "{0, plural, one {{shown} and # more} other {{shown} and # more}}"
 
 #. placeholder {0}: result.failed
 #: src/pages/AttentionPage.tsx
@@ -61,6 +93,11 @@ msgstr "{0, plural, one {# eligible issue will be searched.} other {# eligible i
 msgid "{0, plural, one {# event in this story} other {# events in this story}}"
 msgstr "{0, plural, one {# event in this story} other {# events in this story}}"
 
+#. placeholder {0}: result.failed.length
+#: src/pages/ImportPage.tsx
+msgid "{0, plural, one {# group failed} other {# groups failed}}"
+msgstr "{0, plural, one {# group failed} other {# groups failed}}"
+
 #. placeholder {0}: attempts.import
 #: src/pages/IssueDetailPage.tsx
 msgid "{0, plural, one {# import} other {# imports}}"
@@ -80,6 +117,13 @@ msgstr "{0, plural, one {# issue in {series}} other {# issues in {series}}}"
 #: src/pages/SeriesDetailPage.tsx
 msgid "{0, plural, one {# issue is excluded from this run.} other {# issues are excluded from this run.}}"
 msgstr "{0, plural, one {# issue is excluded from this run.} other {# issues are excluded from this run.}}"
+
+#. placeholder {0}: Number(result.count_of_issues)
+#. placeholder {0}: candidate.issues
+#: src/components/import/MatchModal.tsx
+#: src/lib/importPick.ts
+msgid "{0, plural, one {# issue} other {# issues}}"
+msgstr "{0, plural, one {# issue} other {# issues}}"
 
 #. placeholder {0}: search.total
 #: src/components/series/IssueStory.tsx
@@ -113,10 +157,35 @@ msgstr "{0, plural, one {# series paused} other {# series paused}}"
 msgid "{0, plural, one {# series resumed} other {# series resumed}}"
 msgstr "{0, plural, one {# series resumed} other {# series resumed}}"
 
+#. placeholder {0}: -offset
+#: src/lib/releaseWeek.ts
+msgid "{0, plural, one {# week ago} other {# weeks ago}}"
+msgstr "{0, plural, one {# week ago} other {# weeks ago}}"
+
+#. placeholder {0}: tries(attempts)
+#: src/lib/wantedAnnotation.ts
+msgid "{0, plural, one {failed · # try} other {failed · # tries}}"
+msgstr "{0, plural, one {failed · # try} other {failed · # tries}}"
+
+#. placeholder {0}: result.imported
+#: src/pages/ImportPage.tsx
+msgid "{0, plural, one {Imported # file} other {Imported # files}}"
+msgstr "{0, plural, one {Imported # file} other {Imported # files}}"
+
+#. placeholder {0}: pacing.indexers
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "{0, plural, one {Issues added in the last {days} days also get a full search on your indexer {every}.} other {Issues added in the last {days} days also get a full search on your # indexers {every}.}}"
+msgstr "{0, plural, one {Issues added in the last {days} days also get a full search on your indexer {every}.} other {Issues added in the last {days} days also get a full search on your # indexers {every}.}}"
+
 #. placeholder {0}: s.librarySeries
 #: src/lib/activityStatus.ts
 msgid "{0, plural, one {library: # series} other {library: # series}}"
 msgstr "{0, plural, one {library: # series} other {library: # series}}"
+
+#. placeholder {0}: tries(attempts)
+#: src/lib/wantedAnnotation.ts
+msgid "{0, plural, one {no match · # try} other {no match · # tries}}"
+msgstr "{0, plural, one {no match · # try} other {no match · # tries}}"
 
 #. placeholder {0}: info.blocked_provider_count
 #: src/lib/healthRows.ts
@@ -143,10 +212,19 @@ msgstr "{0, plural, one {Searched # wanted issue} other {Searched # wanted issue
 msgid "{0, plural, one {Searching # wanted issue} other {Searching # wanted issues}}"
 msgstr "{0, plural, one {Searching # wanted issue} other {Searching # wanted issues}}"
 
+#. placeholder {0}: filteredKeys.length
+#: src/pages/AttentionPage.tsx
+msgid "{0, plural, one {Select all # issue} other {Select all # issues}}"
+msgstr "{0, plural, one {Select all # issue} other {Select all # issues}}"
+
 #. placeholder {0}: group.member_count
 #: src/pages/AttentionPage.tsx
 msgid "{0, plural, one {show # issue} other {show # issues}}"
 msgstr "{0, plural, one {show # issue} other {show # issues}}"
+
+#: src/pages/WantedPage.tsx
+msgid "{accepted, plural, one {Search accepted — # wanted issue queued.} other {Search accepted — # wanted issues queued.}}"
+msgstr "{accepted, plural, one {Search accepted — # wanted issue queued.} other {Search accepted — # wanted issues queued.}}"
 
 #: src/components/activity/timeline/sentences.ts
 msgid "{added, plural, one {Added {label} — # issue} other {Added {label} — # issues}}"
@@ -197,9 +275,49 @@ msgstr "{completionPct}% held: {have} of {total}"
 msgid "{completionPct}% held: {have} of {total}, {progressSummary}"
 msgstr "{completionPct}% held: {have} of {total}, {progressSummary}"
 
+#: src/pages/ImportPage.tsx
+msgid "{confidentCount, plural, one {# more matched with high confidence. It waits under Confident so you can import it in one go.} other {# more matched with high confidence. They wait under Confident so you can import them in one go.}}"
+msgstr "{confidentCount, plural, one {# more matched with high confidence. It waits under Confident so you can import it in one go.} other {# more matched with high confidence. They wait under Confident so you can import them in one go.}}"
+
+#: src/pages/ImportPage.tsx
+msgid "{confidentCount, plural, one {Import # confident match} other {Import # confident matches}}"
+msgstr "{confidentCount, plural, one {Import # confident match} other {Import # confident matches}}"
+
+#: src/components/search/SearchResultsTable.tsx
+msgid "{count, plural, one {# chapter} other {# chapters}}"
+msgstr "{count, plural, one {# chapter} other {# chapters}}"
+
+#: src/components/import/LibraryScanResults.tsx
+msgid "{count, plural, one {# existing comic series reconciled} other {# existing comic series reconciled}}"
+msgstr "{count, plural, one {# existing comic series reconciled} other {# existing comic series reconciled}}"
+
+#: src/components/import/LibraryScanResults.tsx
+msgid "{count, plural, one {# existing manga series reconciled} other {# existing manga series reconciled}}"
+msgstr "{count, plural, one {# existing manga series reconciled} other {# existing manga series reconciled}}"
+
+#: src/components/import/importColumns.tsx
+msgid "{count, plural, one {# file · {folder}} other {# files · {folder}}}"
+msgstr "{count, plural, one {# file · {folder}} other {# files · {folder}}}"
+
 #: src/components/series/SeriesFolder.tsx
 msgid "{count, plural, one {# file stays readable where it was.} other {# files stay readable where they were.}}"
 msgstr "{count, plural, one {# file stays readable where it was.} other {# files stay readable where they were.}}"
+
+#: src/components/import/importColumns.tsx
+msgid "{count, plural, one {# file} other {# files}}"
+msgstr "{count, plural, one {# file} other {# files}}"
+
+#: src/components/search/SearchResultsTable.tsx
+msgid "{count, plural, one {# issue} other {# issues}}"
+msgstr "{count, plural, one {# issue} other {# issues}}"
+
+#: src/components/import/LibraryScanResults.tsx
+msgid "{count, plural, one {Reconciled # existing comic series.} other {Reconciled # existing comic series.}}"
+msgstr "{count, plural, one {Reconciled # existing comic series.} other {Reconciled # existing comic series.}}"
+
+#: src/components/import/LibraryScanResults.tsx
+msgid "{count, plural, one {Reconciled # existing manga series.} other {Reconciled # existing manga series.}}"
+msgstr "{count, plural, one {Reconciled # existing manga series.} other {Reconciled # existing manga series.}}"
 
 #: src/components/activity/timeline/attentionStage.ts
 msgid "{count, plural, one {This issue in {seriesLabel} will be marked ignored in your library, leave Needs attention, and will not be searched again until you want it back.} other {These # issues in {seriesLabel} will be marked ignored in your library, leave Needs attention, and will not be searched again until you want them back.}}"
@@ -225,6 +343,7 @@ msgstr "{count} attempted"
 msgid "{count} blocked"
 msgstr "{count} blocked"
 
+#: src/components/import/ImportSourcesStrip.tsx
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "{count} configured"
 msgstr "{count} configured"
@@ -282,9 +401,21 @@ msgstr "{count} optional Wanted"
 msgid "{count} owned"
 msgstr "{count} owned"
 
+#: src/lib/importPick.ts
+msgid "{count} series in your library share this title, so this one needs a check."
+msgstr "{count} series in your library share this title, so this one needs a check."
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "{count} unknown"
 msgstr "{count} unknown"
+
+#: src/lib/wantedPacing.ts
+msgid "{days, plural, one {~# day} other {~# days}}"
+msgstr "{days, plural, one {~# day} other {~# days}}"
+
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "{days, plural, one {every day} other {every # days}}"
+msgstr "{days, plural, one {every day} other {every # days}}"
 
 #: src/lib/healthBand.ts
 msgid "{deferred, plural, one {# producer deferred} other {# producers deferred}}"
@@ -314,7 +445,16 @@ msgstr "{done} of {total} issues queued"
 msgid "{done} of {total} issues skipped"
 msgstr "{done} of {total} issues skipped"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "{done} of {total} providers complete"
+msgstr "{done} of {total} providers complete"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "{done} of {total} providers complete · {provider}"
+msgstr "{done} of {total} providers complete · {provider}"
+
 #: src/lib/healthRows.ts
+#: src/lib/releaseState.ts
 msgid "{duration} ago"
 msgstr "{duration} ago"
 
@@ -338,13 +478,42 @@ msgstr "{failingJobs} failing"
 msgid "{file} (unavailable)"
 msgstr "{file} (unavailable)"
 
+#: src/components/import/ImportPickPanel.tsx
+#: src/components/import/MatchModal.tsx
+msgid "{fileCount, plural, one {# file} other {# files}}"
+msgstr "{fileCount, plural, one {# file} other {# files}}"
+
 #: src/lib/logLines.ts
 msgid "{files, plural, one {{mb} MB × # file} other {{mb} MB × # files}}"
 msgstr "{files, plural, one {{mb} MB × # file} other {{mb} MB × # files}}"
 
+#: src/pages/ImportPage.tsx
+msgid "{files, plural, one {# file ignored} other {# files ignored}}"
+msgstr "{files, plural, one {# file ignored} other {# files ignored}}"
+
+#: src/pages/ImportPage.tsx
+msgid "{files, plural, one {# file unignored} other {# files unignored}}"
+msgstr "{files, plural, one {# file unignored} other {# files unignored}}"
+
+#: src/pages/ImportPage.tsx
+msgid "{files, plural, one {# file} other {# files}}"
+msgstr "{files, plural, one {# file} other {# files}}"
+
+#: src/pages/ImportPage.tsx
+msgid "{files, plural, one {Imported # file as {series}} other {Imported # files as {series}}}"
+msgstr "{files, plural, one {Imported # file as {series}} other {Imported # files as {series}}}"
+
+#: src/pages/ImportPage.tsx
+msgid "{files}; {groups} ({name}: {error})"
+msgstr "{files}; {groups} ({name}: {error})"
+
 #: src/lib/attentionCause.ts
 msgid "{first} and {second}"
 msgstr "{first} and {second}"
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "{first}–{last} of {total} series"
+msgstr "{first}–{last} of {total} series"
 
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "{first}–{last} of {total} stories"
@@ -358,9 +527,37 @@ msgstr "{first}–{last} of {total}+ stories"
 msgid "{first}, {second} and {third}"
 msgstr "{first}, {second} and {third}"
 
+#: src/pages/ImportPage.tsx
+msgid "{groupCount} · {fileCount} awaiting review"
+msgstr "{groupCount} · {fileCount} awaiting review"
+
+#: src/components/import/ImportBulkActions.tsx
+msgid "{groupCount} · {fileCount} selected"
+msgstr "{groupCount} · {fileCount} selected"
+
+#: src/pages/ImportPage.tsx
+msgid "{groups, plural, one {# group} other {# groups}}"
+msgstr "{groups, plural, one {# group} other {# groups}}"
+
 #: src/pages/AttentionPage.tsx
 msgid "{head} {skipped_for_cap} left for another go (max {cap} at a time)."
 msgstr "{head} {skipped_for_cap} left for another go (max {cap} at a time)."
+
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "{hours, plural, one {every hour} other {every # hours}}"
+msgstr "{hours, plural, one {every hour} other {every # hours}}"
+
+#: src/lib/wantedPacing.ts
+msgid "{hours, plural, one {in # hour} other {in # hours}}"
+msgstr "{hours, plural, one {in # hour} other {in # hours}}"
+
+#: src/lib/inFlight.ts
+msgid "{inFlight} in flight"
+msgstr "{inFlight} in flight"
+
+#: src/lib/inFlight.ts
+msgid "{inFlight} in flight ({recovered} recovered from a restart)"
+msgstr "{inFlight} in flight ({recovered} recovered from a restart)"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "{inFlight} in progress"
@@ -370,6 +567,18 @@ msgstr "{inFlight} in progress"
 msgid "{issues, plural, one {# issue} other {# issues}}"
 msgstr "{issues, plural, one {# issue} other {# issues}}"
 
+#: src/components/search/SearchResultsGrid.tsx
+msgid "{issues} ch"
+msgstr "{issues} ch"
+
+#: src/components/search/SearchResultsGrid.tsx
+msgid "{issues} iss"
+msgstr "{issues} iss"
+
+#: src/pages/WantedPage.tsx
+msgid "{issues} missing in {series} series"
+msgstr "{issues} missing in {series} series"
+
 #: src/components/activity/timeline/sentences.ts
 msgid "{label} — {activity} {status}"
 msgstr "{label} — {activity} {status}"
@@ -377,6 +586,10 @@ msgstr "{label} — {activity} {status}"
 #: src/components/activity/health/HealthView.tsx
 msgid "{label} didn't start."
 msgstr "{label} didn't start."
+
+#: src/components/import/ImportFileRow.tsx
+msgid "{label} for {file}"
+msgstr "{label} for {file}"
 
 #: src/components/activity/timeline/sentences.ts
 msgid "{label} needs attention"
@@ -410,6 +623,14 @@ msgstr "{lines} · {matched} matched · {returned} returned"
 msgid "{manga, plural, one {# manga} other {# manga}}"
 msgstr "{manga, plural, one {# manga} other {# manga}}"
 
+#: src/pages/WantedPage.tsx
+msgid "{matchCount, plural, one {# match} other {# matches}}"
+msgstr "{matchCount, plural, one {# match} other {# matches}}"
+
+#: src/components/import/LibraryScanResults.tsx
+msgid "{matched} matched of {found} series found"
+msgstr "{matched} matched of {found} series found"
+
 #: src/pages/IssueDetailPage.tsx
 msgid "{mb} MB"
 msgstr "{mb} MB"
@@ -417,6 +638,26 @@ msgstr "{mb} MB"
 #: src/components/activity/timeline/AttentionBand.tsx
 msgid "{memberTotal, plural, one {# issue · clears only by action} other {# issues · clears only by action}}"
 msgstr "{memberTotal, plural, one {# issue · clears only by action} other {# issues · clears only by action}}"
+
+#: src/pages/WantedPage.tsx
+msgid "{message} Run {run}."
+msgstr "{message} Run {run}."
+
+#: src/pages/WantedPage.tsx
+msgid "{message}. Run {run}."
+msgstr "{message}. Run {run}."
+
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "{minutes, plural, one {every minute} other {every # minutes}}"
+msgstr "{minutes, plural, one {every minute} other {every # minutes}}"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "{missingCount, plural, one {# missing issue} other {# missing issues}}"
+msgstr "{missingCount, plural, one {# missing issue} other {# missing issues}}"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "{missingCount, plural, one {Unfiltered · # missing issue} other {Unfiltered · # missing issues}}"
+msgstr "{missingCount, plural, one {Unfiltered · # missing issue} other {Unfiltered · # missing issues}}"
 
 #: src/components/series/SeriesFolder.tsx
 msgid "{moved, plural, one {Moved # file from {previous}.} other {Moved # files from {previous}.}}"
@@ -458,13 +699,45 @@ msgstr "{n, plural, one {# issue queued} other {# issues queued}}"
 msgid "{n, plural, one {# issue skipped} other {# issues skipped}}"
 msgstr "{n, plural, one {# issue skipped} other {# issues skipped}}"
 
+#: src/components/search/SearchAddButton.tsx
+msgid "{name} added"
+msgstr "{name} added"
+
+#: src/components/search/SearchAddButton.tsx
+msgid "{name} is being added to {folder}. Please wait..."
+msgstr "{name} is being added to {folder}. Please wait..."
+
+#: src/components/search/SearchAddButton.tsx
+msgid "{name} is being added to your library. Please wait..."
+msgstr "{name} is being added to your library. Please wait..."
+
+#: src/lib/releaseWeek.ts
+msgid "{offset, plural, one {In # week} other {In # weeks}}"
+msgstr "{offset, plural, one {In # week} other {In # weeks}}"
+
 #: src/components/whats-new/WhatsNewModal.tsx
 msgid "{overflow, plural, one {…and # earlier release} other {…and # earlier releases}}"
 msgstr "{overflow, plural, one {…and # earlier release} other {…and # earlier releases}}"
 
+#: src/components/import/ConfidenceBadge.tsx
+msgid "{pct}% match confidence"
+msgstr "{pct}% match confidence"
+
 #: src/components/whats-new/WhatsNewArchive.tsx
 msgid "{pendingCount} unread"
 msgstr "{pendingCount} unread"
+
+#: src/pages/ImportPage.tsx
+msgid "{pendingReviewMeta}. Pick a group to see the series it could be."
+msgstr "{pendingReviewMeta}. Pick a group to see the series it could be."
+
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "{perPass} at a time against new releases, newest first. {fresh}"
+msgstr "{perPass} at a time against new releases, newest first. {fresh}"
+
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "{perPass} at a time against new releases, newest first. {fresh} Next batch {nextPass}."
+msgstr "{perPass} at a time against new releases, newest first. {fresh} Next batch {nextPass}."
 
 #: src/pages/AttentionPage.tsx
 msgid "{problemCount} · {issueCount}"
@@ -474,9 +747,21 @@ msgstr "{problemCount} · {issueCount}"
 msgid "{problems, plural, one {# problem} other {# problems}}"
 msgstr "{problems, plural, one {# problem} other {# problems}}"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "{provider_completed} providers checked · {candidate_count} candidates"
+msgstr "{provider_completed} providers checked · {candidate_count} candidates"
+
 #: src/components/activity/health/HealthView.tsx
 msgid "{reachable} of {length} reachable"
 msgstr "{reachable} of {length} reachable"
+
+#: src/pages/ImportPage.tsx
+msgid "{records, plural, one {# import record deleted} other {# import records deleted}}"
+msgstr "{records, plural, one {# import record deleted} other {# import records deleted}}"
+
+#: src/pages/ImportPage.tsx
+msgid "{records, plural, one {Delete # import record? (Files on disk are untouched.)} other {Delete # import records? (Files on disk are untouched.)}}"
+msgstr "{records, plural, one {Delete # import record? (Files on disk are untouched.)} other {Delete # import records? (Files on disk are untouched.)}}"
 
 #: src/components/whats-new/WhatsNewArchive.tsx
 msgid "{releases, plural, one {# release} other {# releases}}"
@@ -490,9 +775,17 @@ msgstr "{resolved} of {total} resolved"
 msgid "{rest, plural, one {{first}, {second} and # more series} other {{first}, {second} and # more series}}"
 msgstr "{rest, plural, one {{first}, {second} and # more series} other {{first}, {second} and # more series}}"
 
+#: src/pages/SearchPage.tsx
+msgid "{resultCount, plural, one {# result for \"{urlQuery}\"} other {# results for \"{urlQuery}\"}}"
+msgstr "{resultCount, plural, one {# result for \"{urlQuery}\"} other {# results for \"{urlQuery}\"}}"
+
 #: src/components/series/SeriesFilters.tsx
 msgid "{resultCount, plural, one {# result} other {# results}}"
 msgstr "{resultCount, plural, one {# result} other {# results}}"
+
+#: src/pages/SearchPage.tsx
+msgid "{resultCount} results"
+msgstr "{resultCount} results"
 
 #: src/lib/healthBand.ts
 msgid "{routes} ready"
@@ -502,9 +795,29 @@ msgstr "{routes} ready"
 msgid "{scanned, plural, one {# line scanned} other {# lines scanned}}"
 msgstr "{scanned, plural, one {# line scanned} other {# lines scanned}}"
 
+#: src/components/queue/BulkActionBar.tsx
+msgid "{selectedCount, plural, one {# issue selected} other {# issues selected}}"
+msgstr "{selectedCount, plural, one {# issue selected} other {# issues selected}}"
+
+#: src/components/import/ImportBulkActions.tsx
+msgid "{selectedFileCount, plural, one {# file} other {# files}}"
+msgstr "{selectedFileCount, plural, one {# file} other {# files}}"
+
+#: src/components/import/ImportBulkActions.tsx
+msgid "{selectedGroupCount, plural, one {# group} other {# groups}}"
+msgstr "{selectedGroupCount, plural, one {# group} other {# groups}}"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "{series} {release} is Wanted."
+msgstr "{series} {release} is Wanted."
+
 #: src/hooks/useLibrarySummary.ts
 msgid "{seriesCount} · {comicCount} · {mangaCount}"
 msgstr "{seriesCount} · {comicCount} · {mangaCount}"
+
+#: src/lib/importPick.ts
+msgid "{size} B"
+msgstr "{size} B"
 
 #: src/components/settings/LogsTab.tsx
 msgid "{size} bytes"
@@ -514,9 +827,17 @@ msgstr "{size} bytes"
 msgid "{source} sets the log level, not this page."
 msgstr "{source} sets the log level, not this page."
 
+#: src/pages/SearchPage.tsx
+msgid "{startIndex}–{endIndex} of {total}"
+msgstr "{startIndex}–{endIndex} of {total}"
+
 #: src/pages/AttentionPage.tsx
 msgid "{succeeded, plural, one {{verb} — # issue.} other {{verb} — # issues.}}"
 msgstr "{succeeded, plural, one {{verb} — # issue.} other {{verb} — # issues.}}"
+
+#: src/pages/WantedPage.tsx
+msgid "{total, plural, one {# missing issue} other {# missing issues}}"
+msgstr "{total, plural, one {# missing issue} other {# missing issues}}"
 
 #: src/components/activity/timeline/AttentionBand.tsx
 msgid "{total, plural, one {# needs attention} other {# need attention}}"
@@ -542,17 +863,49 @@ msgstr "{where}."
 msgid "{where}. {hint}"
 msgstr "{where}. {hint}"
 
+#: src/lib/wantedPacing.ts
+msgid "{whole, plural, one {~# hour} other {~# hours}}"
+msgstr "{whole, plural, one {~# hour} other {~# hours}}"
+
+#: src/lib/importPick.ts
+msgid "{why} Comicarr's pick is selected; your choice is remembered for future files from this folder."
+msgstr "{why} Comicarr's pick is selected; your choice is remembered for future files from this folder."
+
+#: src/lib/importPick.ts
+msgid "{why} Comicarr's pick is selected."
+msgstr "{why} Comicarr's pick is selected."
+
+#: src/lib/importPick.ts
+msgid "{why} Your choice is remembered for future files from this folder."
+msgstr "{why} Your choice is remembered for future files from this folder."
+
 #: src/lib/healthBand.ts
 msgid "{workers} running"
 msgstr "{workers} running"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "#{ISSUE} will be marked Wanted once the series is added."
+msgstr "#{ISSUE} will be marked Wanted once the series is added."
+
+#: src/components/import/ImportPickPanel.tsx
+msgid "+ {hidden} more"
+msgstr "+ {hidden} more"
 
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "+ Add folder"
 msgstr "+ Add folder"
 
+#: src/components/search/SearchResultsTable.tsx
+msgid "<0/>In library"
+msgstr "<0/>In library"
+
 #: src/components/series/SeriesCard.tsx
 msgid "<0/>Paused"
 msgstr "<0/>Paused"
+
+#: src/lib/wantedPacing.ts
+msgid "~{minutes} min"
+msgstr "~{minutes} min"
 
 #: src/lib/activityStatus.ts
 msgid "⚠ {count} need attention"
@@ -577,6 +930,14 @@ msgstr "0 stories"
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "1 enabled {kind} indexer"
 msgstr "1 enabled {kind} indexer"
+
+#: src/components/queue/upcomingColumns.tsx
+msgid "1 issue queued"
+msgstr "1 issue queued"
+
+#: src/components/queue/upcomingColumns.tsx
+msgid "1 issue skipped"
+msgstr "1 issue skipped"
 
 #: src/components/settings/SupportBundleSection.tsx
 msgid "1. Create"
@@ -643,7 +1004,13 @@ msgstr "Acquisition maintenance is active: {reason}"
 msgid "Acquisition maintenance is active."
 msgstr "Acquisition maintenance is active."
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "actions"
+msgstr "actions"
+
 #: src/components/activity/health/HealthView.tsx
+#: src/components/queue/upcomingColumns.tsx
+#: src/components/queue/wantedColumns.tsx
 #: src/pages/ActivityPage.tsx
 msgid "Actions"
 msgstr "Actions"
@@ -674,11 +1041,46 @@ msgstr "Activity cleanup"
 msgid "Activity timeline"
 msgstr "Activity timeline"
 
+#: src/components/releases/IndustryReleasesView.tsx
+#: src/components/search/SearchAddButton.tsx
+#: src/components/weekly/SuggestionCard.tsx
+msgid "Add"
+msgstr "Add"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Add {COMIC}"
+msgstr "Add {COMIC}"
+
+#: src/components/search/SearchAddButton.tsx
+msgid "Add {name}"
+msgstr "Add {name}"
+
+#: src/components/search/SearchAddButton.tsx
+msgid "Add {name} to a chosen folder"
+msgstr "Add {name} to a chosen folder"
+
+#: src/components/search/SearchAddButton.tsx
+msgid "Add {name} to a folder"
+msgstr "Add {name} to a folder"
+
+#: src/components/releases/MangaAddDialog.tsx
+msgid "Add {title}"
+msgstr "Add {title}"
+
+#: src/pages/SearchPage.tsx
+msgid "Add a Comic Vine API key in Settings → API to search comics."
+msgstr "Add a Comic Vine API key in Settings → API to search comics."
+
+#: src/lib/searchBlockers.ts
+msgid "Add a download client"
+msgstr "Add a download client"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Add a download client to search"
 msgstr "Add a download client to search"
 
 #: src/components/activity/timeline/TimelineView.tsx
+#: src/pages/SearchPage.tsx
 msgid "Add a series"
 msgstr "Add a series"
 
@@ -686,18 +1088,44 @@ msgstr "Add a series"
 msgid "Add a series and mark issues as wanted — searches, grabs and imports will show up here as they happen."
 msgstr "Add a series and mark issues as wanted — searches, grabs and imports will show up here as they happen."
 
+#: src/lib/searchBlockers.ts
+msgid "Add an indexer"
+msgstr "Add an indexer"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Add an indexer to search"
 msgstr "Add an indexer to search"
+
+#: src/components/import/ImportPickPanel.tsx
+msgid "Add and import as {series}"
+msgstr "Add and import as {series}"
 
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Add client"
 msgstr "Add client"
 
+#: src/components/search/SearchAddButton.tsx
+msgid "Add comic"
+msgstr "Add comic"
+
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "Add indexer"
 msgstr "Add indexer"
 
+#: src/components/search/SearchAddButton.tsx
+msgid "Add manga"
+msgstr "Add manga"
+
+#: src/lib/searchBlockers.ts
+msgid "Add Prowlarr, a Newznab or Torznab indexer, or turn on GetComics."
+msgstr "Add Prowlarr, a Newznab or Torznab indexer, or turn on GetComics."
+
+#: src/lib/searchBlockers.ts
+msgid "Add SABnzbd, NZBGet, qBittorrent, or another client."
+msgstr "Add SABnzbd, NZBGet, qBittorrent, or another client."
+
+#: src/components/releases/IndustryReleasesView.tsx
+#: src/components/releases/MangaAddDialog.tsx
 #: src/pages/SeriesListPage.tsx
 msgid "Add series"
 msgstr "Add series"
@@ -706,9 +1134,26 @@ msgstr "Add series"
 msgid "Add series (N)"
 msgstr "Add series (N)"
 
+#: src/components/import/MatchModal.tsx
+msgid "Add series and import"
+msgstr "Add series and import"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Add series and want #{issue}"
+msgstr "Add series and want #{issue}"
+
+#: src/components/search/SearchAddButton.tsx
+msgid "Add to a chosen folder"
+msgstr "Add to a chosen folder"
+
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "Add Torznab indexer"
 msgstr "Add Torznab indexer"
+
+#: src/components/queue/wantedColumns.tsx
+#: src/components/search/SearchAddButton.tsx
+msgid "Added"
+msgstr "Added"
 
 #: src/components/activity/timeline/sentences.ts
 msgid "Added {label}"
@@ -718,9 +1163,43 @@ msgstr "Added {label}"
 msgid "Added story arc {label}"
 msgstr "Added story arc {label}"
 
+#: src/components/import/MatchModal.tsx
+msgid "Added unmonitored. No downloads will start. Files stay pending until metadata and every issue are matched."
+msgstr "Added unmonitored. No downloads will start. Files stay pending until metadata and every issue are matched."
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Adding {COMIC}"
+msgstr "Adding {COMIC}"
+
 #: src/components/activity/timeline/sentences.ts
 msgid "Adding {label}"
 msgstr "Adding {label}"
+
+#: src/components/releases/MangaAddDialog.tsx
+#: src/components/search/SearchAddButton.tsx
+msgid "Adding {name}"
+msgstr "Adding {name}"
+
+#: src/components/import/MatchModal.tsx
+msgid "Adding and importing..."
+msgstr "Adding and importing..."
+
+#: src/components/search/SearchAddButton.tsx
+msgid "Adding comic..."
+msgstr "Adding comic..."
+
+#: src/components/search/SearchAddButton.tsx
+msgid "Adding manga..."
+msgstr "Adding manga..."
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "adding…"
+msgstr "adding…"
+
+#: src/components/releases/MangaAddDialog.tsx
+#: src/components/search/SearchAddButton.tsx
+msgid "Adding…"
+msgstr "Adding…"
 
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Additional library management preferences"
@@ -752,11 +1231,19 @@ msgid "AI Status"
 msgstr "AI Status"
 
 #: src/components/activity/timeline/TimelineView.tsx
+#: src/components/queue/WantedBySeries.tsx
+#: src/components/releases/IndustryReleasesView.tsx
+#: src/components/releases/MyReleasesView.tsx
+#: src/components/releases/releaseFormat.ts
 #: src/components/series/SeriesFilters.tsx
 #: src/pages/AttentionPage.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "All"
 msgstr "All"
+
+#: src/components/import/ImportTable.tsx
+msgid "All files have been imported or there are no files to import."
+msgstr "All files have been imported or there are no files to import."
 
 #: src/components/settings/LogsTab.tsx
 msgid "All lines"
@@ -774,6 +1261,10 @@ msgstr "Allow packs"
 msgid "Allow write tools"
 msgstr "Allow write tools"
 
+#: src/components/search/SearchAddButton.tsx
+msgid "An error occurred while adding the series."
+msgstr "An error occurred while adding the series."
+
 #: src/components/settings/AboutTab.tsx
 msgid "Announce releases to notifiers"
 msgstr "Announce releases to notifiers"
@@ -782,6 +1273,10 @@ msgstr "Announce releases to notifiers"
 msgid "Annual"
 msgstr "Annual"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Annual · {issueStatus}"
+msgstr "Annual · {issueStatus}"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Annual {number}"
 msgstr "Annual {number}"
@@ -789,6 +1284,10 @@ msgstr "Annual {number}"
 #: src/pages/SeriesDetailPage.tsx
 msgid "annuals: {annualCount}"
 msgstr "annuals: {annualCount}"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Another search is running"
+msgstr "Another search is running"
 
 #: src/components/activity/timeline/sentences.ts
 msgid "another search was already running"
@@ -805,6 +1304,10 @@ msgstr "Any"
 #: src/pages/AttentionPage.tsx
 msgid "any age"
 msgstr "any age"
+
+#: src/lib/wantedPacing.ts
+msgid "any moment now"
+msgstr "any moment now"
 
 #: src/components/settings/SearchTab.tsx
 msgid "Any Quality"
@@ -958,6 +1461,14 @@ msgstr "Auto-import"
 msgid "Auto-import confidence"
 msgstr "Auto-import confidence"
 
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "Auto-search is checking the backlog at {perHour} an hour"
+msgstr "Auto-search is checking the backlog at {perHour} an hour"
+
+#: src/components/series/SeriesFolder.tsx
+msgid "automatic"
+msgstr "automatic"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Automatic acquisition cannot be resumed while maintenance is active."
 msgstr "Automatic acquisition cannot be resumed while maintenance is active."
@@ -1019,6 +1530,14 @@ msgstr "Background jobs"
 msgid "Background jobs and connections, and whether each one is working"
 msgstr "Background jobs and connections, and whether each one is working"
 
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "Backlog checked this round"
+msgstr "Backlog checked this round"
+
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "Backlog checks are off"
+msgstr "Backlog checks are off"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Bare numbers"
 msgstr "Bare numbers"
@@ -1030,6 +1549,10 @@ msgstr "Base URL"
 #: src/components/settings/InterfaceTab.tsx
 msgid "Basic server configuration (read-only, modify in config.ini)"
 msgstr "Basic server configuration (read-only, modify in config.ini)"
+
+#: src/components/import/importColumns.tsx
+msgid "Best guess"
+msgstr "Best guess"
 
 #: src/lib/healthBand.ts
 msgid "Blackhole"
@@ -1044,6 +1567,15 @@ msgstr "Blackhole folder"
 msgid "Blended frontier"
 msgstr "Blended frontier"
 
+#: src/components/settings/AcquisitionHealthTab.tsx
+#: src/lib/wantedAnnotation.ts
+msgid "blocked"
+msgstr "blocked"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Blocked"
+msgstr "Blocked"
+
 #: src/components/settings/NotificationsTab.tsx
 msgid "Bot Token"
 msgstr "Bot Token"
@@ -1053,6 +1585,7 @@ msgid "Boxcar"
 msgstr "Boxcar"
 
 #: src/pages/IssueDetailPage.tsx
+#: src/pages/SearchPage.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Breadcrumb"
 msgstr "Breadcrumb"
@@ -1085,12 +1618,28 @@ msgstr "built in"
 msgid "Built in. Comicarr downloads GetComics, Mega, MediaFire and Pixeldrain links itself, so there is nothing to connect."
 msgstr "Built in. Comicarr downloads GetComics, Mega, MediaFire and Pixeldrain links itself, so there is nothing to connect."
 
+#: src/pages/WantedPage.tsx
+msgid "By issue"
+msgstr "By issue"
+
+#: src/pages/WantedPage.tsx
+msgid "By series"
+msgstr "By series"
+
 #: src/components/settings/GeneralTab.tsx
 msgid "Cache Directory"
 msgstr "Cache Directory"
 
+#: src/lib/releaseState.ts
+msgid "Can't search"
+msgstr "Can't search"
+
 #: src/components/activity/attention/ImportManuallyDialog.tsx
 #: src/components/activity/attention/StopWantingDialog.tsx
+#: src/components/import/MatchModal.tsx
+#: src/components/releases/MangaAddDialog.tsx
+#: src/components/releases/ReleaseReviewSheet.tsx
+#: src/components/search/SearchAddButton.tsx
 #: src/components/series/SeriesFolder.tsx
 #: src/components/series/SeriesSearchProviders.tsx
 #: src/components/settings/SaveButton.tsx
@@ -1098,6 +1647,10 @@ msgstr "Cache Directory"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Cancel"
 msgstr "Cancel"
+
+#: src/lib/wantedAnnotation.ts
+msgid "cancelled"
+msgstr "cancelled"
 
 #: src/pages/IssueDetailPage.tsx
 msgid "Candidates · {accepted_count} of {total}"
@@ -1135,6 +1688,18 @@ msgstr "Category for folder {number}"
 msgid "Category per library folder"
 msgstr "Category per library folder"
 
+#: src/components/releases/industryRows.ts
+msgid "Ch. {chapter}"
+msgstr "Ch. {chapter}"
+
+#: src/lib/releaseState.ts
+msgid "Ch. {number}"
+msgstr "Ch. {number}"
+
+#: src/components/import/ImportSourcesStrip.tsx
+msgid "Change"
+msgstr "Change"
+
 #: src/components/series/SeriesFolder.tsx
 msgid "Change folder"
 msgstr "Change folder"
@@ -1167,13 +1732,22 @@ msgstr "Changes discarded"
 msgid "Channel Tag"
 msgstr "Channel Tag"
 
+#: src/lib/importUtils.ts
 #: src/pages/SeriesDetailPage.tsx
 msgid "Chapter"
 msgstr "Chapter"
 
+#: src/lib/importUtils.ts
+msgid "Chapter {first}"
+msgstr "Chapter {first}"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Chapters"
 msgstr "Chapters"
+
+#: src/lib/importUtils.ts
+msgid "Chapters {first}-{last}"
+msgstr "Chapters {first}-{last}"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Chapters only"
@@ -1191,6 +1765,10 @@ msgstr "Check for updates"
 msgid "Check now"
 msgstr "Check now"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Checking and handing off…"
+msgstr "Checking and handing off…"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Checking run outcome…"
 msgstr "Checking run outcome…"
@@ -1200,13 +1778,29 @@ msgstr "Checking run outcome…"
 msgid "Checking…"
 msgstr "Checking…"
 
+#: src/components/search/SearchAddButton.tsx
+msgid "Choose a folder on the server, inside one of your library roots. Leave it empty to use the automatic folder."
+msgstr "Choose a folder on the server, inside one of your library roots. Leave it empty to use the automatic folder."
+
 #: src/components/series/SeriesFolder.tsx
 msgid "Choose a folder on the server, inside one of your library roots. New downloads and imports for this series are placed, renamed and tagged there."
 msgstr "Choose a folder on the server, inside one of your library roots. New downloads and imports for this series are placed, renamed and tagged there."
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Choose a release for this series. A pack can cover several missing issues at once. Nothing downloads until you confirm."
+msgstr "Choose a release for this series. A pack can cover several missing issues at once. Nothing downloads until you confirm."
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Choose one result for this issue. Nothing downloads until you confirm."
+msgstr "Choose one result for this issue. Nothing downloads until you confirm."
+
 #: src/components/settings/GeneralTab.tsx
 msgid "Choose which content sources to enable. At least one must be active."
 msgstr "Choose which content sources to enable. At least one must be active."
+
+#: src/components/series/SeriesFolder.tsx
+msgid "chosen"
+msgstr "chosen"
 
 #: src/pages/IssueDetailPage.tsx
 msgid "Chosen"
@@ -1215,6 +1809,10 @@ msgstr "Chosen"
 #: src/components/settings/AiTab.tsx
 msgid "Circuit Breaker"
 msgstr "Circuit Breaker"
+
+#: src/components/settings/AcquisitionHealthTab.tsx
+msgid "clear"
+msgstr "clear"
 
 #: src/components/series/SeriesFilters.tsx
 #: src/components/series/SeriesTable.tsx
@@ -1227,9 +1825,29 @@ msgstr "Clear"
 msgid "clear scope"
 msgstr "clear scope"
 
+#: src/components/import/ImportBulkActions.tsx
+msgid "Clear selected imports"
+msgstr "Clear selected imports"
+
 #: src/pages/AttentionPage.tsx
 msgid "clear selection"
 msgstr "clear selection"
+
+#: src/components/import/ImportBulkActions.tsx
+msgid "Clear selection"
+msgstr "Clear selection"
+
+#: src/components/queue/BulkActionBar.tsx
+msgid "Clear Selection"
+msgstr "Clear Selection"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Clear the filter or pick another day to see the whole week."
+msgstr "Clear the filter or pick another day to see the whole week."
+
+#: src/pages/ImportPage.tsx
+msgid "Clear the filter to see every group in this tab."
+msgstr "Clear the filter to see every group in this tab."
 
 #: src/components/settings/LogsTab.tsx
 msgid "Cleared the log view. No log file is being written to disk."
@@ -1252,6 +1870,10 @@ msgstr "Client"
 msgid "Close"
 msgstr "Close"
 
+#: src/components/import/ImportPickPanel.tsx
+msgid "Close pick panel"
+msgstr "Close pick panel"
+
 #: src/components/settings/AiTab.tsx
 msgid "closed"
 msgstr "closed"
@@ -1260,6 +1882,8 @@ msgstr "closed"
 msgid "Collapse {client}"
 msgstr "Collapse {client}"
 
+#: src/components/queue/upcomingColumns.tsx
+#: src/components/queue/WantedBySeries.tsx
 #: src/components/series/SeriesContentKind.tsx
 #: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
@@ -1269,6 +1893,22 @@ msgstr "Comic"
 #: src/components/settings/GeneralTab.tsx
 msgid "Comic Directory"
 msgstr "Comic Directory"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Comic library"
+msgstr "Comic library"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Comic library scan failed: {detail}"
+msgstr "Comic library scan failed: {detail}"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Comic library scan failed."
+msgstr "Comic library scan failed."
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Comic library scan started."
+msgstr "Comic library scan started."
 
 #: src/components/settings/ApiTab.tsx
 msgid "Comic Vine"
@@ -1285,6 +1925,10 @@ msgstr "Comic Vine API key is configured. Enter a new value to change it."
 #: src/pages/SettingsPage.tsx
 msgid "Comic Vine API key must be 40 characters"
 msgstr "Comic Vine API key must be 40 characters"
+
+#: src/pages/SearchPage.tsx
+msgid "Comic Vine API key required"
+msgstr "Comic Vine API key required"
 
 #: src/components/settings/ApiTab.tsx
 msgid "Comic Vine Only"
@@ -1330,6 +1974,10 @@ msgstr "Comicarr doesn't know where this download went. Enter the folder and nam
 msgid "Comicarr home"
 msgstr "Comicarr home"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Comicarr is reading this week from MangaUpdates. It takes about a minute the first time."
+msgstr "Comicarr is reading this week from MangaUpdates. It takes about a minute the first time."
+
 #: src/components/settings/LogsTab.tsx
 msgid "Comicarr is running at <0>{running} ({runningName})</0> after a save on this page. On the next restart it returns to <1>{restart} ({restartName})</1> from {source}. The dial below edits <2>LOG_LEVEL</2> in the config file, which that source outranks — remove it to make this page's value stick."
 msgstr "Comicarr is running at <0>{running} ({runningName})</0> after a save on this page. On the next restart it returns to <1>{restart} ({restartName})</1> from {source}. The dial below edits <2>LOG_LEVEL</2> in the config file, which that source outranks — remove it to make this page's value stick."
@@ -1337,6 +1985,10 @@ msgstr "Comicarr is running at <0>{running} ({runningName})</0> after a save on 
 #: src/components/settings/LogsTab.tsx
 msgid "Comicarr is running at <0>{running} ({runningName})</0>. On the next restart it returns to <1>{restart} ({restartName})</1> from {source}. The dial below edits <2>LOG_LEVEL</2> in the config file, which that source outranks — remove it to make this page's value stick."
 msgstr "Comicarr is running at <0>{running} ({runningName})</0>. On the next restart it returns to <1>{restart} ({restartName})</1> from {source}. The dial below edits <2>LOG_LEVEL</2> in the config file, which that source outranks — remove it to make this page's value stick."
+
+#: src/hooks/useInteractiveSearch.ts
+msgid "Comicarr returned the existing handoff outcome."
+msgstr "Comicarr returned the existing handoff outcome."
 
 #: src/components/whats-new/WhatsNewModal.tsx
 msgid "Comicarr updated"
@@ -1346,17 +1998,28 @@ msgstr "Comicarr updated"
 msgid "Comicarr will create and download a ZIP of allowlisted diagnostic facts. It does not change your library or settings."
 msgstr "Comicarr will create and download a ZIP of allowlisted diagnostic facts. It does not change your library or settings."
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Comicarr will re-check the item, provider, duplicate state, and download route before handoff."
+msgstr "Comicarr will re-check the item, provider, duplicate state, and download route before handoff."
+
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "comics"
 msgstr "comics"
 
+#: src/components/queue/WantedBySeries.tsx
+#: src/components/releases/releaseFormat.ts
 #: src/components/series/SeriesFilters.tsx
+#: src/pages/SearchPage.tsx
 msgid "Comics"
 msgstr "Comics"
 
 #: src/components/settings/GeneralTab.tsx
 msgid "Comics (Comic Vine)"
 msgstr "Comics (Comic Vine)"
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "Coming up"
+msgstr "Coming up"
 
 #: src/components/settings/ApiTab.tsx
 msgid "Comma-separated language codes (e.g., en,ja)"
@@ -1397,6 +2060,10 @@ msgstr "Conditional rollback"
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Conditional rollback started; its durable state is being refreshed."
 msgstr "Conditional rollback started; its durable state is being refreshed."
+
+#: src/pages/ImportPage.tsx
+msgid "Confident"
+msgstr "Confident"
 
 #: src/components/settings/AboutTab.tsx
 msgid "config path"
@@ -1441,6 +2108,10 @@ msgstr "Confirm delete"
 #: src/components/series/SeriesTable.tsx
 msgid "Confirm Delete"
 msgstr "Confirm Delete"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Confirm grab"
+msgstr "Confirm grab"
 
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Confirm preview"
@@ -1492,6 +2163,7 @@ msgid "Connections"
 msgstr "Connections"
 
 #: src/components/series/SeriesContentKind.tsx
+#: src/pages/SearchPage.tsx
 msgid "Content kind"
 msgstr "Content kind"
 
@@ -1583,6 +2255,10 @@ msgstr "Could not stop this item"
 msgid "Couldn't add {label}"
 msgstr "Couldn't add {label}"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Couldn't connect"
+msgstr "Couldn't connect"
+
 #: src/components/activity/timeline/sentences.ts
 msgid "Couldn't download {label}"
 msgstr "Couldn't download {label}"
@@ -1598,6 +2274,10 @@ msgstr "Couldn't grab {label}"
 #: src/components/activity/timeline/sentences.ts
 msgid "Couldn't import {label}"
 msgstr "Couldn't import {label}"
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "Couldn't load these issues."
+msgstr "Couldn't load these issues."
 
 #: src/components/activity/timeline/sentences.ts
 msgid "couldn't match the file to a series"
@@ -1622,6 +2302,10 @@ msgstr "Couldn't tag {label}"
 #: src/components/settings/InterfaceTab.tsx
 msgid "Cover wall on sign-in"
 msgstr "Cover wall on sign-in"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "covers {coverage}"
+msgstr "covers {coverage}"
 
 #: src/components/settings/SupportBundleSection.tsx
 msgid "Create a diagnostic archive to help troubleshoot Comicarr."
@@ -1699,6 +2383,10 @@ msgstr "date"
 msgid "Date"
 msgstr "Date"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "date unknown"
+msgstr "date unknown"
+
 #: src/lib/downloadClients.ts
 msgid "DDL"
 msgstr "DDL"
@@ -1711,10 +2399,27 @@ msgstr "Debug"
 msgid "Debug and above"
 msgstr "Debug and above"
 
+#: src/components/import/ImportBulkActions.tsx
 #: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Delete"
 msgstr "Delete"
+
+#: src/lib/chatDialogs.ts
+msgid "Delete “{title}”? This also removes its images."
+msgstr "Delete “{title}”? This also removes its images."
+
+#: src/components/import/ImportPickPanel.tsx
+msgid "Delete import record"
+msgstr "Delete import record"
+
+#: src/components/import/ImportBulkActions.tsx
+msgid "Delete selected import records"
+msgstr "Delete selected import records"
+
+#: src/components/import/ImportPickPanel.tsx
+msgid "Delete the import record (files on disk are untouched)"
+msgstr "Delete the import record (files on disk are untouched)"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Delete this series?"
@@ -1727,6 +2432,10 @@ msgstr "Deluge"
 #: src/components/activity/health/HealthView.tsx
 msgid "Deprecated features in use"
 msgstr "Deprecated features in use"
+
+#: src/components/import/LibraryScanResults.tsx
+msgid "Deselect All"
+msgstr "Deselect All"
 
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Detail"
@@ -1776,6 +2485,10 @@ msgstr "Direct downloads"
 msgid "Direct downloads, live"
 msgstr "Direct downloads, live"
 
+#: src/pages/SettingsPage.tsx
+msgid "Discard unsaved indexer changes?"
+msgstr "Discard unsaved indexer changes?"
+
 #: src/components/settings/NotificationsTab.tsx
 msgid "Discord"
 msgstr "Discord"
@@ -1800,6 +2513,7 @@ msgstr "Dismissing marks {to} as seen for every user of this install."
 msgid "Docs"
 msgstr "Docs"
 
+#: src/components/import/ImportPickPanel.tsx
 #: src/components/series/IssueStory.tsx
 #: src/lib/statusTone.ts
 msgid "Done"
@@ -1842,6 +2556,9 @@ msgstr "Download route ready"
 msgid "Download state reported by the provider."
 msgstr "Download state reported by the provider."
 
+#: src/components/releases/IndustryReleasesView.tsx
+#: src/components/releases/MyReleasesView.tsx
+#: src/lib/releaseState.ts
 #: src/lib/statusTone.ts
 #: src/pages/ActivityPage.tsx
 msgid "Downloaded"
@@ -1854,6 +2571,10 @@ msgstr "Downloaded {label}"
 #: src/components/activity/timeline/sentences.ts
 msgid "downloader unreachable"
 msgstr "downloader unreachable"
+
+#: src/lib/releaseState.ts
+msgid "Downloading"
+msgstr "Downloading"
 
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Downloads"
@@ -1906,6 +2627,14 @@ msgstr "Earlier files are still read from {folders}."
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Edit {client}"
 msgstr "Edit {client}"
+
+#: src/components/import/ImportPickPanel.tsx
+msgid "Edit chapter numbers"
+msgstr "Edit chapter numbers"
+
+#: src/components/import/ImportPickPanel.tsx
+msgid "Edit issue numbers"
+msgstr "Edit issue numbers"
 
 #: src/components/settings/NotificationsTab.tsx
 msgid "Email"
@@ -2039,6 +2768,10 @@ msgstr "Enter your 40-character Comic Vine API key"
 msgid "Error"
 msgstr "Error"
 
+#: src/components/import/MatchModal.tsx
+msgid "Error searching: {error}"
+msgstr "Error searching: {error}"
+
 #: src/components/settings/LogsTab.tsx
 msgid "Errors only"
 msgstr "Errors only"
@@ -2059,9 +2792,17 @@ msgstr "Every download route is disabled. Enable one in Settings, along with at 
 msgid "Every download, newest first"
 msgstr "Every download, newest first"
 
+#: src/pages/ImportPage.tsx
+msgid "Every file Comicarr found is matched or set aside."
+msgstr "Every file Comicarr found is matched or set aside."
+
 #: src/lib/healthBand.ts
 msgid "every indexer is temporarily blocked"
 msgstr "every indexer is temporarily blocked"
+
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "Every issue checked in"
+msgstr "Every issue checked in"
 
 #: src/pages/IssueDetailPage.tsx
 msgid "Every line Comicarr wrote about this issue is in the full log."
@@ -2075,9 +2816,17 @@ msgstr "Every provider is in a temporary backoff. This clears on its own — try
 msgid "Every series uses the category above. Add a library folder to send its series to their own category or save path."
 msgstr "Every series uses the category above. Add a library folder to send its series to their own category or save path."
 
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "Every Wanted issue has been checked against new releases"
+msgstr "Every Wanted issue has been checked against new releases"
+
 #: src/pages/ActivityPage.tsx
 msgid "Everything Comicarr did, and what went wrong"
 msgstr "Everything Comicarr did, and what went wrong"
+
+#: src/pages/ReleasesPage.tsx
+msgid "Everything out this week: comics, manga, manhwa and manhua"
+msgstr "Everything out this week: comics, manga, manhwa and manhua"
 
 #: src/components/settings/LogsTab.tsx
 msgid "everything, including diagnostics"
@@ -2106,6 +2855,18 @@ msgstr "failed"
 msgid "Failed"
 msgstr "Failed"
 
+#: src/components/search/SearchAddButton.tsx
+msgid "Failed to Add Comic"
+msgstr "Failed to Add Comic"
+
+#: src/components/search/SearchAddButton.tsx
+msgid "Failed to Add Manga"
+msgstr "Failed to Add Manga"
+
+#: src/components/search/SearchAddButton.tsx
+msgid "Failed to Add Series"
+msgstr "Failed to Add Series"
+
 #: src/components/settings/ApiTab.tsx
 msgid "Failed to copy API key"
 msgstr "Failed to copy API key"
@@ -2114,16 +2875,37 @@ msgstr "Failed to copy API key"
 msgid "Failed to copy the MCP endpoint"
 msgstr "Failed to copy the MCP endpoint"
 
+#: src/pages/ImportPage.tsx
+msgid "Failed to delete records: {error}"
+msgstr "Failed to delete records: {error}"
+
 #: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Failed to delete series"
 msgstr "Failed to delete series"
+
+#: src/pages/ImportPage.tsx
+msgid "Failed to ignore files: {error}"
+msgstr "Failed to ignore files: {error}"
+
+#: src/pages/ImportPage.tsx
+msgid "Failed to import confident matches: {error}"
+msgstr "Failed to import confident matches: {error}"
+
+#: src/pages/ImportPage.tsx
+msgid "Failed to import: {error}"
+msgstr "Failed to import: {error}"
+
+#: src/pages/ImportPage.tsx
+msgid "Failed to match: {error}"
+msgstr "Failed to match: {error}"
 
 #: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Failed to pause series"
 msgstr "Failed to pause series"
 
+#: src/components/releases/MyReleasesView.tsx
 #: src/hooks/useQueue.ts
 msgid "Failed to queue issues: {error}"
 msgstr "Failed to queue issues: {error}"
@@ -2153,13 +2935,44 @@ msgstr "Failed to save search order"
 msgid "Failed to save settings"
 msgstr "Failed to save settings"
 
+#: src/pages/ImportPage.tsx
+msgid "Failed to scan inbox: {error}"
+msgstr "Failed to scan inbox: {error}"
+
+#: src/components/releases/MyReleasesView.tsx
 #: src/hooks/useQueue.ts
+#: src/pages/WantedPage.tsx
 msgid "Failed to skip issues: {error}"
 msgstr "Failed to skip issues: {error}"
 
 #: src/components/settings/LogsTab.tsx
 msgid "Failed to start a new log file"
 msgstr "Failed to start a new log file"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Failed to start comic scan: {error}"
+msgstr "Failed to start comic scan: {error}"
+
+#: src/components/import/ImportInboxSection.tsx
+msgid "Failed to start inbox scan: {error}"
+msgstr "Failed to start inbox scan: {error}"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Failed to start manga scan: {error}"
+msgstr "Failed to start manga scan: {error}"
+
+#: src/components/releases/MyReleasesView.tsx
+#: src/pages/WantedPage.tsx
+msgid "Failed to start search: {error}"
+msgstr "Failed to start search: {error}"
+
+#: src/pages/ImportPage.tsx
+msgid "Failed to unignore files: {error}"
+msgstr "Failed to unignore files: {error}"
+
+#: src/pages/ImportPage.tsx
+msgid "Failed to update import metadata: {error}"
+msgstr "Failed to update import metadata: {error}"
 
 #: src/hooks/useQueue.ts
 msgid "Failed to update issues: {error}"
@@ -2194,6 +3007,10 @@ msgstr "Failures and stalled imports show up here until you act on them. Finishe
 msgid "Feature"
 msgstr "Feature"
 
+#: src/pages/SearchPage.tsx
+msgid "Fewest Issues"
+msgstr "Fewest Issues"
+
 #: src/components/settings/LogsTab.tsx
 #: src/pages/ActivityPage.tsx
 msgid "File"
@@ -2219,9 +3036,26 @@ msgstr "File or folder name"
 msgid "File Size Constraints"
 msgstr "File Size Constraints"
 
+#: src/components/import/importColumns.tsx
+#: src/components/import/ImportPickPanel.tsx
+msgid "Files"
+msgstr "Files"
+
 #: src/components/series/SeriesFolder.tsx
 msgid "Files already in the library"
 msgstr "Files already in the library"
+
+#: src/pages/ImportPage.tsx
+msgid "Files awaiting review"
+msgstr "Files awaiting review"
+
+#: src/pages/ImportPage.tsx
+msgid "Files Comicarr found but couldn't place on its own. Confirm a series and they move into your library."
+msgstr "Files Comicarr found but couldn't place on its own. Confirm a series and they move into your library."
+
+#: src/pages/ImportPage.tsx
+msgid "Files you ignore wait here until you bring them back."
+msgstr "Files you ignore wait here until you bring them back."
 
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Filter by activity"
@@ -2247,9 +3081,17 @@ msgstr "Filter by series, issue, provider, status, or file…"
 msgid "Filter by stage"
 msgstr "Filter by stage"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Filter by title or publisher"
+msgstr "Filter by title or publisher"
+
 #: src/pages/ActivityPage.tsx
 msgid "Filter download history"
 msgstr "Filter download history"
+
+#: src/pages/ImportPage.tsx
+msgid "Filter files"
+msgstr "Filter files"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Filter issues"
@@ -2267,6 +3109,11 @@ msgstr "Filter needs attention"
 msgid "Filter queue activity"
 msgstr "Filter queue activity"
 
+#: src/components/releases/IndustryReleasesView.tsx
+#: src/components/releases/MyReleasesView.tsx
+msgid "Filter releases"
+msgstr "Filter releases"
+
 #: src/components/settings/SearchTab.tsx
 msgid "Filter search results by quality preference"
 msgstr "Filter search results by quality preference"
@@ -2274,6 +3121,14 @@ msgstr "Filter search results by quality preference"
 #: src/components/series/SeriesTable.tsx
 msgid "Filter series"
 msgstr "Filter series"
+
+#: src/pages/WantedPage.tsx
+msgid "Filter series or issue…"
+msgstr "Filter series or issue…"
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "Filter series or publisher"
+msgstr "Filter series or publisher"
 
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Filter timeline"
@@ -2283,11 +3138,36 @@ msgstr "Filter timeline"
 msgid "Filter timeline…"
 msgstr "Filter timeline…"
 
+#: src/pages/WantedPage.tsx
+msgid "Filter wanted issues"
+msgstr "Filter wanted issues"
+
+#: src/pages/WantedPage.tsx
+msgid "Filter wanted issues…"
+msgstr "Filter wanted issues…"
+
+#: src/pages/SearchPage.tsx
+msgid "find comics and manga to add"
+msgstr "find comics and manga to add"
+
+#: src/pages/SearchPage.tsx
+msgid "Find comics to add"
+msgstr "Find comics to add"
+
+#: src/pages/SearchPage.tsx
+msgid "Find manga to add"
+msgstr "Find manga to add"
+
+#: src/pages/ImportPage.tsx
+msgid "Find series already on disk, or check the watched inbox now."
+msgstr "Find series already on disk, or check the watched inbox now."
+
 #: src/lib/healthRows.ts
 msgid "Finished without errors"
 msgstr "Finished without errors"
 
 #: src/components/activity/attention/ImportManuallyDialog.tsx
+#: src/components/search/SearchAddButton.tsx
 #: src/components/series/SeriesFolder.tsx
 msgid "Folder"
 msgstr "Folder"
@@ -2296,6 +3176,10 @@ msgstr "Folder"
 msgid "Folder Format"
 msgstr "Folder Format"
 
+#: src/lib/importUtils.ts
+msgid "Folder group"
+msgstr "Folder group"
+
 #: src/lib/healthRows.ts
 msgid "Folder monitor"
 msgstr "Folder monitor"
@@ -2303,6 +3187,27 @@ msgstr "Folder monitor"
 #: src/pages/SettingsPage.tsx
 msgid "Folders and naming"
 msgstr "Folders and naming"
+
+#: src/components/releases/MyReleasesView.tsx
+#: src/pages/WantedPage.tsx
+msgid "Force search"
+msgstr "Force search"
+
+#: src/components/releases/ReleasesModeBar.tsx
+msgid "Format"
+msgstr "Format"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "found <0>{found}</0> · matched <1>{matched}</1>"
+msgstr "found <0>{found}</0> · matched <1>{matched}</1>"
+
+#: src/components/import/ImportPickPanel.tsx
+msgid "found in a library scan {foundAgo}"
+msgstr "found in a library scan {foundAgo}"
+
+#: src/components/import/ImportPickPanel.tsx
+msgid "found in inbox {foundAgo}"
+msgstr "found in inbox {foundAgo}"
 
 #: src/components/settings/NotificationsTab.tsx
 msgid "From Address"
@@ -2344,6 +3249,18 @@ msgstr "Gotify"
 msgid "Gotify application token"
 msgstr "Gotify application token"
 
+#: src/hooks/useInteractiveSearch.ts
+msgid "Grab already started"
+msgstr "Grab already started"
+
+#: src/hooks/useInteractiveSearch.ts
+msgid "Grab started"
+msgstr "Grab started"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Grab this release?"
+msgstr "Grab this release?"
+
 #: src/components/activity/timeline/sentences.ts
 msgid "grabbed {count}"
 msgstr "grabbed {count}"
@@ -2361,12 +3278,21 @@ msgid "Grid"
 msgstr "Grid"
 
 #: src/components/series/SeriesTable.tsx
+#: src/pages/SearchPage.tsx
 msgid "Grid view"
 msgstr "Grid view"
+
+#: src/pages/WantedPage.tsx
+msgid "Group Wanted"
+msgstr "Group Wanted"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "grouped by arc"
 msgstr "grouped by arc"
+
+#: src/pages/ImportPage.tsx
+msgid "Groups that clear your auto-import bar but did not import on their own wait here."
+msgstr "Groups that clear your auto-import bar but did not import on their own wait here."
 
 #: src/components/settings/AiTab.tsx
 msgid "half-open"
@@ -2403,6 +3329,10 @@ msgstr "healthy"
 #: src/pages/AttentionPage.tsx
 msgid "hide issues"
 msgstr "hide issues"
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "Hide issues for {series}"
+msgstr "Hide issues for {series}"
 
 #: src/pages/IssueDetailPage.tsx
 msgid "Hide rejected"
@@ -2453,6 +3383,10 @@ msgstr "How often to update series metadata from providers, in minutes (default:
 msgid "HTTP authentication username"
 msgstr "HTTP authentication username"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "I reviewed the matcher explanation. Safety blocks still cannot be overridden."
+msgstr "I reviewed the matcher explanation. Safety blocks still cannot be overridden."
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "I reviewed this immutable preview and want to freeze it"
 msgstr "I reviewed this immutable preview and want to freeze it"
@@ -2466,18 +3400,30 @@ msgstr "idle"
 msgid "Idle"
 msgstr "Idle"
 
+#: src/components/import/ImportBulkActions.tsx
+#: src/components/import/ImportPickPanel.tsx
+msgid "Ignore"
+msgstr "Ignore"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Ignore book type"
 msgstr "Ignore book type"
 
+#: src/components/import/ImportBulkActions.tsx
+msgid "Ignore selected import files"
+msgstr "Ignore selected import files"
+
+#: src/components/import/ImportFileRow.tsx
 #: src/components/series/IssueStatusMenu.tsx
 #: src/lib/statusTone.ts
+#: src/pages/ImportPage.tsx
 msgid "Ignored"
 msgstr "Ignored"
 
 #: src/components/activity/attention/ImportManuallyDialog.tsx
 #: src/components/activity/timeline/attentionStage.ts
 #: src/components/layout/AppSidebar.tsx
+#: src/pages/ImportPage.tsx
 msgid "Import"
 msgstr "Import"
 
@@ -2485,17 +3431,37 @@ msgstr "Import"
 msgid "Import {label}"
 msgstr "Import {label}"
 
+#: src/components/import/ImportPickPanel.tsx
+msgid "Import as {series}"
+msgstr "Import as {series}"
+
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Import Behavior"
 msgstr "Import Behavior"
+
+#: src/components/import/ImportInboxSection.tsx
+msgid "Import directory"
+msgstr "Import directory"
 
 #: src/components/settings/GeneralTab.tsx
 msgid "Import Directory"
 msgstr "Import Directory"
 
+#: src/pages/ImportPage.tsx
+msgid "Import directory not configured"
+msgstr "Import directory not configured"
+
+#: src/pages/ImportPage.tsx
+msgid "Import every Confident group as its suggested series"
+msgstr "Import every Confident group as its suggested series"
+
 #: src/components/activity/timeline/sentences.ts
 msgid "import failed"
 msgstr "import failed"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Import failed: {error}"
+msgstr "Import failed: {error}"
 
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Import file operation"
@@ -2505,14 +3471,42 @@ msgstr "Import file operation"
 msgid "Import inbox"
 msgstr "Import inbox"
 
+#: src/pages/ImportPage.tsx
+msgid "Import inbox scan started"
+msgstr "Import inbox scan started"
+
+#: src/components/import/ImportInboxSection.tsx
+msgid "Import inbox scan started."
+msgstr "Import inbox scan started."
+
 #: src/components/activity/attention/ImportManuallyDialog.tsx
 #: src/components/series/IssueStory.tsx
 msgid "Import manually"
 msgstr "Import manually"
 
+#: src/components/import/LibraryScanResults.tsx
+msgid "Import Selected ({count})"
+msgstr "Import Selected ({count})"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Imported {imported} {type} series. The library has been refreshed."
+msgstr "Imported {imported} {type} series. The library has been refreshed."
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Imported {imported} comic series"
+msgstr "Imported {imported} comic series"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Imported {imported} manga series"
+msgstr "Imported {imported} manga series"
+
 #: src/components/activity/timeline/sentences.ts
 msgid "Imported {label}"
 msgstr "Imported {label}"
+
+#: src/lib/releaseState.ts
+msgid "Importing"
+msgstr "Importing"
 
 #: src/components/activity/timeline/sentences.ts
 msgid "Importing {label}"
@@ -2534,6 +3528,10 @@ msgstr "in {compact}"
 msgid "in {duration}"
 msgstr "in {duration}"
 
+#: src/lib/wantedPacing.ts
+msgid "in {minutes} min"
+msgstr "in {minutes} min"
+
 #: src/components/activity/ActivityTabs.tsx
 #: src/pages/ActivityPage.tsx
 msgid "In flight"
@@ -2543,14 +3541,35 @@ msgstr "In flight"
 msgid "IN FLIGHT · EMPTY"
 msgstr "IN FLIGHT · EMPTY"
 
+#: src/lib/importPick.ts
+msgid "in library"
+msgstr "in library"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "In library"
+msgstr "In library"
+
+#: src/components/import/MatchModal.tsx
+msgid "In Library"
+msgstr "In Library"
+
 #: src/components/activity/timeline/TimelineView.tsx
+#: src/components/releases/MyReleasesView.tsx
 #: src/components/series/SeriesFilters.tsx
 msgid "In progress"
 msgstr "In progress"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "in your library"
+msgstr "in your library"
+
 #: src/pages/ActivityPage.tsx
 msgid "In-flight items"
 msgstr "In-flight items"
+
+#: src/components/import/ImportSourcesStrip.tsx
+msgid "Inbox"
+msgstr "Inbox"
 
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Include annuals"
@@ -2648,11 +3667,23 @@ msgstr "iOS push notifications via Prowl"
 msgid "IP address the server listens on"
 msgstr "IP address the server listens on"
 
+#: src/components/queue/upcomingColumns.tsx
+#: src/components/queue/wantedColumns.tsx
+#: src/components/releases/IndustryReleasesView.tsx
+#: src/lib/importUtils.ts
 #: src/pages/ActivityPage.tsx
 #: src/pages/IssueDetailPage.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Issue"
 msgstr "Issue"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Issue · {issueStatus}"
+msgstr "Issue · {issueStatus}"
+
+#: src/lib/importUtils.ts
+msgid "Issue {first}"
+msgstr "Issue {first}"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Issue {number}"
@@ -2669,6 +3700,10 @@ msgstr "issues"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Issues"
 msgstr "Issues"
+
+#: src/lib/importUtils.ts
+msgid "Issues {first}-{last}"
+msgstr "Issues {first}-{last}"
 
 #: src/components/settings/SupportBundleSection.tsx
 msgid "It does not include your database, settings values, raw log lines, library names, paths, chat content, or other free text."
@@ -2691,6 +3726,7 @@ msgid "Job"
 msgstr "Job"
 
 #: src/lib/healthRows.ts
+#: src/lib/releaseState.ts
 msgid "just now"
 msgstr "just now"
 
@@ -2703,6 +3739,7 @@ msgstr "keeps {retention}"
 msgid "Key saved (enter new value to change)"
 msgstr "Key saved (enter new value to change)"
 
+#: src/components/queue/WantedBySeries.tsx
 #: src/components/series/SeriesFilters.tsx
 msgid "Kind"
 msgstr "Kind"
@@ -2743,6 +3780,10 @@ msgstr "Last result"
 msgid "Last run"
 msgstr "Last run"
 
+#: src/components/queue/WantedBySeries.tsx
+msgid "Last searched"
+msgstr "Last searched"
+
 #: src/lib/healthBand.ts
 msgid "Last successful search: {age}"
 msgstr "Last successful search: {age}"
@@ -2758,6 +3799,14 @@ msgstr "Last successful search: unknown"
 #: src/lib/series-utils.ts
 msgid "last sync {when}"
 msgstr "last sync {when}"
+
+#: src/lib/releaseWeek.ts
+msgid "Last week"
+msgstr "Last week"
+
+#: src/pages/SearchPage.tsx
+msgid "Latest Upload"
+msgstr "Latest Upload"
 
 #: src/components/settings/InterfaceTab.tsx
 msgid "Launch Browser"
@@ -2787,6 +3836,7 @@ msgstr "Level"
 #: src/components/layout/AppSidebar.tsx
 #: src/components/layout/MobileTabBar.tsx
 #: src/pages/IssueDetailPage.tsx
+#: src/pages/SearchPage.tsx
 #: src/pages/SeriesDetailPage.tsx
 #: src/pages/SeriesListPage.tsx
 #: src/pages/SettingsPage.tsx
@@ -2801,6 +3851,10 @@ msgstr "Library folder"
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Library folder {number}"
 msgstr "Library folder {number}"
+
+#: src/components/import/ImportSourcesStrip.tsx
+msgid "Library folders"
+msgstr "Library folders"
 
 #: src/lib/healthRows.ts
 msgid "Library refresh"
@@ -2831,6 +3885,7 @@ msgid "List"
 msgstr "List"
 
 #: src/components/series/SeriesTable.tsx
+#: src/pages/SearchPage.tsx
 msgid "List view"
 msgstr "List view"
 
@@ -2858,17 +3913,34 @@ msgstr "Loading release history…"
 msgid "Loading release notes…"
 msgstr "Loading release notes…"
 
+#: src/pages/ImportPage.tsx
+msgid "Loading review groups."
+msgstr "Loading review groups."
+
 #: src/components/settings/ProviderOrderSettings.tsx
 msgid "Loading search order…"
 msgstr "Loading search order…"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Loading this week's manga, manhwa and manhua from MangaUpdates…"
+msgstr "Loading this week's manga, manhwa and manhua from MangaUpdates…"
 
 #: src/lib/updateStatus.ts
 msgid "Loading update status…"
 msgstr "Loading update status…"
 
+#: src/components/releases/WeekBar.tsx
+msgid "Loading week…"
+msgstr "Loading week…"
+
 #: src/hooks/useLibrarySummary.ts
+#: src/pages/WantedPage.tsx
 msgid "loading…"
 msgstr "loading…"
+
+#: src/components/import/MatchModal.tsx
+msgid "Loading..."
+msgstr "Loading..."
 
 #: src/components/activity/timeline/TimelineView.tsx
 #: src/components/whats-new/WhatsNewModal.tsx
@@ -2928,6 +4000,10 @@ msgstr "Logout failed. Your session is still active; please try again."
 msgid "Logs"
 msgstr "Logs"
 
+#: src/components/import/ImportPickPanel.tsx
+msgid "Looking for series outside your library…"
+msgstr "Looking for series outside your library…"
+
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Lowercase filenames"
 msgstr "Lowercase filenames"
@@ -2953,9 +4029,14 @@ msgstr "maintenance"
 msgid "MAL Client ID"
 msgstr "MAL Client ID"
 
+#: src/components/queue/upcomingColumns.tsx
+#: src/components/queue/WantedBySeries.tsx
+#: src/components/releases/IndustryReleasesView.tsx
+#: src/components/releases/releaseFormat.ts
 #: src/components/series/SeriesContentKind.tsx
 #: src/components/series/SeriesFilters.tsx
 #: src/components/series/SeriesTable.tsx
+#: src/pages/SearchPage.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Manga"
 msgstr "Manga"
@@ -2972,13 +4053,61 @@ msgstr "Manga Destination Directory"
 msgid "Manga Directory"
 msgstr "Manga Directory"
 
+#: src/components/import/LibraryScanSection.tsx
+msgid "Manga library"
+msgstr "Manga library"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Manga library scan failed: {detail}"
+msgstr "Manga library scan failed: {detail}"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Manga library scan failed."
+msgstr "Manga library scan failed."
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Manga library scan started."
+msgstr "Manga library scan started."
+
 #: src/lib/healthRows.ts
 msgid "Manga library sync"
 msgstr "Manga library sync"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Manga releases need a manga provider. Turn on MangaDex or MyAnimeList in Settings, then come back."
+msgstr "Manga releases need a manga provider. Turn on MangaDex or MyAnimeList in Settings, then come back."
+
+#: src/components/import/MatchModal.tsx
+msgid "Manga search requires MangaDex or MyAnimeList to be enabled in Settings."
+msgstr "Manga search requires MangaDex or MyAnimeList to be enabled in Settings."
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Manga, manhwa and manhua release data from <0>MangaUpdates</0>."
+msgstr "Manga, manhwa and manhua release data from <0>MangaUpdates</0>."
+
 #: src/components/settings/ApiTab.tsx
 msgid "MangaDex"
 msgstr "MangaDex"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "MangaUpdates could not be reached. Comicarr tries again in a few minutes."
+msgstr "MangaUpdates could not be reached. Comicarr tries again in a few minutes."
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "MangaUpdates lists chapters once they are out, so this week has no manga yet."
+msgstr "MangaUpdates lists chapters once they are out, so this week has no manga yet."
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "MangaUpdates lists no releases of this type this week."
+msgstr "MangaUpdates lists no releases of this type this week."
+
+#: src/components/releases/releaseFormat.ts
+msgid "Manhua"
+msgstr "Manhua"
+
+#: src/components/releases/releaseFormat.ts
+msgid "Manhwa"
+msgstr "Manhwa"
 
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Manifest confirmed"
@@ -3001,9 +4130,18 @@ msgstr "Manual review"
 msgid "Manual review required; it will not retry automatically."
 msgstr "Manual review required; it will not retry automatically."
 
+#: src/components/releases/MyReleasesView.tsx
+#: src/pages/WantedPage.tsx
+msgid "Manual search may take several minutes. Continue?"
+msgstr "Manual search may take several minutes. Continue?"
+
 #: src/components/whats-new/WhatsNewArchive.tsx
 msgid "Mark as read"
 msgstr "Mark as read"
+
+#: src/components/queue/BulkActionBar.tsx
+msgid "Mark Wanted"
+msgstr "Mark Wanted"
 
 #: src/components/activity/timeline/sentences.ts
 msgid "Marked {label} skipped"
@@ -3013,13 +4151,41 @@ msgstr "Marked {label} skipped"
 msgid "Marked {label} wanted"
 msgstr "Marked {label} wanted"
 
+#: src/components/import/importColumns.tsx
+msgid "Match"
+msgstr "Match"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Match failed"
+msgstr "Match failed"
+
+#: src/components/import/MatchModal.tsx
+msgid "Match Import"
+msgstr "Match Import"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Match results even when the release's book type (TPB, GN…) differs from this series"
 msgstr "Match results even when the release's book type (TPB, GN…) differs from this series"
 
+#: src/components/import/MatchModal.tsx
+msgid "Match Selected"
+msgstr "Match Selected"
+
+#: src/lib/wantedAnnotation.ts
+msgid "matched"
+msgstr "matched"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Matching"
 msgstr "Matching"
+
+#: src/components/releases/MangaAddDialog.tsx
+msgid "Matching series"
+msgstr "Matching series"
+
+#: src/components/import/MatchModal.tsx
+msgid "Matching..."
+msgstr "Matching..."
 
 #: src/components/settings/NotificationsTab.tsx
 msgid "Matrix"
@@ -3117,6 +4283,10 @@ msgstr "Minimum size must be a positive number"
 msgid "Minimum size must be less than maximum size"
 msgstr "Minimum size must be less than maximum size"
 
+#: src/components/queue/WantedBySeries.tsx
+msgid "Missing"
+msgstr "Missing"
+
 #: src/components/activity/timeline/attentionStage.ts
 msgid "mixed"
 msgstr "mixed"
@@ -3148,6 +4318,18 @@ msgstr "More series actions"
 #: src/components/activity/timeline/sentences.ts
 msgid "more than one issue matches this file"
 msgstr "more than one issue matches this file"
+
+#: src/pages/SearchPage.tsx
+msgid "Most Followed"
+msgstr "Most Followed"
+
+#: src/pages/SearchPage.tsx
+msgid "Most Issues"
+msgstr "Most Issues"
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "Most missing"
+msgstr "Most missing"
 
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Move"
@@ -3185,6 +4367,27 @@ msgstr "Mutating controls are disabled until the owning operation releases it."
 msgid "MyAnimeList"
 msgstr "MyAnimeList"
 
+#: src/components/import/MatchModal.tsx
+#: src/components/queue/wantedColumns.tsx
+msgid "N/A"
+msgstr "N/A"
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "Name"
+msgstr "Name"
+
+#: src/pages/SearchPage.tsx
+msgid "Name (A-Z)"
+msgstr "Name (A-Z)"
+
+#: src/pages/SearchPage.tsx
+msgid "Name (Z-A)"
+msgstr "Name (Z-A)"
+
+#: src/pages/ImportPage.tsx
+msgid "Needs a pick"
+msgstr "Needs a pick"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "needs attention"
 msgstr "needs attention"
@@ -3199,12 +4402,29 @@ msgid "Needs attention (history)"
 msgstr "Needs attention (history)"
 
 #: src/components/activity/ActivityTabs.tsx
+#: src/components/releases/MyReleasesView.tsx
 msgid "Needs you"
 msgstr "Needs you"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Neither Walksoftly nor ComicVine has this week's comics yet. Future weeks fill in as publishers announce them; try again later."
+msgstr "Neither Walksoftly nor ComicVine has this week's comics yet. Future weeks fill in as publishers announce them; try again later."
+
+#: src/lib/wantedAnnotation.ts
+msgid "never searched"
+msgstr "never searched"
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "New comic day"
+msgstr "New comic day"
 
 #: src/components/series/SeriesFolder.tsx
 msgid "New downloads and imports go to {location}."
 msgstr "New downloads and imports go to {location}."
+
+#: src/pages/ReleasesPage.tsx
+msgid "New issues and chapters from series you follow, week by week"
+msgstr "New issues and chapters from series you follow, week by week"
 
 #: src/components/settings/LogsTab.tsx
 msgid "New log"
@@ -3219,6 +4439,7 @@ msgid "Newznab category numbers, separated by commas. 7030 is comics; add 7010 f
 msgstr "Newznab category numbers, separated by commas. 7030 is comics; add 7010 for magazines."
 
 #: src/components/activity/timeline/TimelineView.tsx
+#: src/components/queue/WantedBySeries.tsx
 msgid "Next"
 msgstr "Next"
 
@@ -3229,6 +4450,11 @@ msgstr "next run"
 #: src/components/activity/health/HealthView.tsx
 msgid "Next run"
 msgstr "Next run"
+
+#: src/components/releases/WeekBar.tsx
+#: src/lib/releaseWeek.ts
+msgid "Next week"
+msgstr "Next week"
 
 #: src/pages/ActivityPage.tsx
 msgid "No active downloads"
@@ -3246,6 +4472,14 @@ msgstr "No API key configured"
 msgid "no complete acquisition route is ready"
 msgstr "no complete acquisition route is ready"
 
+#: src/pages/ImportPage.tsx
+msgid "No confident matches waiting"
+msgstr "No confident matches waiting"
+
+#: src/lib/searchBlockers.ts
+msgid "no download client"
+msgstr "no download client"
+
 #: src/components/activity/health/HealthView.tsx
 msgid "No download client or indexer is set up yet. <0>Add one in Settings</0>."
 msgstr "No download client or indexer is set up yet. <0>Add one in Settings</0>."
@@ -3253,6 +4487,10 @@ msgstr "No download client or indexer is set up yet. <0>Add one in Settings</0>.
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "No download client yet. Add one so Comicarr has somewhere to send the releases it finds."
 msgstr "No download client yet. Add one so Comicarr has somewhere to send the releases it finds."
+
+#: src/lib/searchBlockers.ts
+msgid "No download client, so nothing can be downloaded"
+msgstr "No download client, so nothing can be downloaded"
 
 #: src/pages/ActivityPage.tsx
 msgid "No download history"
@@ -3270,9 +4508,25 @@ msgstr "No durable acquisition runs have been recorded yet."
 msgid "No eligible missing issues remain to search."
 msgstr "No eligible missing issues remain to search."
 
+#: src/pages/WantedPage.tsx
+msgid "No eligible wanted issues are ready to search."
+msgstr "No eligible wanted issues are ready to search."
+
+#: src/pages/ImportPage.tsx
+msgid "No ignored files"
+msgstr "No ignored files"
+
+#: src/lib/searchBlockers.ts
+msgid "no indexer"
+msgstr "no indexer"
+
 #: src/lib/healthBand.ts
 msgid "no indexer is configured"
 msgstr "no indexer is configured"
+
+#: src/lib/searchBlockers.ts
+msgid "No indexer, so nothing can be searched"
+msgstr "No indexer, so nothing can be searched"
 
 #: src/lib/healthBand.ts
 msgid "No indexers configured"
@@ -3282,6 +4536,23 @@ msgstr "No indexers configured"
 msgid "no issues to display"
 msgstr "no issues to display"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "No manga releases for this week"
+msgstr "No manga releases for this week"
+
+#: src/components/import/importColumns.tsx
+#: src/components/import/LibraryScanResults.tsx
+msgid "No match"
+msgstr "No match"
+
+#: src/components/releases/MangaAddDialog.tsx
+msgid "No match for “{title}” that isn’t already in your library. Try Add a series with another of its titles."
+msgstr "No match for “{title}” that isn’t already in your library. Try Add a series with another of its titles."
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "No matcher explanation was returned."
+msgstr "No matcher explanation was returned."
+
 #: src/pages/ActivityPage.tsx
 msgid "No matching history"
 msgstr "No matching history"
@@ -3290,9 +4561,18 @@ msgstr "No matching history"
 msgid "No matching queue items"
 msgstr "No matching queue items"
 
+#: src/components/import/LibraryScanResults.tsx
+msgid "No new series found in directory. All series are already in your library."
+msgstr "No new series found in directory. All series are already in your library."
+
 #: src/components/whats-new/ReleaseNotesList.tsx
 msgid "No notes recorded for this release."
 msgstr "No notes recorded for this release."
+
+#: src/components/import/ImportTable.tsx
+#: src/pages/ImportPage.tsx
+msgid "No pending imports"
+msgstr "No pending imports"
 
 #: src/components/series/SeriesSearchProviders.tsx
 msgid "No providers enabled"
@@ -3302,6 +4582,14 @@ msgstr "No providers enabled"
 msgid "No records match this search."
 msgstr "No records match this search."
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "No release candidates found"
+msgstr "No release candidates found"
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "No release date"
+msgstr "No release date"
+
 #: src/components/whats-new/WhatsNewModal.tsx
 msgid "No release notes recorded for this upgrade."
 msgstr "No release notes recorded for this upgrade."
@@ -3310,6 +4598,14 @@ msgstr "No release notes recorded for this upgrade."
 msgid "No release notes to show."
 msgstr "No release notes to show."
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "No releases for this week"
+msgstr "No releases for this week"
+
+#: src/pages/SearchPage.tsx
+msgid "No results for \"{urlQuery}\". Try a different query or check spelling."
+msgstr "No results for \"{urlQuery}\". Try a different query or check spelling."
+
 #: src/components/activity/timeline/sentences.ts
 msgid "no results for {count}"
 msgstr "no results for {count}"
@@ -3317,6 +4613,10 @@ msgstr "no results for {count}"
 #: src/components/activity/timeline/sentences.ts
 msgid "No results for {label}"
 msgstr "No results for {label}"
+
+#: src/components/import/MatchModal.tsx
+msgid "No results found. Try a different search term."
+msgstr "No results found. Try a different search term."
 
 #: src/components/series/SeriesGrid.tsx
 #: src/components/series/SeriesTable.tsx
@@ -3343,6 +4643,14 @@ msgstr "No scheduler jobs are available."
 msgid "No Search providers are enabled yet. Add an indexer or turn on Prowlarr search to set an order."
 msgstr "No Search providers are enabled yet. Add an indexer or turn on Prowlarr search to set an order."
 
+#: src/components/import/ImportPickPanel.tsx
+msgid "No series scored close enough to suggest."
+msgstr "No series scored close enough to suggest."
+
+#: src/components/import/importColumns.tsx
+msgid "No suggestion"
+msgstr "No suggestion"
+
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "No timeline events yet"
 msgstr "No timeline events yet"
@@ -3367,6 +4675,10 @@ msgstr "No Usenet indexer is configured. Add and enable one in Search settings."
 msgid "No Usenet indexers are configured. Add a Newznab-compatible indexer to make the NZB route searchable."
 msgstr "No Usenet indexers are configured. Add a Newznab-compatible indexer to make the NZB route searchable."
 
+#: src/components/queue/WantedBySeries.tsx
+msgid "No wanted series match."
+msgstr "No wanted series match."
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "No worker heartbeat is available yet."
 msgstr "No worker heartbeat is available yet."
@@ -3382,6 +4694,10 @@ msgstr "none yet"
 #: src/components/settings/LogsTab.tsx
 msgid "normal activity, warnings, errors"
 msgstr "normal activity, warnings, errors"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Not a match"
+msgstr "Not a match"
 
 #: src/components/settings/DownloadClientsTab.tsx
 #: src/lib/healthRows.ts
@@ -3401,6 +4717,27 @@ msgstr "not configured"
 msgid "not enough space on the destination volume"
 msgstr "not enough space on the destination volume"
 
+#: src/pages/SearchPage.tsx
+msgid "Not finding it? Search by ComicVine or MangaDex ID, or paste a link."
+msgstr "Not finding it? Search by ComicVine or MangaDex ID, or paste a link."
+
+#: src/components/queue/WantedBySeries.tsx
+#: src/lib/wantedAnnotation.ts
+msgid "Not found"
+msgstr "Not found"
+
+#: src/lib/wantedAnnotation.ts
+msgid "Not found {max_attempts}×"
+msgstr "Not found {max_attempts}×"
+
+#: src/lib/importPick.ts
+msgid "not in library"
+msgstr "not in library"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Not in library"
+msgstr "Not in library"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "not live"
 msgstr "not live"
@@ -3412,6 +4749,15 @@ msgstr "not ready"
 #: src/lib/healthRows.ts
 msgid "Not ready"
 msgstr "Not ready"
+
+#: src/components/import/ImportInboxSection.tsx
+#: src/components/import/LibraryScanSection.tsx
+msgid "not set"
+msgstr "not set"
+
+#: src/components/import/ImportSourcesStrip.tsx
+msgid "Not set"
+msgstr "Not set"
 
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Not set up yet"
@@ -3425,6 +4771,10 @@ msgstr "Not set yet"
 msgid "Not started"
 msgstr "Not started"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Not supported here"
+msgstr "Not supported here"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Not wanted"
 msgstr "Not wanted"
@@ -3432,6 +4782,14 @@ msgstr "Not wanted"
 #: src/components/whats-new/WhatsNewModal.tsx
 msgid "Notes could not load. You can still read them in <0>Settings → About</0>."
 msgstr "Notes could not load. You can still read them in <0>Settings → About</0>."
+
+#: src/components/releases/SearchBlockedBanner.tsx
+msgid "Nothing can be downloaded until you add a download client"
+msgstr "Nothing can be downloaded until you add a download client"
+
+#: src/components/releases/SearchBlockedBanner.tsx
+msgid "Nothing can be searched until you add an indexer"
+msgstr "Nothing can be searched until you add an indexer"
 
 #: src/components/series/IssueStory.tsx
 msgid "Nothing has happened to this issue yet. Searches, downloads and imports show up here as they run."
@@ -3449,29 +4807,64 @@ msgstr "Nothing in {fileName} yet."
 msgid "Nothing in {fileName} yet. Comicarr is logging at {levelNumber} ({levelName}) — raise the level above to capture more."
 msgstr "Nothing in {fileName} yet. Comicarr is logging at {levelNumber} ({levelName}) — raise the level above to capture more."
 
+#: src/lib/inFlight.ts
+msgid "nothing in flight"
+msgstr "nothing in flight"
+
 #: src/pages/ActivityPage.tsx
 msgid "Nothing in flight"
 msgstr "Nothing in flight"
+
+#: src/lib/importPick.ts
+msgid "Nothing in your library looks like this."
+msgstr "Nothing in your library looks like this."
 
 #: src/pages/AttentionPage.tsx
 msgid "Nothing is waiting on you"
 msgstr "Nothing is waiting on you"
 
+#: src/components/queue/WantedBySeries.tsx
+msgid "Nothing is wanted."
+msgstr "Nothing is wanted."
+
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Nothing matches"
 msgstr "Nothing matches"
+
+#: src/components/releases/IndustryReleasesView.tsx
+#: src/components/releases/MyReleasesView.tsx
+#: src/pages/ImportPage.tsx
+msgid "Nothing matches that filter"
+msgstr "Nothing matches that filter"
 
 #: src/pages/AttentionPage.tsx
 msgid "Nothing matches these filters"
 msgstr "Nothing matches these filters"
 
+#: src/pages/ImportPage.tsx
+msgid "Nothing needs a pick"
+msgstr "Nothing needs a pick"
+
 #: src/pages/AttentionPage.tsx
 msgid "Nothing needs your attention"
 msgstr "Nothing needs your attention"
 
+#: src/components/weekly/AiSuggestions.tsx
+msgid "Nothing new this week matches your collection"
+msgstr "Nothing new this week matches your collection"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Nothing popular out this week"
+msgstr "Nothing popular out this week"
+
 #: src/components/activity/timeline/sentences.ts
+#: src/pages/WantedPage.tsx
 msgid "Nothing to search"
 msgstr "Nothing to search"
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "Nothing to show for this week."
+msgstr "Nothing to show for this week."
 
 #: src/pages/SettingsPage.tsx
 msgid "Notifications"
@@ -3509,6 +4902,14 @@ msgstr "One server path per line, such as /comics/Magazines. In Docker, use the 
 msgid "Only applies when auto-import is on. Minimum series match score (0–100) for the Import Inbox to import files without review. Files whose issue number is missing from the matched series always go to review. Set above 100 to review everything (default: 80)."
 msgstr "Only applies when auto-import is on. Minimum series match score (0–100) for the Import Inbox to import files without review. Files whose issue number is missing from the matched series always go to review. Set above 100 to review everything (default: 80)."
 
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "Only issues added in the last {new_issue_days} days are searched automatically. Turn on RSS in Search settings to work through the rest."
+msgstr "Only issues added in the last {new_issue_days} days are searched automatically. Turn on RSS in Search settings to work through the rest."
+
+#: src/components/releases/ReleasesModeBar.tsx
+msgid "Only my library"
+msgstr "Only my library"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Only release automatic work after repair is complete, routes are ready, and you have recorded why this instance is safe to resume."
 msgstr "Only release automatic work after repair is complete, routes are ready, and you have recorded why this instance is safe to resume."
@@ -3516,6 +4917,19 @@ msgstr "Only release automatic work after repair is complete, routes are ready, 
 #: src/components/settings/AiTab.tsx
 msgid "open"
 msgstr "open"
+
+#: src/components/search/SearchResultsTable.tsx
+msgid "Open"
+msgstr "Open"
+
+#: src/components/search/SearchResultsTable.tsx
+msgid "Open {name}"
+msgstr "Open {name}"
+
+#: src/components/search/SearchResultsGrid.tsx
+#: src/components/search/SearchResultsTable.tsx
+msgid "Open {name} on provider site"
+msgstr "Open {name} on provider site"
 
 #: src/lib/healthBand.ts
 msgid "open acquisition health"
@@ -3540,6 +4954,10 @@ msgstr "open search providers"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Open search settings"
 msgstr "Open search settings"
+
+#: src/pages/SearchPage.tsx
+msgid "Open settings"
+msgstr "Open settings"
 
 #: src/components/settings/SupportBundleSection.tsx
 msgid "Open the ZIP and read README.txt, manifest.json, and diagnostics.json."
@@ -3572,6 +4990,22 @@ msgstr "Organize downloads into weekly subfolders"
 #: src/components/settings/GeneralTab.tsx
 msgid "Other folders"
 msgstr "Other folders"
+
+#: src/lib/releaseState.ts
+msgid "Out {day}"
+msgstr "Out {day}"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Override and grab this release?"
+msgstr "Override and grab this release?"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Override this match-policy rejection"
+msgstr "Override this match-policy rejection"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "pack"
+msgstr "pack"
 
 #: src/pages/SettingsPage.tsx
 msgid "Page settings discarded; unsaved indexer edits remain"
@@ -3630,6 +5064,10 @@ msgstr "Paused"
 msgid "Paused {label}"
 msgstr "Paused {label}"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Paused after recent failures"
+msgstr "Paused after recent failures"
+
 #: src/lib/healthBand.ts
 msgid "Paused for maintenance"
 msgstr "Paused for maintenance"
@@ -3642,6 +5080,18 @@ msgstr "Paused for maintenance: {reason}"
 msgid "Pending"
 msgstr "Pending"
 
+#: src/components/import/ImportPickPanel.tsx
+msgid "Pick a series"
+msgstr "Pick a series"
+
+#: src/components/import/ImportPickPanel.tsx
+msgid "Pick a series for {title}"
+msgstr "Pick a series for {title}"
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "Pick All or clear the filter to see the whole week."
+msgstr "Pick All or clear the filter to see the whole week."
+
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Place imported files in the library"
 msgstr "Place imported files in the library"
@@ -3649,6 +5099,10 @@ msgstr "Place imported files in the library"
 #: src/components/settings/AgentsTab.tsx
 msgid "Point your agent at this URL."
 msgstr "Point your agent at this URL."
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Popular only"
+msgstr "Popular only"
 
 #: src/components/settings/DownloadClientsTab.tsx
 #: src/components/settings/InterfaceTab.tsx
@@ -3671,6 +5125,10 @@ msgstr "Post-processing queued"
 msgid "Preferred Quality"
 msgstr "Preferred Quality"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Preparing search…"
+msgstr "Preparing search…"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Preview does not alter issue status, files, queues, or aggregates. It remains available while another maintenance operation blocks writes."
 msgstr "Preview does not alter issue status, files, queues, or aggregates. It remains available while another maintenance operation blocks writes."
@@ -3680,13 +5138,22 @@ msgid "Preview repair"
 msgstr "Preview repair"
 
 #: src/components/activity/timeline/TimelineView.tsx
+#: src/components/queue/WantedBySeries.tsx
 #: src/pages/ActivityPage.tsx
 msgid "Previous"
 msgstr "Previous"
 
+#: src/components/releases/WeekBar.tsx
+msgid "Previous week"
+msgstr "Previous week"
+
 #: src/components/layout/MobileTabBar.tsx
 msgid "Primary"
 msgstr "Primary"
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "Problems first"
+msgstr "Problems first"
 
 #: src/components/series/SeriesTable.tsx
 msgid "progress"
@@ -3700,9 +5167,33 @@ msgstr "Progress"
 msgid "Provider"
 msgstr "Provider"
 
+#: src/pages/SearchPage.tsx
+msgid "PROVIDER · NOT CONFIGURED"
+msgstr "PROVIDER · NOT CONFIGURED"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Provider error"
+msgstr "Provider error"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Provider failures"
+msgstr "Provider failures"
+
 #: src/components/activity/timeline/sentences.ts
 msgid "provider returned an error"
 msgstr "provider returned an error"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Provider search could not start"
+msgstr "Provider search could not start"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Provider search stopped before completion"
+msgstr "Provider search stopped before completion"
+
+#: src/components/import/ImportPickPanel.tsx
+msgid "Provider search unavailable: {error}"
+msgstr "Provider search unavailable: {error}"
 
 #: src/components/settings/LogsTab.tsx
 msgid "Provider secrets are redacted before these lines leave the server. Retention is set in <0>config.ini</0> and is shown here read-only. Search scans the selected file and returns whole records, including tracebacks, up to 5,000 records or 8 MiB. Component matches the logger function name in either log format."
@@ -3735,6 +5226,23 @@ msgstr "Prowlarr URL"
 #: src/components/series/SeriesTable.tsx
 msgid "publisher"
 msgstr "publisher"
+
+#: src/components/queue/upcomingColumns.tsx
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Publisher"
+msgstr "Publisher"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "publisher / type"
+msgstr "publisher / type"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Publisher or type"
+msgstr "Publisher or type"
+
+#: src/components/import/MatchModal.tsx
+msgid "Publisher unknown"
+msgstr "Publisher unknown"
 
 #: src/components/settings/NotificationsTab.tsx
 msgid "Push notifications via Boxcar"
@@ -3772,8 +5280,14 @@ msgstr "Quality & Organization"
 msgid "Quality Settings"
 msgstr "Quality Settings"
 
+#: src/components/releases/MyReleasesView.tsx
+msgid "Queue handoff retry completed"
+msgstr "Queue handoff retry completed"
+
 #: src/components/activity/health/HealthView.tsx
+#: src/components/queue/WantedBySeries.tsx
 #: src/lib/statusTone.ts
+#: src/lib/wantedAnnotation.ts
 msgid "Queued"
 msgstr "Queued"
 
@@ -3784,6 +5298,10 @@ msgstr "Queued and downloading direct downloads will appear here; failures stay 
 #: src/lib/healthRows.ts
 msgid "Queued to run"
 msgstr "Queued to run"
+
+#: src/pages/ReleasesPage.tsx
+msgid "Queued…"
+msgstr "Queued…"
 
 #: src/lib/updateStatus.ts
 msgid "Rate limited — will retry on the normal schedule"
@@ -3805,6 +5323,7 @@ msgstr "read-only"
 msgid "ready"
 msgstr "ready"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
 #: src/components/settings/DownloadClientsTab.tsx
 #: src/lib/healthRows.ts
 msgid "Ready"
@@ -3826,12 +5345,17 @@ msgstr "Record limit"
 #: src/components/settings/LogsTab.tsx
 #: src/pages/ActivityPage.tsx
 #: src/pages/SeriesDetailPage.tsx
+#: src/pages/WantedPage.tsx
 msgid "Refresh"
 msgstr "Refresh"
 
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Refresh acquisition health"
 msgstr "Refresh acquisition health"
+
+#: src/pages/ReleasesPage.tsx
+msgid "Refresh failed. Check the pull source, then retry."
+msgstr "Refresh failed. Check the pull source, then retry."
 
 #: src/components/settings/LogsTab.tsx
 msgid "Refresh files and results"
@@ -3840,6 +5364,14 @@ msgstr "Refresh files and results"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Refresh preview"
 msgstr "Refresh preview"
+
+#: src/pages/ReleasesPage.tsx
+msgid "Refresh queued — it will start shortly."
+msgstr "Refresh queued — it will start shortly."
+
+#: src/pages/ReleasesPage.tsx
+msgid "Refresh releases"
+msgstr "Refresh releases"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Refresh series"
@@ -3856,6 +5388,14 @@ msgstr "Refreshing"
 #: src/components/activity/timeline/sentences.ts
 msgid "Refreshing {label}"
 msgstr "Refreshing {label}"
+
+#: src/pages/ReleasesPage.tsx
+msgid "Refreshing releases…"
+msgstr "Refreshing releases…"
+
+#: src/pages/ReleasesPage.tsx
+msgid "Refreshing…"
+msgstr "Refreshing…"
 
 #: src/components/settings/ApiTab.tsx
 msgid "Regenerate API key"
@@ -3881,6 +5421,10 @@ msgstr "Reject downloads smaller than the minimum size"
 msgid "Rejected"
 msgstr "Rejected"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "release"
+msgstr "release"
+
 #: src/components/whats-new/WhatsNewModal.tsx
 msgid "Release notes"
 msgstr "Release notes"
@@ -3897,17 +5441,61 @@ msgstr "Release notes for this install, newest first."
 msgid "Release notes for this install."
 msgstr "Release notes for this install."
 
+#: src/pages/ReleasesPage.tsx
+msgid "Release refresh is already running."
+msgstr "Release refresh is already running."
+
+#: src/pages/ReleasesPage.tsx
+msgid "Release refresh queued."
+msgstr "Release refresh queued."
+
 #: src/lib/healthRows.ts
 msgid "Release search cleanup"
 msgstr "Release search cleanup"
 
+#: src/components/queue/wantedColumns.tsx
 #: src/pages/IssueDetailPage.tsx
 msgid "Released"
 msgstr "Released"
 
 #: src/components/layout/AppSidebar.tsx
+#: src/pages/ReleasesPage.tsx
 msgid "Releases"
 msgstr "Releases"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "RELEASES · EMPTY"
+msgstr "RELEASES · EMPTY"
+
+#: src/components/releases/IndustryReleasesView.tsx
+#: src/components/releases/MyReleasesView.tsx
+msgid "RELEASES · FILTERED"
+msgstr "RELEASES · FILTERED"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "RELEASES · POPULAR ONLY"
+msgstr "RELEASES · POPULAR ONLY"
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "RELEASES · PULL LIST UNAVAILABLE"
+msgstr "RELEASES · PULL LIST UNAVAILABLE"
+
+#: src/components/releases/IndustryReleasesView.tsx
+#: src/components/releases/WeekStrip.tsx
+msgid "Releases by day this week"
+msgstr "Releases by day this week"
+
+#: src/pages/ReleasesPage.tsx
+msgid "Releases refreshed."
+msgstr "Releases refreshed."
+
+#: src/pages/SearchPage.tsx
+msgid "Relevance"
+msgstr "Relevance"
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "Reload this list"
+msgstr "Reload this list"
 
 #: src/components/activity/health/HealthView.tsx
 msgid "Removable from"
@@ -3924,6 +5512,10 @@ msgstr "Remove indexer {index}"
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "Remove Torznab indexer {index}"
 msgstr "Remove Torznab indexer {index}"
+
+#: src/lib/chatDialogs.ts
+msgid "Rename chat"
+msgstr "Rename chat"
 
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Rename files on import"
@@ -3998,8 +5590,16 @@ msgid "Requeue this failed direct download after confirmation"
 msgstr "Requeue this failed direct download after confirmation"
 
 #: src/pages/ActivityPage.tsx
+msgid "Requeue this failed direct download? It will be retried by the DDL worker."
+msgstr "Requeue this failed direct download? It will be retried by the DDL worker."
+
+#: src/pages/ActivityPage.tsx
 msgid "requeueing…"
 msgstr "requeueing…"
+
+#: src/components/import/ImportFileRow.tsx
+msgid "Required"
+msgstr "Required"
 
 #: src/pages/ActivityPage.tsx
 msgid "Requires attention and will not retry automatically."
@@ -4021,6 +5621,10 @@ msgstr "Reset order"
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "Reset Torznab indexers"
 msgstr "Reset Torznab indexers"
+
+#: src/pages/ImportPage.tsx
+msgid "Resolve the loading error before reviewing imports."
+msgstr "Resolve the loading error before reviewing imports."
 
 #: src/components/activity/health/HealthView.tsx
 msgid "Response"
@@ -4055,6 +5659,14 @@ msgstr "Resumed {label}"
 msgid "Retry"
 msgstr "Retry"
 
+#: src/pages/ReleasesPage.tsx
+msgid "Retry after fixing the pull source connection."
+msgstr "Retry after fixing the pull source connection."
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "Retry failed: {error}"
+msgstr "Retry failed: {error}"
+
 #: src/pages/ActivityPage.tsx
 msgid "Retry post-processing"
 msgstr "Retry post-processing"
@@ -4063,9 +5675,14 @@ msgstr "Retry post-processing"
 msgid "Retry post-processing {label}"
 msgstr "Retry post-processing {label}"
 
+#: src/components/releases/MyReleasesView.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Retry queue handoff"
 msgstr "Retry queue handoff"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Retry search"
+msgstr "Retry search"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Retrying queue handoff…"
@@ -4075,13 +5692,42 @@ msgstr "Retrying queue handoff…"
 msgid "Retrying this issue."
 msgstr "Retrying this issue."
 
+#: src/components/releases/MyReleasesView.tsx
+msgid "Retrying…"
+msgstr "Retrying…"
+
 #: src/components/activity/timeline/attentionStage.ts
 msgid "review"
 msgstr "review"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Review grab"
+msgstr "Review grab"
+
+#: src/lib/importUtils.ts
+msgid "Review group"
+msgstr "Review group"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Review missing"
 msgstr "Review missing"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Review needed"
+msgstr "Review needed"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Review override"
+msgstr "Review override"
+
+#: src/pages/ImportPage.tsx
+msgid "Review queue"
+msgstr "Review queue"
+
+#: src/components/queue/upcomingColumns.tsx
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Review releases"
+msgstr "Review releases"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Review the current selection before Comicarr creates one durable search run."
@@ -4151,6 +5797,10 @@ msgstr "Run {label} now"
 msgid "Run {run}"
 msgstr "Run {run}"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Run a weekly pull list update from Settings to populate this view."
+msgstr "Run a weekly pull list update from Settings to populate this view."
+
 #: src/components/activity/health/HealthView.tsx
 msgid "Run now"
 msgstr "Run now"
@@ -4191,6 +5841,10 @@ msgstr "Same as downloads"
 msgid "Save Changes"
 msgstr "Save Changes"
 
+#: src/components/import/ImportFileRow.tsx
+msgid "Save failed"
+msgstr "Save failed"
+
 #: src/components/series/SeriesFolder.tsx
 msgid "Save folder"
 msgstr "Save folder"
@@ -4227,6 +5881,10 @@ msgstr "Save to test these settings."
 msgid "Save Torznab indexers"
 msgstr "Save Torznab indexers"
 
+#: src/components/import/ImportFileRow.tsx
+msgid "Saved"
+msgstr "Saved"
+
 #: src/components/settings/NotificationsTab.tsx
 msgid "Saved - enter a new value to change"
 msgstr "Saved - enter a new value to change"
@@ -4239,6 +5897,7 @@ msgstr "Saved (enter a new one to change)"
 msgid "Saving content kind"
 msgstr "Saving content kind"
 
+#: src/components/import/ImportFileRow.tsx
 #: src/components/settings/SaveButton.tsx
 msgid "Saving..."
 msgstr "Saving..."
@@ -4250,9 +5909,33 @@ msgstr "Saving..."
 msgid "Saving…"
 msgstr "Saving…"
 
+#: src/components/import/LibraryScanSection.tsx
+msgid "scan"
+msgstr "scan"
+
+#: src/pages/ImportPage.tsx
+msgid "Scan existing directories"
+msgstr "Scan existing directories"
+
+#: src/pages/ImportPage.tsx
+msgid "Scan inbox now"
+msgstr "Scan inbox now"
+
 #: src/pages/SeriesListPage.tsx
 msgid "Scan libraries"
 msgstr "Scan libraries"
+
+#: src/components/import/ImportInboxSection.tsx
+msgid "scan now"
+msgstr "scan now"
+
+#: src/pages/ImportPage.tsx
+msgid "Scan now"
+msgstr "Scan now"
+
+#: src/pages/ImportPage.tsx
+msgid "Scan the watched inbox for new files"
+msgstr "Scan the watched inbox for new files"
 
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Scanned after the main monitored folder, {folder}. One server path per line. In Docker, use the path inside the container."
@@ -4261,6 +5944,11 @@ msgstr "Scanned after the main monitored folder, {folder}. One server path per l
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Scanned after the main monitored folder, which is set as CHECK_FOLDER in the config file. These folders are ignored until it is set."
 msgstr "Scanned after the main monitored folder, which is set as CHECK_FOLDER in the config file. These folders are ignored until it is set."
+
+#: src/components/import/ImportInboxSection.tsx
+#: src/components/import/LibraryScanSection.tsx
+msgid "scanning"
+msgstr "scanning"
 
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Scheduled jobs"
@@ -4284,16 +5972,47 @@ msgid "search"
 msgstr "search"
 
 #: src/components/layout/AppSidebar.tsx
+#: src/components/queue/WantedBySeries.tsx
 #: src/components/settings/LogsTab.tsx
 #: src/lib/healthBand.ts
+#: src/pages/SearchPage.tsx
 msgid "Search"
 msgstr "Search"
+
+#: src/pages/SearchPage.tsx
+msgid "SEARCH · ERROR"
+msgstr "SEARCH · ERROR"
+
+#: src/pages/SearchPage.tsx
+msgid "SEARCH · NO MATCH"
+msgstr "SEARCH · NO MATCH"
+
+#: src/pages/SearchPage.tsx
+msgid "SEARCH · READY"
+msgstr "SEARCH · READY"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Search {missing} wanted"
 msgstr "Search {missing} wanted"
 
+#: src/components/queue/WantedBySeries.tsx
+msgid "Search {series} #{Issue_Number}"
+msgstr "Search {series} #{Issue_Number}"
+
+#: src/pages/WantedPage.tsx
+msgid "Search accepted"
+msgstr "Search accepted"
+
+#: src/pages/WantedPage.tsx
+msgid "Search accepted — wanted issues will be processed."
+msgstr "Search accepted — wanted issues will be processed."
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "Search accepted."
+msgstr "Search accepted."
+
 #: src/components/activity/timeline/attentionStage.ts
+#: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Search again"
 msgstr "Search again"
 
@@ -4306,8 +6025,25 @@ msgid "Search and download like a comic, and keep it with your magazines."
 msgstr "Search and download like a comic, and keep it with your magazines."
 
 #: src/components/activity/timeline/sentences.ts
+#: src/pages/WantedPage.tsx
 msgid "Search blocked"
 msgstr "Search blocked"
+
+#: src/pages/SearchPage.tsx
+msgid "Search by ID"
+msgstr "Search by ID"
+
+#: src/components/import/MatchModal.tsx
+msgid "Search by name, or paste a ComicVine volume ID (4050-12345), ComicVine volume URL, or Metron series URL."
+msgstr "Search by name, or paste a ComicVine volume ID (4050-12345), ComicVine volume URL, or Metron series URL."
+
+#: src/pages/SearchPage.tsx
+msgid "Search comics"
+msgstr "Search comics"
+
+#: src/pages/SearchPage.tsx
+msgid "Search comics by title, or paste a ComicVine or MangaDex link"
+msgstr "Search comics by title, or paste a ComicVine or MangaDex link"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Search configuration needs attention"
@@ -4321,13 +6057,39 @@ msgstr "Search current and retained files"
 msgid "Search delay (seconds)"
 msgstr "Search delay (seconds)"
 
+#: src/components/releases/MyReleasesView.tsx
+msgid "Search did not start for the wanted issues"
+msgstr "Search did not start for the wanted issues"
+
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Search every indexer in Prowlarr with one request. Prowlarr skips indexers it knows are failing and counts Comicarr's searches toward each indexer's limits."
 msgstr "Search every indexer in Prowlarr with one request. Prowlarr skips indexers it knows are failing and counts Comicarr's searches toward each indexer's limits."
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+#: src/pages/SearchPage.tsx
+#: src/pages/WantedPage.tsx
+msgid "Search failed"
+msgstr "Search failed"
+
+#: src/pages/WantedPage.tsx
+msgid "Search failed to start."
+msgstr "Search failed to start."
+
 #: src/components/activity/timeline/sentences.ts
 msgid "Search finished"
 msgstr "Search finished"
+
+#: src/components/import/MatchModal.tsx
+msgid "Search for a comic series..."
+msgstr "Search for a comic series..."
+
+#: src/components/import/ImportPickPanel.tsx
+msgid "Search for a different series"
+msgstr "Search for a different series"
+
+#: src/components/import/MatchModal.tsx
+msgid "Search for a manga series..."
+msgstr "Search for a manga series..."
 
 #: src/lib/healthRows.ts
 msgid "Search for wanted"
@@ -4345,6 +6107,10 @@ msgstr "Search indexers saved"
 msgid "Search Interval"
 msgstr "Search Interval"
 
+#: src/pages/WantedPage.tsx
+msgid "Search is blocked until a complete acquisition route is ready."
+msgstr "Search is blocked until a complete acquisition route is ready."
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Search is blocked: {reason}."
 msgstr "Search is blocked: {reason}."
@@ -4353,9 +6119,21 @@ msgstr "Search is blocked: {reason}."
 msgid "Search log records"
 msgstr "Search log records"
 
+#: src/pages/SearchPage.tsx
+msgid "Search manga"
+msgstr "Search manga"
+
+#: src/pages/SearchPage.tsx
+msgid "Search manga by title, or paste a ComicVine or MangaDex link"
+msgstr "Search manga by title, or paste a ComicVine or MangaDex link"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Search missing issues"
 msgstr "Search missing issues"
+
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "Search now…"
+msgstr "Search now…"
 
 #: src/components/layout/AppSidebar.tsx
 msgid "Search or add"
@@ -4373,9 +6151,25 @@ msgstr "Search order saved"
 msgid "Search pace"
 msgstr "Search pace"
 
+#: src/pages/WantedPage.tsx
+msgid "Search partially accepted"
+msgstr "Search partially accepted"
+
+#: src/lib/releaseState.ts
+msgid "search paused"
+msgstr "search paused"
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "Search paused"
+msgstr "Search paused"
+
 #: src/lib/healthBand.ts
 msgid "Search paused: {reason}"
 msgstr "Search paused: {reason}"
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "Search paused: {searchPaused}"
+msgstr "Search paused: {searchPaused}"
 
 #: src/components/series/SeriesSearchProviders.tsx
 msgid "Search providers"
@@ -4397,6 +6191,23 @@ msgstr "Search result"
 msgid "Search run accepted"
 msgstr "Search run accepted"
 
+#: src/components/queue/BulkActionBar.tsx
+msgid "Search selected"
+msgstr "Search selected"
+
+#: src/components/import/MatchModal.tsx
+msgid "Search series"
+msgstr "Search series"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Search session expired"
+msgstr "Search session expired"
+
+#: src/components/queue/WantedPacingBanner.tsx
+#: src/pages/WantedPage.tsx
+msgid "Search settings"
+msgstr "Search settings"
+
 #: src/components/activity/timeline/sentences.ts
 msgid "Search stopped"
 msgstr "Search stopped"
@@ -4404,6 +6215,18 @@ msgstr "Search stopped"
 #: src/components/settings/LogsTab.tsx
 msgid "Search text"
 msgstr "Search text"
+
+#: src/pages/WantedPage.tsx
+msgid "Search this one Wanted issue?"
+msgstr "Search this one Wanted issue?"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Search timed out"
+msgstr "Search timed out"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Search unavailable"
+msgstr "Search unavailable"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Search wanted"
@@ -4413,9 +6236,17 @@ msgstr "Search wanted"
 msgid "Search with Prowlarr"
 msgstr "Search with Prowlarr"
 
+#: src/pages/SearchPage.tsx
+msgid "Searched ComicVine and Metron"
+msgstr "Searched ComicVine and Metron"
+
 #: src/components/activity/timeline/sentences.ts
 msgid "Searched for {label}"
 msgstr "Searched for {label}"
+
+#: src/pages/SearchPage.tsx
+msgid "Searched MangaDex"
+msgstr "Searched MangaDex"
 
 #: src/components/series/SeriesSearchProviders.tsx
 msgid "Searches for this series try providers from the top down. Untick a provider to skip it for this series only."
@@ -4429,9 +6260,16 @@ msgstr "Searches running now and downloads on their way in"
 msgid "Searches, grabs and imports for this series or issue will show up here as they happen."
 msgstr "Searches, grabs and imports for this series or issue will show up here as they happen."
 
+#: src/components/queue/WantedBySeries.tsx
+#: src/lib/releaseState.ts
+#: src/lib/wantedAnnotation.ts
 #: src/pages/ActivityPage.tsx
 msgid "Searching"
 msgstr "Searching"
+
+#: src/pages/SearchPage.tsx
+msgid "searching \"{urlQuery}\"…"
+msgstr "searching \"{urlQuery}\"…"
 
 #: src/components/activity/timeline/sentences.ts
 msgid "Searching for {label}"
@@ -4440,6 +6278,18 @@ msgstr "Searching for {label}"
 #: src/components/series/IssueStory.tsx
 msgid "Searching for this issue again."
 msgstr "Searching for this issue again."
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Searching providers"
+msgstr "Searching providers"
+
+#: src/lib/wantedAnnotation.ts
+msgid "searching…"
+msgstr "searching…"
+
+#: src/components/import/MatchModal.tsx
+msgid "Searching..."
+msgstr "Searching..."
 
 #: src/components/settings/LogsTab.tsx
 msgid "Searching…"
@@ -4461,17 +6311,33 @@ msgstr "Select {issue_label}"
 msgid "Select {rowLabel}"
 msgstr "Select {rowLabel}"
 
-#: src/pages/AttentionPage.tsx
-msgid "select all"
-msgstr "select all"
+#: src/components/import/LibraryScanResults.tsx
+msgid "Select {series_name}"
+msgstr "Select {series_name}"
+
+#: src/components/import/importColumns.tsx
+#: src/components/queue/upcomingColumns.tsx
+#: src/components/queue/wantedColumns.tsx
+msgid "Select {series}"
+msgstr "Select {series}"
+
+#: src/components/import/LibraryScanResults.tsx
+msgid "Select All"
+msgstr "Select All"
 
 #: src/pages/AttentionPage.tsx
-msgid "Select all {length} issues"
-msgstr "Select all {length} issues"
+msgid "select all {count}"
+msgstr "select all {count}"
 
 #: src/pages/AttentionPage.tsx
 msgid "Select all {member_count} in {series_label}"
 msgstr "Select all {member_count} in {series_label}"
+
+#: src/components/import/importColumns.tsx
+#: src/components/queue/upcomingColumns.tsx
+#: src/components/queue/wantedColumns.tsx
+msgid "Select all rows"
+msgstr "Select all rows"
 
 #: src/components/series/SeriesTable.tsx
 msgid "Select all series on page"
@@ -4533,6 +6399,10 @@ msgstr "Send torrent releases to {client}"
 msgid "Send Usenet releases to {client}"
 msgstr "Send Usenet releases to {client}"
 
+#: src/components/queue/upcomingColumns.tsx
+#: src/components/queue/WantedBySeries.tsx
+#: src/components/queue/wantedColumns.tsx
+#: src/components/releases/ReleaseReviewSheet.tsx
 #: src/components/series/LibraryTabs.tsx
 #: src/pages/ActivityPage.tsx
 #: src/pages/IssueDetailPage.tsx
@@ -4592,6 +6462,30 @@ msgstr "Server URL"
 msgid "Set {label} to {status}"
 msgstr "Set {label} to {status}"
 
+#: src/components/import/ImportSourcesStrip.tsx
+msgid "Set a comic or manga directory to scan"
+msgstr "Set a comic or manga directory to scan"
+
+#: src/pages/ImportPage.tsx
+msgid "Set an import directory first"
+msgstr "Set an import directory first"
+
+#: src/components/import/ImportInboxSection.tsx
+msgid "Set an Import Directory in your config.ini to enable auto-importing."
+msgstr "Set an Import Directory in your config.ini to enable auto-importing."
+
+#: src/components/import/ImportSourcesStrip.tsx
+msgid "Set an import directory to watch for new files"
+msgstr "Set an import directory to watch for new files"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Set Comic Directory in Settings → Media"
+msgstr "Set Comic Directory in Settings → Media"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Set Manga Directory in Settings → Media"
+msgstr "Set Manga Directory in Settings → Media"
+
 #: src/components/settings/SearchTab.tsx
 msgid "Set minimum and maximum file size limits for downloads"
 msgstr "Set minimum and maximum file size limits for downloads"
@@ -4632,13 +6526,33 @@ msgstr "Severity"
 msgid "Show {rejected_count} rejected"
 msgstr "Show {rejected_count} rejected"
 
+#: src/components/queue/WantedBySeries.tsx
+msgid "Show issues for {series}"
+msgstr "Show issues for {series}"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Show only manga in MangaUpdates' weekly top 500, plus your own series"
+msgstr "Show only manga in MangaUpdates' weekly top 500, plus your own series"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Show the whole week"
+msgstr "Show the whole week"
+
 #: src/components/settings/InterfaceTab.tsx
 msgid "Show your library's covers behind the sign-in form. Anyone who can reach the sign-in page sees them. Series rated adult are always left out; unrated series can appear."
 msgstr "Show your library's covers behind the sign-in form. Anyone who can reach the sign-in page sees them. Series rated adult are always left out; unrated series can appear."
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Showing <0>{activeDayHeading}</0> only"
+msgstr "Showing <0>{activeDayHeading}</0> only"
+
 #: src/pages/IssueDetailPage.tsx
 msgid "Showing the first {count}."
 msgstr "Showing the first {count}."
+
+#: src/lib/importUtils.ts
+msgid "Single file"
+msgstr "Single file"
 
 #: src/pages/ActivityPage.tsx
 msgid "Site"
@@ -4647,6 +6561,17 @@ msgstr "Site"
 #: src/pages/IssueDetailPage.tsx
 msgid "Size"
 msgstr "Size"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "size unknown"
+msgstr "size unknown"
+
+#: src/components/queue/BulkActionBar.tsx
+#: src/components/queue/upcomingColumns.tsx
+#: src/components/queue/WantedBySeries.tsx
+#: src/components/queue/wantedColumns.tsx
+msgid "Skip"
+msgstr "Skip"
 
 #: src/components/series/IssueStatusMenu.tsx
 #: src/lib/statusTone.ts
@@ -4686,6 +6611,19 @@ msgstr "Snatched"
 msgid "Softlink"
 msgstr "Softlink"
 
+#: src/pages/WantedPage.tsx
+msgid "Some Wanted issues were queued, but others need attention."
+msgstr "Some Wanted issues were queued, but others need attention."
+
+#: src/components/queue/WantedBySeries.tsx
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Sort"
+msgstr "Sort"
+
+#: src/pages/SearchPage.tsx
+msgid "Sort results"
+msgstr "Sort results"
+
 #: src/components/series/SeriesFilters.tsx
 msgid "sort: <0>{sortLabel}</0>"
 msgstr "sort: <0>{sortLabel}</0>"
@@ -4702,13 +6640,25 @@ msgstr "sorted descending"
 msgid "Sources and keys"
 msgstr "Sources and keys"
 
+#: src/pages/ImportPage.tsx
+msgid "Sources and scans"
+msgstr "Sources and scans"
+
 #: src/components/settings/LogsTab.tsx
 msgid "Start a new log file? The current log is kept as a rotated archive — the viewer will show only what happens from now on."
 msgstr "Start a new log file? The current log is kept as a rotated archive — the viewer will show only what happens from now on."
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Start a new search"
+msgstr "Start a new search"
+
 #: src/components/settings/LogsTab.tsx
 msgid "Started a new log file. The previous log was archived."
 msgstr "Started a new log file. The previous log was archived."
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Starting provider search…"
+msgstr "Starting provider search…"
 
 #: src/components/activity/attention/ImportManuallyDialog.tsx
 msgid "Starting…"
@@ -4718,11 +6668,14 @@ msgstr "Starting…"
 msgid "state"
 msgstr "state"
 
+#: src/components/releases/IndustryReleasesView.tsx
 #: src/components/series/SeriesTable.tsx
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "status"
 msgstr "status"
 
+#: src/components/queue/upcomingColumns.tsx
+#: src/components/queue/wantedColumns.tsx
 #: src/components/series/SeriesFilters.tsx
 #: src/components/series/SeriesTable.tsx
 #: src/components/settings/AboutTab.tsx
@@ -4782,6 +6735,22 @@ msgstr "Story arc"
 #: src/components/series/LibraryTabs.tsx
 msgid "Story arcs"
 msgstr "Story arcs"
+
+#: src/components/weekly/AiSuggestions.tsx
+msgid "Suggested For You"
+msgstr "Suggested For You"
+
+#: src/components/import/ImportFileRow.tsx
+msgid "Suggested ID: {id}"
+msgstr "Suggested ID: {id}"
+
+#: src/components/import/ImportFileRow.tsx
+msgid "Suggested: {series}"
+msgstr "Suggested: {series}"
+
+#: src/components/weekly/AiSuggestions.tsx
+msgid "Suggestions"
+msgstr "Suggestions"
 
 #: src/components/settings/SupportBundleSection.tsx
 msgid "Support bundle"
@@ -4862,6 +6831,18 @@ msgstr "The address Comicarr can reach, including the port and any URL base."
 msgid "the archive wouldn't open"
 msgstr "the archive wouldn't open"
 
+#: src/lib/importPick.ts
+msgid "The best guess scored {best}%, under your {confidence_bar}% auto-import bar."
+msgstr "The best guess scored {best}%, under your {confidence_bar}% auto-import bar."
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "The comics pull list for this week isn’t available yet, so this shows your series’ own release dates. Some comics may be missing until it is."
+msgstr "The comics pull list for this week isn’t available yet, so this shows your series’ own release dates. Some comics may be missing until it is."
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "The comics pull source hasn't published this week or can't be reached, and none of your series has a release date in it. Try Refresh releases later, or turn off Only my library to see this week's manga."
+msgstr "The comics pull source hasn't published this week or can't be reached, and none of your series has a release date in it. Try Refresh releases later, or turn off Only my library to see this week's manga."
+
 #: src/lib/healthBand.ts
 msgid "the configured client cannot be verified after a restart"
 msgstr "the configured client cannot be verified after a restart"
@@ -4898,6 +6879,18 @@ msgstr "the downloaded file failed its integrity check"
 msgid "the file carries no usable metadata"
 msgstr "the file carries no usable metadata"
 
+#: src/lib/importPick.ts
+msgid "The files name {years}, but {series} started in {year}. Files often carry the issue's cover year, so check it's the right volume."
+msgstr "The files name {years}, but {series} started in {year}. Files often carry the issue's cover year, so check it's the right volume."
+
+#: src/lib/importPick.ts
+msgid "The files name {years}, but the closest series started in another year. Files often carry the issue's cover year, so check it's the right volume."
+msgstr "The files name {years}, but the closest series started in another year. Files often carry the issue's cover year, so check it's the right volume."
+
+#: src/lib/importPick.ts
+msgid "The files name more than one year ({years}), so they may not be one series."
+msgstr "The files name more than one year ({years}), so they may not be one series."
+
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "The Folder Monitor checks these folders for finished downloads and imports them."
 msgstr "The Folder Monitor checks these folders for finished downloads and imports them."
@@ -4905,6 +6898,14 @@ msgstr "The Folder Monitor checks these folders for finished downloads and impor
 #: src/pages/IssueDetailPage.tsx
 msgid "The last search found nothing for this issue."
 msgstr "The last search found nothing for this issue."
+
+#: src/components/queue/WantedPacingBanner.tsx
+msgid "The next round starts when the feeds bring something new. {fresh}"
+msgstr "The next round starts when the feeds bring something new. {fresh}"
+
+#: src/pages/ImportPage.tsx
+msgid "The review queue is clear. Scan the watched inbox to check for new files."
+msgstr "The review queue is clear. Scan the watched inbox to check for new files."
 
 #: src/components/activity/health/HealthView.tsx
 msgid "The scheduler isn't running, so no background jobs are scheduled."
@@ -4925,6 +6926,15 @@ msgstr "The selected download client cannot correlate downloads across a restart
 #: src/components/settings/LogsTab.tsx
 msgid "the selected log file"
 msgstr "the selected log file"
+
+#: src/hooks/useInteractiveSearch.ts
+msgid "The selected release was handed to the configured download route."
+msgstr "The selected release was handed to the configured download route."
+
+#: src/components/releases/IndustryReleasesView.tsx
+#: src/components/releases/MangaAddDialog.tsx
+msgid "The series is being added to your library."
+msgstr "The series is being added to your library."
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "The Usenet download client is disabled. Choose one in Download client settings."
@@ -4950,17 +6960,41 @@ msgstr "These paths are set in config.ini and are read-only here."
 msgid "these rows are at different stages — no action fits all of them"
 msgstr "these rows are at different stages — no action fits all of them"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "This candidate cannot be grabbed. Select a ready or overrideable result."
+msgstr "This candidate cannot be grabbed. Select a ready or overrideable result."
+
 #: src/components/settings/ApiTab.tsx
 msgid "This key is used to authenticate API requests to Comicarr"
 msgstr "This key is used to authenticate API requests to Comicarr"
+
+#: src/lib/importPick.ts
+msgid "This match clears your {confidence_bar}% auto-import bar."
+msgstr "This match clears your {confidence_bar}% auto-import bar."
 
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "This preview is already frozen into the manifest below."
 msgstr "This preview is already frozen into the manifest below."
 
+#: src/components/releases/MangaAddDialog.tsx
+msgid "This release comes from MangaUpdates, so Comicarr looks for the same series in your manga provider. Pick the match to add."
+msgstr "This release comes from MangaUpdates, so Comicarr looks for the same series in your manga provider. Pick the match to add."
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "This repair owns the fence; wait for durable progress before another action."
 msgstr "This repair owns the fence; wait for durable progress before another action."
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "This search session expired before it finished. Start a new search, or search for a single issue instead — it completes faster."
+msgstr "This search session expired before it finished. Start a new search, or search for a single issue instead — it completes faster."
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "This search session expired. Start a new search to get fresh results."
+msgstr "This search session expired. Start a new search to get fresh results."
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "This search session has expired, so its results can no longer be grabbed. Close this dialog and start a new search."
+msgstr "This search session has expired, so its results can no longer be grabbed. Close this dialog and start a new search."
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "This series is now cataloged as {nextKind}."
@@ -4970,9 +7004,22 @@ msgstr "This series is now cataloged as {nextKind}."
 msgid "This series is now cataloged as {nextKind}. New downloads import under the {nextKind} destination. Files already at the previous path were not moved."
 msgstr "This series is now cataloged as {nextKind}. New downloads import under the {nextKind} destination. Files already at the previous path were not moved."
 
+#: src/components/releases/WeekBar.tsx
+#: src/lib/releaseWeek.ts
+msgid "This week"
+msgstr "This week"
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "This week's pull list isn't available yet"
+msgstr "This week's pull list isn't available yet"
+
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Time"
 msgstr "Time"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Timed out"
+msgstr "Timed out"
 
 #: src/components/activity/ActivityTabs.tsx
 msgid "Timeline"
@@ -4998,16 +7045,23 @@ msgstr "TIMELINE · SCOPED · EMPTY"
 msgid "Timeout (seconds)"
 msgstr "Timeout (seconds)"
 
+#: src/components/releases/IndustryReleasesView.tsx
 #: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "title"
 msgstr "title"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Title"
+msgstr "Title"
 
 #: src/components/settings/NotificationsTab.tsx
 msgid "To Address"
 msgstr "To Address"
 
 #: src/components/activity/timeline/stories.ts
+#: src/components/releases/IndustryReleasesView.tsx
+#: src/components/releases/WeekStrip.tsx
 msgid "Today"
 msgstr "Today"
 
@@ -5069,6 +7123,14 @@ msgstr "Torznab indexer URL"
 msgid "Torznab indexers saved"
 msgstr "Torznab indexers saved"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Tracked"
+msgstr "Tracked"
+
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Tracked issue"
+msgstr "Tracked issue"
+
 #: src/pages/SettingsPage.tsx
 msgid "Transmission"
 msgstr "Transmission"
@@ -5094,17 +7156,33 @@ msgstr "Try a wider stage or age filter."
 msgid "Try again"
 msgstr "Try again"
 
+#: src/components/releases/ReleaseReviewSheet.tsx
+msgid "Try again later or review provider failures below."
+msgstr "Try again later or review provider failures below."
+
 #: src/pages/ActivityPage.tsx
 msgid "Try again."
 msgstr "Try again."
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Turn off Popular only to see every release MangaUpdates lists."
+msgstr "Turn off Popular only to see every release MangaUpdates lists."
 
 #: src/components/settings/AgentsTab.tsx
 msgid "Turn on the MCP server first."
 msgstr "Turn on the MCP server first."
 
+#: src/lib/importPick.ts
+msgid "Two series in your library share this title, so this one needs a check."
+msgstr "Two series in your library share this title, so this one needs a check."
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "type"
 msgstr "type"
+
+#: src/pages/SearchPage.tsx
+msgid "Type at least 3 characters to search across your configured providers."
+msgstr "Type at least 3 characters to search across your configured providers."
 
 #: src/pages/AttentionPage.tsx
 msgid "Unable to apply “{action}” to these issues."
@@ -5121,6 +7199,10 @@ msgstr "Unable to load activity timeline"
 #: src/components/activity/health/HealthView.tsx
 msgid "Unable to load background jobs"
 msgstr "Unable to load background jobs"
+
+#: src/components/import/ImportPickPanel.tsx
+msgid "Unable to load candidates: {error}"
+msgstr "Unable to load candidates: {error}"
 
 #: src/components/activity/health/HealthView.tsx
 msgid "Unable to load connections"
@@ -5146,6 +7228,10 @@ msgstr "Unable to load issue"
 msgid "Unable to load needs attention"
 msgstr "Unable to load needs attention"
 
+#: src/pages/ImportPage.tsx
+msgid "Unable to load pending imports"
+msgstr "Unable to load pending imports"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Unable to load series"
 msgstr "Unable to load series"
@@ -5158,9 +7244,29 @@ msgstr "Unable to load settings"
 msgid "Unable to load the search preview."
 msgstr "Unable to load the search preview."
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Unable to load this week's releases"
+msgstr "Unable to load this week's releases"
+
+#: src/pages/WantedPage.tsx
+msgid "Unable to load wanted issues"
+msgstr "Unable to load wanted issues"
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "Unable to load wanted series"
+msgstr "Unable to load wanted series"
+
 #: src/pages/SeriesListPage.tsx
 msgid "Unable to load your library"
 msgstr "Unable to load your library"
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "Unable to load your releases"
+msgstr "Unable to load your releases"
+
+#: src/pages/ReleasesPage.tsx
+msgid "Unable to refresh releases: {error}"
+msgstr "Unable to refresh releases: {error}"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Unable to refresh the run outcome. It remains recorded and can be checked from Activity."
@@ -5174,10 +7280,31 @@ msgstr "Unable to requeue direct download: {error}"
 msgid "Unable to requeue direct download: Unknown error"
 msgstr "Unable to requeue direct download: Unknown error"
 
+#: src/components/queue/WantedBySeries.tsx
+#: src/pages/WantedPage.tsx
+msgid "Unable to start this search."
+msgstr "Unable to start this search."
+
 #: src/components/settings/LogsTab.tsx
 msgid "Unavailable file"
 msgstr "Unavailable file"
 
+#: src/components/import/ImportBulkActions.tsx
+#: src/components/import/ImportPickPanel.tsx
+msgid "Unignore"
+msgstr "Unignore"
+
+#: src/components/import/ImportBulkActions.tsx
+msgid "Unignore selected import files"
+msgstr "Unignore selected import files"
+
+#: src/components/settings/AcquisitionHealthTab.tsx
+msgid "unknown"
+msgstr "unknown"
+
+#: src/components/import/ConfidenceBadge.tsx
+#: src/components/import/ImportFileRow.tsx
+#: src/lib/releaseState.ts
 #: src/lib/statusTone.ts
 #: src/pages/IssueDetailPage.tsx
 #: src/pages/SeriesDetailPage.tsx
@@ -5188,9 +7315,15 @@ msgstr "Unknown"
 msgid "unknown error"
 msgstr "unknown error"
 
+#: src/components/search/SearchAddButton.tsx
 #: src/hooks/useQueue.ts
+#: src/lib/api.ts
 msgid "Unknown error"
 msgstr "Unknown error"
+
+#: src/components/releases/industryRows.ts
+msgid "Unknown publisher"
+msgstr "Unknown publisher"
 
 #: src/lib/activityStatus.ts
 msgid "unreachable"
@@ -5300,6 +7433,7 @@ msgstr "Use MyAnimeList for manga search and metadata (MangaDex still provides c
 msgid "Use only Comic Vine for metadata (ignore local cache)"
 msgstr "Use only Comic Vine for metadata (ignore local cache)"
 
+#: src/components/search/SearchAddButton.tsx
 #: src/components/series/SeriesFolder.tsx
 msgid "Use the path Comicarr sees. In Docker, that is the path inside the container. Extra roots are listed under Settings → Media."
 msgstr "Use the path Comicarr sees. In Docker, that is the path inside the container. Extra roots are listed under Settings → Media."
@@ -5386,6 +7520,7 @@ msgid "via MCP"
 msgstr "via MCP"
 
 #: src/components/series/SeriesTable.tsx
+#: src/pages/SearchPage.tsx
 msgid "View"
 msgstr "View"
 
@@ -5398,8 +7533,12 @@ msgid "View activity for this series"
 msgstr "View activity for this series"
 
 #: src/pages/SeriesDetailPage.tsx
-msgid "View on"
-msgstr "View on"
+msgid "View on {site}"
+msgstr "View on {site}"
+
+#: src/components/releases/industryRows.ts
+msgid "Vol. {volume}"
+msgstr "Vol. {volume}"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Volume"
@@ -5433,21 +7572,37 @@ msgstr "Waiting for acquisition work to drain"
 msgid "Waiting on your decision."
 msgstr "Waiting on your decision."
 
+#: src/components/queue/upcomingColumns.tsx
+#: src/components/releases/IndustryReleasesView.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Want"
 msgstr "Want"
+
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Want {COMIC} {label}"
+msgstr "Want {COMIC} {label}"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Want {rowLabel}"
 msgstr "Want {rowLabel}"
 
+#: src/lib/releaseState.ts
+msgid "wanted"
+msgstr "wanted"
+
 #: src/components/layout/AppSidebar.tsx
 #: src/components/layout/MobileTabBar.tsx
+#: src/components/releases/IndustryReleasesView.tsx
 #: src/components/series/IssueStatusMenu.tsx
 #: src/lib/statusTone.ts
 #: src/pages/SeriesDetailPage.tsx
+#: src/pages/WantedPage.tsx
 msgid "Wanted"
 msgstr "Wanted"
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "Wanted series"
+msgstr "Wanted series"
 
 #: src/components/settings/LogsTab.tsx
 msgid "Warning"
@@ -5467,6 +7622,14 @@ msgstr "warnings and errors only"
 msgid "Watch folder"
 msgstr "Watch folder"
 
+#: src/pages/ImportPage.tsx
+msgid "Watched inbox"
+msgstr "Watched inbox"
+
+#: src/components/import/ImportSourcesStrip.tsx
+msgid "Watching"
+msgstr "Watching"
+
 #: src/components/settings/SearchTab.tsx
 msgid "Web-DL Only"
 msgstr "Web-DL Only"
@@ -5478,6 +7641,10 @@ msgstr "Webhook URL"
 #: src/lib/healthRows.ts
 msgid "Weekly pull list"
 msgstr "Weekly pull list"
+
+#: src/pages/ReleasesPage.tsx
+msgid "Weekly refresh is paused. Resume it in Settings, then retry."
+msgstr "Weekly refresh is paused. Resume it in Settings, then retry."
 
 #: src/pages/AttentionPage.tsx
 msgid "What Comicarr can't finish without you"
@@ -5507,9 +7674,33 @@ msgstr "Where Comicarr keeps your comics. New series folders are created here an
 msgid "Where Comicarr sends the releases it picks: one client for each kind of release."
 msgstr "Where Comicarr sends the releases it picks: one client for each kind of release."
 
+#: src/components/releases/MyReleasesView.tsx
+msgid "Where it stands"
+msgstr "Where it stands"
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "Which"
+msgstr "Which"
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "Why"
+msgstr "Why"
+
+#: src/components/queue/WantedBySeries.tsx
+msgid "Why it's missing"
+msgstr "Why it's missing"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Why this conditional rollback is needed"
 msgstr "Why this conditional rollback is needed"
+
+#: src/components/import/MatchModal.tsx
+msgid "Will add series: {series} ({year}, {publisher})"
+msgstr "Will add series: {series} ({year}, {publisher})"
+
+#: src/components/import/MatchModal.tsx
+msgid "Will add unmonitored"
+msgstr "Will add unmonitored"
 
 #: src/components/series/SeriesSearchProviders.tsx
 msgid "With every provider skipped, searches for this series stop without trying anything."
@@ -5535,6 +7726,22 @@ msgstr "Write metadata on import"
 msgid "year"
 msgstr "year"
 
+#: src/pages/SearchPage.tsx
+msgid "Year (Newest)"
+msgstr "Year (Newest)"
+
+#: src/pages/SearchPage.tsx
+msgid "Year (Oldest)"
+msgstr "Year (Oldest)"
+
+#: src/components/import/MatchModal.tsx
+msgid "Year unknown"
+msgstr "Year unknown"
+
+#: src/lib/releaseState.ts
+msgid "yesterday"
+msgstr "yesterday"
+
 #: src/components/activity/timeline/stories.ts
 msgid "Yesterday"
 msgstr "Yesterday"
@@ -5546,6 +7753,14 @@ msgstr "You"
 #: src/components/activity/timeline/sentences.ts
 msgid "you ignored this"
 msgstr "you ignored this"
+
+#: src/lib/importPick.ts
+msgid "You matched this folder to {series} before, so that pick is selected."
+msgstr "You matched this folder to {series} before, so that pick is selected."
+
+#: src/lib/importPick.ts
+msgid "You matched this folder to a series before, so that pick is selected."
+msgstr "You matched this folder to a series before, so that pick is selected."
 
 #: src/components/whats-new/WhatsNewArchive.tsx
 msgid "You upgraded from {from}. {releaseCount} · {changeCount}."

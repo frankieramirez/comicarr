@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 /**
  * The in-flight line's reading of `GET /api/activity/status` — pure, with no
  * React and no I/O (docs/architecture/dashboard-spec.md §3.3).
@@ -33,7 +34,7 @@ export function inFlightView({
 }: InFlightSnapshot): InFlightView {
   if (inFlight <= 0) {
     return {
-      text: "nothing in flight",
+      text: t`nothing in flight`,
       busy: false,
       moving: 0,
       stuck: 0,
@@ -47,8 +48,8 @@ export function inFlightView({
   return {
     text:
       recovered > 0
-        ? `${inFlight} in flight (${recovered} recovered from a restart)`
-        : `${inFlight} in flight`,
+        ? t`${inFlight} in flight (${recovered} recovered from a restart)`
+        : t`${inFlight} in flight`,
     busy: true,
     moving: inFlight - stuckCount,
     stuck: stuckCount,

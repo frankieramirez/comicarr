@@ -1,3 +1,6 @@
+import { ph, t } from "@lingui/core/macro";
+import { errorText } from "@/lib/api";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import {
   RefreshCw,
@@ -21,6 +24,16 @@ import { Callout } from "@/components/ui/callout";
 import { useToast } from "@/components/ui/toast";
 import LibraryScanResults from "./LibraryScanResults";
 
+/** "found 12 · matched 9", with the numbers emphasised. */
+function ScanCounts({ found, matched }: { found: number; matched: number }) {
+  return (
+    <Trans>
+      found <span className="text-foreground">{found}</span> · matched{" "}
+      <span className="text-foreground">{matched}</span>
+    </Trans>
+  );
+}
+
 export default function LibraryScanSection() {
   const { data: appConfig } = useConfig();
   const comicDir = appConfig?.comic_dir as string | undefined;
@@ -43,11 +56,11 @@ export default function LibraryScanSection() {
     try {
       await comicScanMutation.mutateAsync();
       setComicImported(null);
-      addToast({ type: "info", message: "Comic library scan started." });
+      addToast({ type: "info", message: t`Comic library scan started.` });
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to start comic scan: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to start comic scan: ${ph({ error: errorText(err) })}`,
       });
     }
   };
@@ -56,11 +69,11 @@ export default function LibraryScanSection() {
     try {
       await mangaScanMutation.mutateAsync();
       setMangaImported(null);
-      addToast({ type: "info", message: "Manga library scan started." });
+      addToast({ type: "info", message: t`Manga library scan started.` });
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to start manga scan: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to start manga scan: ${ph({ error: errorText(err) })}`,
       });
     }
   };
@@ -74,12 +87,12 @@ export default function LibraryScanSection() {
       setComicImported(result.imported);
       addToast({
         type: "success",
-        message: `Imported ${result.imported} comic series`,
+        message: t`Imported ${ph({ imported: result.imported })} comic series`,
       });
     } catch (err) {
       addToast({
         type: "error",
-        message: `Import failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Import failed: ${ph({ error: errorText(err) })}`,
       });
     }
   };
@@ -93,12 +106,12 @@ export default function LibraryScanSection() {
       setMangaImported(result.imported);
       addToast({
         type: "success",
-        message: `Imported ${result.imported} manga series`,
+        message: t`Imported ${ph({ imported: result.imported })} manga series`,
       });
     } catch (err) {
       addToast({
         type: "error",
-        message: `Import failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Import failed: ${ph({ error: errorText(err) })}`,
       });
     }
   };
@@ -113,9 +126,9 @@ export default function LibraryScanSection() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
         <ScanTile
           icon={Library}
-          label="Comic library"
+          label={t`Comic library`}
           path={comicDir}
-          notConfiguredHint="Set Comic Directory in Settings → Media"
+          notConfiguredHint={t`Set Comic Directory in Settings → Media`}
           busy={comicScanMutation.isPending || comicScanning}
           onScan={handleComicScan}
           progress={
@@ -130,9 +143,9 @@ export default function LibraryScanSection() {
         />
         <ScanTile
           icon={BookOpen}
-          label="Manga library"
+          label={t`Manga library`}
           path={mangaDir}
-          notConfiguredHint="Set Manga Directory in Settings → Media"
+          notConfiguredHint={t`Set Manga Directory in Settings → Media`}
           busy={mangaScanMutation.isPending || mangaScanning}
           onScan={handleMangaScan}
           progress={
@@ -196,8 +209,13 @@ function ScanFailure({
   const detail = progress.progress.errors[0];
   return (
     <Callout tone="error" className="px-3.5 py-3 text-[12px]">
-      {type === "comic" ? "Comic" : "Manga"} library scan failed
-      {detail ? `: ${detail}` : "."}
+      {type === "comic"
+        ? detail
+          ? t`Comic library scan failed: ${detail}`
+          : t`Comic library scan failed.`
+        : detail
+          ? t`Manga library scan failed: ${detail}`
+          : t`Manga library scan failed.`}
     </Callout>
   );
 }
@@ -216,7 +234,9 @@ function ImportSummary({
       className="rounded-lg border border-[var(--status-active)]/40 bg-[var(--status-active)]/10 px-3.5 py-3 text-[12px] text-foreground"
       role="status"
     >
-      Imported {imported} {type} series. The library has been refreshed.
+      <Trans>
+        Imported {imported} {type} series. The library has been refreshed.
+      </Trans>
     </div>
   );
 }
@@ -286,9 +306,10 @@ function ScanTile({
             style={{ color: "var(--primary)" }}
           />
           <span>
-            found <span className="text-foreground">{progress.found ?? 0}</span>{" "}
-            · matched{" "}
-            <span className="text-foreground">{progress.matched ?? 0}</span>
+            <ScanCounts
+              found={progress.found ?? 0}
+              matched={progress.matched ?? 0}
+            />
           </span>
           {progress.current && (
             <span
@@ -323,7 +344,9 @@ function ScanButton({
         disabled
         className="shrink-0 text-muted-foreground"
       >
-        <span>not set</span>
+        <span>
+          <Trans>not set</Trans>
+        </span>
       </Button>
     );
   }
@@ -342,7 +365,7 @@ function ScanButton({
         style={{ color: busy ? "var(--primary)" : "var(--muted-foreground)" }}
         strokeWidth={2}
       />
-      <span>{busy ? "scanning" : "scan"}</span>
+      <span>{busy ? t`scanning` : t`scan`}</span>
     </Button>
   );
 }

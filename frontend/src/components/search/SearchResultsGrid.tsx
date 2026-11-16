@@ -1,3 +1,4 @@
+import { ph, t } from "@lingui/core/macro";
 import { useState } from "react";
 import { ExternalLink, ImageOff } from "lucide-react";
 import SearchAddButton from "./SearchAddButton";
@@ -49,12 +50,15 @@ function SearchResultCard({
   const description = getDescription(comic);
   const sourceLabel = SOURCE_LABELS[comic.metadata_source ?? ""] ?? null;
   const issues = knownCount(comic.issues ?? comic.count_of_issues);
-  const issuesLabel = contentType === "manga" ? "ch" : "iss";
   const publisher =
     comic.publisher && comic.publisher !== "Unknown" ? comic.publisher : null;
   const meta = [
     knownYear(comic.comicyear),
-    issues !== null ? `${issues} ${issuesLabel}` : null,
+    issues !== null
+      ? contentType === "manga"
+        ? t`${issues} ch`
+        : t`${issues} iss`
+      : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -96,7 +100,7 @@ function SearchResultCard({
               borderColor: "var(--border)",
               background: "var(--background)",
             }}
-            aria-label={`Open ${comic.name} on provider site`}
+            aria-label={t`Open ${ph({ name: comic.name })} on provider site`}
           >
             <ExternalLink className="w-3 h-3" />
           </a>

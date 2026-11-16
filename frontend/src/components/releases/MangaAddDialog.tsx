@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ImageOff } from "lucide-react";
@@ -58,8 +60,8 @@ export default function MangaAddDialog({
       queryClient.invalidateQueries({ queryKey: ["weekly"] });
       addToast({
         type: "success",
-        title: `Adding ${match.name}`,
-        description: "The series is being added to your library.",
+        title: t`Adding ${ph({ name: match.name })}`,
+        description: t`The series is being added to your library.`,
       });
       onClose();
     } catch (err) {
@@ -71,17 +73,21 @@ export default function MangaAddDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add {title}</DialogTitle>
+          <DialogTitle>
+            <Trans>Add {title}</Trans>
+          </DialogTitle>
           <DialogDescription>
-            This release comes from MangaUpdates, so Comicarr looks for the same
-            series in your manga provider. Pick the match to add.
+            <Trans>
+              This release comes from MangaUpdates, so Comicarr looks for the
+              same series in your manga provider. Pick the match to add.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
 
         <div
           className="space-y-2"
           role="radiogroup"
-          aria-label="Matching series"
+          aria-label={t`Matching series`}
         >
           {search.isLoading ? (
             Array.from({ length: 3 }).map((_, index) => (
@@ -93,8 +99,10 @@ export default function MangaAddDialog({
             </p>
           ) : matches.length === 0 ? (
             <p className="text-[13px] text-muted-foreground">
-              No match for “{title}” that isn’t already in your library. Try Add
-              a series with another of its titles.
+              <Trans>
+                No match for “{title}” that isn’t already in your library. Try
+                Add a series with another of its titles.
+              </Trans>
             </p>
           ) : (
             matches.map((match) => {
@@ -145,13 +153,13 @@ export default function MangaAddDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            <Trans>Cancel</Trans>
           </Button>
           <Button
             onClick={() => void add()}
             disabled={!chosen || addManga.isPending}
           >
-            {addManga.isPending ? "Adding…" : "Add series"}
+            {addManga.isPending ? t`Adding…` : t`Add series`}
           </Button>
         </DialogFooter>
       </DialogContent>

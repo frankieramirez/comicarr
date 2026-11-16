@@ -1,6 +1,7 @@
+import { ph, t } from "@lingui/core/macro";
 import type { UpcomingIssue } from "@/types";
 import { parseDay } from "@/lib/releaseWeek";
-import { formatDate } from "@/lib/intl";
+import { formatDate, formatNumber } from "@/lib/intl";
 
 /**
  * Where one of this week's releases stands, in the words Releases > Mine
@@ -41,11 +42,16 @@ export function landedLabel(
     0,
     Math.round((now.getTime() - at.getTime()) / 60_000),
   );
-  if (minutes < 60) return minutes < 1 ? "just now" : `${minutes}m ago`;
-  if (minutes < 12 * 60) return `${Math.round(minutes / 60)}h ago`;
+  const narrow = (amount: number, unit: string) =>
+    formatNumber(amount, { style: "unit", unit, unitDisplay: "narrow" });
+  if (minutes < 1) return t`just now`;
+  if (minutes < 60)
+    return t`${ph({ duration: narrow(minutes, "minute") })} ago`;
+  if (minutes < 12 * 60)
+    return t`${ph({ duration: narrow(Math.round(minutes / 60), "hour") })} ago`;
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
-  if (at.toDateString() === yesterday.toDateString()) return "yesterday";
+  if (at.toDateString() === yesterday.toDateString()) return t`yesterday`;
   return formatDate(at, DAY_AND_TIME).replace(",", "");
 }
 
@@ -76,7 +82,7 @@ export function releaseState(
   if (status === "downloaded" || status === "archived") {
     return {
       bucket: "downloaded",
-      label: "Downloaded",
+      label: t`Downloaded`,
       detail: landedLabel(issue.downloaded_at, now),
       tone: "var(--status-downloaded)",
     };
@@ -85,13 +91,13 @@ export function releaseState(
     if (issue.download?.phase === "importing") {
       return {
         bucket: "in_progress",
-        label: "Importing",
+        label: t`Importing`,
         tone: "var(--in-flight)",
       };
     }
     return {
       bucket: "in_progress",
-      label: "Downloading",
+      label: t`Downloading`,
       tone: "var(--in-flight)",
       progress: issue.download?.percent ?? null,
     };
@@ -100,15 +106,15 @@ export function releaseState(
     if (day && day > today) {
       return {
         bucket: "coming_up",
-        label: `Out ${formatDate(parseDay(day), WEEKDAY)}`,
-        detail: searchPaused ? "search paused" : "wanted",
+        label: t`Out ${ph({ day: formatDate(parseDay(day), WEEKDAY) })}`,
+        detail: searchPaused ? t`search paused` : t`wanted`,
         tone: "var(--text-muted)",
       };
     }
     if (searchPaused) {
       return {
         bucket: "needs_you",
-        label: "Can't search",
+        label: t`Can't search`,
         detail: searchPaused,
         tone: "var(--status-paused)",
         setupBlocked: true,
@@ -116,14 +122,14 @@ export function releaseState(
     }
     return {
       bucket: "in_progress",
-      label: "Searching",
-      detail: "wanted",
+      label: t`Searching`,
+      detail: t`wanted`,
       tone: "var(--status-wanted)",
     };
   }
   return {
     bucket: day && day > today ? "coming_up" : "other",
-    label: issue.Status || "Unknown",
+    label: issue.Status || t`Unknown`,
     tone: "var(--text-muted)",
   };
 }
@@ -137,5 +143,5 @@ export function isNewComicDay(iso: string): boolean {
 export function releaseNumber(issue: UpcomingIssue): string {
   const number = issue.IssueNumber || issue.Issue_Number || "";
   if (!number) return "—";
-  return issue.ContentType === "manga" ? `Ch. ${number}` : `#${number}`;
+  return issue.ContentType === "manga" ? t`Ch. ${number}` : `#${number}`;
 }

@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Check } from "lucide-react";
 import { ToggleChip } from "@/components/ui/toggle-chip";
 import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
@@ -30,7 +32,7 @@ export default function ReleasesModeBar({
       <div
         className={`${SEGMENTED_GROUP} max-w-full overflow-x-auto`}
         role="group"
-        aria-label="Format"
+        aria-label={t`Format`}
         data-testid="release-formats"
       >
         {formats.map((option) => (
@@ -41,7 +43,7 @@ export default function ReleasesModeBar({
             onClick={() => onFormatChange(option)}
             className={`${SEGMENTED_ITEM} shrink-0`}
           >
-            {FORMAT_LABEL[option]}
+            {FORMAT_LABEL()[option]}
             {counts?.[option] != null && (
               <span className="mono-meta">{counts[option]}</span>
             )}
@@ -56,7 +58,7 @@ export default function ReleasesModeBar({
         data-testid="library-only-toggle"
       >
         {libraryOnly && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
-        Only my library
+        <Trans>Only my library</Trans>
       </ToggleChip>
     </>
   );

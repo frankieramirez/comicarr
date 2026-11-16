@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import type { ImportGroup } from "@/types";
 
 const MANGA_ID_PREFIXES = ["md-", "mal-"];
@@ -58,16 +59,18 @@ export function getImportGroupTypeLabel(
 ): string {
   const groupType = getImportGroupType(importGroup);
   if (groupType === "folder") {
-    return "Folder group";
+    return t`Folder group`;
   }
   if (groupType === "file") {
-    return "Single file";
+    return t`Single file`;
   }
-  return "Review group";
+  return t`Review group`;
 }
 
 export function getImportIssueLabel(importGroup: ImportGroup | null): string {
-  return detectImportSearchMode(importGroup) === "manga" ? "Chapter" : "Issue";
+  return detectImportSearchMode(importGroup) === "manga"
+    ? t`Chapter`
+    : t`Issue`;
 }
 
 function getFilenameStem(filename: string): string {
@@ -123,10 +126,11 @@ export function getImportIssueRange(
     return null;
   }
 
-  const label = getImportIssueLabel(importGroup);
+  const manga = detectImportSearchMode(importGroup) === "manga";
+  const first = values[0];
   if (values.length === 1) {
-    return `${label} ${values[0]}`;
+    return manga ? t`Chapter ${first}` : t`Issue ${first}`;
   }
-
-  return `${label}s ${values[0]}-${values[values.length - 1]}`;
+  const last = values[values.length - 1];
+  return manga ? t`Chapters ${first}-${last}` : t`Issues ${first}-${last}`;
 }
