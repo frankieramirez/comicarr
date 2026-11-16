@@ -14,6 +14,29 @@ afterEach(() => {
 });
 
 describe("settings configuration", () => {
+  it("chooses the library folder from General", async () => {
+    let saved: unknown = null;
+    server.use(
+      http.get("/api/config", () =>
+        HttpResponse.json({ comic_dir: "/comics" }),
+      ),
+      http.put("/api/config", async ({ request }) => {
+        saved = await request.json();
+        return HttpResponse.json({ success: true });
+      }),
+    );
+    const user = userEvent.setup();
+
+    render(createElement(SettingsPage));
+    const folder = await screen.findByLabelText("Library folder");
+    expect(folder.hasAttribute("readonly")).toBe(false);
+    await user.type(folder, "/data/comics");
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() => expect(saved).not.toBeNull());
+    expect(saved).toMatchObject({ destination_dir: "/data/comics" });
+  });
+
   it("widens the Logs panel and keeps other tabs in a readable column", () => {
     expect(settingsPanelClassName("logs")).toContain("max-w-none");
     expect(settingsPanelClassName("logs")).not.toContain("max-w-4xl");

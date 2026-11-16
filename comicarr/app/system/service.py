@@ -505,6 +505,27 @@ def update_provider_order(ctx, body):
 WRITABLE_CONFIG_KEYS = writable_keys()
 
 
+def _validate_library_folder(ctx, value):
+    """Refuse a new library folder the server cannot use.
+
+    Settings is now where a fresh install chooses it, so a typo should fail
+    here rather than at the first download. An unchanged value is left alone:
+    saving another setting must not trip over a folder that went missing.
+    """
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return "Library folder cannot be empty"
+    if not isinstance(value, str):
+        return "Library folder must be a path"
+    path = value.strip()
+    if path == (getattr(ctx.config, "DESTINATION_DIR", None) or ""):
+        return None
+    if not os.path.isabs(path):
+        return "Library folder must be a full path, such as /comics"
+    if not os.path.isdir(path):
+        return "Library folder %s does not exist on the server" % path
+    return None
+
+
 def update_config(ctx, key_values):
     """Update configuration key-values and trigger scheduler reconfiguration."""
     import comicarr
@@ -568,6 +589,11 @@ def update_config(ctx, key_values):
         if import_mode not in ("", "move", "copy", "hardlink", "softlink"):
             return {"success": False, "error": IMP_FILE_OPTS_ERROR}
         filtered["IMP_FILE_OPTS"] = import_mode
+
+    if "DESTINATION_DIR" in filtered:
+        library_error = _validate_library_folder(ctx, filtered["DESTINATION_DIR"])
+        if library_error:
+            return {"success": False, "error": library_error}
 
     if "SAB_HOST" in filtered:
         new_origin = _http_origin(filtered["SAB_HOST"])

@@ -8,7 +8,7 @@ import {
   SearchCheck,
   Sparkles,
   Database,
-  BookOpen,
+  Download,
   ChevronLeft,
 } from "lucide-react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
@@ -458,10 +458,11 @@ function FreshStep({ onFinish }: { onFinish: () => void }) {
     <div className="flex flex-col gap-4">
       <MonoLabel>Start fresh</MonoLabel>
       <div className="text-[18px] font-semibold tracking-tight">
-        You're all set.
+        Four steps to your first download
       </div>
       <div className="text-[12px] text-muted-foreground leading-relaxed">
-        A few quick things you can do next — none are required.
+        Your dashboard keeps this list under Needs you, with a button for each
+        step, until they are all done.
       </div>
 
       <div
@@ -470,19 +471,24 @@ function FreshStep({ onFinish }: { onFinish: () => void }) {
       >
         {[
           {
-            label: "Connect a provider",
-            hint: "Settings → API & providers (Comic Vine, MangaDex)",
-            icon: Database,
-          },
-          {
-            label: "Configure library paths",
-            hint: "Settings → Media (comic + manga directories)",
+            label: "Choose a library folder",
+            hint: "Settings → General",
             icon: FolderOpen,
           },
           {
-            label: "Add your first series",
-            hint: "Library → Add, or press N from anywhere",
-            icon: BookOpen,
+            label: "Add your ComicVine API key",
+            hint: "Settings → Sources and keys",
+            icon: Database,
+          },
+          {
+            label: "Add an indexer",
+            hint: "Settings → Indexers and search",
+            icon: SearchCheck,
+          },
+          {
+            label: "Add a download client",
+            hint: "Settings → Download clients",
+            icon: Download,
           },
         ].map(({ label, hint, icon: Icon }) => (
           <div key={label} className="flex items-start gap-3 px-3.5 py-3">

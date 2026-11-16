@@ -37,6 +37,10 @@ import {
 } from "@/hooks/useActivity";
 import { useSearchBlockers } from "@/hooks/useAcquisitionHealth";
 import type { SearchBlocker } from "@/lib/searchBlockers";
+import { setupSteps } from "@/lib/setupSteps";
+import SetupChecklist from "@/components/dashboard/SetupChecklist";
+import { useConfig } from "@/hooks/useConfig";
+import { useDashboardLibrary } from "@/hooks/useDashboard";
 
 /**
  * Needs-attention on the dashboard (docs/architecture/dashboard-spec.md §3.2).
@@ -251,7 +255,9 @@ function distinctSeries(causes: AttentionCause[]) {
 
 export default function NeedsAttentionBand() {
   const band = useActivityBand();
-  const { blockers } = useSearchBlockers();
+  const { blockers, known } = useSearchBlockers();
+  const config = useConfig();
+  const library = useDashboardLibrary();
   const batch = useBandBatchResolution();
   const { addToast } = useToast();
   const [confirming, setConfirming] = useState<{
@@ -289,6 +295,21 @@ export default function NeedsAttentionBand() {
     }
     void runAction(action, releaseKeys);
   };
+
+  // A fresh install: nothing can need attention yet, so the four steps to a
+  // first download take the whole section until a series is added and every
+  // step is done.
+  const steps =
+    known && config.data && library.data
+      ? setupSteps({ config: config.data, blockers })
+      : null;
+  if (
+    steps &&
+    library.data?.stats.total_series === 0 &&
+    steps.some((step) => !step.done)
+  ) {
+    return <SetupChecklist steps={steps} />;
+  }
 
   if (band.isPending) {
     return (
