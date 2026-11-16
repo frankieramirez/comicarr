@@ -91,15 +91,12 @@ ROOT_MODULES: dict[str, int] = {
 
 # Directory under comicarr/ other than app/ -> retiring issue.
 ROOT_PACKAGES: dict[str, int] = {
-    "_vendor": 1414,
     "downloaders": 1422,
     "torrent": 1422,
 }
 
 # Top-level entry under comicarr/_vendor/ -> retiring issue.
-VENDOR_ROOTS: dict[str, int] = {
-    "comictaggerlib": 1414,
-}
+VENDOR_ROOTS: dict[str, int] = {}
 
 ALLOWED_MODULES = frozenset({"__init__"})
 ALLOWED_PACKAGES = frozenset({"app"})

@@ -16,7 +16,6 @@ dependencies = [
     "feedparser>=5.2.1",
     "mcp>=2.3,<3",
     "mokkari>=3.0.0",
-    "natsort>=3.5.2",
     "openai>=2.30.0",
     "packaging>=22.0",
     "Pillow>=13.0.0",
@@ -66,7 +65,6 @@ build-backend = "setuptools.build_meta"
 include = ["comicarr*"]
 
 [tool.setuptools.package-data]
-"comicarr._vendor" = ["**/LICENSE", "**/COPYING", "**/NOTICE"]
 "comicarr.app.system.support_bundle_contract" = ["v1/*"]
 
 [tool.pytest.ini_options]
@@ -96,7 +94,6 @@ branch = true
 source = ["comicarr"]
 omit = [
     "comicarr/dependency_check.py",
-    "comicarr/_vendor/*",
 ]
 
 [tool.coverage.report]
@@ -115,7 +112,6 @@ directory = "coverage_html"
 [tool.ruff]
 target-version = "py310"
 line-length = 120
-exclude = ["comicarr/_vendor/**"]
 
 [tool.ruff.lint]
 select = [

@@ -346,10 +346,7 @@ def _do_manual_metatag(issueid, comicid=None, group=False):
             **cmtag_series_arguments(issueid, comicid, comversion, seriesyear, agerating),
         )
     except ImportError:
-        logger.warn(
-            module
-            + " comictaggerlib not found on system. Ensure the bundled vendor package is available at comicarr/_vendor/comictaggerlib/."
-        )
+        logger.warn(module + " the tagger could not be loaded.")
         metaresponse = "fail"
 
     dst_filename = None

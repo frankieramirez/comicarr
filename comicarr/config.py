@@ -20,7 +20,6 @@
 import codecs
 import configparser
 import copy
-import errno
 import glob
 import json
 import os
@@ -1997,106 +1996,12 @@ class Config(object):
                 self.OPDS_ENDPOINT = self.OPDS_ENDPOINT[:-1]
             config.set("OPDS", "opds_endpoint", self.OPDS_ENDPOINT.strip())
 
-        from comicarr._vendor.comictaggerlib import ctversion
-
-        logger.info("[COMICTAGGER] Version detected: %s" % ctversion.version)
-        comicarr.CMTAGGER_PATH = comicarr.PROG_DIR
-
         if not ([self.CT_NOTES_FORMAT == "CVDB", self.CT_NOTES_FORMAT == "Issue ID"]):
             self.CT_NOTES_FORMAT = "Issue ID"
             config.set("Metatagging", "ct_notes_format", self.CT_NOTES_FORMAT)
 
-        if self.CT_SETTINGSPATH is None:
-            chkpass = False
-
-            if comicarr.OS_DETECT == "Windows":
-                ct_path = comicarr.DATA_DIR
-                chkpass = True
-            else:
-                ct_path = str(Path(os.path.expanduser("~")))
-                try:
-                    os.mkdir(os.path.join(ct_path, ".ComicTagger"))
-                    chkpass = True
-                except OSError as e:
-                    if e.errno != errno.EEXIST:
-                        logger.error(
-                            "Unable to create .ComicTagger directory in %s. Setting up to default location of %s"
-                            % (ct_path, os.path.join(comicarr.DATA_DIR, ".ComicTagger"))
-                        )
-                        ct_path = comicarr.DATA_DIR
-                        chkpass = True
-                    elif e.errno == 17:
-                        chkpass = True
-                except exception:
-                    logger.error(
-                        "Unable to create setting directory for ComicTagger. This WILL cause problems when tagging."
-                    )
-                    ct_path = comicarr.DATA_DIR
-                    chkpass = True
-
-            if chkpass is True:
-                self.CT_SETTINGSPATH = os.path.join(ct_path, ".ComicTagger")
-                config.set("Metatagging", "ct_settingspath", self.CT_SETTINGSPATH)
-
-        if not update:
-            logger.fdebug("[COMICTAGGER] Setting ComicTagger settings default path to : %s" % self.CT_SETTINGSPATH)
-
-        if not os.path.exists(self.CT_SETTINGSPATH):
-            try:
-                os.mkdir(self.CT_SETTINGSPATH)
-            except OSError as e:
-                if e.errno != errno.EEXIST:
-                    logger.error(
-                        "Unable to create setting directory for ComicTagger. This WILL cause problems when tagging."
-                    )
-            else:
-                logger.fdebug("Successfully created ComicTagger Settings location.")
-
         if "42.0.2311.135" in self.CV_USER_AGENT:
             self.CV_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-
-        ct_settingsfile = os.path.join(self.CT_SETTINGSPATH, "settings")
-        if os.path.exists(ct_settingsfile):
-            ct_config = configparser.ConfigParser()
-
-            def readline_generator(f):
-                line = f.readline()
-                while line:
-                    yield line
-                    line = f.readline()
-
-            ct_config.read_file(readline_generator(codecs.open(ct_settingsfile, "r", "utf8")))
-
-            tmp_agent = None
-            if ct_config.has_option("comicvine", "cv_user_agent"):
-                tmp_agent = ct_config.get("comicvine", "cv_user_agent")
-
-            if tmp_agent != self.CV_USER_AGENT:
-                try:
-                    with codecs.open(ct_settingsfile, "r", "utf8") as ct_read:
-                        ct_lines = ct_read.readlines()
-
-                    process_next = False
-                    cv_line = "cv_user_agent = %s" % self.CV_USER_AGENT
-                    with codecs.open(ct_settingsfile, encoding="utf8", mode="w+") as ct_file:
-                        for line in ct_lines:
-                            if "cv_user_agent" in line:
-                                line = cv_line
-
-                            elif "[comicvine]" not in line and process_next:
-                                ct_file.write(cv_line + "\n")
-                                process_next = False
-
-                            if tmp_agent is None and "[comicvine]" in line:
-                                process_next = True
-
-                            ct_file.write(line)
-
-                    logger.fdebug("Updated CT Settings with new CV user agent string.")
-                except IOError as e:
-                    logger.warn("Error writing configuration file: %s" % e)
-            else:
-                logger.info("[CV_USER_AGENT] Agent already identical in comictagger session.")
 
         if startup is False:
             if self.POST_PROCESSING is True and (

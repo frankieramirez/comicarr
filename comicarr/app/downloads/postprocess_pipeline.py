@@ -1419,10 +1419,7 @@ def process_comic_issue(match: PostProcessComicMatch, run: PostProcessRun, deps:
                     agerating=agerating,
                 )
         except ImportError:
-            logger.fdebug(
-                "%s comictaggerlib not found on system. Ensure the bundled vendor package is available at comicarr/_vendor/comictaggerlib/"
-                % module
-            )
+            logger.fdebug("%s the tagger could not be loaded." % module)
             logger.fdebug("%s continuing with PostProcessing, but I am not using metadata." % module)
             pcheck = "fail"
 
@@ -1846,10 +1843,7 @@ def metatag_manga_file(run, deps, filepath, issueid):
     try:
         pcheck = deps.tag_file(run.nzb_folder, issueid=issueid, filename=filepath)
     except ImportError:
-        logger.fdebug(
-            "%s comictaggerlib not found on system. Ensure the bundled vendor package is available at comicarr/_vendor/comictaggerlib/"
-            % module
-        )
+        logger.fdebug("%s the tagger could not be loaded." % module)
         return filepath
     except Exception as e:
         logger.error("%s [MANGA] Metatagging raised for %s [%s]" % (module, filepath, e))
@@ -2432,10 +2426,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                                 agerating=None,
                             )
                         except ImportError:
-                            logger.warn(
-                                "%s comictaggerlib not found on system. Ensure the bundled vendor package is available at comicarr/_vendor/comictaggerlib/"
-                                % module
-                            )
+                            logger.warn("%s the tagger could not be loaded." % module)
                             metaresponse = "fail"
 
                         if metaresponse == "fail":
@@ -3030,10 +3021,7 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
                             agerating=None,
                         )
                     except ImportError:
-                        logger.warn(
-                            "%s comictaggerlib not found on system. Ensure the bundled vendor package is available at comicarr/_vendor/comictaggerlib/"
-                            % module
-                        )
+                        logger.warn("%s the tagger could not be loaded." % module)
                         metaresponse = "fail"
 
                     if metaresponse == "fail":
