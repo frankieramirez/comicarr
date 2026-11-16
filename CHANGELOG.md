@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.57.1
+
+### Patch Changes
+
+- 79a1b81: Needs you no longer blames your settings for downloads it can't identify. Records that never saved which release they were, mostly left over from older versions, used to sit under "Post-processing is misconfigured" with a settings link that couldn't clear them. They now show as "Old downloads with no release name", and you can search again or stop wanting them from there.
+- 7732c2c: New issues of the series you follow get added from the weekly pull list again. One followed series with missing publication details (for example a series whose metadata never finished loading) made every pull-list check fail with "argument of type 'NoneType' is not iterable", so new issues such as this week's releases never appeared or got searched. That series is now skipped and the rest are matched as normal.
+- 354c622: RSS checks pick up new releases from Prowlarr indexers again. Comicarr asked each Prowlarr indexer for an `/rss` page that Prowlarr doesn't have. Prowlarr answered with its own web page, so every pass logged "0 entries indexed" and never tried the indexer's API. Comicarr now notices when a response isn't a feed and uses the API instead. A GetComics post in an unexpected layout no longer stops the RSS check before it looks for your wanted issues.
+
 ## 0.57.0
 
 ### Minor Changes
