@@ -27,16 +27,58 @@ function InlineMarkdown({ text }: { text: string }) {
   );
 }
 
-/** Multi-paragraph bullet bodies from the mechanical transform (#450). */
+const SUB_BULLET = /^\s*[-*]\s+/;
+
+/**
+ * Multi-paragraph bullet bodies from the mechanical transform (#450). A
+ * changeset's own `- ` lines become a nested list instead of running into
+ * the paragraph before them.
+ */
 export function BulletBody({ text }: { text: string }) {
-  const paras = text.split(/\n{2,}/);
+  const blocks: { kind: "p" | "ul"; lines: string[] }[] = [];
+  for (const para of text.split(/\n{2,}/)) {
+    let current: { kind: "p" | "ul"; lines: string[] } | null = null;
+    for (const line of para.split("\n")) {
+      if (!line.trim()) continue;
+      const bullet = SUB_BULLET.test(line);
+      if (bullet) {
+        if (current?.kind !== "ul") {
+          current = { kind: "ul", lines: [] };
+          blocks.push(current);
+        }
+        current.lines.push(line.replace(SUB_BULLET, ""));
+      } else if (current?.kind === "ul" && /^\s/.test(line)) {
+        // An indented continuation of the sub-bullet above it.
+        current.lines[current.lines.length - 1] += ` ${line.trim()}`;
+      } else {
+        if (current?.kind !== "p") {
+          current = { kind: "p", lines: [] };
+          blocks.push(current);
+        }
+        current.lines.push(line.trim());
+      }
+    }
+  }
   return (
     <>
-      {paras.map((p, i) => (
-        <p key={i} className={i > 0 ? "mt-1.5" : undefined}>
-          <InlineMarkdown text={p.replace(/\n/g, " ")} />
-        </p>
-      ))}
+      {blocks.map((block, i) =>
+        block.kind === "ul" ? (
+          <ul
+            key={i}
+            className={cn("list-disc space-y-1 pl-4", i > 0 && "mt-1.5")}
+          >
+            {block.lines.map((line, j) => (
+              <li key={j}>
+                <InlineMarkdown text={line} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p key={i} className={i > 0 ? "mt-1.5" : undefined}>
+            <InlineMarkdown text={block.lines.join(" ")} />
+          </p>
+        ),
+      )}
     </>
   );
 }
