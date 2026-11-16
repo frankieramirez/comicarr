@@ -103,27 +103,26 @@ def test_qbittorrent_add_uses_routed_category_and_reports_it(monkeypatch):
     added = {}
 
     class FakeClient:
-        _is_authenticated = True
-
         def __init__(self):
             self.present = False
 
-        def get_torrent(self, _hash):
+        def torrents_properties(self, torrent_hash):
             if not self.present:
                 raise RuntimeError("missing")
             return {"save_path": "/downloads/Magazines", "total_size": 1, "addition_date": 0}
 
-        def download_from_link(self, link, **kwargs):
+        def torrents_add(self, urls=None, **kwargs):
             added.update(kwargs)
             self.present = True
 
-        def get_torrent_files(self, _hash):
+        def torrents_files(self, torrent_hash):
             return [{"name": "Wizard 001.cbz"}]
 
     tc = qbittorrent.TorrentClient()
     tc.client = FakeClient()
+    tc.conn = tc
 
     info = tc.load_torrent("magnet:?xt=urn:btih:" + "a" * 40, comicid="4050-1")
 
-    assert added == {"category": "magazines", "savepath": "/downloads/Magazines"}
+    assert added == {"category": "magazines", "save_path": "/downloads/Magazines"}
     assert info["label"] == "magazines"

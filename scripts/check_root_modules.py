@@ -101,7 +101,6 @@ ROOT_PACKAGES: dict[str, int] = {
 VENDOR_ROOTS: dict[str, int] = {
     "comictaggerlib": 1414,
     "deluge_client": 1411,
-    "qbittorrent": 1410,
     "rtorrent": 1413,
     "transmissionrpc": 1412,
 }

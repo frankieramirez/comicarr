@@ -184,7 +184,7 @@ def _probe_qbittorrent(torrent_hash):
         return unreachable(conn.get("error", "qbittorrent did not connect"))
 
     try:
-        listing = client.conn.torrents(hashes=torrent_hash.lower())
+        listing = client.list_torrents(torrent_hash)
     except Exception as e:
         return unreachable(e)
 
@@ -196,7 +196,7 @@ def _probe_qbittorrent(torrent_hash):
     try:
         files = [
             _join(folder, f.get("name"))
-            for f in client.conn.get_torrent_files(torrent_hash.lower()) or []
+            for f in client.torrent_files(torrent_hash) or []
             if f.get("name")
         ]
     except Exception:

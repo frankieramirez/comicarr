@@ -207,8 +207,8 @@ def test_a_non_pausable_client_is_monitored_without_being_paused(monkeypatch):
 
     fake_client = MagicMock()
     fake_client.connect.return_value = True
-    fake_client.conn.torrents.return_value = [{"hash": HASH40, "progress": 0.5, "save_path": "/downloads"}]
-    fake_client.conn.get_torrent_files.return_value = [{"name": "Saga.cbz"}]
+    fake_client.list_torrents.return_value = [{"hash": HASH40, "progress": 0.5, "save_path": "/downloads"}]
+    fake_client.torrent_files.return_value = [{"name": "Saga.cbz"}]
 
     with (
         patch("comicarr.torrent.clients.qbittorrent.TorrentClient", return_value=fake_client),
@@ -352,10 +352,10 @@ def test_local_torrent_pp_copies_a_completed_qbittorrent_download(monkeypatch):
 
     fake_client = MagicMock()
     fake_client.connect.return_value = True
-    fake_client.conn.torrents.return_value = [
+    fake_client.list_torrents.return_value = [
         {"hash": HASH40, "progress": 1.0, "save_path": "/downloads", "name": "Saga.cbz"}
     ]
-    fake_client.conn.get_torrent_files.return_value = [{"name": "Saga.cbz"}]
+    fake_client.torrent_files.return_value = [{"name": "Saga.cbz"}]
 
     with (
         patch("comicarr.torrent.clients.qbittorrent.TorrentClient", return_value=fake_client),

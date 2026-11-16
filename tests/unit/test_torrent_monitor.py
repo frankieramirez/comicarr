@@ -204,7 +204,7 @@ class TestNormalisation:
         _use(monkeypatch, "USE_QBITTORRENT")
         client = MagicMock()
         client.connect.return_value = object()
-        client.conn.torrents.return_value = [
+        client.list_torrents.return_value = [
             {
                 "hash": "abc123",
                 "name": "Chainsaw Man 165",
@@ -218,7 +218,7 @@ class TestNormalisation:
                 "category": "comics",
             }
         ]
-        client.conn.get_torrent_files.return_value = [{"name": "Chainsaw Man 165.cbz"}]
+        client.torrent_files.return_value = [{"name": "Chainsaw Man 165.cbz"}]
 
         with patch("comicarr.torrent.clients.qbittorrent.TorrentClient", return_value=client):
             result = monitor.probe("ABC123")
@@ -232,8 +232,8 @@ class TestNormalisation:
         _use(monkeypatch, "USE_QBITTORRENT")
         client = MagicMock()
         client.connect.return_value = object()
-        client.conn.torrents.return_value = [{"hash": "abc123", "progress": 0.42, "save_path": "/downloads"}]
-        client.conn.get_torrent_files.return_value = []
+        client.list_torrents.return_value = [{"hash": "abc123", "progress": 0.42, "save_path": "/downloads"}]
+        client.torrent_files.return_value = []
 
         with patch("comicarr.torrent.clients.qbittorrent.TorrentClient", return_value=client):
             result = monitor.probe("abc123")

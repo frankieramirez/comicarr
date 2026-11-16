@@ -7,76 +7,109 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""qBittorrent login handling across Web API versions (#1159)."""
+"""qBittorrent login and add handling across Web API versions (#1159, #1410).
 
+The client talks to a fake qBittorrent WebUI over real HTTP, so these tests
+cover what ``qbittorrent-api`` actually sends and how the adapter reads it.
+"""
+
+import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from comicarr._vendor.qbittorrent import client as vendor_client
 from comicarr.torrent.clients import qbittorrent
 
 HASH = "A" * 40
 MAGNET = "magnet:?xt=urn:btih:" + HASH
 
 
-def _response(status_code, text):
-    return SimpleNamespace(status_code=status_code, text=text)
-
-
-class FakeSession:
-    """Stands in for requests.Session against a fake qBittorrent WebUI."""
-
-    def __init__(self, login_response):
-        self.login_response = login_response
+class FakeWebUI:
+    def __init__(self, login_status, login_body):
+        self.login_status = login_status
+        self.login_body = login_body
         self.posts = []
+        self.added = {}
         self.present = False
 
-    def get(self, url, **kwargs):
-        if url.endswith("api/v2/app/preferences"):
-            return _response(403, "Forbidden")
-        if url.endswith("api/v2/app/version"):
-            return _json(200, "v5.2.4")
-        if url.endswith("api/v2/torrents/properties"):
-            if not self.present:
-                return _json(404, "")
-            return _json(200, '{"save_path": "/downloads", "total_size": 1, "addition_date": 0}')
-        if url.endswith("api/v2/torrents/files"):
-            return _json(200, '[{"name": "Absolute Wonder Woman 001.cbz"}]')
-        raise AssertionError(f"unexpected GET {url}")
 
-    def post(self, url, data=None, **kwargs):
-        self.posts.append(url)
-        if url.endswith("api/v2/auth/login"):
-            return self.login_response
-        if url.endswith("api/v2/torrents/add"):
-            self.present = True
-            return _json(200, '{"added_torrent_ids": ["a"], "failure_count": 0}')
-        raise AssertionError(f"unexpected POST {url}")
+def _handler(state):
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
 
+        def _send(self, status, body="", content_type="text/plain"):
+            data = body.encode()
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
+            if self.path.endswith("auth/login") and status < 300:
+                self.send_header("Set-Cookie", "SID=fake; path=/")
+            self.end_headers()
+            self.wfile.write(data)
 
-def _json(status_code, text):
-    response = MagicMock(status_code=status_code, text=text)
-    if status_code >= 400:
-        response.raise_for_status.side_effect = RuntimeError(f"HTTP {status_code}")
-    return response
+        def do_GET(self):
+            path = urlparse(self.path).path
+            if path.endswith("app/version"):
+                return self._send(200, "v5.2.4")
+            if path.endswith("app/webapiVersion"):
+                return self._send(200, "2.11.4")
+            if path.endswith("torrents/properties"):
+                if not state.present:
+                    return self._send(404, "")
+                body = {"save_path": "/downloads", "total_size": 1, "addition_date": 0}
+                return self._send(200, json.dumps(body), "application/json")
+            if path.endswith("torrents/files"):
+                return self._send(200, json.dumps([{"name": "Absolute Wonder Woman 001.cbz"}]), "application/json")
+            return self._send(404, "")
+
+        do_POST_body = None
+
+        def do_POST(self):
+            path = urlparse(self.path).path
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length)
+            state.posts.append(path)
+            if path.endswith("auth/login"):
+                return self._send(state.login_status, state.login_body)
+            if path.endswith("torrents/add"):
+                state.present = True
+                state.added = {k: v[0] for k, v in parse_qs(raw.decode()).items()}
+                return self._send(200, "Ok.")
+            if path.endswith("torrents/properties"):
+                fields = parse_qs(raw.decode())
+                if not state.present or not fields.get("hash"):
+                    return self._send(404, "")
+                body = {"save_path": "/downloads", "total_size": 1, "addition_date": 0}
+                return self._send(200, json.dumps(body), "application/json")
+            if path.endswith("torrents/files"):
+                return self._send(200, json.dumps([{"name": "Absolute Wonder Woman 001.cbz"}]), "application/json")
+            if path.endswith("app/version"):
+                return self._send(200, "v5.2.4")
+            return self._send(404, "")
+
+    return Handler
 
 
 @pytest.fixture
-def webui(monkeypatch):
-    sessions = []
+def webui():
+    servers = []
 
-    def install(login_response):
-        def make_session():
-            session = FakeSession(login_response)
-            sessions.append(session)
-            return session
+    def start(login_status=204, login_body=""):
+        state = FakeWebUI(login_status, login_body)
+        server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(state))
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        servers.append(server)
+        return state, "http://127.0.0.1:%d" % server.server_address[1]
 
-        monkeypatch.setattr(vendor_client.requests, "Session", make_session)
-        return sessions
-
-    return install
+    yield start
+    for server in servers:
+        server.shutdown()
+        server.server_close()
 
 
 @pytest.fixture
@@ -91,67 +124,81 @@ def config(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "login_response",
-    [_response(204, ""), _response(200, "Ok."), _response(200, "Ok.\n")],
-    ids=["qbt-5.2-204-empty", "legacy-200-ok", "legacy-200-ok-newline"],
+    ("status", "body"),
+    [(204, ""), (200, "Ok.")],
+    ids=["qbt-5.2-204-empty", "legacy-200-ok"],
 )
-def test_successful_login_authenticates(webui, login_response):
-    webui(login_response)
-    client = vendor_client.Client("http://127.0.0.1:8082")
+def test_successful_login_connects(webui, status, body):
+    _, host = webui(status, body)
+    adapter = qbittorrent.TorrentClient()
 
-    assert client.login("user", "secret") is None
-    assert client._is_authenticated is True
+    assert adapter.connect(host, "user", "secret") is adapter
+    assert adapter.authenticated is True
 
 
 @pytest.mark.parametrize(
-    "login_response",
-    [_response(200, "Fails."), _response(403, "Your IP address has been banned"), _response(401, "")],
+    ("status", "body"),
+    [(200, "Fails."), (403, "Your IP address has been banned"), (401, "")],
     ids=["wrong-password", "ip-banned", "unauthorized-empty"],
 )
-def test_failed_login_stays_unauthenticated(webui, login_response):
-    webui(login_response)
-    client = vendor_client.Client("http://127.0.0.1:8082")
+def test_failed_login_reports_login_failure(webui, status, body):
+    _, host = webui(status, body)
+    adapter = qbittorrent.TorrentClient()
 
-    assert client.login("user", "wrong") == login_response.text
-    assert client._is_authenticated is False
+    result = adapter.connect(host, "user", "wrong")
+
+    assert result["status"] is False
+    assert "login failed" in result["error"]
+    assert adapter.conn is None
+    assert adapter.authenticated is False
 
 
 def test_204_login_lets_grab_reach_torrents_add(webui, config, monkeypatch):
-    sessions = webui(_response(204, ""))
+    state, host = webui(204, "")
     monkeypatch.setattr(qbittorrent.time, "sleep", lambda _seconds: None)
     adapter = qbittorrent.TorrentClient()
 
-    assert adapter.connect("http://127.0.0.1:8082", "user", "secret") is adapter.client
+    assert adapter.connect(host, "user", "secret") is adapter
     info = adapter.load_torrent(MAGNET)
 
-    assert any(url.endswith("api/v2/torrents/add") for url in sessions[-1].posts)
+    assert any(path.endswith("torrents/add") for path in state.posts)
+    assert state.added == {"urls": MAGNET, "category": "comics"}
     assert info["status"] is True
     assert info["hash"] == HASH
     assert info["label"] == "comics"
+    assert info["name"] == "Absolute Wonder Woman 001.cbz"
 
 
 def test_204_login_passes_connection_test(webui):
-    webui(_response(204, ""))
+    _, host = webui(204, "")
 
-    result = qbittorrent.TorrentClient().connect("http://127.0.0.1:8082", "user", "secret", test=True)
+    result = qbittorrent.TorrentClient().connect(host, "user", "secret", test=True)
 
     assert result == {"status": True, "version": "v5.2.4"}
 
 
 def test_rejected_login_fails_connection_test(webui):
-    webui(_response(200, "Fails."))
+    _, host = webui(200, "Fails.")
     adapter = qbittorrent.TorrentClient()
 
-    result = adapter.connect("http://127.0.0.1:8082", "user", "wrong", test=True)
+    result = adapter.connect(host, "user", "wrong", test=True)
 
     assert result["status"] is False
     assert "login failed" in result["error"]
     assert adapter.conn is None
 
 
+def test_unreachable_host_is_a_connection_failure():
+    adapter = qbittorrent.TorrentClient()
+
+    result = adapter.connect("http://127.0.0.1:9", "user", "secret")
+
+    assert result["status"] is False
+    assert adapter.conn is None
+
+
 def test_unauthenticated_load_returns_error_without_waiting(config):
     adapter = qbittorrent.TorrentClient()
-    adapter.client = SimpleNamespace(_is_authenticated=False)
 
     with patch.object(qbittorrent.time, "sleep", side_effect=AssertionError("must not wait")):
         result = adapter.load_torrent(MAGNET)
@@ -163,10 +210,10 @@ def test_torrent_missing_after_add_reports_clear_error(config, monkeypatch):
     monkeypatch.setattr(qbittorrent.time, "sleep", lambda _seconds: None)
     adapter = qbittorrent.TorrentClient()
     adapter.client = SimpleNamespace(
-        _is_authenticated=True,
-        get_torrent=MagicMock(side_effect=RuntimeError("404")),
-        download_from_link=MagicMock(),
+        torrents_properties=MagicMock(side_effect=RuntimeError("404")),
+        torrents_add=MagicMock(),
     )
+    adapter.conn = adapter
 
     result = adapter.load_torrent(MAGNET)
 
