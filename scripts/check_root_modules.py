@@ -77,7 +77,6 @@ ROOT_MODULES: dict[str, int] = {
     "readinglist": 1416,
     "rsscheck": 1421,
     "rsscheckit": 1421,
-    "rtorrent_test_client": 1413,
     "sabnzbd": 1422,
     "search": 1422,
     "series_metadata": 1415,
@@ -100,7 +99,6 @@ ROOT_PACKAGES: dict[str, int] = {
 # Top-level entry under comicarr/_vendor/ -> retiring issue.
 VENDOR_ROOTS: dict[str, int] = {
     "comictaggerlib": 1414,
-    "rtorrent": 1413,
 }
 
 ALLOWED_MODULES = frozenset({"__init__"})

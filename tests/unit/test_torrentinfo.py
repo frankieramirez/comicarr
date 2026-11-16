@@ -82,11 +82,10 @@ def test_rtorrent_import_path_no_importerror_and_status(monkeypatch):
     monkeypatch.setattr(comicarr, "USE_RTORRENT", True)
     monkeypatch.setattr(comicarr, "USE_DELUGE", False)
 
-    class FakeRTorrent:
-        def main(self, torrent_hash=None, check=False):
-            return {"completed": False, "files": ["a.cbz"], "folder": "/dl"}
+    def send_or_check(torrent_hash=None, check=False):
+        return {"completed": False, "files": ["a.cbz"], "folder": "/dl"}
 
-    with patch("comicarr.rtorrent_test_client.RTorrent", return_value=FakeRTorrent()):
+    with patch("comicarr.torrent.clients.rtorrent.send_or_check", side_effect=send_or_check):
         result = service.torrentinfo(torrent_hash=HASH40, download=True)
 
     assert isinstance(result, dict)
@@ -292,11 +291,10 @@ def test_rtorrent_none_missing_hash_is_not_found_dict(monkeypatch):
     monkeypatch.setattr(comicarr, "USE_RTORRENT", True)
     monkeypatch.setattr(comicarr, "USE_DELUGE", False)
 
-    class FakeRTorrent:
-        def main(self, torrent_hash=None, check=False):
-            return None
+    def send_or_check(torrent_hash=None, check=False):
+        return None
 
-    with patch("comicarr.rtorrent_test_client.RTorrent", return_value=FakeRTorrent()):
+    with patch("comicarr.torrent.clients.rtorrent.send_or_check", side_effect=send_or_check):
         result = service.torrentinfo(torrent_hash=HASH40, download=True)
 
     assert isinstance(result, dict)
