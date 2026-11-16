@@ -186,6 +186,17 @@ def _route_enabled(config, route):
     )
 
 
+def search_providers_available(config):
+    """Return whether any route has a provider the searcher can run (#1442).
+
+    The search entry points and the health projection share this one test, so
+    ``viable_route`` and the "no search providers enabled" gate cannot disagree.
+    Prowlarr counts on both sides: its Usenet results need ``PROWLARR_USENET``
+    and an NZB client, its torrent results need torrent search turned on.
+    """
+    return any(_route_enabled(config, route) for route in _ROUTES)
+
+
 def build_route_readiness(
     config,
     *,
