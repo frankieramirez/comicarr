@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Link } from "react-router-dom";
 import {
   PanelBody,
@@ -96,22 +98,25 @@ export default function RecentActivity() {
     <section data-testid="recent-activity">
       <SectionHeader
         variant="rail"
-        title="Recent activity"
-        action={{ label: "Activity", to: ACTIVITY_HREF }}
+        title={t`Recent activity`}
+        action={{ label: t`Activity`, to: ACTIVITY_HREF }}
       />
 
       <PanelBody
         state={state}
-        label="Recent activity"
+        label={t`Recent activity`}
         skeleton={<PanelSkeleton rows={5} rowHeight={26} />}
         empty={
           <>
-            No activity in the last {days} days.{" "}
+            {plural(days, {
+              one: "No activity in the last day.",
+              other: "No activity in the last # days.",
+            })}{" "}
             <Link
               to={ACTIVITY_HREF}
               className="underline underline-offset-2 hover:text-foreground"
             >
-              open full activity
+              <Trans>open full activity</Trans>
             </Link>
           </>
         }

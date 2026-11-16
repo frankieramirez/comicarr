@@ -61,7 +61,7 @@ describe("formatQuietStatus", () => {
   it("keeps idle when only attention is non-zero", () => {
     const meta = formatQuietStatus(snap({ inFlight: 0, attention: 1 }));
     expect(meta.line).toBe(
-      "library: 412 series · api: online · idle · ⚠ 1 need attention",
+      "library: 412 series · api: online · idle · ⚠ 1 needs attention",
     );
   });
 

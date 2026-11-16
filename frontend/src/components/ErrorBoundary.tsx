@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import React from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,7 @@ class ErrorBoundary extends React.Component<
                   COMICARR
                 </span>
                 <span className="font-mono text-[10px] font-medium tracking-[0.18em] text-primary-foreground/80 md:mt-2 md:block">
-                  RECOVERY
+                  <Trans>RECOVERY</Trans>
                 </span>
               </div>
               <AlertTriangle
@@ -67,28 +68,34 @@ class ErrorBoundary extends React.Component<
                 className="hidden h-12 w-12 stroke-[1.5] md:block"
               />
               <span className="hidden font-mono text-[10px] tracking-[0.18em] text-primary-foreground/80 md:block">
-                SCREEN 01
+                <Trans>SCREEN 01</Trans>
               </span>
             </div>
 
             <div className="p-6 sm:p-8 md:p-10">
-              <p className="mono-label text-[var(--status-error)]">App error</p>
+              <p className="mono-label text-[var(--status-error)]">
+                <Trans>App error</Trans>
+              </p>
               <h1
                 id="error-heading"
                 className="mt-3 max-w-lg text-2xl font-semibold leading-tight text-foreground sm:text-3xl"
               >
-                This screen needs a fresh start.
+                <Trans>This screen needs a fresh start.</Trans>
               </h1>
               <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
-                Comicarr ran into a problem while rendering this page. Reload to
-                start it again; this action does not change your library or
-                settings.
+                <Trans>
+                  Comicarr ran into a problem while rendering this page. Reload
+                  to start it again; this action does not change your library or
+                  settings.
+                </Trans>
               </p>
 
               <div className="mt-7 border-y border-border py-4">
                 <p className="mono-meta leading-5">
-                  If this keeps happening, check the browser console or server
-                  logs for more information.
+                  <Trans>
+                    If this keeps happening, check the browser console or server
+                    logs for more information.
+                  </Trans>
                 </p>
               </div>
 
@@ -99,7 +106,7 @@ class ErrorBoundary extends React.Component<
                       <span className="text-muted-foreground transition-transform group-open:rotate-90">
                         ›
                       </span>
-                      Development error details
+                      <Trans>Development error details</Trans>
                     </span>
                   </summary>
                   <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-border pt-3 mono-meta leading-5">
@@ -116,7 +123,7 @@ class ErrorBoundary extends React.Component<
                 size="lg"
               >
                 <RefreshCw aria-hidden="true" />
-                Reload Comicarr
+                <Trans>Reload Comicarr</Trans>
               </Button>
             </div>
           </section>

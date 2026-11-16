@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import * as React from "react";
 import { X, CheckCircle, AlertCircle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -212,7 +213,7 @@ function Toast({
       </div>
       <button
         onClick={onClose}
-        aria-label="Dismiss notification"
+        aria-label={t`Dismiss notification`}
         className="text-muted-foreground hover:text-foreground transition-colors"
       >
         <X className="w-4 h-4" />

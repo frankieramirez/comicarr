@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 /**
  * Dedicated binary helper for Support bundle download.
  *
@@ -105,13 +106,13 @@ export async function downloadSupportBundle(
       signal?.aborted ||
       (error instanceof DOMException && error.name === "AbortError")
     ) {
-      const err = new ApiError(0, "Support bundle download canceled.");
+      const err = new ApiError(0, t`Support bundle download canceled.`);
       err.isRetryable = false;
       return { ok: false, error: err };
     }
     const err = new ApiError(
       0,
-      "The connection was interrupted. No file was downloaded.",
+      t`The connection was interrupted. No file was downloaded.`,
     );
     err.isRetryable = true;
     return { ok: false, error: err };
@@ -121,16 +122,14 @@ export async function downloadSupportBundle(
     const parsed = await parseJsonError(response);
     let message = parsed.detail;
     if (response.status === 401) {
-      message =
-        "Your session has expired. Sign in again before creating a support bundle.";
+      message = t`Your session has expired. Sign in again before creating a support bundle.`;
     } else if (response.status === 403) {
-      message =
-        "Comicarr blocked the request. Refresh the page before trying again.";
+      message = t`Comicarr blocked the request. Refresh the page before trying again.`;
     } else if (!message) {
       message =
         response.status === 409
-          ? "Another support bundle is being created. Try again in a moment."
-          : "Comicarr could not create the support bundle. Try again.";
+          ? t`Another support bundle is being created. Try again in a moment.`
+          : t`Comicarr could not create the support bundle. Try again.`;
     }
     const err = new ApiError(response.status, message, {
       code: parsed.code,
@@ -183,7 +182,7 @@ export async function downloadSupportBundle(
       ok: false,
       error: new ApiError(
         0,
-        "The connection was interrupted. No file was downloaded.",
+        t`The connection was interrupted. No file was downloaded.`,
       ),
     };
   }
