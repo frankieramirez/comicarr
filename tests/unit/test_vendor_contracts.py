@@ -48,6 +48,45 @@ def test_deluge_repeated_connect_returns_existing_client():
     assert adapter.connect("localhost:58846", "user", "password") is existing
 
 
+def test_deluge_client_completes_tls_handshake_with_self_signed_daemon(tmp_path):
+    """Deluge daemons serve a self-signed certificate; ssl.wrap_socket is gone in 3.12."""
+    import socket
+    import ssl
+    import threading
+
+    from comicarr._vendor.deluge_client.client import DelugeRPCClient
+
+    cert, key = tmp_path / "cert.pem", tmp_path / "key.pem"
+    subprocess.run(
+        ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-subj", "/CN=deluge", "-days", "1"]
+        + ["-keyout", str(key), "-out", str(cert)],
+        check=True,
+        capture_output=True,
+    )
+    server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    server_context.load_cert_chain(cert, key)
+    listener = socket.create_server(("127.0.0.1", 0))
+    port = listener.getsockname()[1]
+    handshakes = []
+
+    def serve():
+        conn, _ = listener.accept()
+        with server_context.wrap_socket(conn, server_side=True) as tls:
+            handshakes.append(tls.version())
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    client = DelugeRPCClient("127.0.0.1", port, "user", "password")
+    try:
+        client._connect()
+        thread.join(timeout=5)
+    finally:
+        client._socket.close()
+        listener.close()
+
+    assert handshakes and handshakes[0] in {"TLSv1.2", "TLSv1.3"}
+
+
 def test_deluge_malformed_host_is_connection_failure():
     adapter = deluge.TorrentClient()
 

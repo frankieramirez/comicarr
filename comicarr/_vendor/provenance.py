@@ -87,8 +87,8 @@ VENDOR_PROVENANCE = {
         "partial_attributions": (),
         "redistribution_status": "evidence-recorded",
         "unresolved_reasons": (),
-        "local_modifications": "Bundled RPC implementation",
-        "packaged_snapshot_sha256": "c05c2a30965820a6c4fb1347c64eeb66d42085cc036d0f8a0816a1dea9c49f3d",
+        "local_modifications": "Bundled RPC implementation; TLS socket built from ssl.SSLContext (TLS 1.2+) because ssl.wrap_socket was removed in Python 3.12",
+        "packaged_snapshot_sha256": "943f2c56221bb42bf905308966027457acc111dc7fc63cee623b2596ba1c6e74",
     },
     "get_image_size": {
         "integration_owner": "Comicarr",
