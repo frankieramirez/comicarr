@@ -163,12 +163,7 @@ class TorrentClient(object):
             return torrent_info
 
     def get_the_hash(self, filepath):
-        import hashlib
+        from comicarr.app.common.torrent_hash import info_hash_of_file
 
-        from comicarr._vendor import bencode
-
-        torrent_file = open(filepath, "rb")
-        metainfo = bencode.decode(torrent_file.read())
-        info = metainfo["info"]
-        thehash = hashlib.sha1(bencode.encode(info)).hexdigest().upper()
+        thehash = info_hash_of_file(filepath)
         return thehash

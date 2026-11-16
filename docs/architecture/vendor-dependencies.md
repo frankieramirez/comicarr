@@ -29,16 +29,16 @@ fill missing third-party notice or source-revision evidence.
 
 | Vendor root | Runtime role | Source/version evidence | License evidence in copied tree | Redistribution status |
 | --- | --- | --- | --- | --- |
-| `bencode.py` | Torrent bencode/hash support | Mylar3 import; source version marker `20111107` | MIT notice in source | `evidence-recorded` |
 | `comictaggerlib/` | ComicTagger metadata/archive behavior | Bundled version `1.3.5` in `ctversion.py` | Apache-2.0 notices in source files | `evidence-recorded` |
 | `deluge_client/` | Deluge RPC | Mylar3 import; exact upstream version unidentified | Bundled `LICENSE` (MIT) | `evidence-recorded` |
-| `get_image_size.py` | Packaged image-size support; no current first-party import | Mylar3 import; version unidentified | MIT notice in source | `evidence-recorded` |
 | `qbittorrent/` | qBittorrent Web API | Mylar3 import; exact upstream revision unidentified | Bundled `LICENSE` (MIT) | `evidence-recorded` |
 | `rtorrent/` | rTorrent XML-RPC/SCGI | Version `0.2.9` in source | Mixed: MIT; GPL-2.0-or-later with OpenSSL exception; embedded Secret Labs terms | `evidence-recorded` |
 | `transmissionrpc/` | Transmission RPC | Version `0.11` in source | MIT notice in source | `evidence-recorded` |
 
-`bencode.py` and `get_image_size.py` are standalone modules, not
-packages. They are intentionally part of the manifest and wheel inventory.
+`bencode.py` was replaced by `comicarr/app/common/torrent_hash.py`, which
+hashes the raw `info` span of a .torrent file, and `get_image_size.py`, which
+nothing imported, was deleted
+([#1409](https://github.com/frankieramirez/comicarr/issues/1409), ADR-0007).
 Nested rTorrent helpers belong to the `rtorrent` root.
 
 ## Removed unresolved trees

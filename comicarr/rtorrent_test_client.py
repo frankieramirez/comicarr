@@ -17,7 +17,6 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
-import hashlib
 import re
 import sys
 import time
@@ -25,7 +24,7 @@ from base64 import b16encode, b32decode
 
 import comicarr
 from comicarr import helpers, logger
-from comicarr._vendor import bencode
+from comicarr.app.common.torrent_hash import info_hash_of_file
 
 from .torrent.clients import rtorrent as TorClient
 
@@ -99,9 +98,6 @@ class RTorrent(object):
         return torrent_info
 
     def get_the_hash(self, filepath):
-        torrent_file = open(filepath, "rb")
-        metainfo = bencode.decode(torrent_file.read())
-        info = metainfo["info"]
-        thehash = hashlib.sha1(bencode.encode(info)).hexdigest().upper()
+        thehash = info_hash_of_file(filepath)
         logger.fdebug("Hash: %s" % thehash)
         return thehash

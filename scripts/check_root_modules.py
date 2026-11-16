@@ -99,10 +99,8 @@ ROOT_PACKAGES: dict[str, int] = {
 
 # Top-level entry under comicarr/_vendor/ -> retiring issue.
 VENDOR_ROOTS: dict[str, int] = {
-    "bencode.py": 1409,
     "comictaggerlib": 1414,
     "deluge_client": 1411,
-    "get_image_size.py": 1409,
     "qbittorrent": 1410,
     "rtorrent": 1413,
     "transmissionrpc": 1412,
