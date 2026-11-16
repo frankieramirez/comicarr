@@ -2925,6 +2925,10 @@ msgstr "Impossible d’étiqueter {label}"
 msgid "Cover wall on sign-in"
 msgstr "Mur de couvertures à la connexion"
 
+#: src/lib/statusTone.ts
+msgid "Covered"
+msgstr "Couvert"
+
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "covers {coverage}"
 msgstr "couvre {coverage}"
@@ -3490,6 +3494,7 @@ msgstr "Saisissez votre clé d’API Comic Vine de 40 caractères"
 #: src/components/storyarcs/ArcIssueTable.tsx
 #: src/components/storyarcs/ArcMissingSeries.tsx
 #: src/components/storyarcs/ArcSearchResultCard.tsx
+#: src/lib/statusTone.ts
 #: src/pages/IssueDetailPage.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Error"
