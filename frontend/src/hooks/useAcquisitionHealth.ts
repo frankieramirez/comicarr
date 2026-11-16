@@ -313,10 +313,16 @@ export function useSearchHealth() {
 export function useSearchBlockers(): {
   blockers: SearchBlocker[];
   pausedReason: string | null;
+  /** Health has been read, so an empty `blockers` really means ready. */
+  known: boolean;
 } {
   const health = useSearchHealth();
   const blockers = searchBlockers(health.isError ? null : health.data);
-  return { blockers, pausedReason: searchPausedReason(blockers) };
+  return {
+    blockers,
+    pausedReason: searchPausedReason(blockers),
+    known: health.isSuccess,
+  };
 }
 
 /**

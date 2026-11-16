@@ -46,8 +46,21 @@ export function GeneralTab({ config, formData, onChange }: GeneralTabProps) {
       </SettingGroup>
 
       <SettingGroup
-        title="Directories"
-        description="These paths are configured in your config.ini file and are read-only."
+        title="Library folder"
+        description="Where Comicarr keeps your comics. New series folders are created here and downloads are filed into them."
+      >
+        <SettingField
+          label="Library folder"
+          value={formData.destination_dir || ""}
+          onChange={(v) => onChange("destination_dir", v as string)}
+          helpText="A folder that already exists on the server. In Docker, use the path inside the container, such as /comics."
+          placeholder="/comics"
+        />
+      </SettingGroup>
+
+      <SettingGroup
+        title="Other folders"
+        description="These paths are set in config.ini and are read-only here."
       >
         <SettingField
           label="Comic Directory"
@@ -55,13 +68,6 @@ export function GeneralTab({ config, formData, onChange }: GeneralTabProps) {
           type="text"
           readOnly
           helpText="Existing comic folder scanned by library import; imported series stay in place here"
-        />
-        <SettingField
-          label="Destination Directory"
-          value={config.destination_dir}
-          type="text"
-          readOnly
-          helpText="Root of your organized comic library — new series folders are created here and downloads are filed into them"
         />
         <SettingField
           label="Manga Directory"

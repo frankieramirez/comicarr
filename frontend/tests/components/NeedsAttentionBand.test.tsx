@@ -132,6 +132,54 @@ describe("NeedsAttentionBand", () => {
     expect(screen.queryByText("Nothing needs you")).toBeNull();
   });
 
+  it("holds the setup checklist on a fresh install", async () => {
+    server.use(
+      bandHandler([]),
+      http.get("/api/search/health", () =>
+        HttpResponse.json(UNCONFIGURED_SEARCH_HEALTH),
+      ),
+      http.get("/api/config", () =>
+        HttpResponse.json({
+          destination_dir: "/data/comics",
+          comicvine_enabled: true,
+        }),
+      ),
+      http.get("/api/dashboard/library", () =>
+        HttpResponse.json({
+          stats: {
+            total_series: 0,
+            total_issues: 0,
+            total_expected: 0,
+            completion_pct: 0,
+          },
+        }),
+      ),
+    );
+
+    render(<NeedsAttentionBand />);
+
+    const checklist = await screen.findByTestId("setup-checklist");
+    expect(checklist.textContent).toContain("Finish setting up");
+    expect(screen.getByText("1 of 4 set up")).toBeTruthy();
+    const steps = screen.getAllByTestId("setup-step");
+    expect(steps.map((step) => step.getAttribute("data-done"))).toEqual([
+      "true",
+      "false",
+      "false",
+      "false",
+    ]);
+    expect(steps[0].textContent).toContain("/data/comics");
+    // The first open step carries the one filled button.
+    expect(
+      screen.getByRole("link", { name: "Add API key" }).getAttribute("href"),
+    ).toBe("/settings?section=api");
+    expect(screen.getByRole("link", { name: "Add an indexer" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Add a download client" }),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("needs-attention-blocker")).toBeNull();
+  });
+
   it("shows one row per cause with series and issue totals", async () => {
     server.use(
       bandHandler([
