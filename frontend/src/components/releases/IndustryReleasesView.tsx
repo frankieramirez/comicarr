@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, ExternalLink, ImageOff, Plus } from "lucide-react";
+import { Check, ExternalLink, ImageOff, Plus, X } from "lucide-react";
 import { AiSuggestions } from "@/components/weekly/AiSuggestions";
 import { Button } from "@/components/ui/button";
 import FilterField from "@/components/ui/FilterField";
@@ -37,7 +37,7 @@ import { useAiStatus } from "@/hooks/useAiStatus";
 import { useQueueIssue } from "@/hooks/useSeries";
 import { useAddFromWeek, useWeeklyPullList } from "@/hooks/useWeekly";
 import { getErrorMessage } from "@/lib/api";
-import { isoDay, parseDay, weekDays } from "@/lib/releaseWeek";
+import { dayHeading, isoDay, parseDay, weekDays } from "@/lib/releaseWeek";
 import { seriesCoverSrc } from "@/lib/series-utils";
 import { statusTone } from "@/lib/statusTone";
 import type { UpcomingIssue } from "@/types";
@@ -296,6 +296,29 @@ export default function IndustryReleasesView({
             selected={activeDay}
             onSelect={setDay}
           />
+          {activeDay && (
+            <div
+              className="mt-2 flex items-center gap-2 text-[13px]"
+              data-testid="day-filter-note"
+            >
+              <span className="text-foreground-2">
+                Showing{" "}
+                <span className="font-medium text-foreground">
+                  {dayHeading(activeDay)}
+                </span>{" "}
+                only
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="compact"
+                onClick={() => setDay(null)}
+              >
+                <X />
+                Show the whole week
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -451,23 +474,37 @@ function DayStrip({
         const date = parseDay(key);
         const count = counts.get(key) ?? 0;
         const isSelected = selected === key;
+        const isToday = key === todayKey;
         return (
           <button
             key={key}
             type="button"
             aria-pressed={isSelected}
+            aria-current={isToday ? "date" : undefined}
             disabled={count === 0 && !isSelected}
             onClick={() => onSelect(isSelected ? null : key)}
-            className={`min-w-0 rounded-md px-3 py-2.5 text-left max-sm:px-1.5 transition-colors enabled:hover:bg-surface-2 disabled:opacity-60 aria-pressed:bg-surface-3 ${
-              key === todayKey ? "border border-border-strong" : ""
+            className={`min-w-0 rounded-md px-3 py-2.5 text-left max-sm:px-1.5 transition-colors enabled:hover:bg-surface-2 disabled:opacity-60 aria-pressed:bg-surface-3 aria-pressed:shadow-[inset_0_0_0_1px_var(--border-strong)] ${
+              isToday ? "border border-primary" : ""
             }`}
           >
             <div className="flex items-baseline justify-between gap-2 text-[13px]">
-              <span className="text-foreground-2">
+              <span
+                className={
+                  isToday ? "font-medium text-foreground" : "text-foreground-2"
+                }
+              >
                 {WEEKDAY.format(date)}{" "}
                 <span className="font-mono text-xs text-muted-foreground">
                   {date.getDate()}
                 </span>
+                {isToday && (
+                  <span
+                    className="ml-1.5 text-[11px] font-medium max-md:hidden"
+                    style={{ color: "var(--primary)" }}
+                  >
+                    Today
+                  </span>
+                )}
               </span>
               <span className="font-mono text-xs text-muted-foreground max-md:hidden">
                 {count}

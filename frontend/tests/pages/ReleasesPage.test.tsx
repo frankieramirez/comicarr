@@ -634,6 +634,15 @@ describe("ReleasesPage", () => {
 
     expect(screen.getAllByTestId("weekly-release-row")).toHaveLength(1);
     expect(screen.getByText("Big Manga")).toBeTruthy();
+    expect(screen.getByTestId("day-filter-note").textContent).toContain(
+      "Thursday, Oct 15",
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Show the whole week" }),
+    );
+    expect(screen.getAllByTestId("weekly-release-row")).toHaveLength(2);
+    expect(screen.queryByTestId("day-filter-note")).toBeNull();
   });
 
   it("keeps library releases the pull list does not list", async () => {
