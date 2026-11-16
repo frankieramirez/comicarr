@@ -2327,7 +2327,7 @@ msgstr "مسح النطاق"
 
 #: src/components/import/ImportBulkActions.tsx
 msgid "Clear selected imports"
-msgstr "مسح الاستيرادات المحددة"
+msgstr "مسح تحديد الاستيرادات"
 
 #: src/pages/AttentionPage.tsx
 msgid "clear selection"
