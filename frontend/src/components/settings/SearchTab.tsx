@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useEffect, useState, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
 import { useProviderConfig } from "@/hooks/useConfig";
@@ -40,7 +42,8 @@ function ProviderQueryStatus({
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 py-4 text-[12px] text-muted-foreground">
-        <LoaderCircle className="h-4 w-4 animate-spin" /> Loading indexers…
+        <LoaderCircle className="h-4 w-4 animate-spin" />{" "}
+        <Trans>Loading indexers…</Trans>
       </div>
     );
   }
@@ -83,8 +86,8 @@ function SearchProviderSettings({
   return (
     <>
       <SettingGroup
-        title="Usenet indexers"
-        description="Configure the Newznab-compatible sources Comicarr searches before handing an NZB to your download client."
+        title={t`Usenet indexers`}
+        description={t`Configure the Newznab-compatible sources Comicarr searches before handing an NZB to your download client.`}
       >
         <ProviderQueryStatus
           isLoading={providerQuery.isLoading}
@@ -102,8 +105,8 @@ function SearchProviderSettings({
       </SettingGroup>
 
       <SettingGroup
-        title="Torrent indexers"
-        description="Configure the Torznab-compatible sources Comicarr searches before handing a torrent to your download client."
+        title={t`Torrent indexers`}
+        description={t`Configure the Torznab-compatible sources Comicarr searches before handing a torrent to your download client.`}
       >
         <ProviderQueryStatus
           isLoading={providerQuery.isLoading}
@@ -132,26 +135,26 @@ export function SearchTab({
   onProviderDirtyChange,
 }: SearchTabProps) {
   const qualityOptions = [
-    { value: "0", label: "Any Quality" },
-    { value: "1", label: "HD Only" },
-    { value: "2", label: "Web-DL Only" },
+    { value: "0", label: t`Any Quality` },
+    { value: "1", label: t`HD Only` },
+    { value: "2", label: t`Web-DL Only` },
   ];
 
   return (
     <div className="space-y-6">
       <SettingGroup
-        title="Search pace"
-        description="How long Comicarr waits before asking the same indexer again"
+        title={t`Search pace`}
+        description={t`How long Comicarr waits before asking the same indexer again`}
       >
         <SettingField
-          label="Search delay (seconds)"
+          label={t`Search delay (seconds)`}
           type="number"
           min={5}
           value={formData.search_delay}
           onChange={(value) =>
             onChange("search_delay", parseInt(value as string) || 5)
           }
-          helpText="Pause between provider searches during a backlog run. Default 60. Minimum 5."
+          helpText={t`Pause between provider searches during a backlog run. Default 60. Minimum 5.`}
         />
       </SettingGroup>
 
@@ -164,57 +167,57 @@ export function SearchTab({
       <SearchProviderSettings onDirtyChange={onProviderDirtyChange} />
 
       <SettingGroup
-        title="Quality Settings"
-        description="Configure preferred quality for downloads"
+        title={t`Quality Settings`}
+        description={t`Configure preferred quality for downloads`}
       >
         <SettingField
-          label="Preferred Quality"
+          label={t`Preferred Quality`}
           value={String(formData.preferred_quality ?? "")}
           type="select"
           options={qualityOptions}
           onChange={(value) =>
             onChange("preferred_quality", parseInt(value as string) || 0)
           }
-          helpText="Filter search results by quality preference"
+          helpText={t`Filter search results by quality preference`}
         />
       </SettingGroup>
 
       <SettingGroup
-        title="File Size Constraints"
-        description="Set minimum and maximum file size limits for downloads"
+        title={t`File Size Constraints`}
+        description={t`Set minimum and maximum file size limits for downloads`}
       >
         <SettingField
-          label="Enable Minimum Size"
+          label={t`Enable Minimum Size`}
           type="checkbox"
           checked={formData.use_minsize}
           onChange={(checked) => onChange("use_minsize", checked as boolean)}
-          helpText="Reject downloads smaller than the minimum size"
+          helpText={t`Reject downloads smaller than the minimum size`}
         />
         {Boolean(formData.use_minsize) && (
           <SettingField
-            label="Minimum Size (MB)"
+            label={t`Minimum Size (MB)`}
             value={formData.minsize}
             type="number"
             onChange={(value) => onChange("minsize", value as string)}
-            placeholder="e.g., 10"
-            helpText="Minimum file size in megabytes"
+            placeholder={t`e.g., 10`}
+            helpText={t`Minimum file size in megabytes`}
           />
         )}
         <SettingField
-          label="Enable Maximum Size"
+          label={t`Enable Maximum Size`}
           type="checkbox"
           checked={formData.use_maxsize}
           onChange={(checked) => onChange("use_maxsize", checked as boolean)}
-          helpText="Reject downloads larger than the maximum size"
+          helpText={t`Reject downloads larger than the maximum size`}
         />
         {Boolean(formData.use_maxsize) && (
           <SettingField
-            label="Maximum Size (MB)"
+            label={t`Maximum Size (MB)`}
             value={formData.maxsize}
             type="number"
             onChange={(value) => onChange("maxsize", value as string)}
-            placeholder="e.g., 500"
-            helpText="Maximum file size in megabytes"
+            placeholder={t`e.g., 500`}
+            helpText={t`Maximum file size in megabytes`}
           />
         )}
       </SettingGroup>

@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import {
   createContext,
   useContext,
@@ -80,12 +81,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser({ username: result.username });
         return { success: true };
       } else {
-        return { success: false, error: result.error || "Login failed" };
+        return { success: false, error: result.error || t`Login failed` };
       }
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : t`Unknown error`,
       };
     } finally {
       setIsVerifying(false);
@@ -103,7 +104,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error("Logout failed:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : t`Unknown error`,
       };
     }
   };

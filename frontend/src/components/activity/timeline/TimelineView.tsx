@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 /**
  * Timeline tab — Variant A (Ledger) chrome.
  *
@@ -37,22 +39,23 @@ import type { Story } from "./types";
 const STORY_PAGE_SIZE = 25;
 
 /** The segmented filter: what kind of thing happened, not which producer. */
-const FILTERS = [
-  { key: "all", label: "All", activities: null },
-  { key: "failures", label: "Failures", activities: null },
-  {
-    key: "downloads",
-    label: "Downloads",
-    activities: ["search", "grab", "download"],
-  },
-  {
-    key: "library",
-    label: "Library",
-    activities: ["import", "refresh", "add", "tag", "status_change"],
-  },
-] as const;
+const FILTERS = () =>
+  [
+    { key: "all", label: t`All`, activities: null },
+    { key: "failures", label: t`Failures`, activities: null },
+    {
+      key: "downloads",
+      label: t`Downloads`,
+      activities: ["search", "grab", "download"],
+    },
+    {
+      key: "library",
+      label: t`Library`,
+      activities: ["import", "refresh", "add", "tag", "status_change"],
+    },
+  ] as const;
 
-type FilterKey = (typeof FILTERS)[number]["key"];
+type FilterKey = ReturnType<typeof FILTERS>[number]["key"];
 
 const ROW_COLS =
   "grid-cols-[44px_minmax(0,1fr)_auto] md:grid-cols-[48px_minmax(0,1.3fr)_minmax(0,1fr)_72px]";
@@ -62,7 +65,7 @@ function SeverityDot({ open, trouble }: { open: boolean; trouble: boolean }) {
     return (
       <span
         role="img"
-        aria-label="In progress"
+        aria-label={t`In progress`}
         className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full"
         style={{ background: "var(--status-active)" }}
       />
@@ -72,7 +75,7 @@ function SeverityDot({ open, trouble }: { open: boolean; trouble: boolean }) {
     return (
       <span
         role="img"
-        aria-label="Needs attention (history)"
+        aria-label={t`Needs attention (history)`}
         className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full"
         style={{ background: "var(--status-error)" }}
       />
@@ -153,20 +156,22 @@ function FirstRunEmpty({ scoped }: { scoped: boolean }) {
       <EmptyState
         variant="custom"
         eyebrow={
-          scoped ? "TIMELINE · SCOPED · EMPTY" : "TIMELINE · NOTHING YET"
+          scoped ? t`TIMELINE · SCOPED · EMPTY` : t`TIMELINE · NOTHING YET`
         }
         title={
-          scoped ? "No activity for this scope yet" : "Nothing has happened yet"
+          scoped
+            ? t`No activity for this scope yet`
+            : t`Nothing has happened yet`
         }
         description={
           scoped
-            ? "Searches, grabs and imports for this series or issue will show up here as they happen."
-            : "Add a series and mark issues as wanted — searches, grabs and imports will show up here as they happen."
+            ? t`Searches, grabs and imports for this series or issue will show up here as they happen.`
+            : t`Add a series and mark issues as wanted — searches, grabs and imports will show up here as they happen.`
         }
         action={
           scoped
-            ? { label: "Back to all activity", to: "/activity" }
-            : { label: "Add a series", to: "/search" }
+            ? { label: t`Back to all activity`, to: "/activity" }
+            : { label: t`Add a series`, to: "/search" }
         }
       />
     </div>
@@ -199,7 +204,7 @@ export function TimelineView({
     const q = query.trim().toLowerCase();
     return nodes.filter((story) => {
       if (activity === "failures" && !storyHasTrouble(story)) return false;
-      const wanted = FILTERS.find((f) => f.key === activity)?.activities;
+      const wanted = FILTERS().find((f) => f.key === activity)?.activities;
       if (wanted) {
         const kinds: readonly string[] = wanted;
         if (!story.events.some((e) => kinds.includes(e.activity))) return false;
@@ -239,7 +244,7 @@ export function TimelineView({
       <div className="px-8 py-4">
         <ErrorDisplay
           error={hardError}
-          title="Unable to load activity timeline"
+          title={t`Unable to load activity timeline`}
           onRetry={() => {
             void timeline.refetch();
             void band.refetch();
@@ -254,7 +259,9 @@ export function TimelineView({
       <>
         {scoped && (
           <div className="px-8 py-2 mono-meta">
-            Scoped to {scope_type}:{scope_id}
+            <Trans>
+              Scoped to {scope_type}:{scope_id}
+            </Trans>
           </div>
         )}
         <FirstRunEmpty scoped={scoped} />
@@ -276,10 +283,12 @@ export function TimelineView({
       {scoped && (
         <div className="flex shrink-0 items-center gap-2 px-8 py-2 mono-meta">
           <span>
-            Scoped to {scope_type}:{scope_id}
+            <Trans>
+              Scoped to {scope_type}:{scope_id}
+            </Trans>
           </span>
           <Link to="/activity" className="ml-auto hover:text-foreground">
-            clear scope
+            <Trans>clear scope</Trans>
           </Link>
         </div>
       )}
@@ -287,10 +296,10 @@ export function TimelineView({
       <div className="flex shrink-0 flex-wrap items-center gap-3 px-8 pt-1 pb-3">
         <div
           role="group"
-          aria-label="Filter by activity"
+          aria-label={t`Filter by activity`}
           className={SEGMENTED_GROUP}
         >
-          {FILTERS.map((f) => (
+          {FILTERS().map((f) => (
             <button
               key={f.key}
               type="button"
@@ -307,8 +316,8 @@ export function TimelineView({
         </div>
         <div className="max-w-sm flex-1">
           <FilterField
-            placeholder="Filter timeline…"
-            aria-label="Filter timeline"
+            placeholder={t`Filter timeline…`}
+            aria-label={t`Filter timeline`}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -321,7 +330,7 @@ export function TimelineView({
 
       <div
         role="feed"
-        aria-label="Activity timeline"
+        aria-label={t`Activity timeline`}
         className="flex-1 min-h-0 overflow-auto"
       >
         {pageNodes.length > 0 && (
@@ -329,9 +338,15 @@ export function TimelineView({
             className={`sticky top-0 z-20 mx-8 grid ${ROW_COLS} h-8 items-center gap-x-3 border-b border-border-subtle bg-background px-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground`}
             aria-hidden="true"
           >
-            <span>Time</span>
-            <span>Event</span>
-            <span className="max-md:hidden">Detail</span>
+            <span>
+              <Trans>Time</Trans>
+            </span>
+            <span>
+              <Trans>Event</Trans>
+            </span>
+            <span className="max-md:hidden">
+              <Trans>Detail</Trans>
+            </span>
             <span className="max-md:hidden" />
           </div>
         )}
@@ -370,7 +385,10 @@ export function TimelineView({
                     {multi && (
                       <span
                         className="mono-meta ml-2"
-                        title={`${story.events.length} events in this story`}
+                        title={plural(story.events.length, {
+                          one: "# event in this story",
+                          other: "# events in this story",
+                        })}
                       >
                         ×{story.events.length}
                       </span>
@@ -398,17 +416,19 @@ export function TimelineView({
             <EmptyState
               variant="custom"
               eyebrow={
-                nodes.length === 0 ? "TIMELINE · EMPTY" : "TIMELINE · FILTERED"
+                nodes.length === 0
+                  ? t`TIMELINE · EMPTY`
+                  : t`TIMELINE · FILTERED`
               }
               title={
                 nodes.length === 0
-                  ? "No timeline events yet"
-                  : "Nothing matches"
+                  ? t`No timeline events yet`
+                  : t`Nothing matches`
               }
               description={
                 nodes.length === 0
-                  ? "Items that need you stay above until you act on them."
-                  : "Try a different filter."
+                  ? t`Items that need you stay above until you act on them.`
+                  : t`Try a different filter.`
               }
             />
           </div>
@@ -419,8 +439,10 @@ export function TimelineView({
         <div className="flex shrink-0 items-center gap-3 border-t border-border-subtle px-8 py-2.5">
           <span className="mono-meta">
             {filtered.length === 0
-              ? "0 stories"
-              : `${start + 1}–${Math.min(start + STORY_PAGE_SIZE, filtered.length)} of ${filtered.length}${hasMoreEvents ? "+" : ""} stories`}
+              ? t`0 stories`
+              : hasMoreEvents
+                ? t`${ph({ first: start + 1 })}–${ph({ last: Math.min(start + STORY_PAGE_SIZE, filtered.length) })} of ${ph({ total: filtered.length })}+ stories`
+                : t`${ph({ first: start + 1 })}–${ph({ last: Math.min(start + STORY_PAGE_SIZE, filtered.length) })} of ${ph({ total: filtered.length })} stories`}
           </span>
           <div className="ml-auto flex gap-1.5">
             <button
@@ -429,7 +451,7 @@ export function TimelineView({
               onClick={() => setPage((p) => p - 1)}
               className="h-7 rounded-md border border-border-strong px-2.5 text-[13px] text-foreground-2 hover:bg-surface-2 disabled:opacity-40"
             >
-              Previous
+              <Trans>Previous</Trans>
             </button>
             <button
               type="button"
@@ -449,16 +471,18 @@ export function TimelineView({
               className="h-7 rounded-md border border-border-strong px-2.5 text-[13px] text-foreground-2 hover:bg-surface-2 disabled:opacity-40"
             >
               {timeline.isFetchingNextPage
-                ? "Loading…"
+                ? t`Loading…`
                 : hasMoreStories
-                  ? "Next"
-                  : "Older"}
+                  ? t`Next`
+                  : t`Older`}
             </button>
           </div>
         </div>
       )}
       <p className="mono-meta shrink-0 px-8 pb-4">
-        older than 90 days is deleted · History keeps the full ledger
+        <Trans>
+          older than 90 days is deleted · History keeps the full ledger
+        </Trans>
       </p>
     </div>
   );

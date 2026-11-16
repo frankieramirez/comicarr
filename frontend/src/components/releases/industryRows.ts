@@ -1,3 +1,4 @@
+import { ph, t } from "@lingui/core/macro";
 import type { UpcomingIssue } from "@/types";
 import type {
   MangaReleaseRow,
@@ -150,14 +151,14 @@ const UNTYPED_MANGA = "Manga, manhwa or manhua";
 /** The heading a row groups under: publisher for comics, type for manga. */
 export function groupKey(row: WeeklyIssue): string {
   if (row.kind === "manga") return row.mangaType || UNTYPED_MANGA;
-  return row.PUBLISHER || "Unknown publisher";
+  return row.PUBLISHER || t`Unknown publisher`;
 }
 
 /** How a row reads in the number column: `#23`, `Ch. 411–412`, `Vol. 14`. */
 export function releaseLabel(row: WeeklyIssue): string {
   if (row.kind !== "manga") return row.ISSUE ? `#${row.ISSUE}` : "";
   if (row.chapters || (row.source !== "mangaupdates" && row.ISSUE))
-    return `Ch. ${row.chapters || row.ISSUE}`;
-  if (row.volume) return `Vol. ${row.volume}`;
+    return t`Ch. ${ph({ chapter: row.chapters || row.ISSUE })}`;
+  if (row.volume) return t`Vol. ${ph({ volume: row.volume })}`;
   return "";
 }

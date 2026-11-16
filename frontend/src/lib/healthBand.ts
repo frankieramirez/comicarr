@@ -1,3 +1,4 @@
+import { ph, plural, t } from "@lingui/core/macro";
 /**
  * The health band's reading of `GET /api/search/health` — the whole derivation,
  * pure, with no React and no I/O (docs/architecture/dashboard-spec.md §3.1).
@@ -14,7 +15,7 @@
  *    reported itself fine while this line read "11 days ago".
  */
 
-import { formatDistanceStrict } from "date-fns";
+import { formatList, formatRelative } from "@/lib/intl";
 import type {
   AcquisitionHealthResponse,
   AcquisitionRouteHealth,
@@ -70,45 +71,45 @@ const SETTINGS_ACQUISITION = "/settings?section=acquisition";
 export const DEFAULT_SEARCH_INTERVAL_MINUTES = 1440;
 
 /** Downstream keys as `_downstream_readiness` reports them. */
-const DOWNSTREAM_LABELS: Record<string, string> = {
+const DOWNSTREAM_LABELS = (): Record<string, string> => ({
   sabnzbd: "SABnzbd",
   nzbget: "NZBGet",
-  blackhole: "Blackhole",
+  blackhole: t`Blackhole`,
   qbittorrent: "qBittorrent",
   transmission: "Transmission",
   deluge: "Deluge",
   rtorrent: "rTorrent",
   utorrent: "uTorrent",
-  watchfolder: "Watch folder",
-  local: "Direct download",
-};
+  watchfolder: t`Watch folder`,
+  local: t`Direct download`,
+});
 
 /**
  * Route blockers, nearest-to-ready first, so the phrase names the smallest
  * remaining gap. Mirrors `_ROUTE_REASON_RANK` in `comicarr/app/search/health.py`.
  */
-const ROUTE_REASONS: Array<[string, string]> = [
-  ["providers_temporarily_blocked", "every indexer is temporarily blocked"],
-  ["path_not_ready", "the download directory is not reachable"],
-  ["client_not_ready", "the download client is not configured"],
+const ROUTE_REASONS = (): Array<[string, string]> => [
+  ["providers_temporarily_blocked", t`every indexer is temporarily blocked`],
+  ["path_not_ready", t`the download directory is not reachable`],
+  ["client_not_ready", t`the download client is not configured`],
   [
     "unsupported_restart_correlation",
-    "the configured client cannot be verified after a restart",
+    t`the configured client cannot be verified after a restart`,
   ],
-  ["provider_disabled", "every configured indexer is disabled"],
-  ["downloader_disabled", "the download client is disabled"],
-  ["provider_not_configured", "no indexer is configured"],
-  ["disabled", "no route is enabled"],
+  ["provider_disabled", t`every configured indexer is disabled`],
+  ["downloader_disabled", t`the download client is disabled`],
+  ["provider_not_configured", t`no indexer is configured`],
+  ["disabled", t`no route is enabled`],
 ];
 
-const WORKER_LABELS: Record<string, string> = {
-  search: "Search",
-  downloader: "Download",
-  download: "Download",
-  postprocess: "Post-processing",
-  postprocessing: "Post-processing",
-  post_processing: "Post-processing",
-};
+const WORKER_LABELS = (): Record<string, string> => ({
+  search: t`Search`,
+  downloader: t`Download`,
+  download: t`Download`,
+  postprocess: t`Post-processing`,
+  postprocessing: t`Post-processing`,
+  post_processing: t`Post-processing`,
+});
 
 /** A finite, positive epoch — the client-side twin of `health.py::_timestamp`. */
 function timestamp(value: unknown): number | null {
@@ -120,15 +121,9 @@ function label(key: string, labels: Record<string, string>): string {
   return labels[key.toLowerCase()] ?? key;
 }
 
-/** "a", "a and b", "a, b, and c". */
+/** "a", "a and b", "a, b, and c", in the reader's language. */
 function listPhrase(items: string[]): string {
-  if (items.length <= 1) return items[0] ?? "";
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
-}
-
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+  return formatList(items);
 }
 
 function alive(worker: AcquisitionWorkerHealth): boolean {
@@ -148,7 +143,7 @@ function routeBlocker(
           .toLowerCase(),
       ),
   );
-  for (const [reason, phrase] of ROUTE_REASONS) {
+  for (const [reason, phrase] of ROUTE_REASONS()) {
     if (reasons.has(reason)) return { reason, phrase };
   }
   return null;
@@ -162,7 +157,7 @@ function routeSignal(health: AcquisitionHealthResponse): HealthSignal {
     const names = Array.from(
       new Set(
         ready.map(([, route]) =>
-          label(String(route.downstream ?? ""), DOWNSTREAM_LABELS),
+          label(String(route.downstream ?? ""), DOWNSTREAM_LABELS()),
         ),
       ),
     ).filter(Boolean);
@@ -171,8 +166,8 @@ function routeSignal(health: AcquisitionHealthResponse): HealthSignal {
       tone: "healthy",
       text:
         names.length > 0
-          ? `${names.join(" + ")} ready`
-          : "Download route ready",
+          ? t`${ph({ routes: names.join(" + ") })} ready`
+          : t`Download route ready`,
     };
   }
 
@@ -184,11 +179,11 @@ function routeSignal(health: AcquisitionHealthResponse): HealthSignal {
     key: "route",
     tone: "blocked",
     text: blocker
-      ? `No usable download route — ${blocker.phrase}`
-      : "No usable download route",
+      ? t`No usable download route — ${ph({ reason: blocker.phrase })}`
+      : t`No usable download route`,
     fix: providerBlocker
-      ? { label: "open search providers", to: SETTINGS_SEARCH }
-      : { label: "open download clients", to: SETTINGS_CLIENTS },
+      ? { label: t`open search providers`, to: SETTINGS_SEARCH }
+      : { label: t`open download clients`, to: SETTINGS_CLIENTS },
   };
 }
 
@@ -210,8 +205,8 @@ function indexerSignal(health: AcquisitionHealthResponse): HealthSignal {
     return {
       key: "indexers",
       tone: "degraded",
-      text: "No indexers configured",
-      fix: { label: "open search providers", to: SETTINGS_SEARCH },
+      text: t`No indexers configured`,
+      fix: { label: t`open search providers`, to: SETTINGS_SEARCH },
     };
   }
 
@@ -220,14 +215,17 @@ function indexerSignal(health: AcquisitionHealthResponse): HealthSignal {
     return {
       key: "indexers",
       tone: "healthy",
-      text: `${total} of ${total} indexers responding`,
+      text: t`${total} of ${total} indexers responding`,
     };
   }
   return {
     key: "indexers",
     tone: blocked === total ? "blocked" : "degraded",
-    text: `${plural(blocked, "indexer")} unreachable`,
-    fix: { label: "open search providers", to: SETTINGS_SEARCH },
+    text: plural(blocked, {
+      one: "# indexer unreachable",
+      other: "# indexers unreachable",
+    }),
+    fix: { label: t`open search providers`, to: SETTINGS_SEARCH },
   };
 }
 
@@ -241,27 +239,32 @@ function workerSignal(health: AcquisitionHealthResponse): HealthSignal {
     return {
       key: "workers",
       tone: "degraded",
-      text: "Cannot determine worker liveness",
-      fix: { label: "open acquisition health", to: SETTINGS_ACQUISITION },
+      text: t`Cannot determine worker liveness`,
+      fix: { label: t`open acquisition health`, to: SETTINGS_ACQUISITION },
     };
   }
 
   const down = workers.filter(([, worker]) => !alive(worker));
   if (down.length === 0) {
-    const names = workers.map(([name]) => label(name, WORKER_LABELS));
+    const names = workers.map(([name]) => label(name, WORKER_LABELS()));
     return {
       key: "workers",
       tone: "healthy",
-      text: `${listPhrase(names)} running`,
+      text: t`${ph({ workers: listPhrase(names) })} running`,
     };
   }
 
-  const names = down.map(([name]) => label(name, WORKER_LABELS));
+  const downNames = listPhrase(
+    down.map(([name]) => label(name, WORKER_LABELS())),
+  );
   return {
     key: "workers",
     tone: "degraded",
-    text: `${listPhrase(names)} worker${down.length === 1 ? "" : "s"} not running`,
-    fix: { label: "open acquisition health", to: SETTINGS_ACQUISITION },
+    text: plural(down.length, {
+      one: `${downNames} worker not running`,
+      other: `${downNames} workers not running`,
+    }),
+    fix: { label: t`open acquisition health`, to: SETTINGS_ACQUISITION },
   };
 }
 
@@ -279,9 +282,9 @@ function gateSignal(health: AcquisitionHealthResponse): HealthSignal | null {
       key: "gate",
       tone: "degraded",
       text: reason
-        ? `Paused for maintenance: ${reason}`
-        : "Paused for maintenance",
-      fix: { label: "open acquisition health", to: SETTINGS_ACQUISITION },
+        ? t`Paused for maintenance: ${reason}`
+        : t`Paused for maintenance`,
+      fix: { label: t`open acquisition health`, to: SETTINGS_ACQUISITION },
     };
   }
 
@@ -290,8 +293,11 @@ function gateSignal(health: AcquisitionHealthResponse): HealthSignal | null {
     return {
       key: "gate",
       tone: "degraded",
-      text: `${plural(deferred, "producer")} deferred`,
-      fix: { label: "open acquisition health", to: SETTINGS_ACQUISITION },
+      text: plural(deferred, {
+        one: "# producer deferred",
+        other: "# producers deferred",
+      }),
+      fix: { label: t`open acquisition health`, to: SETTINGS_ACQUISITION },
     };
   }
   return null;
@@ -307,7 +313,7 @@ function lastSearchLine(
   now: number,
 ): LastSearchLine {
   if (!health) {
-    return { at: null, stale: true, text: "Last successful search: unknown" };
+    return { at: null, stale: true, text: t`Last successful search: unknown` };
   }
 
   const runs = (health.providers ?? [])
@@ -315,7 +321,7 @@ function lastSearchLine(
     .filter((value): value is number => value !== null);
   const at = runs.length > 0 ? Math.max(...runs) : null;
   if (at === null) {
-    return { at: null, stale: true, text: "Last successful search: never" };
+    return { at: null, stale: true, text: t`Last successful search: never` };
   }
 
   const interval =
@@ -323,11 +329,11 @@ function lastSearchLine(
       ? searchIntervalMinutes
       : DEFAULT_SEARCH_INTERVAL_MINUTES;
   const ageSeconds = now / 1000 - at;
-  const age = formatDistanceStrict(new Date(at * 1000), new Date(now));
+  const age = formatRelative(new Date(at * 1000), new Date(now));
   return {
     at,
     stale: ageSeconds > interval * 60 * 2,
-    text: `Last successful search: ${age} ago`,
+    text: t`Last successful search: ${age}`,
   };
 }
 
@@ -352,7 +358,7 @@ function pausedSignal(blocker: SearchBlocker): HealthSignal {
   return {
     key: "workers",
     tone: "degraded",
-    text: `Search paused: ${blocker.short}`,
+    text: t`Search paused: ${ph({ reason: blocker.short })}`,
     fix: { label: blocker.fix.label.toLowerCase(), to: blocker.fix.to },
   };
 }
@@ -387,8 +393,8 @@ export function healthBandView({
         {
           key: "unknown",
           tone: "degraded",
-          text: "Cannot determine health",
-          fix: { label: "open acquisition health", to: SETTINGS_ACQUISITION },
+          text: t`Cannot determine health`,
+          fix: { label: t`open acquisition health`, to: SETTINGS_ACQUISITION },
         },
       ],
       lastSearch,

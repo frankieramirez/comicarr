@@ -1,23 +1,27 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { LoaderCircle } from "lucide-react";
 import type { SeriesKind } from "@/types";
 
-const KIND_COPY: Record<SeriesKind, { label: string; description: string }> = {
+const KIND_COPY = (): Record<
+  SeriesKind,
+  { label: string; description: string }
+> => ({
   comic: {
-    label: "Comic",
-    description: "Use comic issue labels and matching rules.",
+    label: t`Comic`,
+    description: t`Use comic issue labels and matching rules.`,
   },
   manga: {
-    label: "Manga",
-    description: "Use manga chapter labels and matching rules.",
+    label: t`Manga`,
+    description: t`Use manga chapter labels and matching rules.`,
   },
   magazine: {
-    label: "Magazine",
-    description:
-      "Search and download like a comic, and keep it with your magazines.",
+    label: t`Magazine`,
+    description: t`Search and download like a comic, and keep it with your magazines.`,
   },
-};
+});
 
-const KINDS = Object.keys(KIND_COPY) as SeriesKind[];
+const KINDS = Object.keys(KIND_COPY()) as SeriesKind[];
 
 interface SeriesContentKindProps {
   value: SeriesKind;
@@ -40,21 +44,25 @@ export function SeriesContentKind({
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-center">
         <div>
           <div id="content-kind-title" className="text-[13px] font-semibold">
-            Catalog this as
+            <Trans>Catalog this as</Trans>
           </div>
           <p className="mt-1 text-[13px] leading-relaxed text-foreground-2">
-            {KIND_COPY[value].description} Metadata still comes from {provider}.
+            {KIND_COPY()[value].description}{" "}
+            <Trans>Metadata still comes from {provider}.</Trans>
           </p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Future labels and matching follow this choice. Existing files and
-            issue history stay unchanged. Switching to manga or magazine also
-            stores the series under that destination so downloads import there,
-            unless you chose its folder; files already on disk are not moved.
+            <Trans>
+              Future labels and matching follow this choice. Existing files and
+              issue history stay unchanged. Switching to manga or magazine also
+              stores the series under that destination so downloads import
+              there, unless you chose its folder; files already on disk are not
+              moved.
+            </Trans>
           </p>
         </div>
         <div
           role="radiogroup"
-          aria-label="Content kind"
+          aria-label={t`Content kind`}
           aria-busy={pending}
           className="relative grid grid-cols-3 rounded-md border border-border-subtle bg-background p-0.5"
         >
@@ -81,7 +89,7 @@ export function SeriesContentKind({
                     : "text-foreground-2 hover:text-foreground"
                 }`}
               >
-                {KIND_COPY[kind].label}
+                {KIND_COPY()[kind].label}
               </button>
             );
           })}
@@ -91,7 +99,9 @@ export function SeriesContentKind({
                 className="size-4 animate-spin motion-reduce:animate-none"
                 aria-hidden="true"
               />
-              <span className="sr-only">Saving content kind</span>
+              <span className="sr-only">
+                <Trans>Saving content kind</Trans>
+              </span>
             </span>
           ) : null}
         </div>

@@ -1,3 +1,6 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { errorText } from "@/lib/api";
+import { Trans } from "@lingui/react/macro";
 import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { useDeferredValue, useMemo, useState } from "react";
 import { CheckCheck, Inbox, RefreshCw, Search } from "lucide-react";
@@ -35,30 +38,84 @@ import ImportSourcesStrip from "@/components/import/ImportSourcesStrip";
 import { useServerPage } from "@/components/data-table/useServerPage";
 import { useTableState } from "@/components/data-table/useTableState";
 import type { ImportBucket, ImportCandidate, ImportGroup } from "@/types";
+import { formatNumber } from "@/lib/intl";
 
-const TABS: Array<[ImportBucket, string]> = [
-  ["needs_pick", "Needs a pick"],
-  ["confident", "Confident"],
-  ["ignored", "Ignored"],
+const TABS = (): Array<[ImportBucket, string]> => [
+  ["needs_pick", t`Needs a pick`],
+  ["confident", t`Confident`],
+  ["ignored", t`Ignored`],
 ];
 
-const EMPTY_COPY: Record<ImportBucket, [string, string]> = {
+const EMPTY_COPY = (): Record<ImportBucket, [string, string]> => ({
   needs_pick: [
-    "Nothing needs a pick",
-    "Every file Comicarr found is matched or set aside.",
+    t`Nothing needs a pick`,
+    t`Every file Comicarr found is matched or set aside.`,
   ],
   confident: [
-    "No confident matches waiting",
-    "Groups that clear your auto-import bar but did not import on their own wait here.",
+    t`No confident matches waiting`,
+    t`Groups that clear your auto-import bar but did not import on their own wait here.`,
   ],
   ignored: [
-    "No ignored files",
-    "Files you ignore wait here until you bring them back.",
+    t`No ignored files`,
+    t`Files you ignore wait here until you bring them back.`,
   ],
-};
+});
 
-function pluralize(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
+function importedAs(files: number, series: string): string {
+  return plural(files, {
+    one: `Imported # file as ${series}`,
+    other: `Imported # files as ${series}`,
+  });
+}
+
+function filesIgnored(files: number, ignore: boolean): string {
+  return ignore
+    ? plural(files, { one: "# file ignored", other: "# files ignored" })
+    : plural(files, { one: "# file unignored", other: "# files unignored" });
+}
+
+function recordsDeleted(records: number): string {
+  return plural(records, {
+    one: "# import record deleted",
+    other: "# import records deleted",
+  });
+}
+
+function deleteRecordsPrompt(records: number): string {
+  return plural(records, {
+    one: "Delete # import record? (Files on disk are untouched.)",
+    other: "Delete # import records? (Files on disk are untouched.)",
+  });
+}
+
+function confidentSummary(result: {
+  imported: number;
+  groups: number;
+  failed: { name: string; error: string }[];
+}): string {
+  const files = plural(result.imported, {
+    one: "Imported # file",
+    other: "Imported # files",
+  });
+  const first = result.failed[0];
+  if (first) {
+    const groups = plural(result.failed.length, {
+      one: "# group failed",
+      other: "# groups failed",
+    });
+    return t`${files}; ${groups} (${ph({ name: first.name })}: ${ph({ error: first.error })})`;
+  }
+  return plural(result.groups, {
+    one: `${files} from # confident match`,
+    other: `${files} from # confident matches`,
+  });
+}
+
+/** "3 groups · 12 files awaiting review". */
+function pendingSummary(groups: number, files: number): string {
+  const groupCount = plural(groups, { one: "# group", other: "# groups" });
+  const fileCount = plural(files, { one: "# file", other: "# files" });
+  return t`${groupCount} · ${fileCount} awaiting review`;
 }
 
 export default function ImportPage() {
@@ -94,11 +151,11 @@ export default function ImportPage() {
     summary?.group_count ?? pagination?.total ?? imports.length;
   const fileCount = summary?.file_count ?? visibleFileCount;
   const pendingReviewMeta = error
-    ? "Unable to load pending imports"
-    : `${pluralize(groupCount, "group")} · ${pluralize(fileCount, "file")} awaiting review`;
+    ? t`Unable to load pending imports`
+    : pendingSummary(groupCount, fileCount);
   const pendingReviewHelp = error
-    ? "Resolve the loading error before reviewing imports."
-    : `${pendingReviewMeta}. Pick a group to see the series it could be.`;
+    ? t`Resolve the loading error before reviewing imports.`
+    : t`${pendingReviewMeta}. Pick a group to see the series it could be.`;
 
   const matchImportMutation = useMatchImport();
   const ignoreImportMutation = useIgnoreImport();
@@ -154,12 +211,12 @@ export default function ImportPage() {
       });
       addToast({
         type: "success",
-        message: `Imported ${impIds.length} file${impIds.length !== 1 ? "s" : ""} as ${candidateTitle(candidate)}`,
+        message: importedAs(impIds.length, candidateTitle(candidate)),
       });
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to import: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to import: ${ph({ error: errorText(err) })}`,
       });
     }
   }
@@ -170,14 +227,12 @@ export default function ImportPage() {
       const failed = result.failed.length;
       addToast({
         type: failed ? "error" : "success",
-        message: failed
-          ? `Imported ${result.imported} file${result.imported === 1 ? "" : "s"}; ${failed} group${failed === 1 ? "" : "s"} failed (${result.failed[0].name}: ${result.failed[0].error})`
-          : `Imported ${result.imported} file${result.imported === 1 ? "" : "s"} from ${result.groups} confident match${result.groups === 1 ? "" : "es"}`,
+        message: confidentSummary(result),
       });
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to import confident matches: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to import confident matches: ${ph({ error: errorText(err) })}`,
       });
     }
   }
@@ -211,14 +266,14 @@ export default function ImportPage() {
       });
       addToast({
         type: "success",
-        message: `Imported ${impIds.length} file${impIds.length !== 1 ? "s" : ""} as ${comicName}`,
+        message: importedAs(impIds.length, comicName),
       });
       setMatchModalOpen(false);
       setMatchingGroup(null);
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to match: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to match: ${ph({ error: errorText(err) })}`,
       });
     }
   };
@@ -235,7 +290,7 @@ export default function ImportPage() {
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to update import metadata: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to update import metadata: ${ph({ error: errorText(err) })}`,
       });
       throw err;
     }
@@ -247,37 +302,35 @@ export default function ImportPage() {
       await ignoreImportMutation.mutateAsync({ impIds, ignore });
       addToast({
         type: "success",
-        message: `${impIds.length} file${impIds.length !== 1 ? "s" : ""} ${ignore ? "ignored" : "unignored"}`,
+        message: filesIgnored(impIds.length, ignore),
       });
       clearSelection();
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to ${ignore ? "ignore" : "unignore"} files: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: ignore
+          ? t`Failed to ignore files: ${ph({ error: errorText(err) })}`
+          : t`Failed to unignore files: ${ph({ error: errorText(err) })}`,
       });
     }
   }
 
   async function handleGroupDelete(group: ImportGroup) {
     const impIds = group.files.map((f) => f.impID);
-    if (
-      !window.confirm(
-        `Delete ${impIds.length} import record${impIds.length !== 1 ? "s" : ""}? (Files on disk are untouched.)`,
-      )
-    ) {
+    if (!window.confirm(deleteRecordsPrompt(impIds.length))) {
       return;
     }
     try {
       await deleteImportMutation.mutateAsync(impIds);
       addToast({
         type: "success",
-        message: `${impIds.length} import record${impIds.length !== 1 ? "s" : ""} deleted`,
+        message: recordsDeleted(impIds.length),
       });
       clearSelection();
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to delete records: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to delete records: ${ph({ error: errorText(err) })}`,
       });
     }
   }
@@ -290,13 +343,13 @@ export default function ImportPage() {
       });
       addToast({
         type: "success",
-        message: `${selectedFileIds.length} file${selectedFileIds.length !== 1 ? "s" : ""} ignored`,
+        message: filesIgnored(selectedFileIds.length, true),
       });
       clearSelection();
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to ignore files: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to ignore files: ${ph({ error: errorText(err) })}`,
       });
     }
   };
@@ -309,36 +362,32 @@ export default function ImportPage() {
       });
       addToast({
         type: "success",
-        message: `${selectedFileIds.length} file${selectedFileIds.length !== 1 ? "s" : ""} unignored`,
+        message: filesIgnored(selectedFileIds.length, false),
       });
       clearSelection();
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to unignore files: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to unignore files: ${ph({ error: errorText(err) })}`,
       });
     }
   };
 
   const handleBulkDelete = async () => {
-    if (
-      !window.confirm(
-        `Delete ${selectedFileIds.length} import record${selectedFileIds.length !== 1 ? "s" : ""}? (Files on disk are untouched.)`,
-      )
-    ) {
+    if (!window.confirm(deleteRecordsPrompt(selectedFileIds.length))) {
       return;
     }
     try {
       await deleteImportMutation.mutateAsync(selectedFileIds);
       addToast({
         type: "success",
-        message: `${selectedFileIds.length} import record${selectedFileIds.length !== 1 ? "s" : ""} deleted`,
+        message: recordsDeleted(selectedFileIds.length),
       });
       clearSelection();
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to delete records: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to delete records: ${ph({ error: errorText(err) })}`,
       });
     }
   };
@@ -348,12 +397,12 @@ export default function ImportPage() {
       await refreshImportMutation.mutateAsync();
       addToast({
         type: "success",
-        message: "Import inbox scan started",
+        message: t`Import inbox scan started`,
       });
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to scan inbox: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to scan inbox: ${ph({ error: errorText(err) })}`,
       });
     }
   };
@@ -363,13 +412,13 @@ export default function ImportPage() {
   return (
     <div className="page-transition flex h-full min-h-0 flex-col">
       <PageHeader
-        title="Import"
+        title={t`Import`}
         meta={
           isLoading
             ? "loading…"
             : error
               ? pendingReviewMeta
-              : "Files Comicarr found but couldn't place on its own. Confirm a series and they move into your library."
+              : t`Files Comicarr found but couldn't place on its own. Confirm a series and they move into your library.`
         }
         actions={
           <>
@@ -383,8 +432,8 @@ export default function ImportPage() {
               }
               title={
                 importDirectoryConfigured
-                  ? "Scan the watched inbox for new files"
-                  : "Set an import directory first"
+                  ? t`Scan the watched inbox for new files`
+                  : t`Set an import directory first`
               }
             >
               <RefreshCw
@@ -392,7 +441,7 @@ export default function ImportPage() {
                   refreshImportMutation.isPending ? "animate-spin" : ""
                 }
               />
-              Scan now
+              <Trans>Scan now</Trans>
             </Button>
             {confidentCount > 0 && (
               <Button
@@ -401,11 +450,13 @@ export default function ImportPage() {
                 size="toolbar"
                 onClick={() => void handleImportConfident()}
                 disabled={importConfidentMutation.isPending}
-                title="Import every Confident group as its suggested series"
+                title={t`Import every Confident group as its suggested series`}
               >
                 <CheckCheck />
-                Import {confidentCount.toLocaleString()} confident match
-                {confidentCount === 1 ? "" : "es"}
+                {plural(confidentCount, {
+                  one: "Import # confident match",
+                  other: "Import # confident matches",
+                })}
               </Button>
             )}
           </>
@@ -417,15 +468,17 @@ export default function ImportPage() {
         <ImportSourcesStrip />
 
         {/* Review queue */}
-        <section aria-label="Files awaiting review">
-          <h2 className="sr-only">Files awaiting review</h2>
+        <section aria-label={t`Files awaiting review`}>
+          <h2 className="sr-only">
+            <Trans>Files awaiting review</Trans>
+          </h2>
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <div
               role="group"
-              aria-label="Review queue"
+              aria-label={t`Review queue`}
               className={SEGMENTED_GROUP}
             >
-              {TABS.map(([value, label]) => (
+              {TABS().map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
@@ -436,7 +489,7 @@ export default function ImportPage() {
                   {label}
                   {buckets && (
                     <span className="ml-1.5 mono-meta">
-                      {buckets[value].toLocaleString()}
+                      {formatNumber(buckets[value])}
                     </span>
                   )}
                 </button>
@@ -449,8 +502,8 @@ export default function ImportPage() {
               />
               <Input
                 type="search"
-                aria-label="Filter files"
-                placeholder="Filter files"
+                aria-label={t`Filter files`}
+                placeholder={t`Filter files`}
                 value={filter}
                 onChange={(event) => {
                   setFilter(event.target.value);
@@ -462,7 +515,7 @@ export default function ImportPage() {
               />
             </div>
             <p className="sr-only" aria-live="polite">
-              {isLoading ? "Loading review groups." : pendingReviewHelp}
+              {isLoading ? t`Loading review groups.` : pendingReviewHelp}
             </p>
           </div>
 
@@ -477,7 +530,7 @@ export default function ImportPage() {
           {error && (
             <ErrorDisplay
               error={error}
-              title="Unable to load pending imports"
+              title={t`Unable to load pending imports`}
               onRetry={() => refetch()}
             />
           )}
@@ -515,9 +568,11 @@ export default function ImportPage() {
                         aria-hidden="true"
                         className="size-3.5 text-muted-foreground"
                       />
-                      {confidentCount.toLocaleString()} more matched with high
-                      confidence. They wait under Confident so you can import
-                      them in one go.
+                      {plural(confidentCount, {
+                        one: "# more matched with high confidence. It waits under Confident so you can import it in one go.",
+                        other:
+                          "# more matched with high confidence. They wait under Confident so you can import them in one go.",
+                      })}
                     </p>
                   )}
                 </div>
@@ -557,17 +612,17 @@ export default function ImportPage() {
                     <div>
                       <div className="text-sm font-semibold">
                         {search.trim()
-                          ? "Nothing matches that filter"
+                          ? t`Nothing matches that filter`
                           : bucket === "needs_pick" && !confidentCount
-                            ? "No pending imports"
-                            : EMPTY_COPY[bucket][0]}
+                            ? t`No pending imports`
+                            : EMPTY_COPY()[bucket][0]}
                       </div>
                       <div className="mt-1 max-w-xl text-sm text-foreground-2">
                         {search.trim()
-                          ? "Clear the filter to see every group in this tab."
+                          ? t`Clear the filter to see every group in this tab.`
                           : bucket === "needs_pick" && !confidentCount
-                            ? "The review queue is clear. Scan the watched inbox to check for new files."
-                            : EMPTY_COPY[bucket][1]}
+                            ? t`The review queue is clear. Scan the watched inbox to check for new files.`
+                            : EMPTY_COPY()[bucket][1]}
                       </div>
                     </div>
                   </div>
@@ -587,11 +642,11 @@ export default function ImportPage() {
                               : "h-4 w-4"
                           }
                         />
-                        Scan inbox now
+                        <Trans>Scan inbox now</Trans>
                       </Button>
                     ) : (
                       <span className="mono-meta uppercase tracking-wider">
-                        Import directory not configured
+                        <Trans>Import directory not configured</Trans>
                       </span>
                     ))}
                 </div>
@@ -614,20 +669,22 @@ export default function ImportPage() {
 
         {/* Sources and scans */}
         <section>
-          <SectionHeader title="Sources and scans" />
+          <SectionHeader title={t`Sources and scans`} />
           <p className="mb-4 text-[13px] text-foreground-2">
-            Find series already on disk, or check the watched inbox now.
+            <Trans>
+              Find series already on disk, or check the watched inbox now.
+            </Trans>
           </p>
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]">
             <div>
               <h3 className="mb-2 text-[13px] font-semibold text-foreground">
-                Scan existing directories
+                <Trans>Scan existing directories</Trans>
               </h3>
               <LibraryScanSection />
             </div>
             <div>
               <h3 className="mb-2 text-[13px] font-semibold text-foreground">
-                Watched inbox
+                <Trans>Watched inbox</Trans>
               </h3>
               <ImportInboxSection />
             </div>

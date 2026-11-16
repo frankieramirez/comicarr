@@ -1,3 +1,4 @@
+import { plural, t } from "@lingui/core/macro";
 import {
   useQuery,
   useMutation,
@@ -36,6 +37,74 @@ export interface BulkIssueResult {
   failed: { id: string; error: string }[];
 }
 
+/** What a bulk issue mutation did; picks the sentences that report it. */
+export type BulkIssueAction =
+  | "queue"
+  | "skip"
+  | "mark-wanted"
+  | "mark-skipped"
+  | "mark-ignored"
+  | "mark-archived";
+
+/** "2 issues skipped": every issue in the batch landed. */
+function bulkDone(action: BulkIssueAction, n: number): string {
+  switch (action) {
+    case "queue":
+      return plural(n, { one: "# issue queued", other: "# issues queued" });
+    case "skip":
+      return plural(n, { one: "# issue skipped", other: "# issues skipped" });
+    case "mark-wanted":
+      return plural(n, {
+        one: "# issue marked wanted",
+        other: "# issues marked wanted",
+      });
+    case "mark-skipped":
+      return plural(n, {
+        one: "# issue marked skipped",
+        other: "# issues marked skipped",
+      });
+    case "mark-ignored":
+      return plural(n, {
+        one: "# issue marked ignored",
+        other: "# issues marked ignored",
+      });
+    case "mark-archived":
+      return plural(n, {
+        one: "# issue marked archived",
+        other: "# issues marked archived",
+      });
+  }
+}
+
+/** "2 of 3 issues skipped": the part of the batch that landed. */
+function bulkPartial(action: BulkIssueAction, done: number, total: number) {
+  switch (action) {
+    case "queue":
+      return t`${done} of ${total} issues queued`;
+    case "skip":
+      return t`${done} of ${total} issues skipped`;
+    case "mark-wanted":
+      return t`${done} of ${total} issues marked wanted`;
+    case "mark-skipped":
+      return t`${done} of ${total} issues marked skipped`;
+    case "mark-ignored":
+      return t`${done} of ${total} issues marked ignored`;
+    case "mark-archived":
+      return t`${done} of ${total} issues marked archived`;
+  }
+}
+
+function bulkFailed(action: BulkIssueAction, error: string): string {
+  switch (action) {
+    case "queue":
+      return t`Failed to queue issues: ${error}`;
+    case "skip":
+      return t`Failed to skip issues: ${error}`;
+    default:
+      return t`Failed to update issues: ${error}`;
+  }
+}
+
 /**
  * Turns a bulk outcome into what the page should show and keep selected, so
  * both queue pages report partial failures the same way: the ids that failed
@@ -43,23 +112,31 @@ export interface BulkIssueResult {
  */
 export function describeBulkResult(
   { succeeded, failed }: BulkIssueResult,
-  verb: string,
-  failureVerb: string,
+  action: BulkIssueAction,
 ): { type: "success" | "info" | "error"; message: string; keep: string[] } {
-  const total = succeeded.length + failed.length;
   if (failed.length === 0) {
     return {
       type: "success",
-      message: `${succeeded.length} issue${succeeded.length !== 1 ? "s" : ""} ${verb}`,
+      message: bulkDone(action, succeeded.length),
       keep: [],
     };
   }
+  const error = failed[0].error;
+  let message = bulkFailed(action, error);
+  if (succeeded.length > 0) {
+    const landed = bulkPartial(
+      action,
+      succeeded.length,
+      succeeded.length + failed.length,
+    );
+    message = plural(failed.length, {
+      one: `${landed} — # failed: ${error}`,
+      other: `${landed} — # failed: ${error}`,
+    });
+  }
   return {
     type: succeeded.length > 0 ? "info" : "error",
-    message:
-      succeeded.length > 0
-        ? `${succeeded.length} of ${total} issues ${verb} — ${failed.length} failed: ${failed[0].error}`
-        : `Failed to ${failureVerb} issues: ${failed[0].error}`,
+    message,
     keep: failed.map(({ id }) => id),
   };
 }
@@ -76,7 +153,7 @@ export async function applySequentially(
     } catch (err) {
       result.failed.push({
         id,
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: err instanceof Error ? err.message : t`Unknown error`,
       });
     }
   }

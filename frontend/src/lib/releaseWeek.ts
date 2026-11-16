@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { formatDate } from "@/lib/intl";
 /**
  * Week helpers shared by Releases > Mine and Industry. Weeks are
  * Sunday-based, matching the weekly pull list the backend stores.
@@ -35,7 +37,7 @@ export function weekDays(start: string): string[] {
 }
 
 export function formatDay(iso: string, withYear: boolean): string {
-  return parseDay(iso).toLocaleDateString("en-US", {
+  return formatDate(parseDay(iso), {
     month: "short",
     day: "numeric",
     year: withYear ? "numeric" : undefined,
@@ -44,7 +46,7 @@ export function formatDay(iso: string, withYear: boolean): string {
 
 /** "Wednesday, Nov 11", for a day group heading. */
 export function dayHeading(iso: string): string {
-  return parseDay(iso).toLocaleDateString("en-US", {
+  return formatDate(parseDay(iso), {
     weekday: "long",
     month: "short",
     day: "numeric",
@@ -52,8 +54,10 @@ export function dayHeading(iso: string): string {
 }
 
 export function weekLabel(offset: number): string {
-  if (offset === 0) return "This week";
-  if (offset === 1) return "Next week";
-  if (offset === -1) return "Last week";
-  return offset > 1 ? `In ${offset} weeks` : `${-offset} weeks ago`;
+  if (offset === 0) return t`This week`;
+  if (offset === 1) return t`Next week`;
+  if (offset === -1) return t`Last week`;
+  return offset > 1
+    ? plural(offset, { one: "In # week", other: "In # weeks" })
+    : plural(-offset, { one: "# week ago", other: "# weeks ago" });
 }

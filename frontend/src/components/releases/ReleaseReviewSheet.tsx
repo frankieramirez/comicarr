@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import {
   Ban,
@@ -40,6 +42,7 @@ import type {
   InteractiveSatisfiedIssue,
   ReleaseReviewIssue,
 } from "@/types";
+import { formatBytes, formatDate } from "@/lib/intl";
 
 interface ReleaseReviewSheetProps {
   issue: ReleaseReviewIssue | null;
@@ -51,15 +54,15 @@ interface ReleaseReviewSheetProps {
   onGrabbed: (result: InteractiveGrabResult) => void;
 }
 
-const FAILURE_LABELS: Record<string, string> = {
-  connection_error: "Couldn't connect",
-  timeout: "Timed out",
-  request_error: "Provider error",
-  temporarily_blocked: "Paused after recent failures",
-  unsupported_provider: "Not supported here",
-  search_busy: "Another search is running",
-  collection_failed: "Search failed",
-};
+const FAILURE_LABELS = (): Record<string, string> => ({
+  connection_error: t`Couldn't connect`,
+  timeout: t`Timed out`,
+  request_error: t`Provider error`,
+  temporarily_blocked: t`Paused after recent failures`,
+  unsupported_provider: t`Not supported here`,
+  search_busy: t`Another search is running`,
+  collection_failed: t`Search failed`,
+});
 
 interface ProviderFailureGroup {
   code: string;
@@ -92,15 +95,19 @@ function groupProviderFailures(
 
 function providerList(providers: string[]) {
   if (providers.length <= 3) return providers.join(", ");
-  return `${providers.slice(0, 2).join(", ")} and ${providers.length - 2} more`;
+  const shown = providers.slice(0, 2).join(", ");
+  return plural(providers.length - 2, {
+    one: `${shown} and # more`,
+    other: `${shown} and # more`,
+  });
 }
 
 function verdictLabel(candidate: InteractiveReleaseCandidate) {
-  if (candidate.verdict.accepted) return "Ready";
-  if (candidate.verdict.overrideable) return "Review needed";
-  if (candidate.verdict.status === "blocked") return "Blocked";
-  if (candidate.verdict.status === "error") return "Match failed";
-  return "Not a match";
+  if (candidate.verdict.accepted) return t`Ready`;
+  if (candidate.verdict.overrideable) return t`Review needed`;
+  if (candidate.verdict.status === "blocked") return t`Blocked`;
+  if (candidate.verdict.status === "error") return t`Match failed`;
+  return t`Not a match`;
 }
 
 function verdictColor(candidate: InteractiveReleaseCandidate) {
@@ -145,23 +152,21 @@ function VerdictPill({
   );
 }
 
-function formatBytes(value: number | null) {
-  if (!value || value < 1) return "size unknown";
-  const units = ["B", "KB", "MB", "GB"];
-  const unit = Math.min(Math.floor(Math.log(value) / Math.log(1024)), 3);
-  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value / 1024 ** unit)} ${units[unit]}`;
+function formatSize(value: number | null) {
+  if (!value || value < 1) return t`size unknown`;
+  return formatBytes(value);
 }
 
 function formatPublished(value: string | null) {
-  if (!value) return "date unknown";
+  if (!value) return t`date unknown`;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "date unknown";
-  return new Intl.DateTimeFormat(undefined, {
+  if (Number.isNaN(date.getTime())) return t`date unknown`;
+  return formatDate(date, {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  }).format(date);
+  });
 }
 
 function formatSatisfies(
@@ -196,10 +201,18 @@ function CandidateFacts({
     <div className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px] tabular-nums text-muted-foreground">
       <span>{candidate.candidate.provider}</span>
       <span>{candidate.candidate.source_kind.toUpperCase()}</span>
-      <span>{formatBytes(candidate.candidate.size_bytes)}</span>
+      <span>{formatSize(candidate.candidate.size_bytes)}</span>
       <span>{formatPublished(candidate.candidate.published_at)}</span>
-      {candidate.candidate.pack ? <span>pack</span> : null}
-      {coverage ? <span>covers {coverage}</span> : null}
+      {candidate.candidate.pack ? (
+        <span>
+          <Trans>pack</Trans>
+        </span>
+      ) : null}
+      {coverage ? (
+        <span>
+          <Trans>covers {coverage}</Trans>
+        </span>
+      ) : null}
       {metrics.slice(0, 3).map(([key, value]) => (
         <span key={key}>
           {value} {key}
@@ -225,7 +238,9 @@ function CandidateReason({
           </div>
         ))
       ) : (
-        <div>No matcher explanation was returned.</div>
+        <div>
+          <Trans>No matcher explanation was returned.</Trans>
+        </div>
       )}
     </div>
   );
@@ -240,11 +255,19 @@ function IssueContext({
 }) {
   const isSeries = issue.scope === "series";
   const number = issue.IssueNumber ?? issue.Issue_Number ?? "—";
-  const name = issue.ComicName ?? issue.ReleaseComicName ?? "Tracked issue";
-  const missingLabel =
-    issue.missingCount === 1
-      ? "1 missing issue"
-      : `${issue.missingCount ?? 0} missing issues`;
+  const name = issue.ComicName ?? issue.ReleaseComicName ?? t`Tracked issue`;
+  const missingCount = issue.missingCount ?? 0;
+  const missingLabel = issue.unfiltered
+    ? plural(missingCount, {
+        one: "Unfiltered · # missing issue",
+        other: "Unfiltered · # missing issues",
+      })
+    : plural(missingCount, {
+        one: "# missing issue",
+        other: "# missing issues",
+      });
+  const issueStatus = issue.Status ?? t`Tracked`;
+  const until = expiresAt ? formatPublished(expiresAt) : null;
   return (
     <div className="flex min-w-0 items-center gap-3">
       <div
@@ -256,15 +279,17 @@ function IssueContext({
         }}
         aria-hidden="true"
       >
-        {isSeries ? "Series" : `#${number}`}
+        {isSeries ? t`Series` : `#${number}`}
       </div>
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold">{name}</div>
         <div className="mt-1 truncate mono-label">
           {isSeries
-            ? `${issue.unfiltered ? "Unfiltered · " : ""}${missingLabel}`
-            : `${issue.annual ? "Annual" : "Issue"} · ${issue.Status ?? "Tracked"}`}
-          {expiresAt ? ` · available until ${formatPublished(expiresAt)}` : ""}
+            ? missingLabel
+            : issue.annual
+              ? t`Annual · ${issueStatus}`
+              : t`Issue · ${issueStatus}`}
+          {until ? t` · available until ${until}` : ""}
         </div>
       </div>
     </div>
@@ -304,12 +329,14 @@ function ConfirmationDialog({
         <DialogHeader>
           <DialogTitle>
             {needsOverride
-              ? "Override and grab this release?"
-              : "Grab this release?"}
+              ? t`Override and grab this release?`
+              : t`Grab this release?`}
           </DialogTitle>
           <DialogDescription>
-            Comicarr will re-check the item, provider, duplicate state, and
-            download route before handoff.
+            <Trans>
+              Comicarr will re-check the item, provider, duplicate state, and
+              download route before handoff.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
         <div className="rounded-md border border-border bg-secondary/30 p-3">
@@ -331,10 +358,14 @@ function ConfirmationDialog({
               className="mt-0.5 accent-[var(--primary)]"
             />
             <span>
-              <strong>Override this match-policy rejection</strong>
+              <strong>
+                <Trans>Override this match-policy rejection</Trans>
+              </strong>
               <span className="mt-1 block text-xs text-muted-foreground">
-                I reviewed the matcher explanation. Safety blocks still cannot
-                be overridden.
+                <Trans>
+                  I reviewed the matcher explanation. Safety blocks still cannot
+                  be overridden.
+                </Trans>
               </span>
             </span>
           </label>
@@ -342,13 +373,13 @@ function ConfirmationDialog({
         {grab.error ? (
           <div role="alert" className="text-sm text-[var(--status-error)]">
             {isInteractiveSessionExpired(grab.error)
-              ? "This search session has expired, so its results can no longer be grabbed. Close this dialog and start a new search."
+              ? t`This search session has expired, so its results can no longer be grabbed. Close this dialog and start a new search.`
               : getErrorMessage(grab.error)}
           </div>
         ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={grab.isPending}>
-            Cancel
+            <Trans>Cancel</Trans>
           </Button>
           <Button
             onClick={() => void submit()}
@@ -359,7 +390,7 @@ function ConfirmationDialog({
             ) : (
               <Download />
             )}
-            {grab.isPending ? "Checking and handing off…" : "Confirm grab"}
+            {grab.isPending ? t`Checking and handing off…` : t`Confirm grab`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -409,11 +440,13 @@ export function ReleaseReviewSheet({
       >
         <SheetContent className="flex h-full w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
           <SheetHeader className="shrink-0 border-b border-border p-5 pr-12 text-left">
-            <SheetTitle>Review releases</SheetTitle>
+            <SheetTitle>
+              <Trans>Review releases</Trans>
+            </SheetTitle>
             <SheetDescription>
               {issue?.scope === "series"
-                ? "Choose a release for this series. A pack can cover several missing issues at once. Nothing downloads until you confirm."
-                : "Choose one result for this issue. Nothing downloads until you confirm."}
+                ? t`Choose a release for this series. A pack can cover several missing issues at once. Nothing downloads until you confirm.`
+                : t`Choose one result for this issue. Nothing downloads until you confirm.`}
             </SheetDescription>
             {issue ? (
               <div className="pt-2">
@@ -444,18 +477,20 @@ export function ReleaseReviewSheet({
               />
             )}
             {startPending
-              ? "Starting provider search…"
+              ? t`Starting provider search…`
               : expired
-                ? "Search session expired"
+                ? t`Search session expired`
                 : active && data
-                  ? `${data.progress.provider_completed} of ${data.progress.provider_total} providers complete${data.progress.current_provider ? ` · ${data.progress.current_provider}` : ""}`
+                  ? data.progress.current_provider
+                    ? t`${ph({ done: data.progress.provider_completed })} of ${ph({ total: data.progress.provider_total })} providers complete · ${ph({ provider: data.progress.current_provider })}`
+                    : t`${ph({ done: data.progress.provider_completed })} of ${ph({ total: data.progress.provider_total })} providers complete`
                   : data?.state === "failed"
-                    ? "Provider search stopped before completion"
+                    ? t`Provider search stopped before completion`
                     : data
-                      ? `${data.progress.provider_completed} providers checked · ${data.candidate_count} candidates`
+                      ? t`${ph({ provider_completed: data.progress.provider_completed })} providers checked · ${ph({ candidate_count: data.candidate_count })} candidates`
                       : displayError
-                        ? "Provider search could not start"
-                        : "Preparing search…"}
+                        ? t`Provider search could not start`
+                        : t`Preparing search…`}
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
@@ -467,18 +502,18 @@ export function ReleaseReviewSheet({
                     aria-hidden="true"
                   />
                   <h3 className="mt-3 text-sm font-semibold">
-                    Search timed out
+                    <Trans>Search timed out</Trans>
                   </h3>
                   <p
                     role="alert"
                     className="mt-1 text-sm text-muted-foreground"
                   >
                     {issue?.scope === "series"
-                      ? "This search session expired before it finished. Start a new search, or search for a single issue instead — it completes faster."
-                      : "This search session expired. Start a new search to get fresh results."}
+                      ? t`This search session expired before it finished. Start a new search, or search for a single issue instead — it completes faster.`
+                      : t`This search session expired. Start a new search to get fresh results.`}
                   </p>
                   <Button className="mt-4" variant="outline" onClick={onRetry}>
-                    <RefreshCw /> Start a new search
+                    <RefreshCw /> <Trans>Start a new search</Trans>
                   </Button>
                 </div>
               </div>
@@ -490,7 +525,7 @@ export function ReleaseReviewSheet({
                     aria-hidden="true"
                   />
                   <h3 className="mt-3 text-sm font-semibold">
-                    Search unavailable
+                    <Trans>Search unavailable</Trans>
                   </h3>
                   <p
                     role="alert"
@@ -499,12 +534,12 @@ export function ReleaseReviewSheet({
                     {getErrorMessage(displayError)}
                   </p>
                   <Button className="mt-4" variant="outline" onClick={onRetry}>
-                    <RefreshCw /> Retry search
+                    <RefreshCw /> <Trans>Retry search</Trans>
                   </Button>
                 </div>
               </div>
             ) : candidates.length === 0 && active ? (
-              <div className="space-y-2" aria-label="Searching providers">
+              <div className="space-y-2" aria-label={t`Searching providers`}>
                 {[0, 1, 2].map((item) => (
                   <div
                     key={item}
@@ -520,13 +555,15 @@ export function ReleaseReviewSheet({
                     aria-hidden="true"
                   />
                   <h3 className="mt-3 text-sm font-semibold">
-                    No release candidates found
+                    <Trans>No release candidates found</Trans>
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Try again later or review provider failures below.
+                    <Trans>
+                      Try again later or review provider failures below.
+                    </Trans>
                   </p>
                   <Button className="mt-4" variant="outline" onClick={onRetry}>
-                    <RefreshCw /> Search again
+                    <RefreshCw /> <Trans>Search again</Trans>
                   </Button>
                 </div>
               </div>
@@ -578,7 +615,7 @@ export function ReleaseReviewSheet({
                 aria-labelledby="provider-failures-title"
               >
                 <h3 id="provider-failures-title" className="mono-label">
-                  Provider failures
+                  <Trans>Provider failures</Trans>
                 </h3>
                 <div className="mt-2 space-y-2">
                   {groupProviderFailures(data.provider_failures).map(
@@ -600,9 +637,12 @@ export function ReleaseReviewSheet({
                           {group.detail}
                         </div>
                         <div className="mt-1 font-mono text-[10px] text-muted-foreground">
-                          {FAILURE_LABELS[group.code] ?? group.code}
+                          {FAILURE_LABELS()[group.code] ?? group.code}
                           {group.providers.length > 1
-                            ? ` · ${group.providers.length} providers`
+                            ? plural(group.providers.length, {
+                                one: " · # provider",
+                                other: " · # providers",
+                              })
                             : null}
                         </div>
                       </div>
@@ -621,13 +661,15 @@ export function ReleaseReviewSheet({
             >
               <Download aria-hidden="true" />
               {selected?.verdict.overrideable && !selected.verdict.accepted
-                ? "Review override"
-                : "Review grab"}
+                ? t`Review override`
+                : t`Review grab`}
             </Button>
             {selected && !canGrab ? (
               <p className="mt-2 text-xs text-muted-foreground">
-                This candidate cannot be grabbed. Select a ready or overrideable
-                result.
+                <Trans>
+                  This candidate cannot be grabbed. Select a ready or
+                  overrideable result.
+                </Trans>
               </p>
             ) : null}
           </div>

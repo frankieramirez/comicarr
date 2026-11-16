@@ -1,19 +1,22 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Gauge, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { approxDuration, untilLabel } from "@/lib/wantedPacing";
 import type { WantedPacing } from "@/types";
+import { formatNumber } from "@/lib/intl";
 
 function everyLabel(minutes: number): string {
   if (minutes % 1440 === 0) {
     const days = minutes / 1440;
-    return days === 1 ? "every day" : `every ${days} days`;
+    return plural(days, { one: "every day", other: "every # days" });
   }
   if (minutes % 60 === 0) {
     const hours = minutes / 60;
-    return hours === 1 ? "every hour" : `every ${hours} hours`;
+    return plural(hours, { one: "every hour", other: "every # hours" });
   }
-  return `every ${minutes} minutes`;
+  return plural(minutes, { one: "every minute", other: "every # minutes" });
 }
 
 /**
@@ -35,24 +38,29 @@ export default function WantedPacingBanner({
 }) {
   if (pacing.state === "idle") return null;
 
-  const fresh = `Issues added in the last ${pacing.new_issue_days} days also get a full search on ${
-    pacing.indexers === 1 ? "your indexer" : `your ${pacing.indexers} indexers`
-  } ${everyLabel(pacing.search_interval_minutes)}.`;
+  const every = everyLabel(pacing.search_interval_minutes);
+  const days = pacing.new_issue_days;
+  const fresh = plural(pacing.indexers, {
+    one: `Issues added in the last ${days} days also get a full search on your indexer ${every}.`,
+    other: `Issues added in the last ${days} days also get a full search on your # indexers ${every}.`,
+  });
   const nextPass = untilLabel(pacing.next_pass_at);
 
   let title: string;
   let detail: string;
   if (pacing.state === "checking") {
-    title = `Auto-search is checking the backlog at ${pacing.per_hour.toLocaleString()} an hour`;
-    detail = `${pacing.per_pass.toLocaleString()} at a time against new releases, newest first. ${fresh}${
-      nextPass ? ` Next batch ${nextPass}.` : ""
-    }`;
+    const perHour = formatNumber(pacing.per_hour);
+    const perPass = formatNumber(pacing.per_pass);
+    title = t`Auto-search is checking the backlog at ${perHour} an hour`;
+    detail = nextPass
+      ? t`${perPass} at a time against new releases, newest first. ${fresh} Next batch ${nextPass}.`
+      : t`${perPass} at a time against new releases, newest first. ${fresh}`;
   } else if (pacing.state === "waiting_for_feed") {
-    title = "Every Wanted issue has been checked against new releases";
-    detail = `The next round starts when the feeds bring something new. ${fresh}`;
+    title = t`Every Wanted issue has been checked against new releases`;
+    detail = t`The next round starts when the feeds bring something new. ${fresh}`;
   } else {
-    title = "Backlog checks are off";
-    detail = `Only issues added in the last ${pacing.new_issue_days} days are searched automatically. Turn on RSS in Search settings to work through the rest.`;
+    title = t`Backlog checks are off`;
+    detail = t`Only issues added in the last ${ph({ new_issue_days: pacing.new_issue_days })} days are searched automatically. Turn on RSS in Search settings to work through the rest.`;
   }
 
   const share = pacing.total > 0 ? pacing.checked / pacing.total : 0;
@@ -77,7 +85,7 @@ export default function WantedPacingBanner({
                 to="/settings?section=search"
                 className="text-foreground underline-offset-2 hover:underline"
               >
-                Search settings
+                <Trans>Search settings</Trans>
               </Link>
             </>
           )}
@@ -86,14 +94,16 @@ export default function WantedPacingBanner({
       {pacing.state === "checking" && pacing.finishes_in_hours != null && (
         <div className="w-48 shrink-0 max-md:w-full">
           <div className="flex items-baseline justify-between gap-3 text-xs">
-            <span className="text-foreground-2">Every issue checked in</span>
+            <span className="text-foreground-2">
+              <Trans>Every issue checked in</Trans>
+            </span>
             <span className="font-mono text-foreground">
               {approxDuration(pacing.finishes_in_hours)}
             </span>
           </div>
           <div
             role="progressbar"
-            aria-label="Backlog checked this round"
+            aria-label={t`Backlog checked this round`}
             aria-valuemin={0}
             aria-valuemax={pacing.total}
             aria-valuenow={pacing.checked}
@@ -118,7 +128,7 @@ export default function WantedPacingBanner({
           disabled={searching}
         >
           <Search />
-          Search now…
+          <Trans>Search now…</Trans>
         </Button>
       )}
     </div>

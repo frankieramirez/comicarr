@@ -1,3 +1,6 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
+import { formatNumber } from "@/lib/intl";
 import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Activity } from "lucide-react";
@@ -34,7 +37,7 @@ function issueName(issue: IssueMetadata): string {
 }
 
 function issueStatus(issue: IssueMetadata): string {
-  return issue.displayState ?? issue.status ?? issue.Status ?? "Unknown";
+  return issue.displayState ?? issue.status ?? issue.Status ?? t`Unknown`;
 }
 
 /** "26-Oct-2026 14:09:02 - INFO :: postprocess : msg" → "14:09:02 postprocess: msg". */
@@ -50,18 +53,25 @@ function shortLogLine(line: string): string {
 
 function megabytes(bytes: number | null): string {
   if (bytes == null || !Number.isFinite(bytes)) return "";
-  return `${Math.round(bytes / 1_000_000)} MB`;
+  const mb = formatNumber(Math.round(bytes / 1_000_000));
+  return t`${mb} MB`;
 }
 
 function attemptsLine(attempts: IssueStoryDetails["attempts"]): string {
   const parts: string[] = [];
-  const add = (count: number, noun: string) => {
-    if (count > 0) parts.push(`${count} ${noun}${count === 1 ? "" : "s"}`);
-  };
-  add(attempts.search, "search");
-  add(attempts.download, "download");
-  add(attempts.import, "import");
-  return parts.length ? parts.join(" · ") : "none yet";
+  if (attempts.search > 0)
+    parts.push(
+      plural(attempts.search, { one: "# search", other: "# searches" }),
+    );
+  if (attempts.download > 0)
+    parts.push(
+      plural(attempts.download, { one: "# download", other: "# downloads" }),
+    );
+  if (attempts.import > 0)
+    parts.push(
+      plural(attempts.import, { one: "# import", other: "# imports" }),
+    );
+  return parts.length ? parts.join(" · ") : t`none yet`;
 }
 
 function CandidateRow({ row }: { row: SearchCandidate }) {
@@ -93,10 +103,10 @@ function CandidateRow({ row }: { row: SearchCandidate }) {
           }}
         />
         {row.chosen
-          ? "Chosen"
+          ? t`Chosen`
           : accepted
-            ? "Acceptable"
-            : (row.reason ?? "Rejected")}
+            ? t`Acceptable`
+            : (row.reason ?? t`Rejected`)}
       </span>
     </li>
   );
@@ -109,11 +119,11 @@ function Candidates({ details }: { details: IssueStoryDetails }) {
   return (
     <div className="mt-6" data-testid="issue-candidates">
       <SectionHeader
-        title={`Candidates · ${search.accepted_count} of ${search.total}`}
+        title={t`Candidates · ${ph({ accepted_count: search.accepted_count })} of ${ph({ total: search.total })}`}
       />
       {search.total === 0 ? (
         <p className="text-[13px] text-foreground-2">
-          The last search found nothing for this issue.
+          <Trans>The last search found nothing for this issue.</Trans>
         </p>
       ) : (
         <ul>
@@ -133,13 +143,13 @@ function Candidates({ details }: { details: IssueStoryDetails }) {
           onClick={() => setShowRejected((open) => !open)}
         >
           {showRejected
-            ? "Hide rejected"
-            : `Show ${search.rejected_count} rejected`}
+            ? t`Hide rejected`
+            : t`Show ${ph({ rejected_count: search.rejected_count })} rejected`}
         </button>
       )}
       {showRejected && search.rejected_count > search.rejected.length && (
         <p className="mt-1 text-xs text-muted-foreground">
-          Showing the first {search.rejected.length}.
+          {t`Showing the first ${ph({ count: search.rejected.length })}.`}
         </p>
       )}
     </div>
@@ -173,7 +183,9 @@ export default function IssueDetailPage() {
   if (isLoading) {
     return (
       <div className="space-y-5 px-8 pt-5 page-transition">
-        <h1 className="sr-only">Issue</h1>
+        <h1 className="sr-only">
+          <Trans>Issue</Trans>
+        </h1>
         <Skeleton className="h-4 w-64" />
         <div className="flex gap-5">
           <Skeleton className="aspect-[2/3] w-24 rounded-md" />
@@ -191,7 +203,7 @@ export default function IssueDetailPage() {
       <div className="px-8 pt-5 page-transition">
         <ErrorDisplay
           error={error}
-          title="Unable to load issue"
+          title={t`Unable to load issue`}
           onRetry={() => {
             void refetch();
           }}
@@ -202,11 +214,13 @@ export default function IssueDetailPage() {
   }
 
   if (isError || !data) {
-    const message = error instanceof Error ? error.message : "Issue not found";
+    const message = error instanceof Error ? error.message : t`Issue not found`;
     return (
       <div className="px-8 page-transition">
         <div className="mx-auto max-w-lg py-16 text-center">
-          <h1 className="text-lg font-semibold">Issue not found</h1>
+          <h1 className="text-lg font-semibold">
+            <Trans>Issue not found</Trans>
+          </h1>
           <p className="mt-2 text-sm text-foreground-2">{message}</p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
             {comicId ? (
@@ -214,7 +228,7 @@ export default function IssueDetailPage() {
                 to={`/library/${comicId}`}
                 className={buttonVariants({ size: "toolbar" })}
               >
-                Back to series
+                <Trans>Back to series</Trans>
               </Link>
             ) : null}
             <Link
@@ -224,7 +238,7 @@ export default function IssueDetailPage() {
                 size: "toolbar",
               })}
             >
-              Back to library
+              <Trans>Back to library</Trans>
             </Link>
           </div>
         </div>
@@ -233,7 +247,7 @@ export default function IssueDetailPage() {
   }
 
   const { issue, series } = data;
-  const seriesName = series?.ComicName ?? issue.ComicName ?? "Series";
+  const seriesName = series?.ComicName ?? issue.ComicName ?? t`Series`;
   const number = issueNumber(issue);
   const name = issueName(issue);
   const title = number ? `${seriesName} #${number}` : name || seriesName;
@@ -249,14 +263,20 @@ export default function IssueDetailPage() {
     .join(" · ");
 
   const details: { label: string; value: ReactNode; mono?: boolean }[] = [
-    { label: "Released", value: field(releaseDate), mono: true },
+    { label: t`Released`, value: field(releaseDate), mono: true },
     ...(issue.DigitalDate && issue.DigitalDate !== releaseDate
-      ? [{ label: "Digital date", value: field(issue.DigitalDate), mono: true }]
+      ? [
+          {
+            label: t`Digital date`,
+            value: field(issue.DigitalDate),
+            mono: true,
+          },
+        ]
       : []),
     ...(issue.ComicSize
-      ? [{ label: "Size", value: field(issue.ComicSize), mono: true }]
+      ? [{ label: t`Size`, value: field(issue.ComicSize), mono: true }]
       : []),
-    ...(issue.Arc ? [{ label: "Story arc", value: field(issue.Arc) }] : []),
+    ...(issue.Arc ? [{ label: t`Story arc`, value: field(issue.Arc) }] : []),
   ];
 
   return (
@@ -264,11 +284,11 @@ export default function IssueDetailPage() {
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <div className="px-4 pt-5 pb-5 md:px-8">
           <nav
-            aria-label="Breadcrumb"
+            aria-label={t`Breadcrumb`}
             className="mb-4 flex items-center gap-2 text-[13px] text-foreground-2"
           >
             <Link to="/library" className="hover:text-foreground">
-              Library
+              <Trans>Library</Trans>
             </Link>
             <span className="text-muted-foreground">/</span>
             <Link
@@ -285,7 +305,9 @@ export default function IssueDetailPage() {
               className="mono-meta ml-auto hidden shrink-0 sm:inline"
               data-testid="issue-detail-ids"
             >
-              series:{comicId} · issue:{issueId}
+              <Trans>
+                series:{comicId} · issue:{issueId}
+              </Trans>
             </span>
           </nav>
 
@@ -316,7 +338,7 @@ export default function IssueDetailPage() {
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-foreground-2">
                 <IssueStatusMenu
                   current={status}
-                  label={`Change status for ${title}`}
+                  label={t`Change status for ${title}`}
                   disabled={!issueId || setIssueStatus.isPending}
                   onSelect={(next) => {
                     if (!issueId) return;
@@ -326,8 +348,8 @@ export default function IssueDetailPage() {
                         onError: (statusError) =>
                           addToast({
                             type: "error",
-                            title: "Error",
-                            description: `Failed to update status: ${statusError.message}`,
+                            title: t`Error`,
+                            description: t`Failed to update status: ${ph({ message: statusError.message })}`,
                           }),
                       },
                     );
@@ -353,10 +375,10 @@ export default function IssueDetailPage() {
                     size: "toolbar",
                     className: "bg-surface-2",
                   })}
-                  aria-label="View activity for this issue"
+                  aria-label={t`View activity for this issue`}
                 >
                   <Activity />
-                  Activity
+                  <Trans>Activity</Trans>
                 </Link>
               </div>
             ) : null}
@@ -375,10 +397,10 @@ export default function IssueDetailPage() {
           )}
 
           <aside
-            aria-label="Details"
+            aria-label={t`Details`}
             className="min-w-0 lg:border-l lg:border-border-subtle lg:pl-8"
           >
-            <SectionHeader title="Details" />
+            <SectionHeader title={t`Details`} />
             <dl>
               {details.map((row) => (
                 <div
@@ -399,7 +421,9 @@ export default function IssueDetailPage() {
               ))}
               {story.data && (
                 <div className="flex items-baseline justify-between gap-4 py-1.5 text-[13px]">
-                  <dt className="text-foreground-2">Attempts</dt>
+                  <dt className="text-foreground-2">
+                    <Trans>Attempts</Trans>
+                  </dt>
                   <dd
                     className="text-right font-mono text-xs leading-5"
                     data-testid="issue-attempts"
@@ -409,7 +433,9 @@ export default function IssueDetailPage() {
                 </div>
               )}
               <div className="flex items-baseline justify-between gap-4 py-1.5 text-[13px]">
-                <dt className="shrink-0 text-foreground-2">File on disk</dt>
+                <dt className="shrink-0 text-foreground-2">
+                  <Trans>File on disk</Trans>
+                </dt>
                 <dd
                   className={
                     location
@@ -423,7 +449,7 @@ export default function IssueDetailPage() {
             </dl>
             {story.data && <Candidates details={story.data} />}
             <div className="mt-6">
-              <SectionHeader title="Log" />
+              <SectionHeader title={t`Log`} />
               {story.data?.log.lines.length ? (
                 <pre
                   data-testid="issue-log-lines"
@@ -433,7 +459,10 @@ export default function IssueDetailPage() {
                 </pre>
               ) : (
                 <p className="text-[13px] text-foreground-2">
-                  Every line Comicarr wrote about this issue is in the full log.
+                  <Trans>
+                    Every line Comicarr wrote about this issue is in the full
+                    log.
+                  </Trans>
                 </p>
               )}
               <Link
@@ -444,7 +473,7 @@ export default function IssueDetailPage() {
                 }
                 className="mt-2 inline-block text-[13px] text-foreground underline-offset-2 hover:underline"
               >
-                Open full log
+                <Trans>Open full log</Trans>
               </Link>
             </div>
           </aside>

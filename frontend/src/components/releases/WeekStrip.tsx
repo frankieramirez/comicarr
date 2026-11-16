@@ -1,6 +1,9 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import type { UpcomingIssue } from "@/types";
 import { releaseDay, releaseState } from "@/lib/releaseState";
 import { isoDay, parseDay, weekDays } from "@/lib/releaseWeek";
+import { formatDate } from "@/lib/intl";
 
 /**
  * Seven days of the shown week with a count and one dash per release,
@@ -8,7 +11,7 @@ import { isoDay, parseDay, weekDays } from "@/lib/releaseWeek";
  */
 
 const MAX_DASHES = 8;
-const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "short" });
+const WEEKDAY: Intl.DateTimeFormatOptions = { weekday: "short" };
 
 export default function WeekStrip({
   issues,
@@ -28,7 +31,7 @@ export default function WeekStrip({
   return (
     <div
       className="grid grid-cols-7 gap-1 rounded-lg border border-border-subtle bg-surface-1 p-1"
-      aria-label="Releases by day this week"
+      aria-label={t`Releases by day this week`}
       role="group"
     >
       {weekDays(start).map((key) => {
@@ -46,14 +49,14 @@ export default function WeekStrip({
               <span
                 className={isToday ? "text-foreground" : "text-foreground-2"}
               >
-                {WEEKDAY.format(date)}{" "}
+                {formatDate(date, WEEKDAY)}{" "}
                 <span className="font-mono text-xs text-muted-foreground">
                   {date.getDate()}
                 </span>
               </span>
               {isToday ? (
                 <span className="text-[11px] text-foreground-2 max-md:hidden">
-                  Today
+                  <Trans>Today</Trans>
                 </span>
               ) : landing.length > 0 ? (
                 <span className="font-mono text-xs text-muted-foreground max-md:hidden">

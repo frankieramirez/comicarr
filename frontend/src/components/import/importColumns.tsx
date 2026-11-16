@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useMemo } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -74,14 +76,14 @@ export function useImportColumns() {
           id: "select",
           header: ({ table }) => (
             <Checkbox
-              aria-label="Select all rows"
+              aria-label={t`Select all rows`}
               checked={getIsAllSelected(table)}
               onCheckedChange={(value) => toggleAllSelected(table, !!value)}
             />
           ),
           cell: ({ row }) => (
             <Checkbox
-              aria-label={`Select ${row.original.ComicName || row.original.DynamicName}`}
+              aria-label={t`Select ${ph({ series: row.original.ComicName || row.original.DynamicName })}`}
               checked={row.getIsSelected()}
               onCheckedChange={(value) => row.toggleSelected(!!value)}
               onClick={(e) => e.stopPropagation()}
@@ -90,7 +92,7 @@ export function useImportColumns() {
           size: 40,
         }),
         columnHelper.accessor("ComicName", {
-          header: "Files",
+          header: t`Files`,
           cell: ({ row }) => {
             const group = row.original;
             const count = group.FileCount ?? group.files.length;
@@ -106,8 +108,12 @@ export function useImportColumns() {
                   className="mono-meta truncate"
                   title={getImportGroupTypeLabel(group)}
                 >
-                  {count} file{count === 1 ? "" : "s"}
-                  {folder ? ` · ${folder}` : ""}
+                  {folder
+                    ? plural(count, {
+                        one: `# file · ${folder}`,
+                        other: `# files · ${folder}`,
+                      })
+                    : plural(count, { one: "# file", other: "# files" })}
                 </div>
               </div>
             );
@@ -115,12 +121,14 @@ export function useImportColumns() {
           enableSorting: false,
         }),
         columnHelper.accessor("SuggestedComicName", {
-          header: "Best guess",
+          header: t`Best guess`,
           cell: ({ row }) => {
             const suggestedName = row.original.SuggestedComicName;
             if (!suggestedName) {
               return (
-                <span className="text-sm text-muted-foreground">No match</span>
+                <span className="text-sm text-muted-foreground">
+                  <Trans>No match</Trans>
+                </span>
               );
             }
             const [name, year] = splitSeriesYear(suggestedName);
@@ -138,7 +146,7 @@ export function useImportColumns() {
           enableSorting: false,
         }),
         columnHelper.accessor("MatchConfidence", {
-          header: "Match",
+          header: t`Match`,
           cell: ({ row, getValue }) => {
             if (
               !row.original.SuggestedComicID &&
@@ -147,14 +155,16 @@ export function useImportColumns() {
               return (
                 <span
                   className="inline-flex items-center gap-2"
-                  title="No suggestion"
+                  title={t`No suggestion`}
                 >
                   <span
                     aria-hidden="true"
                     className="h-1 w-10 rounded-full bg-surface-3"
                   />
                   <span className="mono-meta">–</span>
-                  <span className="sr-only">No suggestion</span>
+                  <span className="sr-only">
+                    <Trans>No suggestion</Trans>
+                  </span>
                 </span>
               );
             }

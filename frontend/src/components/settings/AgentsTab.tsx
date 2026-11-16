@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Copy } from "lucide-react";
 import { SettingGroup } from "./SettingGroup";
 import { SettingField } from "./SettingField";
@@ -10,6 +12,10 @@ import type {
   SettingsFormData,
   WritableConfig,
 } from "../../types/config.generated";
+
+// Header examples are code, not text: they stay the same in every language.
+const BEARER_HEADER = "Authorization: Bearer <key>";
+const API_KEY_HEADER = "X-Api-Key: <key>";
 
 interface AgentsTabProps {
   config: ReadableConfig;
@@ -32,27 +38,27 @@ export function AgentsTab({ config, formData, onChange }: AgentsTabProps) {
   const handleCopyEndpoint = async () => {
     try {
       await navigator.clipboard.writeText(endpoint);
-      addToast({ type: "success", message: "MCP endpoint copied" });
+      addToast({ type: "success", message: t`MCP endpoint copied` });
     } catch {
-      addToast({ type: "error", message: "Failed to copy the MCP endpoint" });
+      addToast({ type: "error", message: t`Failed to copy the MCP endpoint` });
     }
   };
 
   return (
     <div className="space-y-6">
       <SettingGroup
-        title="Agents (MCP)"
-        description="Let AI agents such as Claude Code or VS Code read your library, and optionally act on it, through the Model Context Protocol. Changes apply as soon as you save; no restart."
+        title={t`Agents (MCP)`}
+        description={t`Let AI agents such as Claude Code or VS Code read your library, and optionally act on it, through the Model Context Protocol. Changes apply as soon as you save; no restart.`}
       >
         <SettingField
-          label="Enable MCP server"
+          label={t`Enable MCP server`}
           type="checkbox"
           checked={mcpEnabled}
           onChange={(checked) => onChange("mcp_enabled", checked as boolean)}
-          helpText="Serve the MCP endpoint below. While this is off, the endpoint does not exist."
+          helpText={t`Serve the MCP endpoint below. While this is off, the endpoint does not exist.`}
         />
         <SettingField
-          label="Allow write tools"
+          label={t`Allow write tools`}
           type="checkbox"
           checked={formData.mcp_write_enabled ?? false}
           disabled={!mcpEnabled}
@@ -61,22 +67,22 @@ export function AgentsTab({ config, formData, onChange }: AgentsTabProps) {
           }
           helpText={
             mcpEnabled
-              ? "Let agents change things, such as marking issues Wanted, starting searches and adding series. Each write goes through your agent's own approval prompt."
-              : "Turn on the MCP server first."
+              ? t`Let agents change things, such as marking issues Wanted, starting searches and adding series. Each write goes through your agent's own approval prompt.`
+              : t`Turn on the MCP server first.`
           }
         />
       </SettingGroup>
 
       <SettingGroup
-        title="Endpoint"
-        description="Point your agent at this URL."
+        title={t`Endpoint`}
+        description={t`Point your agent at this URL.`}
       >
         <div className="space-y-2">
           <label
             htmlFor="settings-mcp-endpoint"
             className="text-sm font-medium"
           >
-            MCP endpoint
+            <Trans>MCP endpoint</Trans>
           </label>
           <div className="flex space-x-2">
             <input
@@ -91,16 +97,18 @@ export function AgentsTab({ config, formData, onChange }: AgentsTabProps) {
               variant="outline"
               size="icon"
               onClick={handleCopyEndpoint}
-              title="Copy MCP endpoint"
-              aria-label="Copy MCP endpoint"
+              title={t`Copy MCP endpoint`}
+              aria-label={t`Copy MCP endpoint`}
             >
               <Copy className="h-4 w-4" />
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Authenticate with your Comicarr API key (Sources and keys), sent as{" "}
-            <code className="font-mono">Authorization: Bearer &lt;key&gt;</code>{" "}
-            or <code className="font-mono">X-Api-Key: &lt;key&gt;</code>.
+            <Trans>
+              Authenticate with your Comicarr API key (Sources and keys), sent
+              as <code className="font-mono">{BEARER_HEADER}</code> or{" "}
+              <code className="font-mono">{API_KEY_HEADER}</code>.
+            </Trans>
           </p>
           {MCP_DOCS_URL && (
             <p className="text-xs">
@@ -110,7 +118,7 @@ export function AgentsTab({ config, formData, onChange }: AgentsTabProps) {
                 rel="noreferrer"
                 className="text-primary underline-offset-2 hover:underline"
               >
-                Connect an agent (MCP)
+                <Trans>Connect an agent (MCP)</Trans>
               </a>
             </p>
           )}

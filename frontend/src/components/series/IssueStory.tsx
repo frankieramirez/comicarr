@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Link } from "react-router-dom";
 import { CheckCircle2, Circle, XCircle } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -23,21 +25,31 @@ import {
   rejectionBreakdown,
   type SearchHistory,
 } from "@/hooks/useIssueStoryDetails";
+import { formatDate } from "@/lib/intl";
 
 /** Actions the issue page can take in one click; the rest need a dialog. */
 const ONE_CLICK: BandAction[] = ["retry", "search_again"];
 
-const WHEN = new Intl.DateTimeFormat("en-US", {
+const WHEN: Intl.DateTimeFormatOptions = {
   month: "short",
   day: "numeric",
   hour: "2-digit",
   minute: "2-digit",
   hour12: false,
-});
+};
+
+function searchSummary(search: SearchHistory): string {
+  const rejected = search.rejected_count;
+  const accepted = search.accepted_count;
+  return plural(search.total, {
+    one: `# result, ${rejected} rejected, ${accepted} acceptable.`,
+    other: `# results, ${rejected} rejected, ${accepted} acceptable.`,
+  });
+}
 
 function when(iso: string): string {
   const date = new Date(iso.includes("T") ? iso : iso.replace(" ", "T"));
-  return Number.isNaN(date.getTime()) ? iso : WHEN.format(date);
+  return Number.isNaN(date.getTime()) ? iso : formatDate(date, WHEN);
 }
 
 function StepIcon({ event }: { event: TimelineEvent }) {
@@ -47,7 +59,7 @@ function StepIcon({ event }: { event: TimelineEvent }) {
   )
     return (
       <XCircle
-        aria-label="Failed"
+        aria-label={t`Failed`}
         className="size-4 shrink-0"
         style={{ color: "var(--status-error)" }}
       />
@@ -55,7 +67,7 @@ function StepIcon({ event }: { event: TimelineEvent }) {
   if (event.status === "succeeded")
     return (
       <CheckCircle2
-        aria-label="Done"
+        aria-label={t`Done`}
         className="size-4 shrink-0"
         style={{ color: "var(--status-downloaded)" }}
       />
@@ -93,7 +105,7 @@ export function IssueCauseActions({
           variant="default"
           onClick={() => setImporting(true)}
         >
-          Import manually
+          <Trans>Import manually</Trans>
         </Button>
       )}
       {importing && (
@@ -120,8 +132,8 @@ export function IssueCauseActions({
                 type: "success",
                 message:
                   action === "retry"
-                    ? "Retrying this issue."
-                    : "Searching for this issue again.",
+                    ? t`Retrying this issue.`
+                    : t`Searching for this issue again.`,
               });
             } catch (err) {
               addToast({ type: "error", message: getErrorMessage(err) });
@@ -169,7 +181,7 @@ export default function IssueStory({
         id="issue-story"
         className="pb-4 text-[15px] font-semibold text-foreground"
       >
-        What happened
+        <Trans>What happened</Trans>
       </h2>
       {timeline.isPending ? (
         <div className="space-y-3">
@@ -178,8 +190,10 @@ export default function IssueStory({
         </div>
       ) : events.length === 0 ? (
         <p className="text-[13px] text-muted-foreground">
-          Nothing has happened to this issue yet. Searches, downloads and
-          imports show up here as they run.
+          <Trans>
+            Nothing has happened to this issue yet. Searches, downloads and
+            imports show up here as they run.
+          </Trans>
         </p>
       ) : (
         <ol className="space-y-5">
@@ -220,11 +234,7 @@ export default function IssueStory({
                     data-testid="issue-search-summary"
                     className="col-start-2 col-span-2 text-[13px] text-foreground-2"
                   >
-                    <span className="block">
-                      {search.total} result{search.total === 1 ? "" : "s"},{" "}
-                      {search.rejected_count} rejected, {search.accepted_count}{" "}
-                      acceptable.
-                    </span>
+                    <span className="block">{searchSummary(search)}</span>
                     {breakdown && (
                       <span className="block font-mono text-xs text-muted-foreground">
                         {breakdown}
@@ -265,7 +275,7 @@ export default function IssueStory({
               className="size-1.5 rounded-full"
               style={{ background: "var(--status-error)" }}
             />
-            Likely cause: {cause.headline}
+            {t`Likely cause: ${ph({ cause: cause.headline })}`}
           </div>
           {cause.hint && (
             <p className="mt-1.5 text-[13px] text-foreground-2">{cause.hint}</p>
@@ -286,7 +296,7 @@ export default function IssueStory({
               to="/activity/attention"
               className={buttonVariants({ variant: "ghost", size: "toolbar" })}
             >
-              More options in Needs you
+              <Trans>More options in Needs you</Trans>
             </Link>
           </div>
         </div>

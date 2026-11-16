@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -30,15 +32,20 @@ export default function ImportBulkActions({
 }: ImportBulkActionsProps) {
   if (selectedFileCount === 0) return null;
 
-  const groupLabel = selectedGroupCount === 1 ? "group" : "groups";
-  const fileLabel = selectedFileCount === 1 ? "file" : "files";
+  const groupCount = plural(selectedGroupCount, {
+    one: "# group",
+    other: "# groups",
+  });
+  const fileCount = plural(selectedFileCount, {
+    one: "# file",
+    other: "# files",
+  });
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-200">
       <div className="bg-card border border-border rounded-lg shadow-lg px-4 py-3 flex items-center gap-4">
         <span className="text-sm font-medium text-foreground">
-          {selectedGroupCount} {groupLabel} · {selectedFileCount} {fileLabel}{" "}
-          selected
+          {t`${groupCount} · ${fileCount} selected`}
         </span>
 
         <div className="h-4 w-px bg-border" />
@@ -55,10 +62,12 @@ export default function ImportBulkActions({
                     disabled={isLoading}
                   >
                     <Eye className="w-4 h-4 mr-1" />
-                    Unignore
+                    <Trans>Unignore</Trans>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Unignore selected import files</TooltipContent>
+                <TooltipContent>
+                  <Trans>Unignore selected import files</Trans>
+                </TooltipContent>
               </Tooltip>
             ) : (
               <Tooltip>
@@ -70,10 +79,12 @@ export default function ImportBulkActions({
                     disabled={isLoading}
                   >
                     <EyeOff className="w-4 h-4 mr-1" />
-                    Ignore
+                    <Trans>Ignore</Trans>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Ignore selected import files</TooltipContent>
+                <TooltipContent>
+                  <Trans>Ignore selected import files</Trans>
+                </TooltipContent>
               </Tooltip>
             )}
 
@@ -86,10 +97,12 @@ export default function ImportBulkActions({
                   disabled={isLoading}
                 >
                   <Trash2 className="w-4 h-4 mr-1" />
-                  Delete
+                  <Trans>Delete</Trans>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Delete selected import records</TooltipContent>
+              <TooltipContent>
+                <Trans>Delete selected import records</Trans>
+              </TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -99,12 +112,14 @@ export default function ImportBulkActions({
                   variant="ghost"
                   onClick={onClear}
                   disabled={isLoading}
-                  aria-label="Clear selected imports"
+                  aria-label={t`Clear selected imports`}
                 >
                   <X className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Clear selection</TooltipContent>
+              <TooltipContent>
+                <Trans>Clear selection</Trans>
+              </TooltipContent>
             </Tooltip>
           </div>
         </TooltipProvider>

@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 /**
  * Comicarr API Client
  * Handles all API calls to the Comicarr backend
@@ -88,7 +89,7 @@ export class ApiError extends Error {
   constructor(status: number, originalMessage?: string, body?: ApiErrorBody) {
     const defaultMessage =
       HTTP_ERROR_MESSAGES[status] ||
-      `An unexpected error occurred (${status}). Please try again.`;
+      t`An unexpected error occurred (${status}). Please try again.`;
     const userMessage =
       originalMessage && originalMessage.trim()
         ? originalMessage
@@ -106,13 +107,18 @@ export class ApiError extends Error {
 /**
  * Get a user-friendly error message from any error
  */
+/** The error's own message, for "Failed to …: {error}" toasts. */
+export function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : t`Unknown error`;
+}
+
 export function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     return error.userMessage;
   }
   if (error instanceof Error) {
     if (error.message.includes("fetch") || error.message.includes("network")) {
-      return "Unable to connect to the server. Please check your internet connection.";
+      return t`Unable to connect to the server. Please check your internet connection.`;
     }
     const httpMatch = error.message.match(/HTTP error! status: (\d+)/);
     if (httpMatch) {
@@ -121,7 +127,7 @@ export function getErrorMessage(error: unknown): string {
     }
     return error.message;
   }
-  return "An unexpected error occurred. Please try again.";
+  return t`An unexpected error occurred. Please try again.`;
 }
 
 /**
@@ -193,7 +199,7 @@ export async function login(
     console.error("Login failed:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: error instanceof Error ? error.message : t`Unknown error`,
     };
   }
 }
@@ -229,7 +235,7 @@ export async function logout(): Promise<LogoutResponse> {
     console.error("Logout failed:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: error instanceof Error ? error.message : t`Unknown error`,
     };
   }
 }
@@ -369,7 +375,7 @@ export async function setupCredentials(
     console.error("Setup failed:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: error instanceof Error ? error.message : t`Unknown error`,
     };
   }
 }

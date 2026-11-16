@@ -14,7 +14,9 @@ import "@fontsource/jetbrains-mono/latin-ext-400.css";
 import "@fontsource/jetbrains-mono/latin-500.css";
 import "@fontsource/jetbrains-mono/latin-ext-500.css";
 import "./index.css";
-import App from "./App";
+import { I18nProvider } from "@lingui/react";
+import LocaleRoot from "@/components/LocaleRoot";
+import { i18n, initI18n } from "@/lib/i18n";
 import { isMockEnabled } from "@/lib/mockData";
 
 if (typeof window !== "undefined" && "serviceWorker" in navigator) {
@@ -36,8 +38,14 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Failed to find the root element");
 
-createRoot(rootElement).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+// English is active synchronously; a saved or browser language that has a
+// catalog loads before the first paint, so the UI never flashes English first.
+void initI18n().finally(() => {
+  createRoot(rootElement).render(
+    <StrictMode>
+      <I18nProvider i18n={i18n}>
+        <LocaleRoot />
+      </I18nProvider>
+    </StrictMode>,
+  );
+});

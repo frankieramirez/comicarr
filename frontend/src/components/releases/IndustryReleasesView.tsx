@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -47,6 +49,7 @@ import {
   type WeeklyIssue,
   type WeeklyLibraryState,
 } from "@/pages/weeklyReleaseRowKey";
+import { formatDate } from "@/lib/intl";
 
 const WEEKLY_ROW_COLS =
   "grid-cols-[minmax(0,1fr)_auto_auto] md:grid-cols-[minmax(0,1fr)_110px_160px_110px_120px]";
@@ -57,25 +60,25 @@ type SortKey = "group" | "title" | "issue";
  * Badge status + label for each library state; also drives the legend. In
  * library borrows the amber Paused token so it never reads as Downloaded green.
  */
-const STATE_BADGE: Record<
+const STATE_BADGE = (): Record<
   WeeklyLibraryState,
   { status: string; label: string }
-> = {
-  wanted: { status: "Wanted", label: "Wanted" },
-  downloaded: { status: "Downloaded", label: "Downloaded" },
-  in_library: { status: "Paused", label: "In library" },
-  not_in_library: { status: "Not in library", label: "Not in library" },
-};
+> => ({
+  wanted: { status: "Wanted", label: t`Wanted` },
+  downloaded: { status: "Downloaded", label: t`Downloaded` },
+  in_library: { status: "Paused", label: t`In library` },
+  not_in_library: { status: "Not in library", label: t`Not in library` },
+});
 
-const SORTS: { value: SortKey; label: string }[] = [
-  { value: "group", label: "Publisher or type" },
-  { value: "title", label: "Title" },
-  { value: "issue", label: "Issue" },
+const SORTS = (): { value: SortKey; label: string }[] => [
+  { value: "group", label: t`Publisher or type` },
+  { value: "title", label: t`Title` },
+  { value: "issue", label: t`Issue` },
 ];
 
 const ALL_PUBLISHERS = "__all__";
-const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "short" });
-const MANGA_GROUPS = ["Manga", "Manhwa", "Manhua"];
+const WEEKDAY: Intl.DateTimeFormatOptions = { weekday: "short" };
+const MANGA_GROUPS = ["manga", "manhwa", "manhua"];
 
 function rowState(issue: WeeklyIssue): WeeklyLibraryState {
   return issue.state ?? "not_in_library";
@@ -93,7 +96,7 @@ const byTitle = (a: WeeklyIssue, b: WeeklyIssue) =>
 /** Comics publishers A to Z, then Manga, Manhwa, Manhua, then untyped manga. */
 function groupOrder(row: WeeklyIssue): number {
   if (row.kind !== "manga") return 0;
-  const index = MANGA_GROUPS.indexOf(row.mangaType ?? "");
+  const index = MANGA_GROUPS.indexOf((row.mangaType ?? "").toLowerCase());
   return index === -1 ? 1 + MANGA_GROUPS.length : 1 + index;
 }
 
@@ -207,6 +210,7 @@ export default function IndustryReleasesView({
   // Manga ships every day, so its formats get a day strip; comics land on
   // Wednesday and would draw one tall column.
   const activeDay = mangaFormat ? day : null;
+  const activeDayHeading = activeDay ? dayHeading(activeDay) : "";
   const rows = useMemo(() => {
     const matching = activeDay
       ? beforeDay.filter((row) => row.SHIPDATE?.slice(0, 10) === activeDay)
@@ -218,7 +222,7 @@ export default function IndustryReleasesView({
     return (
       <ErrorDisplay
         error={error}
-        title="Unable to load this week's releases"
+        title={t`Unable to load this week's releases`}
         onRetry={() => refetch()}
       />
     );
@@ -236,15 +240,15 @@ export default function IndustryReleasesView({
           className="h-8"
           pressed={popularOnly}
           onPressedChange={setPopularOnly}
-          title="Show only manga in MangaUpdates' weekly top 500, plus your own series"
+          title={t`Show only manga in MangaUpdates' weekly top 500, plus your own series`}
           data-testid="popular-only-toggle"
         >
           {popularOnly && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
-          Popular only
+          <Trans>Popular only</Trans>
         </ToggleChip>
         <FilterField
-          aria-label="Filter releases"
-          placeholder="Filter by title or publisher"
+          aria-label={t`Filter releases`}
+          placeholder={t`Filter by title or publisher`}
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           widthCap="sm"
@@ -252,10 +256,10 @@ export default function IndustryReleasesView({
         {!mangaFormat && (
           <div className="max-md:hidden">
             <FilterSelect
-              label="Publisher"
+              label={t`Publisher`}
               value={publisher}
               options={[
-                { value: ALL_PUBLISHERS, label: "All" },
+                { value: ALL_PUBLISHERS, label: t`All` },
                 ...publishers.map((name) => ({ value: name, label: name })),
               ]}
               onChange={setPublisher}
@@ -264,9 +268,9 @@ export default function IndustryReleasesView({
         )}
         <div className="ml-auto">
           <FilterSelect
-            label="Sort"
+            label={t`Sort`}
             value={sortKey}
-            options={SORTS}
+            options={SORTS()}
             onChange={setSortKey}
           />
         </div>
@@ -283,7 +287,7 @@ export default function IndustryReleasesView({
           }}
         >
           {refreshing
-            ? "Loading this week's manga, manhwa and manhua from MangaUpdates…"
+            ? t`Loading this week's manga, manhwa and manhua from MangaUpdates…`
             : manga?.error}
         </div>
       )}
@@ -302,11 +306,13 @@ export default function IndustryReleasesView({
               data-testid="day-filter-note"
             >
               <span className="text-foreground-2">
-                Showing{" "}
-                <span className="font-medium text-foreground">
-                  {dayHeading(activeDay)}
-                </span>{" "}
-                only
+                <Trans>
+                  Showing{" "}
+                  <span className="font-medium text-foreground">
+                    {activeDayHeading}
+                  </span>{" "}
+                  only
+                </Trans>
               </span>
               <Button
                 type="button"
@@ -315,7 +321,7 @@ export default function IndustryReleasesView({
                 onClick={() => setDay(null)}
               >
                 <X />
-                Show the whole week
+                <Trans>Show the whole week</Trans>
               </Button>
             </div>
           )}
@@ -357,16 +363,18 @@ export default function IndustryReleasesView({
 
         {showsManga && manga && manga.status !== "disabled" && (
           <p className="px-8 py-4 text-[12px] text-muted-foreground">
-            Manga, manhwa and manhua release data from{" "}
-            <a
-              href="https://www.mangaupdates.com/"
-              target="_blank"
-              rel="noreferrer"
-              className="underline hover:text-foreground"
-            >
-              MangaUpdates
-            </a>
-            .
+            <Trans>
+              Manga, manhwa and manhua release data from{" "}
+              <a
+                href="https://www.mangaupdates.com/"
+                target="_blank"
+                rel="noreferrer"
+                className="underline hover:text-foreground"
+              >
+                MangaUpdates
+              </a>
+              .
+            </Trans>
           </p>
         )}
       </div>
@@ -393,9 +401,9 @@ function EmptyWeek({
     return (
       <EmptyState
         variant="custom"
-        eyebrow="RELEASES · FILTERED"
-        title="Nothing matches that filter"
-        description="Clear the filter or pick another day to see the whole week."
+        eyebrow={t`RELEASES · FILTERED`}
+        title={t`Nothing matches that filter`}
+        description={t`Clear the filter or pick another day to see the whole week.`}
       />
     );
   }
@@ -403,28 +411,28 @@ function EmptyWeek({
     return (
       <EmptyState
         variant="custom"
-        eyebrow="RELEASES · POPULAR ONLY"
-        title="Nothing popular out this week"
-        description="Turn off Popular only to see every release MangaUpdates lists."
+        eyebrow={t`RELEASES · POPULAR ONLY`}
+        title={t`Nothing popular out this week`}
+        description={t`Turn off Popular only to see every release MangaUpdates lists.`}
       />
     );
   }
   if (isMangaFormat(format)) {
     const description =
       mangaStatus === "disabled"
-        ? "Manga releases need a manga provider. Turn on MangaDex or MyAnimeList in Settings, then come back."
+        ? t`Manga releases need a manga provider. Turn on MangaDex or MyAnimeList in Settings, then come back.`
         : mangaStatus === "refreshing"
-          ? "Comicarr is reading this week from MangaUpdates. It takes about a minute the first time."
+          ? t`Comicarr is reading this week from MangaUpdates. It takes about a minute the first time.`
           : mangaStatus === "unavailable"
-            ? "MangaUpdates could not be reached. Comicarr tries again in a few minutes."
+            ? t`MangaUpdates could not be reached. Comicarr tries again in a few minutes.`
             : future
-              ? "MangaUpdates lists chapters once they are out, so this week has no manga yet."
-              : "MangaUpdates lists no releases of this type this week.";
+              ? t`MangaUpdates lists chapters once they are out, so this week has no manga yet.`
+              : t`MangaUpdates lists no releases of this type this week.`;
     return (
       <EmptyState
         variant="custom"
-        eyebrow="RELEASES · EMPTY"
-        title="No manga releases for this week"
+        eyebrow={t`RELEASES · EMPTY`}
+        title={t`No manga releases for this week`}
         description={description}
       />
     );
@@ -432,12 +440,12 @@ function EmptyWeek({
   return (
     <EmptyState
       variant="custom"
-      eyebrow="RELEASES · EMPTY"
-      title="No releases for this week"
+      eyebrow={t`RELEASES · EMPTY`}
+      title={t`No releases for this week`}
       description={
         comicsSource === "unavailable"
-          ? "Neither Walksoftly nor ComicVine has this week's comics yet. Future weeks fill in as publishers announce them; try again later."
-          : "Run a weekly pull list update from Settings to populate this view."
+          ? t`Neither Walksoftly nor ComicVine has this week's comics yet. Future weeks fill in as publishers announce them; try again later.`
+          : t`Run a weekly pull list update from Settings to populate this view.`
       }
     />
   );
@@ -467,7 +475,7 @@ function DayStrip({
     <div
       className="grid grid-cols-7 gap-1 rounded-lg border border-border-subtle bg-surface-1 p-1"
       role="group"
-      aria-label="Releases by day this week"
+      aria-label={t`Releases by day this week`}
       data-testid="industry-day-strip"
     >
       {weekDays(start).map((key) => {
@@ -493,7 +501,7 @@ function DayStrip({
                   isToday ? "font-medium text-foreground" : "text-foreground-2"
                 }
               >
-                {WEEKDAY.format(date)}{" "}
+                {formatDate(date, WEEKDAY)}{" "}
                 <span className="font-mono text-xs text-muted-foreground">
                   {date.getDate()}
                 </span>
@@ -502,7 +510,7 @@ function DayStrip({
                     className="ml-1.5 text-[11px] font-medium max-md:hidden"
                     style={{ color: "var(--primary)" }}
                   >
-                    Today
+                    <Trans>Today</Trans>
                   </span>
                 )}
               </span>
@@ -589,10 +597,10 @@ function WeeklyTable({
       setAdding((current) => new Set(current).add(key));
       addToast({
         type: "success",
-        title: `Adding ${issue.COMIC}`,
+        title: t`Adding ${ph({ COMIC: issue.COMIC })}`,
         description: result.want_queued
-          ? `#${issue.ISSUE} will be marked Wanted once the series is added.`
-          : "The series is being added to your library.",
+          ? t`#${ph({ ISSUE: issue.ISSUE })} will be marked Wanted once the series is added.`
+          : t`The series is being added to your library.`,
       });
     } catch (err) {
       addToast({ type: "error", message: getErrorMessage(err) });
@@ -607,7 +615,7 @@ function WeeklyTable({
       queryClient.invalidateQueries({ queryKey: ["upcoming"] });
       addToast({
         type: "success",
-        message: `${issue.COMIC} ${releaseLabel(issue)} is Wanted.`,
+        message: t`${ph({ series: issue.COMIC })} ${ph({ release: releaseLabel(issue) })} is Wanted.`,
       });
     } catch (err) {
       addToast({ type: "error", message: getErrorMessage(err) });
@@ -619,21 +627,33 @@ function WeeklyTable({
       <div
         className={`sticky top-0 z-10 grid ${WEEKLY_ROW_COLS} gap-x-2 md:gap-x-3 mx-4 md:mx-8 px-2 h-8 items-center border-b border-border-subtle bg-background text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground`}
       >
-        <div className="md:pl-10">title</div>
-        <div className={DESKTOP_COL}>release</div>
-        <div className={DESKTOP_COL}>publisher / type</div>
+        <div className="md:pl-10">
+          <Trans>title</Trans>
+        </div>
+        <div className={DESKTOP_COL}>
+          <Trans>release</Trans>
+        </div>
+        <div className={DESKTOP_COL}>
+          <Trans>publisher / type</Trans>
+        </div>
         <div>
-          <span className="max-md:hidden">in your library</span>
-          <span className="md:hidden">status</span>
+          <span className="max-md:hidden">
+            <Trans>in your library</Trans>
+          </span>
+          <span className="md:hidden">
+            <Trans>status</Trans>
+          </span>
         </div>
         <div className="text-right">
-          <span className="sr-only">actions</span>
+          <span className="sr-only">
+            <Trans>actions</Trans>
+          </span>
         </div>
       </div>
       {rows.map((issue, index) => {
         const key = weeklyReleaseRowKey(issue, index);
         const state = rowState(issue);
-        const badge = STATE_BADGE[state];
+        const badge = STATE_BADGE()[state];
         const isAdding = adding.has(key);
         const group = groupKey(issue);
         const startsGroup =
@@ -683,7 +703,7 @@ function WeeklyTable({
               </div>
               <div className={`${DESKTOP_COL} text-foreground-2 truncate`}>
                 {issue.kind === "manga"
-                  ? issue.mangaType || "Manga"
+                  ? issue.mangaType || t`Manga`
                   : issue.PUBLISHER}
               </div>
               <div>
@@ -715,17 +735,19 @@ function WeeklyTable({
               </div>
               <div className="flex justify-end">
                 {isAdding ? (
-                  <span className="mono-meta">adding…</span>
+                  <span className="mono-meta">
+                    <Trans>adding…</Trans>
+                  </span>
                 ) : state === "not_in_library" && issue.kind === "manga" ? (
                   <Button
                     type="button"
                     variant="outline"
                     size="compact"
-                    aria-label={`Add ${issue.COMIC}`}
+                    aria-label={t`Add ${ph({ COMIC: issue.COMIC })}`}
                     onClick={() => setMangaToAdd(issue)}
                   >
                     <Plus />
-                    Add
+                    <Trans>Add</Trans>
                   </Button>
                 ) : state === "not_in_library" &&
                   issue.ComicID &&
@@ -737,24 +759,24 @@ function WeeklyTable({
                           type="button"
                           variant="outline"
                           size="compact"
-                          aria-label={`Add ${issue.COMIC}`}
+                          aria-label={t`Add ${ph({ COMIC: issue.COMIC })}`}
                           disabled={addFromWeek.isPending}
                         />
                       }
                     >
                       <Plus />
-                      Add
+                      <Trans>Add</Trans>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" sideOffset={4}>
                       <DropdownMenuItem
                         onClick={() => void add(issue, false, key)}
                       >
-                        Add series
+                        <Trans>Add series</Trans>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => void add(issue, true, key)}
                       >
-                        Add series and want #{issue.ISSUE}
+                        {t`Add series and want #${ph({ issue: issue.ISSUE })}`}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -763,11 +785,11 @@ function WeeklyTable({
                     type="button"
                     variant="outline"
                     size="compact"
-                    aria-label={`Want ${issue.COMIC} ${label}`}
+                    aria-label={t`Want ${ph({ COMIC: issue.COMIC })} ${label}`}
                     disabled={queueIssue.isPending}
                     onClick={() => void want(issue)}
                   >
-                    Want
+                    <Trans>Want</Trans>
                   </Button>
                 ) : null}
               </div>

@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { ArrowRight, Copy, ExternalLink } from "lucide-react";
 import {
@@ -31,8 +33,8 @@ export default function VersionChip() {
     behind && latest ? getUpdateGuidance(data?.install_type, latest) : null;
 
   const ariaLabel = behind
-    ? `Version ${localLabel}, update available`
-    : `Version ${localLabel}`;
+    ? t`Version ${localLabel}, update available`
+    : t`Version ${localLabel}`;
 
   return (
     <Popover
@@ -77,7 +79,7 @@ export default function VersionChip() {
         >
           <div className="bg-primary/10 border-b border-border px-4 py-3">
             <div className="text-[10px] font-mono uppercase tracking-wider text-primary">
-              Update available
+              <Trans>Update available</Trans>
             </div>
             <div className="mt-1 flex items-center gap-2 font-mono text-[13px]">
               <span className="text-muted-foreground">{localLabel}</span>
@@ -89,7 +91,7 @@ export default function VersionChip() {
           <div className="px-4 py-3 space-y-3">
             <div>
               <div className="mb-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                What&apos;s new
+                <Trans>What&apos;s new</Trans>
               </div>
               <NotesBody
                 isLoading={notesQuery.isLoading}
@@ -115,7 +117,7 @@ export default function VersionChip() {
                 type="button"
                 onClick={() => setShowGuidance((v) => !v)}
               >
-                How to update
+                <Trans>How to update</Trans>
               </Button>
               <a
                 href={releaseTagUrl(latest)}
@@ -126,7 +128,7 @@ export default function VersionChip() {
                 )}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-                Release
+                <Trans>Release</Trans>
               </a>
             </div>
           </div>
@@ -148,21 +150,21 @@ function NotesBody({
   if (isLoading) {
     return (
       <p className="text-[12px] text-muted-foreground">
-        Loading release notes…
+        <Trans>Loading release notes…</Trans>
       </p>
     );
   }
   if (isError) {
     return (
       <p className="text-[12px] text-muted-foreground">
-        Notes unavailable — use the Release link.
+        <Trans>Notes unavailable — use the Release link.</Trans>
       </p>
     );
   }
   if (!sections?.length) {
     return (
       <p className="text-[12px] text-muted-foreground">
-        No notes for this release yet — use the Release link.
+        <Trans>No notes for this release yet — use the Release link.</Trans>
       </p>
     );
   }
@@ -230,7 +232,7 @@ function GuidancePanel({
           <button
             type="button"
             className="absolute top-1 right-1 p-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-secondary"
-            aria-label={copied ? "Copied" : "Copy command"}
+            aria-label={copied ? t`Copied` : t`Copy command`}
             onClick={() => void onCopy(cmd)}
           >
             <Copy className="h-3 w-3" />

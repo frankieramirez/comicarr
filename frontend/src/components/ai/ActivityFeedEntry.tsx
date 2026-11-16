@@ -1,6 +1,8 @@
+import { ph, plural, t } from "@lingui/core/macro";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle } from "lucide-react";
 import type { AiActivityEntry } from "@/hooks/useAiActivity";
+import { formatDate, formatNumber } from "@/lib/intl";
 
 // The feature name is the badge's text, so it needs no colour of its own. The
 // six palette hues it used to carry had no dark-mode counterpart (DESIGN.md).
@@ -9,7 +11,7 @@ const FEATURE_BADGE_CLASS = "bg-muted text-muted-foreground";
 function formatTimestamp(timestamp: string): string {
   try {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString([], {
+    return formatDate(date, {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -47,11 +49,10 @@ export function ActivityFeedEntry({ entry }: ActivityFeedEntryProps) {
         )}
         <div className="flex items-center gap-2 mt-1">
           <span className="text-xs text-muted-foreground">
-            {totalTokens.toLocaleString()} tokens
+            {plural(totalTokens, { one: "# token", other: "# tokens" })}
           </span>
           <span className="text-xs text-muted-foreground">
-            ({entry.prompt_tokens.toLocaleString()} prompt +{" "}
-            {entry.completion_tokens.toLocaleString()} completion)
+            {t`(${ph({ prompt: formatNumber(entry.prompt_tokens) })} prompt + ${ph({ completion: formatNumber(entry.completion_tokens) })} completion)`}
           </span>
         </div>
       </div>

@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 /**
  * Import manually: point Comicarr at a finished download it couldn't find.
  *
@@ -48,9 +50,12 @@ export function ImportManuallyDialog({
         nzb_folder: folder.trim() || null,
         nzb_name: name.trim() || null,
       });
+      const source = folder.trim();
       addToast({
         type: "success",
-        message: `Importing ${label ?? "this issue"} from ${folder.trim()}.`,
+        message: label
+          ? t`Importing ${label} from ${source}.`
+          : t`Importing this issue from ${source}.`,
       });
       onClose();
     } catch (err) {
@@ -62,11 +67,19 @@ export function ImportManuallyDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Import {label ?? "manually"}</DialogTitle>
+          <DialogTitle>
+            {label ? (
+              <Trans>Import {label}</Trans>
+            ) : (
+              <Trans>Import manually</Trans>
+            )}
+          </DialogTitle>
           <DialogDescription>
-            Tell Comicarr where the finished download is. It starts from where
-            it last looked; change the folder if your download client saves
-            somewhere Comicarr sees under a different path.
+            <Trans>
+              Tell Comicarr where the finished download is. It starts from where
+              it last looked; change the folder if your download client saves
+              somewhere Comicarr sees under a different path.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
         <form
@@ -77,7 +90,9 @@ export function ImportManuallyDialog({
           }}
         >
           <div className="space-y-1.5">
-            <Label htmlFor="manual-import-folder">Folder</Label>
+            <Label htmlFor="manual-import-folder">
+              <Trans>Folder</Trans>
+            </Label>
             <Input
               id="manual-import-folder"
               value={folder}
@@ -88,7 +103,9 @@ export function ImportManuallyDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="manual-import-name">File or folder name</Label>
+            <Label htmlFor="manual-import-name">
+              <Trans>File or folder name</Trans>
+            </Label>
             <Input
               id="manual-import-name"
               value={name}
@@ -100,8 +117,10 @@ export function ImportManuallyDialog({
           </div>
           {source.isError && (
             <p className="text-[13px] text-foreground-2">
-              Comicarr doesn&apos;t know where this download went. Enter the
-              folder and name yourself.
+              <Trans>
+                Comicarr doesn&apos;t know where this download went. Enter the
+                folder and name yourself.
+              </Trans>
             </p>
           )}
           <DialogFooter>
@@ -111,13 +130,13 @@ export function ImportManuallyDialog({
               onClick={onClose}
               disabled={run.isPending}
             >
-              Cancel
+              <Trans>Cancel</Trans>
             </Button>
             <Button
               type="submit"
               disabled={run.isPending || !folder.trim() || !name.trim()}
             >
-              {run.isPending ? "Starting…" : "Import"}
+              {run.isPending ? t`Starting…` : t`Import`}
             </Button>
           </DialogFooter>
         </form>

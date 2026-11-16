@@ -225,7 +225,7 @@ describe("settings configuration", () => {
     );
 
     const sab = await screen.findByRole("switch", {
-      name: "Send usenet releases to SABnzbd",
+      name: "Send Usenet releases to SABnzbd",
     });
     expect(sab.getAttribute("aria-checked")).toBe("true");
     await user.click(sab);

@@ -1,3 +1,4 @@
+import { ph, plural, t } from "@lingui/core/macro";
 import type { WantedSeries } from "@/types";
 /**
  * Operator-language labels for Wanted row live-sticky acquisition annotations.
@@ -29,15 +30,10 @@ export interface WantedAcquisitionAnnotation {
   completed_at?: string | null;
 }
 
-/** Approved operator phrases for the common Wanted sticky states. */
-export const WANTED_ANNOTATION_NEVER_SEARCHED = "never searched";
-export const WANTED_ANNOTATION_SEARCHING = "searching…";
-
-function triesClause(attemptCount: number): string {
-  const n = Number.isFinite(attemptCount)
+function tries(attemptCount: number): number {
+  return Number.isFinite(attemptCount)
     ? Math.max(0, Math.trunc(attemptCount))
     : 0;
-  return `${n} ${n === 1 ? "try" : "tries"}`;
 }
 
 /**
@@ -52,29 +48,35 @@ export function formatWantedAcquisitionAnnotation(
   acquisition: WantedAcquisitionAnnotation | null | undefined,
 ): string {
   if (!acquisition || acquisition.state == null || acquisition.state === "") {
-    return WANTED_ANNOTATION_NEVER_SEARCHED;
+    return t`never searched`;
   }
 
   const state = String(acquisition.state).toLowerCase();
   const attempts = Number(acquisition.attempt_count) || 0;
 
   if (state === "accepted" || state === "running") {
-    return WANTED_ANNOTATION_SEARCHING;
+    return t`searching…`;
   }
   if (state === "no_match") {
-    return `no match · ${triesClause(attempts)}`;
+    return plural(tries(attempts), {
+      one: "no match · # try",
+      other: "no match · # tries",
+    });
   }
   if (state === "failed" || state === "quarantined") {
-    return `failed · ${triesClause(attempts)}`;
+    return plural(tries(attempts), {
+      one: "failed · # try",
+      other: "failed · # tries",
+    });
   }
   if (state === "blocked") {
-    return "blocked";
+    return t`blocked`;
   }
   if (state === "cancelled") {
-    return "cancelled";
+    return t`cancelled`;
   }
   if (state === "succeeded") {
-    return "matched";
+    return t`matched`;
   }
 
   return state.replace(/_/g, " ");
@@ -86,8 +88,8 @@ export function wantedSeriesWhy(
 ): string {
   if (series.why === "not_found") {
     return series.max_attempts > 1
-      ? `Not found ${series.max_attempts}×`
-      : "Not found";
+      ? t`Not found ${ph({ max_attempts: series.max_attempts })}×`
+      : t`Not found`;
   }
-  return series.why === "searching" ? "Searching" : "Queued";
+  return series.why === "searching" ? t`Searching` : t`Queued`;
 }

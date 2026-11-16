@@ -1,3 +1,4 @@
+import { plural, t } from "@lingui/core/macro";
 import { useState, type SubmitEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAiStatus } from "@/hooks/useAiStatus";
@@ -81,16 +82,18 @@ export default function DashboardPage() {
     mangaScanning;
   const canScan = Boolean(scanTargets.data?.comic || scanTargets.data?.manga);
   const scanTitle = canScan
-    ? "Scan configured comic and manga libraries"
-    : "Configure a library directory first";
+    ? t`Scan configured comic and manga libraries`
+    : t`Configure a library directory first`;
 
   const { pausedReason } = useSearchBlockers();
   const summary = summarize(
     libraryState,
     "library",
-    `${activeSeries.toLocaleString()} series · ${totalIssues.toLocaleString()} issues${
-      pausedReason ? " · search paused" : ""
-    }`,
+    [
+      plural(activeSeries, { one: "# series", other: "# series" }),
+      plural(totalIssues, { one: "# issue", other: "# issues" }),
+      ...(pausedReason ? [t`search paused`] : []),
+    ].join(" · "),
   );
 
   const handleLibraryScan = async () => {
@@ -105,8 +108,7 @@ export default function DashboardPage() {
     if (scanRequests.length === 0) {
       addToast({
         type: "error",
-        message:
-          "Configure a comic or manga library directory before scanning.",
+        message: t`Configure a comic or manga library directory before scanning.`,
       });
       return;
     }
@@ -119,16 +121,16 @@ export default function DashboardPage() {
       addToast({
         type: "success",
         message: `${
-          started === 2 ? "Comic and manga library scans" : "Library scan"
+          started === 2 ? t`Comic and manga library scans` : t`Library scan`
         } started.`,
       });
     } else if (started > 0) {
       addToast({
         type: "error",
-        message: "One library scan started, but another failed to start.",
+        message: t`One library scan started, but another failed to start.`,
       });
     } else {
-      addToast({ type: "error", message: "Failed to start library scans." });
+      addToast({ type: "error", message: t`Failed to start library scans.` });
       return;
     }
 
@@ -138,12 +140,12 @@ export default function DashboardPage() {
   return (
     <div className="h-full flex flex-col page-transition">
       <PageHeader
-        title="Dashboard"
+        title={t`Dashboard`}
         meta={summary}
         actions={
           scanTargets.isError ? (
             <PanelUnavailable
-              label="Scan targets"
+              label={t`Scan targets`}
               onRetry={() => void scanTargets.refetch()}
               isRetrying={scanTargets.isFetching}
             />
@@ -157,7 +159,7 @@ export default function DashboardPage() {
               title={scanTitle}
             >
               <RefreshCw className={scanPending ? "animate-spin" : ""} />
-              {scanPending ? "Scanning…" : "Scan libraries"}
+              {scanPending ? t`Scanning…` : t`Scan libraries`}
             </Button>
           )
         }
@@ -187,14 +189,14 @@ export default function DashboardPage() {
             <section data-testid="this-week">
               <SectionHeader
                 variant="rail"
-                title="This week"
-                action={{ label: "Releases", to: "/releases?view=mine" }}
+                title={t`This week`}
+                action={{ label: t`Releases`, to: "/releases?view=mine" }}
               />
               <PanelBody
                 state={upcomingState}
-                label="This week"
+                label={t`This week`}
                 skeleton={<PanelSkeleton rows={3} rowHeight={26} />}
-                empty="nothing upcoming this week"
+                empty={t`nothing upcoming this week`}
                 onRetry={() => void upcoming.refetch()}
                 isRetrying={upcoming.isFetching}
               >
@@ -237,14 +239,14 @@ export default function DashboardPage() {
                   <input
                     value={question}
                     onChange={(e) => setQuestion(e.target.value)}
-                    aria-label="Ask about your library"
-                    placeholder="Ask about your library"
+                    aria-label={t`Ask about your library`}
+                    placeholder={t`Ask about your library`}
                     className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                   />
                   <Kbd className="hidden sm:inline-flex">⌘⇧K</Kbd>
                   <button
                     type="submit"
-                    aria-label="Ask Comicarr"
+                    aria-label={t`Ask Comicarr`}
                     disabled={!question.trim()}
                     className="flex size-7 shrink-0 items-center justify-center rounded-control bg-act text-act-foreground disabled:opacity-40"
                   >

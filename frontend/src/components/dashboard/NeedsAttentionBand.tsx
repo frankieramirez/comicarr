@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -22,7 +24,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { causeSubline, plural, seriesList } from "@/lib/attentionCause";
+import { causeSubline, seriesList } from "@/lib/attentionCause";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,16 +67,20 @@ const TRIAGE_HREF = "/activity/attention";
 
 function batchSummary(result: BandBatchResult): string {
   const verb = actionLabel(result.action);
+  const succeeded = result.succeeded;
+  const processed = result.processed;
   const head =
-    result.succeeded === result.processed
-      ? `${verb} — ${result.succeeded} ${
-          result.succeeded === 1 ? "issue" : "issues"
-        }.`
-      : `${verb} ${result.succeeded} of ${result.processed} — ${
-          result.failed
-        } still ${result.failed === 1 ? "needs" : "need"} attention.`;
+    succeeded === processed
+      ? plural(succeeded, {
+          one: `${verb} — # issue.`,
+          other: `${verb} — # issues.`,
+        })
+      : plural(result.failed, {
+          one: `${verb} ${succeeded} of ${processed} — # still needs attention.`,
+          other: `${verb} ${succeeded} of ${processed} — # still need attention.`,
+        });
   if (!result.capped) return head;
-  return `${head} ${result.skipped_for_cap} left for another go (max ${result.cap} at a time).`;
+  return t`${head} ${ph({ skipped_for_cap: result.skipped_for_cap })} left for another go (max ${ph({ cap: result.cap })} at a time).`;
 }
 
 /** Causes shown before the rest fold into one line (v2 dashboard). */
@@ -82,10 +88,12 @@ const CAUSE_PREVIEW = 3;
 
 function causeActionText(action: BandAction, count: number) {
   if (action === "stop_wanting") {
-    return count > 1 ? `${actionLabel(action)}…` : actionLabel(action);
+    return count > 1
+      ? t`${ph({ action: actionLabel(action) })}…`
+      : actionLabel(action);
   }
   return count > 1
-    ? `${actionLabel(action)} all ${count}`
+    ? t`${ph({ action: actionLabel(action) })} all ${ph({ count })}`
     : actionLabel(action);
 }
 
@@ -155,7 +163,7 @@ function CauseRow({
               buttonVariants({ variant: "outline", size: "toolbar" }),
             )}
           >
-            Open triage
+            <Trans>Open triage</Trans>
           </Link>
         ) : (
           <Button
@@ -176,7 +184,7 @@ function CauseRow({
                 variant="ghost"
                 size="icon-sm"
                 disabled={busy}
-                aria-label={`More actions for ${cause.headline}`}
+                aria-label={t`More actions for ${ph({ headline: cause.headline })}`}
               >
                 <MoreHorizontal />
               </Button>
@@ -192,7 +200,7 @@ function CauseRow({
               </DropdownMenuItem>
             ))}
             <DropdownMenuItem onClick={() => navigate(triageHref)}>
-              Open in Activity
+              <Trans>Open in Activity</Trans>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -279,7 +287,7 @@ export default function NeedsAttentionBand() {
         message:
           err instanceof Error
             ? err.message
-            : `Unable to ${actionLabel(action).toLowerCase()} these issues.`,
+            : t`Unable to apply “${ph({ action: actionLabel(action) })}” to these issues.`,
       });
     }
   };
@@ -314,7 +322,7 @@ export default function NeedsAttentionBand() {
   if (band.isPending) {
     return (
       <section data-testid="needs-attention-loading">
-        <SectionHeader title="Needs you" meta="…" />
+        <SectionHeader title={t`Needs you`} meta="…" />
         <Skeleton aria-hidden="true" className="h-10 w-full rounded-md" />
       </section>
     );
@@ -323,9 +331,9 @@ export default function NeedsAttentionBand() {
   if (band.isError) {
     return (
       <section>
-        <SectionHeader title="Needs you" />
+        <SectionHeader title={t`Needs you`} />
         <PanelUnavailable
-          label="Needs attention"
+          label={t`Needs attention`}
           onRetry={() => void band.refetch()}
           isRetrying={band.isFetching}
         />
@@ -342,37 +350,49 @@ export default function NeedsAttentionBand() {
   const hiddenIssues = hidden.reduce((n, c) => n + c.member_count, 0);
 
   const blockerMeta =
-    blockers.length > 0 ? plural(blockers.length, "setup step") : null;
+    blockers.length > 0
+      ? plural(blockers.length, { one: "# setup step", other: "# setup steps" })
+      : null;
 
   if (total === 0 && blockers.length === 0) {
     return (
       <section data-testid="needs-attention-empty">
-        <SectionHeader title="Needs you" />
+        <SectionHeader title={t`Needs you`} />
         <div className="flex items-center gap-2 py-2 text-sm text-foreground-2">
           <span
             className="size-1.5 rounded-full"
             style={{ background: "var(--status-active)" }}
             aria-hidden="true"
           />
-          Nothing needs you
+          <Trans>Nothing needs you</Trans>
         </div>
       </section>
     );
   }
 
   return (
-    <section aria-label="Needs attention" data-testid="needs-attention-band">
+    <section aria-label={t`Needs attention`} data-testid="needs-attention-band">
       <SectionHeader
-        title="Needs you"
+        title={t`Needs you`}
         meta={[
           blockerMeta,
           total > 0
-            ? `${distinctSeries(causes)} series · ${plural(memberTotal, "issue")}`
+            ? t`${ph({
+                series: plural(distinctSeries(causes), {
+                  one: "# series",
+                  other: "# series",
+                }),
+              })} · ${ph({
+                issues: plural(memberTotal, {
+                  one: "# issue",
+                  other: "# issues",
+                }),
+              })}`
             : null,
         ]
           .filter(Boolean)
           .join(" · ")}
-        action={total > 0 ? { label: "See all", to: TRIAGE_HREF } : undefined}
+        action={total > 0 ? { label: t`See all`, to: TRIAGE_HREF } : undefined}
       />
 
       <div className="border-t border-border-subtle">
@@ -398,8 +418,10 @@ export default function NeedsAttentionBand() {
             className="block py-2.5 pl-8 text-[13px] text-foreground-2 hover:text-foreground"
             data-testid="needs-attention-more"
           >
-            {hiddenSeries} more series with {plural(hiddenIssues, "issue")}, in
-            other causes
+            {plural(hiddenIssues, {
+              one: `${hiddenSeries} more series with # issue, in other causes`,
+              other: `${hiddenSeries} more series with # issues, in other causes`,
+            })}
           </Link>
         )}
       </div>

@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, RefreshCw } from "lucide-react";
@@ -82,16 +84,18 @@ export function PanelUnavailable({
 }) {
   return (
     <div className="flex items-center gap-2.5 py-2 text-sm">
-      <span style={{ color: "var(--status-error)" }}>{label} unavailable</span>
+      <span style={{ color: "var(--status-error)" }}>
+        <Trans>{label} unavailable</Trans>
+      </span>
       <button
         type="button"
         onClick={onRetry}
         disabled={isRetrying}
-        aria-label={`Retry ${label}`}
+        aria-label={t`Retry ${label}`}
         className="inline-flex h-7 items-center gap-1.5 rounded-control border border-border-strong bg-surface-2 px-2 text-xs text-foreground-2 hover:text-foreground disabled:opacity-50"
       >
         <RefreshCw className={`w-3 h-3 ${isRetrying ? "animate-spin" : ""}`} />
-        {isRetrying ? "retrying…" : "retry"}
+        {isRetrying ? t`retrying…` : t`retry`}
       </button>
     </div>
   );

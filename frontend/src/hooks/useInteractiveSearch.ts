@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
@@ -140,10 +141,10 @@ export function useInteractiveReview() {
       onGrabbed: (result: InteractiveGrabResult) => {
         addToast({
           type: "success",
-          title: result.idempotent ? "Grab already started" : "Grab started",
+          title: result.idempotent ? t`Grab already started` : t`Grab started`,
           message: result.idempotent
-            ? "Comicarr returned the existing handoff outcome."
-            : "The selected release was handed to the configured download route.",
+            ? t`Comicarr returned the existing handoff outcome.`
+            : t`The selected release was handed to the configured download route.`,
         });
         closeReview();
       },

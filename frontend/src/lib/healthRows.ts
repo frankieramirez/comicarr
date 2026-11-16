@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { formatNumber } from "@/lib/intl";
 import type {
   AcquisitionHealthResponse,
   ConnectionCheck,
@@ -29,25 +31,25 @@ export const RUNNABLE_JOBS = new Set([
   "weekly",
 ]);
 
-const JOB_LABELS: Record<string, string> = {
-  search: "Search for wanted",
-  rss: "RSS check",
-  monitor: "Folder monitor",
-  importinbox: "Import inbox",
-  weekly: "Weekly pull list",
-  dbupdater: "Library refresh",
-  manga_sync: "Manga library sync",
-  version: "Update check",
-  ledger_retention: "Ledger cleanup",
-  activity_retention: "Activity cleanup",
-  interactive_search_retention: "Release search cleanup",
-  ddl_health: "Direct download check",
-  connection_check: "Connection check",
-};
+const JOB_LABELS = (): Record<string, string> => ({
+  search: t`Search for wanted`,
+  rss: t`RSS check`,
+  monitor: t`Folder monitor`,
+  importinbox: t`Import inbox`,
+  weekly: t`Weekly pull list`,
+  dbupdater: t`Library refresh`,
+  manga_sync: t`Manga library sync`,
+  version: t`Update check`,
+  ledger_retention: t`Ledger cleanup`,
+  activity_retention: t`Activity cleanup`,
+  interactive_search_retention: t`Release search cleanup`,
+  ddl_health: t`Direct download check`,
+  connection_check: t`Connection check`,
+});
 
-const JOB_ORDER = Object.keys(JOB_LABELS);
+const JOB_ORDER = () => Object.keys(JOB_LABELS());
 
-const CLIENT_LABELS: Record<string, string> = {
+const CLIENT_LABELS = (): Record<string, string> => ({
   sabnzbd: "SABnzbd",
   nzbget: "NZBGet",
   qbittorrent: "qBittorrent",
@@ -55,15 +57,15 @@ const CLIENT_LABELS: Record<string, string> = {
   transmission: "Transmission",
   rtorrent: "rTorrent",
   utorrent: "uTorrent",
-  blackhole: "Blackhole folder",
-  watchdir: "Watch folder",
-};
+  blackhole: t`Blackhole folder`,
+  watchdir: t`Watch folder`,
+});
 
-const ROUTE_LABELS: Record<string, string> = {
-  nzb: "Usenet client",
-  torrent: "Torrent client",
-  ddl: "Direct download",
-};
+const ROUTE_LABELS = (): Record<string, string> => ({
+  nzb: t`Usenet client`,
+  torrent: t`Torrent client`,
+  ddl: t`Direct download`,
+});
 
 export function toDate(value: number | string | null | undefined): Date | null {
   if (value == null || value === "") return null;
@@ -77,25 +79,27 @@ export function toDate(value: number | string | null | undefined): Date | null {
 function span(ms: number): string {
   const minutes = Math.round(Math.abs(ms) / 60_000);
   if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
+  const narrow = (amount: number, unit: string) =>
+    formatNumber(amount, { style: "unit", unit, unitDisplay: "narrow" });
+  if (minutes < 60) return narrow(minutes, "minute");
   const hours = Math.round(minutes / 60);
-  if (hours < 48) return `${hours}h`;
-  return `${Math.round(hours / 24)}d`;
+  if (hours < 48) return narrow(hours, "hour");
+  return narrow(Math.round(hours / 24), "day");
 }
 
 /** "6h ago", or "just now". */
 export function ago(date: Date | null, now = Date.now()): string {
   if (!date) return "—";
   const s = span(now - date.getTime());
-  return s === "now" ? "just now" : `${s} ago`;
+  return s === "now" ? t`just now` : t`${ph({ duration: s })} ago`;
 }
 
 /** "in 18h", or "due now". */
 export function until(date: Date | null, now = Date.now()): string {
-  if (!date) return "paused";
-  if (date.getTime() <= now) return "due now";
+  if (!date) return t`paused`;
+  if (date.getTime() <= now) return t`due now`;
   const s = span(date.getTime() - now);
-  return s === "now" ? "due now" : `in ${s}`;
+  return s === "now" ? t`due now` : t`in ${ph({ duration: s })}`;
 }
 
 export interface JobRow {
@@ -136,7 +140,7 @@ export function jobRows(jobs: ScheduledJobHealth[]): JobRow[] {
       const error = dispatch.last_error || job.last_error;
       return {
         id: job.id,
-        label: JOB_LABELS[job.id] ?? job.name,
+        label: JOB_LABELS()[job.id] ?? job.name,
         tone: failing
           ? "fail"
           : busy
@@ -147,16 +151,16 @@ export function jobRows(jobs: ScheduledJobHealth[]): JobRow[] {
         lastRun,
         nextRun: toDate(job.next_run_time ?? null),
         result: failing
-          ? error || "Failed"
+          ? error || t`Failed`
           : state === "running"
-            ? "Running now"
+            ? t`Running now`
             : state === "queued"
-              ? "Queued to run"
+              ? t`Queued to run`
               : paused
-                ? "Paused"
+                ? t`Paused`
                 : lastRun
-                  ? job.result || "Finished without errors"
-                  : "Hasn't run yet",
+                  ? job.result || t`Finished without errors`
+                  : t`Hasn't run yet`,
         failing,
         busy,
         runnable: RUNNABLE_JOBS.has(job.id) && !paused,
@@ -171,8 +175,8 @@ export function jobRows(jobs: ScheduledJobHealth[]): JobRow[] {
 }
 
 function rank(id: string): number {
-  const index = JOB_ORDER.indexOf(id);
-  return index === -1 ? JOB_ORDER.length : index;
+  const index = JOB_ORDER().indexOf(id);
+  return index === -1 ? JOB_ORDER().length : index;
 }
 
 export interface ConnectionRow {
@@ -189,7 +193,7 @@ export interface ConnectionRow {
 }
 
 function humanize(reason: string | null | undefined): string {
-  if (!reason) return "Not ready";
+  if (!reason) return t`Not ready`;
   const text = reason.replace(/_/g, " ");
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
@@ -199,9 +203,9 @@ export function responseLabel(
 ): string {
   if (!check) return "—";
   if (check.latency_ms == null)
-    return check.latency_label === "local" ? "local" : "—";
-  const ms = Math.round(check.latency_ms);
-  return check.latency_label === "median" ? `${ms} ms median` : `${ms} ms`;
+    return check.latency_label === "local" ? t`local` : "—";
+  const ms = formatNumber(Math.round(check.latency_ms));
+  return check.latency_label === "median" ? t`${ms} ms median` : t`${ms} ms`;
 }
 
 function checkTone(ok: boolean | null | undefined, result: string | null) {
@@ -245,7 +249,7 @@ export function connectionRows(
         tone: checkTone(check.ok, check.result),
         response: responseLabel(check),
         lastChecked: toDate(check.checked_at),
-        result: check.result ?? "Not checked yet",
+        result: check.result ?? t`Not checked yet`,
         settings: SETTINGS_FOR.client,
         testKey: check.key,
       });
@@ -259,7 +263,7 @@ export function connectionRows(
           tone: "idle",
           response: "—",
           lastChecked: null,
-          result: "Not checked yet",
+          result: t`Not checked yet`,
           settings: SETTINGS_FOR.client,
           testKey: check.key,
         });
@@ -271,14 +275,20 @@ export function connectionRows(
     rows.push({
       key: check?.key ?? route,
       label:
-        check?.label ?? CLIENT_LABELS[client] ?? ROUTE_LABELS[route] ?? route,
+        check?.label ??
+        CLIENT_LABELS()[client] ??
+        ROUTE_LABELS()[route] ??
+        route,
       tone: info.ready ? "ok" : failing ? "fail" : "warn",
       response: "—",
       lastChecked: toDate(info.last_attempt ?? null),
       result: info.ready
         ? info.blocked_provider_count
-          ? `Ready, ${info.blocked_provider_count} indexer${info.blocked_provider_count === 1 ? "" : "s"} paused`
-          : "Ready"
+          ? plural(info.blocked_provider_count, {
+              one: "Ready, # indexer paused",
+              other: "Ready, # indexers paused",
+            })
+          : t`Ready`
         : info.last_error || humanize(info.reason),
       settings: SETTINGS_FOR.client,
       testKey: check?.key ?? null,
@@ -291,7 +301,7 @@ export function connectionRows(
     const responding = indexers.responding ?? (indexers.ok ? total : 0);
     rows.push({
       key: "indexers",
-      label: `Indexers, ${responding} of ${total}`,
+      label: t`Indexers, ${responding} of ${total}`,
       tone: indexers.ok ? "ok" : responding > 0 ? "warn" : "fail",
       response: responseLabel(indexers),
       lastChecked: toDate(indexers.checked_at),
@@ -304,12 +314,12 @@ export function connectionRows(
     const live = providers.length - blocked;
     rows.push({
       key: "indexers",
-      label: `Indexers, ${live} of ${providers.length}`,
+      label: t`Indexers, ${live} of ${ph({ total: providers.length })}`,
       tone: blocked === 0 ? "ok" : live === 0 ? "fail" : "warn",
       response: "—",
       lastChecked: lastIndexerCheck,
       result:
-        blocked === 0 ? "All responding" : `${blocked} paused after errors`,
+        blocked === 0 ? t`All responding` : t`${blocked} paused after errors`,
       settings: SETTINGS_FOR.indexers,
       testKey: indexers ? "indexers" : null,
     });
@@ -323,7 +333,7 @@ export function connectionRows(
       tone: checkTone(check.ok, check.result),
       response: responseLabel(check),
       lastChecked: toDate(check.checked_at),
-      result: check.result ?? "Not checked yet",
+      result: check.result ?? t`Not checked yet`,
       settings: SETTINGS_FOR.metadata,
       testKey: check.key,
     });

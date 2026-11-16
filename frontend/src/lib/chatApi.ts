@@ -1,3 +1,4 @@
+import { ph, t } from "@lingui/core/macro";
 import { apiRequest } from "@/lib/api";
 import type {
   ChatAction,
@@ -91,7 +92,7 @@ export async function streamChatTurn({
   });
 
   if (!response.ok) {
-    let message = `Chat request failed (${response.status}).`;
+    let message = t`Chat request failed (${ph({ status: response.status })}).`;
     try {
       const body = (await response.json()) as {
         detail?: string;
