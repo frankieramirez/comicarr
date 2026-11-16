@@ -30,16 +30,16 @@ NEWZNAB_API_FEED = b"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel><title>prowlarr</title>
   <item>
     <title>Absolute Batman 025 (2026) (Digital) (Zone-Empire)</title>
-    <link>http://prowlarr:9696/7/download?apikey=k&amp;link=abc</link>
+    <link>http://prowlarr:9696/1/download?apikey=k&amp;link=abc</link>
     <pubDate>Wed, 04 Nov 2026 10:00:00 +0000</pubDate>
-    <enclosure url="http://prowlarr:9696/7/download?link=abc" length="52428800" type="application/x-nzb"/>
+    <enclosure url="http://prowlarr:9696/1/download?link=abc" length="52428800" type="application/x-nzb"/>
   </item>
 </channel></rss>
 """
 
 PROWLARR_WEB_PAGE = b'<!doctype html><html lang="en"><head><title>Prowlarr</title></head><body></body></html>'
 
-PROWLARR_HOST = ("NZBgeek (Prowlarr)", "http://prowlarr:9696/7/api", "0", "apikey123", "#7000", "1")
+PROWLARR_HOST = ("Example (Prowlarr)", "http://prowlarr:9696/1/api", "0", "apikey123", "#7000", "1")
 
 
 @pytest.fixture
@@ -79,7 +79,7 @@ def test_a_web_page_on_the_rss_url_falls_back_to_the_api(monkeypatch, captured):
 
     rsscheck.nzbs()
 
-    assert calls == ["http://prowlarr:9696/7/rss", "http://prowlarr:9696/7/api"]
+    assert calls == ["http://prowlarr:9696/1/rss", "http://prowlarr:9696/1/api"]
     assert len(captured) == 1
     kind, data = captured[0]
     assert kind == "usenet"
@@ -89,8 +89,8 @@ def test_a_web_page_on_the_rss_url_falls_back_to_the_api(monkeypatch, captured):
 @pytest.mark.parametrize(
     ("host", "api", "rss"),
     [
-        ("http://prowlarr:9696/7/api", "http://prowlarr:9696/7/api", "http://prowlarr:9696/7/rss"),
-        ("http://prowlarr:9696/7/api/", "http://prowlarr:9696/7/api", "http://prowlarr:9696/7/rss"),
+        ("http://prowlarr:9696/1/api", "http://prowlarr:9696/1/api", "http://prowlarr:9696/1/rss"),
+        ("http://prowlarr:9696/1/api/", "http://prowlarr:9696/1/api", "http://prowlarr:9696/1/rss"),
         ("https://nzb.example", "https://nzb.example/api", "https://nzb.example/rss"),
         ("https://nzb.example/", "https://nzb.example/api", "https://nzb.example/rss"),
     ],
