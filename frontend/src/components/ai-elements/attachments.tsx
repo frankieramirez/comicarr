@@ -1,4 +1,5 @@
 "use client";
+import { t } from "@lingui/core/macro";
 
 /* eslint-disable react-refresh/only-export-components -- registry component intentionally exports helpers and context hooks */
 
@@ -71,11 +72,11 @@ export const getMediaCategory = (
 
 export const getAttachmentLabel = (data: AttachmentData): string => {
   if (data.type === "source-document") {
-    return data.title || data.filename || "Source";
+    return data.title || data.filename || t`Source`;
   }
 
   const category = getMediaCategory(data);
-  return data.filename || (category === "image" ? "Image" : "Attachment");
+  return data.filename || (category === "image" ? t`Image` : t`Attachment`);
 };
 
 const renderAttachmentImage = (
@@ -85,7 +86,7 @@ const renderAttachmentImage = (
 ) =>
   isGrid ? (
     <img
-      alt={filename || "Image"}
+      alt={filename || t`Image`}
       className="size-full object-cover"
       decoding="async"
       height={96}
@@ -95,7 +96,7 @@ const renderAttachmentImage = (
     />
   ) : (
     <img
-      alt={filename || "Image"}
+      alt={filename || t`Image`}
       className="size-full rounded object-cover"
       decoding="async"
       height={20}
@@ -284,7 +285,7 @@ export type AttachmentRemoveProps = ComponentProps<typeof Button> & {
 };
 
 export const AttachmentRemove = ({
-  label = "Remove",
+  label = t`Remove`,
   className,
   children,
   ...props
@@ -381,6 +382,6 @@ export const AttachmentEmpty = ({
     )}
     {...props}
   >
-    {children ?? "No attachments"}
+    {children ?? t`No attachments`}
   </div>
 );
