@@ -28,6 +28,7 @@ ALLOWED_IMAGE_DOMAINS = frozenset(
         "comicvine.gamespot.com",
         "static.metron.cloud",
         "uploads.mangadex.org",
+        "cdn.mangaupdates.com",
         "myanimelist.net",
         "cdn.myanimelist.net",
         "api-cdn.myanimelist.net",

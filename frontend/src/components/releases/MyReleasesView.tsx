@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { RefreshCw, Search } from "lucide-react";
 import {
   useForceSearch,
@@ -10,8 +10,8 @@ import {
 import { useRetrySearchRun } from "@/hooks/useSeries";
 import { Button } from "@/components/ui/button";
 import FilterField from "@/components/ui/FilterField";
-import FilterSelect from "@/components/ui/FilterSelect";
 import WeekStrip from "@/components/releases/WeekStrip";
+import type { ReleaseFormat } from "@/components/releases/releaseFormat";
 import { useToast } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTable } from "@/components/data-table/DataTable";
@@ -36,7 +36,6 @@ import SearchBlockedBanner from "@/components/releases/SearchBlockedBanner";
 import type { UpcomingIssue } from "@/types";
 
 type StateTab = "all" | Exclude<ReleaseBucket, "other">;
-type KindFilter = "all" | "comic" | "manga";
 
 const TABS: { value: StateTab; label: string }[] = [
   { value: "all", label: "All" },
@@ -44,12 +43,6 @@ const TABS: { value: StateTab; label: string }[] = [
   { value: "in_progress", label: "In progress" },
   { value: "downloaded", label: "Downloaded" },
   { value: "coming_up", label: "Coming up" },
-];
-
-const KINDS: { value: KindFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "comic", label: "Comics" },
-  { value: "manga", label: "Manga" },
 ];
 
 const byDayThenName = (a: UpcomingIssue, b: UpcomingIssue) =>
@@ -64,6 +57,8 @@ const byDayThenName = (a: UpcomingIssue, b: UpcomingIssue) =>
  * say where each one stands.
  */
 export default function MyReleasesView({
+  modeBar,
+  format,
   issues,
   isLoading,
   isFetching,
@@ -71,6 +66,10 @@ export default function MyReleasesView({
   refetch,
   start,
 }: {
+  /** The shared format chips and "Only my library" toggle. */
+  modeBar: (counts?: Partial<Record<ReleaseFormat, number>>) => ReactNode;
+  /** All, comics, or manga (the library cannot tell manhwa apart). */
+  format: ReleaseFormat;
   issues: UpcomingIssue[];
   isLoading: boolean;
   isFetching: boolean;
@@ -81,7 +80,6 @@ export default function MyReleasesView({
 }) {
   const today = isoDay(new Date());
   const [tab, setTab] = useState<StateTab>("all");
-  const [kind, setKind] = useState<KindFilter>("all");
   const [filter, setFilter] = useState("");
   const forceSearchMutation = useForceSearch();
   const retrySearchMutation = useRetrySearchRun();
@@ -102,13 +100,13 @@ export default function MyReleasesView({
     const needle = filter.trim().toLowerCase();
     return issues.filter(
       (issue) =>
-        (kind === "all" ||
-          (kind === "manga") === (issue.ContentType === "manga")) &&
+        (format === "all" ||
+          (format === "manga") === (issue.ContentType === "manga")) &&
         (!needle ||
           (issue.ComicName || "").toLowerCase().includes(needle) ||
           (issue.Publisher || "").toLowerCase().includes(needle)),
     );
-  }, [issues, kind, filter]);
+  }, [issues, format, filter]);
 
   const counts = useMemo(() => {
     const tally: Record<StateTab, number> = {
@@ -244,12 +242,22 @@ export default function MyReleasesView({
     }
   };
 
-  const filtered = tab !== "all" || kind !== "all" || filter.trim() !== "";
+  const filtered = tab !== "all" || format !== "all" || filter.trim() !== "";
+
+  const formatCounts = useMemo(() => {
+    const manga = issues.filter(
+      (issue) => issue.ContentType === "manga",
+    ).length;
+    return { all: issues.length, comics: issues.length - manga, manga };
+  }, [issues]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 flex flex-wrap items-center gap-2 px-4 pt-3 md:px-8">
+        {modeBar(formatCounts)}
+      </div>
       {!isLoading && !error && (
-        <div className="shrink-0 px-4 pt-4 md:px-8">
+        <div className="shrink-0 px-4 pt-3 md:px-8">
           <WeekStrip
             issues={issues}
             start={start ?? weekStart(new Date())}
@@ -292,14 +300,6 @@ export default function MyReleasesView({
           onChange={(event) => setFilter(event.target.value)}
           widthCap="sm"
         />
-        <div className="max-md:hidden">
-          <FilterSelect
-            label="Kind"
-            value={kind}
-            options={KINDS}
-            onChange={setKind}
-          />
-        </div>
 
         <div className="ml-auto flex items-center gap-2">
           <Button

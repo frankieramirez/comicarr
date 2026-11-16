@@ -66,5 +66,11 @@ def add_from_week(body: AddFromWeekRequest, ctx: AppContext = Depends(get_contex
 def refresh_weekly(ctx: AppContext = Depends(get_context)):
     """Request an immediate run of the existing, coalesced weekly scheduler job."""
     result = system_service.request_weekly_refresh(ctx)
+    try:
+        weekly_service.refresh_manga()
+    except Exception as e:
+        from comicarr import logger
+
+        logger.warn("[WEEKLY] Manga release refresh did not start: %s" % e)
     status_code = 503 if result["state"] == "unavailable" else 202 if result["accepted"] else 200
     return JSONResponse(status_code=status_code, content=result)

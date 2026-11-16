@@ -79,3 +79,14 @@ def get_library_issues(comic_ids):
         t_issues.c.Status,
     ).where(t_issues.c.ComicID.in_(ids))
     return {row["IssueID"]: row for row in db.select_all(stmt)}
+
+
+def get_library_manga():
+    """Return every manga series with the names a release title can match."""
+    stmt = select(
+        t_comics.c.ComicID,
+        t_comics.c.ComicName,
+        t_comics.c.AlternateSearch,
+        t_comics.c.Status,
+    ).where(t_comics.c.ContentType == "manga")
+    return db.select_all(stmt)
