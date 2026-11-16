@@ -18,7 +18,7 @@ import comicarr
 from comicarr import db
 from comicarr.app.system import deprecations
 from comicarr.app.system import router as system_router
-from comicarr.tables import annuals, issues, metadata, storyarcs
+from comicarr.tables import annuals, comics, issues, metadata, storyarcs
 
 
 def _entry(in_use):
@@ -125,13 +125,49 @@ def _in_use(entry_id):
 
 
 def test_both_story_arc_paths_are_registered_with_their_docs_anchor():
-    assert {entry.id: entry.docs_url for entry in deprecations.REGISTRY} == {
+    arc_entries = [entry for entry in deprecations.REGISTRY if entry.id.startswith("storyarc-")]
+    assert {entry.id: entry.docs_url for entry in arc_entries} == {
         "storyarc-oneoff": "https://comicarr.com/docs/deprecations#storyarc-oneoff",
         "storyarc-folder-match": "https://comicarr.com/docs/deprecations#storyarc-folder-match",
     }
-    for entry in deprecations.REGISTRY:
+    for entry in arc_entries:
         assert entry.removable_from == "1.0.0"
         assert entry.replacement.startswith("Add what's missing")
+
+
+def test_removed_dead_site_integrations_are_registered_with_their_docs_anchor():
+    removed = {entry.id: entry for entry in deprecations.REGISTRY if entry.id.startswith("removed-")}
+    assert sorted(removed) == ["removed-32p", "removed-experimental-search", "removed-gcd"]
+    for entry_id, entry in removed.items():
+        assert entry.docs_url == "https://comicarr.com/docs/deprecations#" + entry_id
+        assert entry.announced_in == entry.removable_from == deprecations.DEAD_SITE_REMOVED_IN
+
+
+@pytest.mark.parametrize(
+    ("entry_id", "setting", "on", "off"),
+    [
+        ("removed-32p", "ENABLE_32P", True, False),
+        ("removed-experimental-search", "EXPERIMENTAL", True, False),
+    ],
+)
+def test_a_removed_integration_is_in_use_only_while_its_setting_is_on(monkeypatch, entry_id, setting, on, off):
+    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(**{setting: on}))
+    assert _in_use(entry_id) is True
+    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(**{setting: off}))
+    assert _in_use(entry_id) is False
+
+
+def test_gcd_is_in_use_when_cv_only_is_off(arc_db, monkeypatch):
+    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=False))
+    assert _in_use("removed-gcd") is True
+
+
+def test_gcd_is_in_use_for_a_series_added_from_gcd(arc_db, monkeypatch):
+    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True))
+    assert _in_use("removed-gcd") is False
+    with arc_db.begin() as conn:
+        conn.execute(insert(comics).values(ComicID="G1234", ComicName="Old Series"))
+    assert _in_use("removed-gcd") is True
 
 
 @pytest.mark.parametrize("status", ["Wanted", "Snatched"])

@@ -26,7 +26,7 @@ from sqlalchemy import exists, select
 
 import comicarr
 from comicarr import db, logger
-from comicarr.tables import annuals, issues, mcp_tool_calls, storyarcs
+from comicarr.tables import annuals, comics, issues, mcp_tool_calls, storyarcs
 
 
 @dataclass(frozen=True)
@@ -73,6 +73,21 @@ def _arc_folder_matching_on() -> bool:
     if getattr(comicarr.CONFIG, "STORYARCDIR", False) is not True:
         return False
     return db.select_one(select(storyarcs.c.StoryArcID).limit(1)) is not None
+
+
+def _config_flag(name: str, value: object) -> bool:
+    return getattr(comicarr.CONFIG, name, None) == value
+
+
+def _gcd_in_use() -> bool:
+    if _config_flag("CV_ONLY", False):
+        return True
+    return db.select_one(select(comics.c.ComicID).where(comics.c.ComicID.like("G%")).limit(1)) is not None
+
+
+# Integrations whose remote site stopped working. They were removed rather than
+# ported (ADR-0007); the entries tell installs that still had them switched on.
+DEAD_SITE_REMOVED_IN = "0.60.0"
 
 
 MCP_TOOL_IN_USE_DAYS = 30
@@ -131,6 +146,33 @@ REGISTRY: list[Deprecation] = [
         replacement=ADD_MISSING_SERIES,
         docs_url=DOCS_URL + "#storyarc-folder-match",
         in_use=_arc_folder_matching_on,
+    ),
+    Deprecation(
+        id="removed-32p",
+        name="The 32P torrent tracker (removed: the site is gone)",
+        announced_in=DEAD_SITE_REMOVED_IN,
+        removable_from=DEAD_SITE_REMOVED_IN,
+        replacement="A torrent indexer added through Prowlarr or as a Torznab provider",
+        docs_url=DOCS_URL + "#removed-32p",
+        in_use=partial(_config_flag, "ENABLE_32P", True),
+    ),
+    Deprecation(
+        id="removed-experimental-search",
+        name="Experimental NZB search through NZBIndex (removed: its feed is gone)",
+        announced_in=DEAD_SITE_REMOVED_IN,
+        removable_from=DEAD_SITE_REMOVED_IN,
+        replacement="A Usenet indexer added through Prowlarr or as a Newznab provider",
+        docs_url=DOCS_URL + "#removed-experimental-search",
+        in_use=partial(_config_flag, "EXPERIMENTAL", True),
+    ),
+    Deprecation(
+        id="removed-gcd",
+        name="Series data from the Grand Comics Database (removed: the site refuses its requests)",
+        announced_in=DEAD_SITE_REMOVED_IN,
+        removable_from=DEAD_SITE_REMOVED_IN,
+        replacement="Add the series again from ComicVine so it keeps updating",
+        docs_url=DOCS_URL + "#removed-gcd",
+        in_use=_gcd_in_use,
     ),
 ]
 

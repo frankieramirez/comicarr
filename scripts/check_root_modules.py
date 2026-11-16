@@ -50,10 +50,9 @@ SKIP_DIR_NAMES = {"__pycache__"}
 
 # Root module -> the GitHub issue that retires it (all children of #1402).
 ROOT_MODULES: dict[str, int] = {
-    "auth32p": 1404,
     "carepackage": 1419,
     "cdh_mapping": 1422,
-    "cfscrape_compat": 1404,
+    "cfscrape_compat": 1421,
     "changelog_notes": 1408,
     "cmtag": 1418,
     "comicsync": 1420,
@@ -67,7 +66,6 @@ ROOT_MODULES: dict[str, int] = {
     "failed": 1422,
     "filechecker": 1422,
     "filers": 1417,
-    "findcomicfeed": 1404,
     "ftpsshup": 1405,
     "getcomics": 1422,
     "getimage": 1417,
@@ -85,9 +83,7 @@ ROOT_MODULES: dict[str, int] = {
     "migration": 1408,
     "moveit": 1417,
     "myanimelist": 1406,
-    "newpull": 1404,
     "nzbget": 1422,
-    "parseit": 1404,
     "postprocessor": 1422,
     "rate_limiter": 1407,
     "readinglist": 1416,

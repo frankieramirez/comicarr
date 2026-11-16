@@ -33,7 +33,7 @@ from sqlalchemy import Column, Integer, MetaData, Table, Text, func, or_, select
 from sqlalchemy.exc import OperationalError
 
 import comicarr
-from comicarr import auth32p, db, filechecker, ftpsshup, helpers, logger, utorrent
+from comicarr import db, filechecker, ftpsshup, helpers, logger, utorrent
 from comicarr.app.search.backlog import (
     get_rss_provider_lookup,
     put_rss_provider_lookup,
@@ -1235,84 +1235,11 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
 
     cf_cookievalue = None
     if site == "32P":
-        url = "https://32pag.es/torrents.php"
+        # 32P shut down; the integration was removed (ADR-0007, #1404).
+        logger.warn("[32P] 32P is no longer available, so this torrent cannot be downloaded.")
+        return "fail"
 
-        if comicarr.CONFIG.ENABLE_32P is False:
-            return "fail"
-
-        if comicarr.CONFIG.VERIFY_32P == 1 or comicarr.CONFIG.VERIFY_32P:
-            verify = True
-        else:
-            verify = False
-
-        logger.fdebug("[32P] Verify SSL set to : " + str(verify))
-        if comicarr.CONFIG.MODE_32P is False:
-            if comicarr.KEYS_32P is None or comicarr.CONFIG.PASSKEY_32P is None:
-                logger.warn(
-                    "[32P] Unable to retrieve keys from provided RSS Feed. Make sure you have provided a CURRENT RSS Feed from 32P"
-                )
-                comicarr.KEYS_32P = helpers.parse_32pfeed(comicarr.FEED_32P)
-                if comicarr.KEYS_32P is None or comicarr.KEYS_32P == "":
-                    return "fail"
-                else:
-                    logger.fdebug("[32P-AUTHENTICATION] 32P (Legacy) Authentication Successful. Re-establishing keys.")
-                    comicarr.AUTHKEY_32P = comicarr.KEYS_32P["authkey"]
-            else:
-                logger.fdebug(
-                    "[32P-AUTHENTICATION] 32P (Legacy) Authentication already done. Attempting to use existing keys."
-                )
-                comicarr.AUTHKEY_32P = comicarr.KEYS_32P["authkey"]
-        else:
-            if any(
-                [
-                    comicarr.CONFIG.USERNAME_32P is None,
-                    comicarr.CONFIG.USERNAME_32P == "",
-                    comicarr.CONFIG.PASSWORD_32P is None,
-                    comicarr.CONFIG.PASSWORD_32P == "",
-                ]
-            ):
-                logger.error(
-                    "[RSS] Unable to sign-on to 32P to validate settings and initiate download sequence. Please enter/check your username password in the configuration."
-                )
-                return "fail"
-            elif comicarr.KEYS_32P is None:
-                logger.fdebug(
-                    "[32P-AUTHENTICATION] 32P (Auth Mode) Authentication enabled. Keys have not been established yet, attempting to gather."
-                )
-                feed32p = auth32p.info32p(reauthenticate=True)
-                feedinfo = feed32p.authenticate()
-                if feedinfo["status"] is False or feedinfo["status_msg"] == "disable":
-                    helpers.disable_provider("32P")
-                    return "fail"
-                if comicarr.KEYS_32P is None:
-                    logger.error(
-                        "[RSS] Unable to sign-on to 32P to validate settings and initiate download sequence. Please enter/check your username password in the configuration."
-                    )
-                    return "fail"
-            else:
-                logger.fdebug(
-                    "[32P-AUTHENTICATION] 32P (Auth Mode) Authentication already done. Attempting to use existing keys."
-                )
-
-        if comicarr.KEYS_32P:
-            auth_key = comicarr.KEYS_32P["auth"]
-            pass_key = comicarr.KEYS_32P["passkey"]
-        else:
-            auth_key = comicarr.AUTHKEY_32P
-            pass_key = comicarr.CONFIG.PASSKEY_32P
-        payload = {"action": "download", "torrent_pass": pass_key, "authkey": auth_key, "id": linkit}
-
-        dfile = auth32p.info32p()
-        file_download = dfile.downloadfile(payload, filepath)
-        if file_download["status"] is False:
-            helpers.disable_provider("32P")
-
-        if file_download["download_bool"] is False:
-            return "fail"
-
-        logger.fdebug("[%s] Saved torrent file to : %s" % (site, filepath))
-
-    elif site == "DEM":
+    if site == "DEM":
         url = helpers.torrent_create("DEM", linkit)
 
         if url.startswith("https"):

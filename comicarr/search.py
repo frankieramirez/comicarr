@@ -48,7 +48,6 @@ from comicarr import (
     db,
     failed,
     filechecker,
-    findcomicfeed,
     getcomics,
     helpers,
     logger,
@@ -671,25 +670,6 @@ def _search_init(
                         }
                     else:
                         searchprov["DDL(External)"]["active"] = True
-                elif prov_order[prov_count] == "32p" and not provider_blocked:
-                    searchprov["32P"] = {"type": "torrent", "lastrun": 0, "active": True, "hits": 0}
-                elif (
-                    prov_order[prov_count].lower() == "experimental"
-                    and not provider_blocked
-                    and "experimental" not in checked_once
-                ):
-                    if all(["experimental" not in searchprov.keys(), "Experimental" not in searchprov.keys()]):
-                        prov_order[prov_count] = "experimental"
-                        logger.fdebug("resetting searchprov - last run here..")
-                        searchprov["experimental"] = {
-                            "id": 101,
-                            "type": "experimental",
-                            "lastrun": 0,
-                            "active": True,
-                            "hits": 0,
-                        }
-                    else:
-                        searchprov["experimental"]["active"] = True
                 elif prov_order[prov_count] == "public torrents" and not provider_blocked:
                     if "Public Torrents" not in searchprov.keys():
                         searchprov["Public Torrents"] = {
@@ -1706,34 +1686,6 @@ def NZB_SEARCH(
                         search_diagnostics.log_query(is_info, "api", comsearch, returned, len(entries))
                         verified_matches = evaluator.evaluate(entries, is_info).selected
 
-            elif nzbprov == "experimental":
-                logger.fdebug("sending %s to experimental search" % findcomic)
-                bb = findcomicfeed.Startit(findcomic, isssearch, comyear, ComicVersion, IssDateFix, booktype)
-                if any([bb == "disable", bb == "no results"]):
-                    helpers.disable_provider("experimental", "unresponsive / down")
-                    verified_matches = "no results"
-                    is_info["foundc"]["status"] = False
-                    done = True
-                else:
-                    search_diagnostics.log_query(is_info, "experimental", "%s %s" % (findcomic, isssearch), len(bb))
-                    verified_matches = evaluator.evaluate(bb, is_info).selected
-                is_info["foundc"]["lastrun"] = time.time()
-                logger.fdebug(
-                    "setting lastrun for %s to %s"
-                    % (is_info["foundc"]["provider"], time.ctime(is_info["foundc"]["lastrun"]))
-                )
-                last_run_check(
-                    write={
-                        str(nzbprov): {
-                            "active": provider_stat["active"],
-                            "lastrun": is_info["foundc"]["lastrun"],
-                            "type": provider_stat["type"],
-                            "hits": provider_stat["hits"] + 1,
-                            "id": provider_stat["id"],
-                        }
-                    }
-                )
-
         if verified_matches != "no results":
             verification(verified_matches, is_info)
 
@@ -2033,11 +1985,6 @@ def searchforissue(
                     comicarr.CONFIG.ENABLE_EXTERNAL_SERVER is True,
                 ]
             )
-        )
-        or any(
-            [
-                comicarr.CONFIG.EXPERIMENTAL is True,
-            ]
         )
         or all([comicarr.CONFIG.NEWZNAB is True, len(ens) > 0])
         and any(
@@ -2549,7 +2496,6 @@ def searchforissue(
                     ) or (
                         any(
                             [
-                                comicarr.CONFIG.EXPERIMENTAL is True,
                                 comicarr.CONFIG.ENABLE_GETCOMICS is True,
                                 comicarr.CONFIG.ENABLE_EXTERNAL_SERVER is True,
                             ]
@@ -3001,11 +2947,6 @@ def searchIssueIDList(issuelist):
         (
             comicarr.CONFIG.ENABLE_DDL is True
             and any([comicarr.CONFIG.ENABLE_GETCOMICS is True, comicarr.CONFIG.ENABLE_EXTERNAL_SERVER is True])
-        )
-        or any(
-            [
-                comicarr.CONFIG.EXPERIMENTAL is True,
-            ]
         )
         or all([comicarr.CONFIG.NEWZNAB is True, len(ens) > 0])
         and any(

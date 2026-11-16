@@ -180,10 +180,9 @@ class TestSeriesContentKindSearchHandoff:
             SimpleNamespace(
                 EXTRA_NEWZNABS=[],
                 EXTRA_TORZNABS=[],
-                ENABLE_DDL=False,
-                ENABLE_GETCOMICS=False,
+                ENABLE_DDL=True,
+                ENABLE_GETCOMICS=True,
                 ENABLE_EXTERNAL_SERVER=False,
-                EXPERIMENTAL=True,
                 NEWZNAB=False,
                 ENABLE_TORRENT_SEARCH=False,
                 ENABLE_TORRENTS=False,

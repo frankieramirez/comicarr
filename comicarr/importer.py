@@ -26,14 +26,11 @@ import re
 import shutil
 import threading
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 import uuid
 from collections.abc import Mapping
 
 import sqlalchemy.exc
-from sqlalchemy import select, text
+from sqlalchemy import select
 
 import comicarr
 from comicarr import (
@@ -45,7 +42,6 @@ from comicarr import (
     logger,
     mb,
     moveit,
-    parseit,
     search,
     series_kind,
     series_metadata,
@@ -429,45 +425,6 @@ def addComictoDB(
         logger.info("Forced Comic Type to : %s" % comic["Corrected_Type"])
 
     logger.info("Now adding/updating: " + comic["ComicName"])
-    if not comicarr.CONFIG.CV_ONLY:
-        if mismatch == "no" or mismatch is None:
-            gcdinfo = parseit.GCDScraper(comic["ComicName"], comic["ComicYear"], comic["ComicIssues"], comicid)
-            if gcdinfo == "No Match":
-                updater.no_searchresults(comicid)
-                nomatch = "true"
-                logger.info(
-                    "There was an error when trying to add " + comic["ComicName"] + " (" + comic["ComicYear"] + ")"
-                )
-                return nomatch
-            else:
-                pass
-
-        elif mismatch == "yes":
-            with db.get_engine().connect() as conn:
-                CV_EXcomicid = next(
-                    (
-                        dict(row._mapping)
-                        for row in conn.execute(text("SELECT * from exceptions WHERE ComicID=:p0"), {"p0": comicid})
-                    ),
-                    None,
-                )
-            if CV_EXcomicid["variloop"] is None:
-                pass
-            else:
-                CV_EXcomicid["variloop"]
-                NewComicID = CV_EXcomicid["NewComicID"]
-                CV_EXcomicid["GComicID"]
-                resultURL = "/series/" + str(NewComicID) + "/"
-                gcdinfo = parseit.GCDdetails(
-                    comseries=None,
-                    resultURL=resultURL,
-                    vari_loop=0,
-                    ComicID=comicid,
-                    TotalIssues=0,
-                    issvariation="no",
-                    resultPublished=None,
-                )
-
     CV_NoYearGiven = "no"
     if any(
         [
@@ -477,30 +434,27 @@ def addComictoDB(
             comic["ComicYear"] == "2099",
         ]
     ):
-        if comicarr.CONFIG.CV_ONLY:
-            logger.info("Uh-oh. I cannot find a Series Year for this series. I am going to try analyzing deeper.")
-            SeriesYear = cv.getComic(comicid, "firstissue", comic["FirstIssueID"])
-            if not SeriesYear or SeriesYear == "2099":
-                try:
-                    if int(comic["ComicYear"]) == 2099:
-                        logger.fdebug(
-                            "Incorrect Series year detected (%s) ..."
-                            " Correcting to current year as this is probably a new series" % (comic["ComicYear"])
-                        )
-                        SeriesYear = str(datetime.datetime.now().year)
-                except Exception:
-                    return
-            if SeriesYear == "0000":
-                logger.info(
-                    "Ok - I could not find a Series Year at all. Loading in the issue data now and will figure out the Series Year."
-                )
-                CV_NoYearGiven = "yes"
-                issued = cv.getComic(comicid, "issue")
-                if not issued:
-                    return
-                SeriesYear = issued["firstdate"][:4]
-        else:
-            SeriesYear = gcdinfo["SeriesYear"]
+        logger.info("Uh-oh. I cannot find a Series Year for this series. I am going to try analyzing deeper.")
+        SeriesYear = cv.getComic(comicid, "firstissue", comic["FirstIssueID"])
+        if not SeriesYear or SeriesYear == "2099":
+            try:
+                if int(comic["ComicYear"]) == 2099:
+                    logger.fdebug(
+                        "Incorrect Series year detected (%s) ..."
+                        " Correcting to current year as this is probably a new series" % (comic["ComicYear"])
+                    )
+                    SeriesYear = str(datetime.datetime.now().year)
+            except Exception:
+                return
+        if SeriesYear == "0000":
+            logger.info(
+                "Ok - I could not find a Series Year at all. Loading in the issue data now and will figure out the Series Year."
+            )
+            CV_NoYearGiven = "yes"
+            issued = cv.getComic(comicid, "issue")
+            if not issued:
+                return
+            SeriesYear = issued["firstdate"][:4]
     else:
         SeriesYear = comic["ComicYear"]
 
@@ -632,10 +586,6 @@ def addComictoDB(
             "Comic Location path has not been specified as required in your configuration. Aborting this process at this time."
         )
         return {"status": "incomplete"}
-
-    if not comicarr.CONFIG.CV_ONLY:
-        if gcdinfo["gcdvariation"] == "cv":
-            comicIssues = str(int(comic["ComicIssues"]) + 1)
 
     cimage = os.path.join(comicarr.CONFIG.CACHE_DIR, str(comicid) + ".jpg")
     if comicarr.CONFIG.ALTERNATE_LATEST_SERIES_COVERS is False or not os.path.isfile(cimage):
@@ -1592,305 +1542,6 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None, location=None):
     _emit_add_activity("succeeded", mangaid, comicname=manga_name)
 
     return {"status": "complete", "comicid": mangaid, "comicname": manga_name, "content_type": "manga"}
-
-
-def GCDimport(gcomicid, pullupd=None, imported=None, ogcname=None):
-
-    gcdcomicid = gcomicid
-
-    controlValueDict = {"ComicID": gcdcomicid}
-
-    with db.get_engine().connect() as conn:
-        stmt = select(
-            comics.c.ComicName,
-            comics.c.ComicYear,
-            comics.c.Total,
-            comics.c.ComicPublished,
-            comics.c.ComicImage,
-            comics.c.ComicLocation,
-            comics.c.ComicPublisher,
-        ).where(comics.c.ComicID == gcomicid)
-        comic = next((dict(row._mapping) for row in conn.execute(stmt)), None)
-
-    ComicName = comic["ComicName"]
-    ComicYear = comic["ComicYear"]
-    ComicIssues = comic["Total"]
-    ComicPublished = comic["ComicPublished"]
-    comlocation = comic["ComicLocation"]
-    ComicPublisher = comic["ComicPublisher"]
-
-    newValueDict = {"Status": "Loading"}
-    db.upsert("comics", newValueDict, controlValueDict)
-
-    if not comic:
-        logger.warn("Error fetching comic. ID for : " + gcdcomicid)
-        if dbcomic is None:
-            newValueDict = {"ComicName": "Fetch failed, try refreshing. (%s)" % (gcdcomicid), "Status": "Active"}
-        else:
-            newValueDict = {"Status": "Active"}
-        db.upsert("comics", newValueDict, controlValueDict)
-        return
-
-    if pullupd is None:
-        helpers.ComicSort(comicorder=comicarr.COMICSORT, imported=gcomicid)
-
-    if ComicName.startswith("The "):
-        sortname = ComicName[4:]
-    else:
-        sortname = ComicName
-
-    logger.info("Now adding/updating: " + ComicName)
-    comicid = gcomicid[1:]
-    resultURL = "/series/" + str(comicid) + "/"
-    gcdinfo = parseit.GCDdetails(
-        comseries=None,
-        resultURL=resultURL,
-        vari_loop=0,
-        ComicID=gcdcomicid,
-        TotalIssues=ComicIssues,
-        issvariation=None,
-        resultPublished=None,
-    )
-    if gcdinfo == "No Match":
-        logger.warn("No matching result found for " + ComicName + " (" + ComicYear + ")")
-        updater.no_searchresults(gcomicid)
-        nomatch = "true"
-        return nomatch
-    logger.info("Sucessfully retrieved details for " + ComicName)
-
-    ComicImage = gcdinfo["ComicImage"]
-
-    if comlocation is None:
-        u_comicnm = ComicName
-        u_comicname = u_comicnm.encode("ascii", "ignore").strip()
-        if ":" in u_comicname or "/" in u_comicname or "," in u_comicname:
-            comicdir = u_comicname
-            if ":" in comicdir:
-                comicdir = comicdir.replace(":", "")
-            if "/" in comicdir:
-                comicdir = comicdir.replace("/", "-")
-            if "," in comicdir:
-                comicdir = comicdir.replace(",", "")
-        else:
-            comicdir = u_comicname
-
-        series = comicdir
-        publisher = ComicPublisher
-        year = ComicYear
-
-        values = {
-            "$Series": series,
-            "$Publisher": publisher,
-            "$Year": year,
-            "$series": series.lower(),
-            "$publisher": publisher.lower(),
-            "$Volume": year,
-        }
-
-        if comicarr.CONFIG.FOLDER_FORMAT == "":
-            comlocation = comicarr.CONFIG.DESTINATION_DIR + "/" + comicdir + " (" + comic["ComicYear"] + ")"
-        else:
-            comlocation = (
-                comicarr.CONFIG.DESTINATION_DIR + "/" + helpers.replace_all(comicarr.CONFIG.FOLDER_FORMAT, values)
-            )
-
-        if comicarr.CONFIG.DESTINATION_DIR == "":
-            logger.error("There is no general directory specified - please specify in Config/Post-Processing.")
-            return
-        if comicarr.CONFIG.REPLACE_SPACES:
-            comlocation = comlocation.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
-
-    if os.path.isdir(comlocation):
-        logger.info("Directory (" + comlocation + ") already exists! Continuing...")
-    else:
-        if comicarr.CONFIG.CREATE_FOLDERS is True:
-            checkdirectory = filechecker.validateAndCreateDirectory(comlocation, True)
-            if not checkdirectory:
-                logger.warn("Error trying to validate/create directory. Aborting this process at this time.")
-                return
-
-    comicIssues = gcdinfo["totalissues"]
-
-    if os.path.exists(comicarr.CONFIG.CACHE_DIR):
-        pass
-    else:
-        try:
-            os.makedirs(str(comicarr.CONFIG.CACHE_DIR))
-            logger.info("Cache Directory successfully created at: " + str(comicarr.CONFIG.CACHE_DIR))
-
-        except OSError:
-            logger.error("Could not create cache dir : " + str(comicarr.CONFIG.CACHE_DIR))
-
-    coverfile = os.path.join(comicarr.CONFIG.CACHE_DIR, str(gcomicid) + ".jpg")
-
-    if comicarr.CONFIG.CVAPI_RATE is None or comicarr.CONFIG.CVAPI_RATE < 2:
-        time.sleep(2)
-    else:
-        time.sleep(comicarr.CONFIG.CVAPI_RATE)
-
-    urllib.request.urlretrieve(str(ComicImage), str(coverfile))
-    try:
-        with open(str(coverfile)):
-            ComicImage = os.path.join("cache", str(gcomicid) + ".jpg")
-
-            logger.info("Sucessfully retrieved cover for " + ComicName)
-            if comicarr.CONFIG.COMIC_COVER_LOCAL and os.path.isdir(comlocation):
-                comiclocal = os.path.join(comlocation, "cover.jpg")
-                shutil.copy(ComicImage, comiclocal)
-    except IOError:
-        logger.error("Unable to save cover locally at this time.")
-
-    controlValueDict = {"ComicID": gcomicid}
-    newValueDict = {
-        "ComicName": ComicName,
-        "ComicSortName": sortname,
-        "ComicYear": ComicYear,
-        "Total": comicIssues,
-        "ComicLocation": comlocation,
-        "ComicImage": ComicImage,
-        "ComicImageURL": comic.get("ComicImage", ""),
-        "ComicImageALTURL": comic.get("ComicImageALT", ""),
-        "DateAdded": helpers.today(),
-        "Status": "Loading",
-    }
-
-    db.upsert("comics", newValueDict, controlValueDict)
-
-    if pullupd is None:
-        helpers.ComicSort(sequence="update")
-
-    logger.info("Successfully retrieved issue details for " + ComicName)
-    iscnt = int(comicIssues)
-    issdate = []
-    int_issnum = []
-    latestiss = "0"
-    latestdate = "0000-00-00"
-    logger.info("Now adding/updating issues for " + ComicName)
-    bb = 0
-    while bb <= iscnt:
-        try:
-            gcdval = gcdinfo["gcdchoice"][bb]
-        except IndexError:
-            if gcdinfo["gcdvariation"] == "gcd":
-                issdate = "0000-00-00"
-                int_issnum = int(issis / 1000)
-            break
-        if "nn" in str(gcdval["GCDIssue"]):
-            logger.warn("Non Series detected (Graphic Novel, etc) - cannot proceed at this time.")
-            updater.no_searchresults(comicid)
-            return
-        elif "." in str(gcdval["GCDIssue"]):
-            issst = str(gcdval["GCDIssue"]).find(".")
-            issb4dec = str(gcdval["GCDIssue"])[:issst]
-            decis = str(gcdval["GCDIssue"])[issst + 1 :]
-            if len(decis) == 1:
-                decisval = int(decis) * 10
-                issaftdec = str(decisval)
-            if len(decis) == 2:
-                decisval = int(decis)
-                issaftdec = str(decisval)
-            if int(issaftdec) == 0:
-                issaftdec = "00"
-            gcd_issue = issb4dec + "." + issaftdec
-            gcdis = (int(issb4dec) * 1000) + decisval
-        else:
-            gcdis = int(str(gcdval["GCDIssue"])) * 1000
-            gcd_issue = str(gcdval["GCDIssue"])
-        int_issnum = int(gcdis / 1000)
-        issdate = str(gcdval["GCDDate"])
-        issid = "G" + str(gcdval["IssueID"])
-        if gcdval["GCDDate"] > latestdate:
-            latestiss = str(gcd_issue)
-            latestdate = str(gcdval["GCDDate"])
-
-        with db.get_engine().connect() as conn:
-            stmt = select(issues).where(issues.c.IssueID == issid)
-            iss_exists = next((dict(row._mapping) for row in conn.execute(stmt)), None)
-
-        if iss_exists is None:
-            newValueDict["DateAdded"] = helpers.today()
-
-        if "?" in str(issdate):
-            issdate = "0000-00-00"
-
-        controlValueDict = {"IssueID": issid}
-        newValueDict = {
-            "ComicID": gcomicid,
-            "ComicName": ComicName,
-            "Issue_Number": gcd_issue,
-            "IssueDate": issdate,
-            "Int_IssueNumber": int_issnum,
-        }
-
-        if comicarr.CONFIG.AUTOWANT_ALL:
-            newValueDict["Status"] = "Wanted"
-        elif issdate > helpers.today() and comicarr.CONFIG.AUTOWANT_UPCOMING:
-            newValueDict["Status"] = "Wanted"
-        else:
-            newValueDict["Status"] = "Skipped"
-
-        if iss_exists:
-            newValueDict["Status"] = iss_exists["Status"]
-
-        db.upsert("issues", newValueDict, controlValueDict)
-        bb += 1
-
-    controlValueStat = {"ComicID": gcomicid}
-    newValueStat = {
-        "Status": "Active",
-        "LatestIssue": latestiss,
-        "LatestDate": latestdate,
-        "LastUpdated": helpers.now(),
-    }
-
-    db.upsert("comics", newValueStat, controlValueStat)
-
-    if comicarr.CONFIG.CVINFO and os.path.isdir(comlocation):
-        if not os.path.exists(comlocation + "/cvinfo"):
-            with open(comlocation + "/cvinfo", "w") as text_file:
-                text_file.write("http://comicvine.gamespot.com/volume/49-" + str(comicid))
-
-    logger.info("Updating complete for: " + ComicName)
-
-    if imported is None or imported == "None":
-        pass
-    else:
-        if comicarr.CONFIG.IMP_MOVE:
-            logger.info("Mass import - Move files")
-            moveit.movefiles(gcomicid, comlocation, ogcname)
-        else:
-            logger.info("Mass import - Moving not Enabled. Setting Archived Status for import.")
-            moveit.archivefiles(gcomicid, ogcname)
-
-    updater.forceRescan(gcomicid)
-
-    if pullupd is None:
-        if comicarr.CONFIG.AUTOWANT_UPCOMING and "Present" in ComicPublished:
-            logger.info("Checking this week's pullist for new issues of " + ComicName)
-            updater.newpullcheck(comic["ComicName"], gcomicid)
-
-        with db.get_engine().connect() as conn:
-            stmt = select(issues).where(issues.c.ComicID == gcomicid).where(issues.c.Status == "Wanted")
-            results = [dict(row._mapping) for row in conn.execute(stmt)]
-
-        if results:
-            logger.info("Attempting to grab wanted issues for : " + ComicName)
-
-            for result in results:
-                foundNZB = "none"
-                if (
-                    comicarr.CONFIG.NZBSU
-                    or comicarr.CONFIG.DOGNZB
-                    or comicarr.CONFIG.EXPERIMENTAL
-                    or comicarr.CONFIG.NEWZNAB
-                ) and (comicarr.CONFIG.SAB_HOST):
-                    foundNZB = search.searchforissue(result["IssueID"])
-                    if foundNZB == "yes":
-                        updater.foundsearch(result["ComicID"], result["IssueID"])
-        else:
-            logger.info("No issues marked as wanted for " + ComicName)
-
-        logger.info("Finished grabbing what I could.")
 
 
 def issue_collection(issuedata, nostatus, serieslast_updated=None, suppress_addall=None):
