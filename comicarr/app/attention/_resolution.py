@@ -53,6 +53,17 @@ class _RuntimeResolutionEffects:
 
         return search_service.search_issue(self.ctx, issue_id, trigger=trigger, entity_type=entity_type)
 
+    def forgive_rejected_submission(self, issue_id, provider):
+        from comicarr.app.downloads import queries as download_queries
+
+        removed = download_queries.forgive_rejected_submission(issue_id, provider)
+        if removed:
+            logger.info(
+                "[ATTENTION] Cleared %s bad-download mark(s) for issue %s from %s so the retry can pick it again"
+                % (removed, issue_id, provider)
+            )
+        return removed
+
     def stop_wanting(self, issue_id, actor, *, entity_type=None):
         from comicarr.app.series import queries as series_queries
 
@@ -149,6 +160,23 @@ def _admitted_row(key):
     return row, None
 
 
+SUBMISSION_REJECTED = "submission_rejected"
+
+
+def _forgive_rejected_release(row, issue_id, effects):
+    """A rejected submission marked the release bad; retrying must be able to pick it again."""
+    payload = _payload(row)
+    providers = {p for p in (payload.get("provider"), row.get("provider")) if p}
+    forgive = getattr(effects, "forgive_rejected_submission", None)
+    if forgive is None:
+        return
+    for provider in providers:
+        try:
+            forgive(issue_id, provider)
+        except Exception as e:
+            logger.warn("[ATTENTION] Could not clear the rejected release mark for %s: %s" % (issue_id, e))
+
+
 def _retry_or_search(row, key, *, action, actor, effects):
     issue_id = _issue_id(row)
     if not issue_id:
@@ -173,6 +201,8 @@ def _retry_or_search(row, key, *, action, actor, effects):
             stamp_written=False,
         )
     resolved_type = wanted.get("entity_type") or entity_type
+    if action == ACTION_RETRY and str(row.get("fail_reason") or "").startswith(SUBMISSION_REJECTED):
+        _forgive_rejected_release(row, issue_id, effects)
     trigger = "band_retry" if action == ACTION_RETRY else "band_search_again"
     result = effects.search(issue_id, trigger, entity_type=resolved_type)
     if not result.get("success"):

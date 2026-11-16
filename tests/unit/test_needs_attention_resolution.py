@@ -43,7 +43,7 @@ from comicarr.app.search import service as search_service
 from comicarr.app.series import queries as series_queries
 from comicarr.app.system.acquisition_repair import RepairService
 from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import annuals, comics, issues, metadata, pipeline_journal, storyarcs
+from comicarr.tables import annuals, comics, failed, issues, metadata, pipeline_journal, storyarcs
 
 
 @pytest.fixture(autouse=True)
@@ -379,6 +379,75 @@ def test_retry_failed_wants_stamps_and_searches(monkeypatch):
     assert row["retry_count"] == 1
     assert row["stage"] == journal.FAILED
     assert key not in _attention_release_keys()
+
+
+def _seed_bad_download_mark(*, release_id, issueid="1001", provider="TorrentSite (Prowlarr)"):
+    with get_engine().begin() as conn:
+        conn.execute(
+            failed.insert().values(
+                ID=release_id,
+                Status="Failed",
+                ComicID="C1",
+                IssueID=issueid,
+                Provider=provider,
+                ComicName="Saga",
+                Issue_Number="1",
+                NZBName="Saga.001",
+                DateFailed="2026-01-01 00:00:00",
+            )
+        )
+
+
+def _bad_download_marks():
+    with get_engine().connect() as conn:
+        return sorted(row.ID for row in conn.execute(select(failed.c.ID)))
+
+
+def _seed_rejected_submission(*, key="1001|torrentsite (prowlarr)", issueid="1001", provider="torrentsite (prowlarr)"):
+    journal.record_transition(
+        key,
+        journal.SNATCHED,
+        payload={"issueid": issueid, "provider": "TorrentSite (Prowlarr) (torznab)", "route": "qbittorrent"},
+        issueid=issueid,
+        provider=provider,
+        nzbname="Saga.001",
+    )
+    journal.mark_failed(key, "submission_rejected", issueid=issueid, provider=provider)
+    return key
+
+
+def test_retry_of_rejected_submission_lets_the_search_pick_the_release_again(monkeypatch):
+    _seed_issue(status="Failed")
+    key = _seed_rejected_submission()
+    _seed_bad_download_mark(release_id="xt=urn:btih:rejected")
+    _seed_bad_download_mark(release_id="xt=urn:btih:other-indexer", provider="OtherSite (Prowlarr)")
+    _seed_bad_download_mark(release_id="xt=urn:btih:other-issue", issueid="1002")
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    _ready_search(monkeypatch)
+    with patch(
+        "comicarr.app.search.commands.enqueue_search_command",
+        return_value=SimpleNamespace(run_id="r1", issueid="1001"),
+    ):
+        result = _resolve_one(ctx, key, "retry")
+
+    assert result.ok is True
+    assert _bad_download_marks() == ["xt=urn:btih:other-indexer", "xt=urn:btih:other-issue"]
+
+
+def test_retry_of_a_failed_download_keeps_its_bad_download_mark(monkeypatch):
+    _seed_issue(status="Failed")
+    key = _seed_failed_row(provider="torrentsite (prowlarr)", key="1001|torrentsite (prowlarr)")
+    _seed_bad_download_mark(release_id="xt=urn:btih:broken")
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    _ready_search(monkeypatch)
+    with patch(
+        "comicarr.app.search.commands.enqueue_search_command",
+        return_value=SimpleNamespace(run_id="r1", issueid="1001"),
+    ):
+        result = _resolve_one(ctx, key, "retry")
+
+    assert result.ok is True
+    assert _bad_download_marks() == ["xt=urn:btih:broken"]
 
 
 def test_retry_blocked_does_not_stamp(monkeypatch):
