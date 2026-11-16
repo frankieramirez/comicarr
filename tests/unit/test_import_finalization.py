@@ -1416,8 +1416,8 @@ def test_auto_duplicate_leaves_database_issue_and_import_unchanged(tmp_path):
 
 @pytest.mark.parametrize("unselected", [True, False])
 def test_auto_archive_rescan_consumes_only_selected_files(tmp_path, unselected):
-    from comicarr import importinbox
-    from comicarr.tables import metadata, comics, issues
+    from comicarr.app.imports import importinbox
+    from comicarr.tables import comics, issues, metadata
 
     inbox = tmp_path / "inbox" / "X-Men"
     inbox.mkdir(parents=True)

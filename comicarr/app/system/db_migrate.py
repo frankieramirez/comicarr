@@ -45,7 +45,7 @@ def _mask_password(url):
         return re.sub(r"(://[^:]+:)(.+)@", r"\1***@", url)
 
 
-logger = logging.getLogger("comicarr.db_migrate")
+logger = logging.getLogger("comicarr.app.system.db_migrate")
 
 INDEPENDENT_TABLES = [
     "comics",

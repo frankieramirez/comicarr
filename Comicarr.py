@@ -235,7 +235,7 @@ def main():
 
     # Handle migrate subcommand (runs independently, then exits)
     if args.get("maintenance") == "migrate" or args.get("migrate_source"):
-        from comicarr.db_migrate import migrate, validate
+        from comicarr.app.system.db_migrate import migrate, validate
 
         source = args.get("migrate_source")
         target = args.get("migrate_target")
@@ -246,7 +246,7 @@ def main():
             ok = validate(source, target)
             sys.exit(0 if ok else 1)
         if not args.get("migrate_yes"):
-            from comicarr.db_migrate import _mask_password
+            from comicarr.app.system.db_migrate import _mask_password
 
             print("This will migrate data from:")
             print(f"  Source: {_mask_password(source)}")
@@ -558,7 +558,7 @@ def main():
     # for version info if it's already running
     versioncheck.versionload()
 
-    from comicarr.dependency_check import RuntimeCapabilityDiagnostics
+    from comicarr.app.system.dependency_check import RuntimeCapabilityDiagnostics
 
     RuntimeCapabilityDiagnostics().loaders()
 

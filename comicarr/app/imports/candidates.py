@@ -177,7 +177,7 @@ def _reason(*, remembered, best, tied, years, bar, candidates):
 
 def group_candidates(ctx, imp_ids):
     """The pick panel for one review group, or ``None`` when its rows are gone."""
-    from comicarr import importinbox
+    from comicarr.app.imports import importinbox
 
     rows = _rows(imp_ids)
     if not rows:
@@ -268,7 +268,7 @@ def _remote_candidate(result, score):
 
 def remote_candidates(ctx, imp_ids, content_type=None):
     """Provider series the group could be, scored like library ones. ``{"candidates": [...]}``."""
-    from comicarr import importinbox
+    from comicarr.app.imports import importinbox
     from comicarr.app.search import service as search_service
 
     rows = _rows(imp_ids)

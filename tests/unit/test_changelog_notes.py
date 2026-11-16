@@ -19,8 +19,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from comicarr import changelog_notes
 from comicarr.app.core.context import AppContext
+from comicarr.app.system import changelog_notes
 
 # Real-ish fixture covering Changesets era, multi-line bullet, bucket H3s,
 # and legacy semantic-release H2s with links + trailing (sha).
