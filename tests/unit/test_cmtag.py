@@ -124,3 +124,17 @@ class TestCbr2CbzOnly:
         assert result.endswith("issue 1.cbz")
         assert len(commands) == 2
         assert "-e" in commands[0] and "cr" in commands[1]
+
+
+def test_redact_api_key_treats_the_key_as_text_not_a_pattern():
+    config = SimpleNamespace(COMICVINE_API="ab.+cd")
+    with patch.object(cmtag.comicarr, "CONFIG", config):
+        logged = cmtag._redact_api_key(str(["--cv-api-key", "ab.+cd", "abXXcd"]))
+
+    assert "ab.+cd" not in logged
+    assert "abXXcd" in logged
+
+
+def test_redact_api_key_leaves_text_alone_without_a_key():
+    with patch.object(cmtag.comicarr, "CONFIG", SimpleNamespace(COMICVINE_API=None)):
+        assert cmtag._redact_api_key("['-o']") == "['-o']"

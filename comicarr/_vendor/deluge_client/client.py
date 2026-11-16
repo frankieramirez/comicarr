@@ -64,11 +64,13 @@ class DelugeRPCClient(object):
         self.connected = False
         self._create_socket()
 
-    def _create_socket(self, ssl_version=None):
-        if ssl_version is not None:
-            self._socket = ssl.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM), ssl_version=ssl_version)
-        else:
-            self._socket = ssl.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
+    def _create_socket(self):
+        # Deluge daemons use a self-signed certificate, so the peer is not verified.
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        self._socket = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
         self._socket.settimeout(self.timeout)
 
     def connect(self):
@@ -88,17 +90,7 @@ class DelugeRPCClient(object):
 
     def _connect(self):
         logger.info('Connecting to %s:%s' % (self.host, self.port))
-        try:
-            self._socket.connect((self.host, self.port))
-        except ssl.SSLError as e:
-            # Note: have not verified that we actually get errno 258 for this error
-            if (hasattr(ssl, 'PROTOCOL_SSLv3') and
-                    (getattr(e, 'reason', None) == 'UNSUPPORTED_PROTOCOL' or e.errno == 258)):
-                logger.warning('Was unable to ssl handshake, trying to force SSLv3 (insecure)')
-                self._create_socket(ssl_version=ssl.PROTOCOL_SSLv3)
-                self._socket.connect((self.host, self.port))
-            else:
-                raise
+        self._socket.connect((self.host, self.port))
 
     def disconnect(self):
         """

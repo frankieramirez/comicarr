@@ -325,6 +325,14 @@ def clear_issue_number(comictagger_cmd, filepath, module=""):
     return bool(styles)
 
 
+def _redact_api_key(text):
+    """Hide the ComicVine API key in a logged command line."""
+    api_key = comicarr.CONFIG.COMICVINE_API
+    if not api_key or api_key == "None":
+        return text
+    return text.replace(api_key, "REDACTED")
+
+
 def run(
     dirName,
     nzbName=None,
@@ -554,14 +562,10 @@ def run(
                 "%s Enabling ComicTagger script with options: %s"
                 % (
                     module,
-                    re.sub(
-                        f_tagoptions[f_tagoptions.index(comicarr.CONFIG.COMICVINE_API)], "REDACTED", str(f_tagoptions)
-                    ),
+                    _redact_api_key(str(f_tagoptions)),
                 )
             )
-            script_cmdlog = re.sub(
-                f_tagoptions[f_tagoptions.index(comicarr.CONFIG.COMICVINE_API)], "REDACTED", str(script_cmd)
-            )
+            script_cmdlog = _redact_api_key(str(script_cmd))
 
         logger.fdebug(module + " Executing command: " + str(script_cmdlog))
         logger.fdebug(module + " Absolute path to script: " + script_cmd[0])
@@ -651,9 +655,7 @@ def run(
                 "%s[COMIC-TAGGER] Unable to run comictagger with the options provided: %s"
                 % (
                     module,
-                    re.sub(
-                        f_tagoptions[f_tagoptions.index(comicarr.CONFIG.COMICVINE_API)], "REDACTED", str(script_cmd)
-                    ),
+                    _redact_api_key(str(script_cmd)),
                 )
             )
             tidyup(filepath, new_filepath, new_folder, manualmeta)
