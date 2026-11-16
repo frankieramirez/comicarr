@@ -186,7 +186,7 @@ class FailedProcessor(object):
             if nzbname.lower().endswith(extensions):
                 fd, ext = os.path.splitext(nzbname)
                 self._log("Removed extension from nzb: " + ext)
-                nzbname = re.sub(str(ext), "", str(nzbname))
+                nzbname = fd
 
             nzbname = re.sub(" ", ".", str(nzbname))
             nzbname = re.sub("[\\,\\:\\?'\\(\\)]", "", str(nzbname))
