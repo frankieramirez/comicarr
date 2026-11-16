@@ -48,4 +48,12 @@ describe("locales", () => {
     expect(document.documentElement.lang).toBe("en");
     expect(document.documentElement.dir).toBe("ltr");
   });
+
+  it("marks the document right-to-left for Arabic", async () => {
+    await activateLocale("ar");
+    expect(i18n.locale).toBe("ar");
+    expect(document.documentElement.dir).toBe("rtl");
+    await activateLocale("en");
+    expect(document.documentElement.dir).toBe("ltr");
+  });
 });

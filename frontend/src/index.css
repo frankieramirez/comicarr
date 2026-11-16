@@ -248,6 +248,12 @@ body {
      languages, so "next" and "back" keep pointing the way text flows. Lucide
      tags every icon with a lucide-<name> class. Icons that point at a real
      place (up, down, a clock) stay as they are. */
+  /* Keyboard shortcuts read left to right in every language: ⌘⇧K, not K⇧⌘. */
+  kbd {
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+
   [dir="rtl"] :is(
       .lucide-chevron-left,
       .lucide-chevron-right,
