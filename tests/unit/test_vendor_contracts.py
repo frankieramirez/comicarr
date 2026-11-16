@@ -398,13 +398,13 @@ def test_vendor_imports_are_declared_and_legacy_top_level_imports_are_explicit()
 
 def test_vendor_import_classifier_catches_exact_and_dotted_top_level_imports():
     tree = ast.parse(
-        "import transmissionrpc.client\nfrom transmissionrpc.client import Client\nfrom comicarr._vendor import rtorrent\n"
+        "import comictaggerlib.settings\nfrom comictaggerlib.ctversion import version\nfrom comicarr._vendor import rtorrent\n"
     )
 
     namespaced, legacy = _classify_vendor_imports(tree, "synthetic.py")
 
     assert namespaced == {"rtorrent"}
-    assert legacy == {"transmissionrpc": {"synthetic.py"}}
+    assert legacy == {"comictaggerlib": {"synthetic.py"}}
 
 
 def test_vendor_import_scan_includes_root_runtime_entry_points():
@@ -450,15 +450,3 @@ def test_built_wheel_vendor_inventory_and_notices_match_manifest(tmp_path):
     for record in provenance.VENDOR_PROVENANCE.values():
         assert set(record["notice_files"]) <= members
         assert record["packaged_snapshot_sha256"] == _packaged_snapshot_digest(member_contents, record["path"])
-
-
-@pytest.mark.parametrize(
-    "adapter_module",
-    [transmission],
-)
-def test_adapters_do_not_import_top_level_vendor_names(adapter_module):
-    source = Path(adapter_module.__file__).read_text(encoding="utf-8")
-
-    assert "comicarr._vendor" in source
-    assert "from qbittorrent" not in source
-    assert "from transmissionrpc" not in source

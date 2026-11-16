@@ -35,6 +35,7 @@ dependencies = [
     "jsonschema>=4.26.0",
     "qbittorrent-api>=2024.1",
     "deluge-client>=1.10.2",
+    "transmission-rpc>=7.0",
 ]
 
 [project.optional-dependencies]

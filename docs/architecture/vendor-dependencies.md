@@ -31,7 +31,6 @@ fill missing third-party notice or source-revision evidence.
 | --- | --- | --- | --- | --- |
 | `comictaggerlib/` | ComicTagger metadata/archive behavior | Bundled version `1.3.5` in `ctversion.py` | Apache-2.0 notices in source files | `evidence-recorded` |
 | `rtorrent/` | rTorrent XML-RPC/SCGI | Version `0.2.9` in source | Mixed: MIT; GPL-2.0-or-later with OpenSSL exception; embedded Secret Labs terms | `evidence-recorded` |
-| `transmissionrpc/` | Transmission RPC | Version `0.11` in source | MIT notice in source | `evidence-recorded` |
 
 `bencode.py` was replaced by `comicarr/app/common/torrent_hash.py`, which
 hashes the raw `info` span of a .torrent file, and `get_image_size.py`, which

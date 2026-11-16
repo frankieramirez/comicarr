@@ -101,7 +101,6 @@ ROOT_PACKAGES: dict[str, int] = {
 VENDOR_ROOTS: dict[str, int] = {
     "comictaggerlib": 1414,
     "rtorrent": 1413,
-    "transmissionrpc": 1412,
 }
 
 ALLOWED_MODULES = frozenset({"__init__"})
