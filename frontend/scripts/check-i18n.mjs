@@ -29,7 +29,10 @@ const LINGUI = path.join(ROOT, "node_modules/@lingui/cli/dist/lingui.js");
 function checkCatalog() {
   const args = update ? ["extract", "--clean"] : ["check", "sync", "--clean"];
   try {
-    execFileSync(process.execPath, [LINGUI, ...args], { cwd: ROOT, stdio: "pipe" });
+    execFileSync(process.execPath, [LINGUI, ...args], {
+      cwd: ROOT,
+      stdio: "pipe",
+    });
     return true;
   } catch (error) {
     console.error(String(error.stdout || error.stderr || error.message).trim());
@@ -46,6 +49,21 @@ async function scanUnlocalized() {
     overrideConfigFile: path.join(ROOT, "eslint.i18n.config.js"),
   });
   const results = await eslint.lintFiles(["src/**/*.{ts,tsx}"]);
+  // A file that fails to parse would count as zero and lose its allowance.
+  const broken = results.filter((r) => r.fatalErrorCount > 0);
+  if (broken.length) {
+    for (const r of broken) {
+      for (const m of r.messages.filter((x) => x.fatal)) {
+        console.error(
+          `${path.relative(ROOT, r.filePath)}:${m.line}:${m.column} ${m.message}`,
+        );
+      }
+    }
+    console.error(
+      "i18n: fix the parse errors above; the baseline was not checked or changed.",
+    );
+    process.exit(1);
+  }
   const counts = {};
   for (const result of results) {
     // Both rules can flag the same JSX text; count each position once.
@@ -54,13 +72,17 @@ async function scanUnlocalized() {
         .filter((m) => RULES.has(m.ruleId))
         .map((m) => `${m.line}:${m.column}`),
     ).size;
-    if (n) counts[path.relative(ROOT, result.filePath).split(path.sep).join("/")] = n;
+    if (n)
+      counts[path.relative(ROOT, result.filePath).split(path.sep).join("/")] =
+        n;
   }
   return { counts, results };
 }
 
 function sorted(obj) {
-  return Object.fromEntries(Object.entries(obj).sort(([a], [b]) => a.localeCompare(b)));
+  return Object.fromEntries(
+    Object.entries(obj).sort(([a], [b]) => a.localeCompare(b)),
+  );
 }
 
 async function checkBaseline() {
@@ -87,19 +109,28 @@ async function checkBaseline() {
     }
     writeFileSync(BASELINE, `${JSON.stringify(sorted(next), null, 2)}\n`);
   } else if (stale.length) {
-    console.error("i18n: these files now have fewer unlocalized strings than the baseline.");
+    console.error(
+      "i18n: these files now have fewer unlocalized strings than the baseline.",
+    );
     console.error("Run `npm run i18n:update` to lower i18n-baseline.json:");
-    for (const [file, n, allowed] of stale) console.error(`  ${file}: ${allowed} -> ${n}`);
+    for (const [file, n, allowed] of stale)
+      console.error(`  ${file}: ${allowed} -> ${n}`);
   }
 
   if (grew.length) {
-    console.error("i18n: new user-facing text must be wrapped for translation (t``, <Trans>, msg``).");
+    console.error(
+      "i18n: new user-facing text must be wrapped for translation (t``, <Trans>, msg``).",
+    );
     for (const [file, n, allowed] of grew) {
       console.error(`  ${file}: ${n} unlocalized, baseline allows ${allowed}`);
       const result = results.find((r) => r.filePath.endsWith(file));
       const lines = readFileSync(path.join(ROOT, file), "utf8").split("\n");
-      for (const m of result.messages.filter((x) => RULES.has(x.ruleId)).slice(0, 5)) {
-        console.error(`    ${m.line}:${m.column}  ${lines[m.line - 1].trim().slice(0, 100)}`);
+      for (const m of result.messages
+        .filter((x) => RULES.has(x.ruleId))
+        .slice(0, 5)) {
+        console.error(
+          `    ${m.line}:${m.column}  ${lines[m.line - 1].trim().slice(0, 100)}`,
+        );
       }
     }
     return false;
@@ -110,4 +141,8 @@ async function checkBaseline() {
 const catalogOk = checkCatalog();
 const baselineOk = await checkBaseline();
 if (!catalogOk || !baselineOk) process.exit(1);
-console.log(update ? "i18n: catalog and baseline updated." : "i18n: catalog current, no new unlocalized text.");
+console.log(
+  update
+    ? "i18n: catalog and baseline updated."
+    : "i18n: catalog current, no new unlocalized text.",
+);

@@ -107,10 +107,17 @@ async function loadMessages(locale: string): Promise<Messages> {
   return (await loader()).messages;
 }
 
-/** Load and switch to a locale, and mark the document with it. */
+let latestActivation = 0;
+
+/**
+ * Load and switch to a locale, and mark the document with it. When two
+ * switches overlap, only the most recent one is applied.
+ */
 export async function activateLocale(locale: string): Promise<void> {
+  const request = ++latestActivation;
   const target = AVAILABLE_LOCALES.includes(locale) ? locale : SOURCE_LOCALE;
   const messages = await loadMessages(target);
+  if (request !== latestActivation) return;
   i18n.loadAndActivate({ locale: target, messages });
   if (typeof document !== "undefined") {
     document.documentElement.lang = target;
