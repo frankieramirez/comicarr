@@ -118,12 +118,12 @@ export default function LibraryScanResults({
         <div className="text-sm text-muted-foreground">
           {t`${ph({ matched: matchedResults.length })} matched of ${ph({ found: importableResults.length })} series found`}
           {reconciledResults.length > 0 && (
-            <span className="ml-2">
+            <span className="ms-2">
               {reconciledLine(type, reconciledResults.length, false)}
             </span>
           )}
           {selectedIds.length > 0 && (
-            <span className="ml-2 font-medium text-foreground">
+            <span className="ms-2 font-medium text-foreground">
               {t`(${ph({ count: selectedIds.length })} selected)`}
             </span>
           )}
@@ -140,7 +140,7 @@ export default function LibraryScanResults({
             onClick={() => onConfirm(scanId, selectedIds)}
             disabled={selectedIds.length === 0 || isConfirming}
           >
-            <Check className="w-4 h-4 mr-1" />
+            <Check className="w-4 h-4 me-1" />
             {t`Import Selected (${ph({ count: selectedIds.length })})`}
           </Button>
         </div>

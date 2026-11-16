@@ -1,5 +1,6 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
+import { useDirection } from "@/hooks/useDirection";
 import {
   Sheet,
   SheetContent,
@@ -22,13 +23,17 @@ export function ActivityFeedDrawer({
   open,
   onOpenChange,
 }: ActivityFeedDrawerProps) {
+  const direction = useDirection();
   const query = useAiActivity(50, { enabled: open });
   const entries = query.data ?? [];
   const state = panelState(query, entries.length === 0);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex flex-col p-0 sm:max-w-md">
+      <SheetContent
+        side={direction === "rtl" ? "left" : "right"}
+        className="flex flex-col p-0 sm:max-w-md"
+      >
         <SheetHeader className="px-4 pt-6 pb-4 border-b border-border">
           <SheetTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5" />

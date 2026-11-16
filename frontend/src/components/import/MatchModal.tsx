@@ -114,7 +114,7 @@ function MatchModalContent({
       className="max-h-[80vh] max-w-2xl gap-0 overflow-hidden p-0 sm:rounded-lg"
       finalFocus={() => resolveFocusTarget(finalFocus.current, triggerRowId)}
     >
-      <DialogHeader className="space-y-1 border-b border-border p-4 pr-12 text-left">
+      <DialogHeader className="space-y-1 border-b border-border p-4 pe-12 text-start">
         <DialogTitle>
           <Trans>Match Import</Trans>
         </DialogTitle>
@@ -125,7 +125,7 @@ function MatchModalContent({
 
       <div className="border-b border-border p-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder={placeholder}
             value={searchQuery}
@@ -137,7 +137,7 @@ function MatchModalContent({
             aria-describedby={
               searchMode === "comic" ? "match-search-help" : undefined
             }
-            className="pl-10"
+            className="ps-10"
             autoFocus
             disabled={mangaBlocked || mangaLoading || isMatching}
           />
@@ -159,7 +159,7 @@ function MatchModalContent({
         {mangaLoading && (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">
+            <span className="ms-2 text-muted-foreground">
               <Trans>Loading...</Trans>
             </span>
           </div>
@@ -177,7 +177,7 @@ function MatchModalContent({
         {!mangaBlocked && !mangaLoading && isSearching && (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">
+            <span className="ms-2 text-muted-foreground">
               <Trans>Searching...</Trans>
             </span>
           </div>
@@ -220,7 +220,7 @@ function MatchModalContent({
                     aria-pressed={isSelected}
                     onClick={() => setSelectedComic(result)}
                     disabled={isMatching}
-                    className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+                    className={`flex w-full items-center gap-3 rounded-lg border p-3 text-start transition-colors ${
                       isSelected
                         ? "border-primary bg-primary/10"
                         : "border-border hover:bg-muted/50"
@@ -312,7 +312,7 @@ function MatchModalContent({
         <Button onClick={handleMatch} disabled={!canMatch || isMatching}>
           {isMatching ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="me-2 h-4 w-4 animate-spin" />
               {addMissing ? t`Adding and importing...` : t`Matching...`}
             </>
           ) : addMissing ? (

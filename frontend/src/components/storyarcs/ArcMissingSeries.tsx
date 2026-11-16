@@ -107,12 +107,12 @@ export default function ArcMissingSeries({
                 {series.series_name}
               </span>
               {series.series_year && (
-                <span className="ml-1.5 text-foreground-2">
+                <span className="ms-1.5 text-foreground-2">
                   {series.series_year}
                 </span>
               )}
               {series.issue_numbers.length > 0 && (
-                <span className="mono-meta ml-2">
+                <span className="mono-meta ms-2">
                   #{series.issue_numbers.join(", #")}
                 </span>
               )}
@@ -168,7 +168,7 @@ export default function ArcMissingSeries({
                         <span className="font-medium text-foreground">
                           {series.match.name || series.series_name}
                         </span>
-                        <span className="text-muted-foreground ml-1.5">
+                        <span className="text-muted-foreground ms-1.5">
                           {[series.match.year, series.match.publisher]
                             .filter(Boolean)
                             .join(" · ")}
@@ -218,7 +218,7 @@ export default function ArcMissingSeries({
             >
               {addMissing.isPending ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  <Loader2 className="w-4 h-4 me-1 animate-spin" />
                   <Trans>Adding...</Trans>
                 </>
               ) : (

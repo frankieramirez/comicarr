@@ -179,7 +179,7 @@ export function SeriesSearchProviders({
                   key={row.name}
                   className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5"
                 >
-                  <span className="mono-meta w-5 text-right">{index + 1}</span>
+                  <span className="mono-meta w-5 text-end">{index + 1}</span>
                   <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
                     <Checkbox
                       checked={row.used}

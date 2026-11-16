@@ -100,7 +100,7 @@ class ErrorBoundary extends React.Component<
               </div>
 
               {import.meta.env.DEV && this.state.error && (
-                <details className="group mt-6 rounded-md border border-border bg-muted/40 px-4 py-3 text-left">
+                <details className="group mt-6 rounded-md border border-border bg-muted/40 px-4 py-3 text-start">
                   <summary className="cursor-pointer list-none font-mono text-[11px] font-medium text-foreground marker:content-none">
                     <span className="inline-flex items-center gap-2">
                       <span className="text-muted-foreground transition-transform group-open:rotate-90">

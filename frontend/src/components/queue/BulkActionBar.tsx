@@ -23,7 +23,7 @@ export default function BulkActionBar({
   if (selectedCount === 0) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-popover text-popover-foreground shadow-lg z-50">
+    <div className="fixed bottom-0 start-0 end-0 border-t border-border bg-popover text-popover-foreground shadow-lg z-50">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="text-sm font-medium">
           {plural(selectedCount, {
@@ -39,7 +39,7 @@ export default function BulkActionBar({
               disabled={isLoading}
               className="text-foreground hover:bg-accent"
             >
-              <Download className="w-4 h-4 mr-2" />
+              <Download className="w-4 h-4 me-2" />
               <Trans>Mark Wanted</Trans>
             </Button>
           )}
@@ -50,7 +50,7 @@ export default function BulkActionBar({
               disabled={isLoading}
               className="text-foreground hover:bg-accent"
             >
-              <Search className="w-4 h-4 mr-2" />
+              <Search className="w-4 h-4 me-2" />
               <Trans>Search selected</Trans>
             </Button>
           )}
@@ -60,7 +60,7 @@ export default function BulkActionBar({
             disabled={isLoading}
             className="text-foreground hover:bg-accent"
           >
-            <X className="w-4 h-4 mr-2" />
+            <X className="w-4 h-4 me-2" />
             <Trans>Skip</Trans>
           </Button>
           <Button

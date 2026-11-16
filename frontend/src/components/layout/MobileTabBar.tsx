@@ -78,7 +78,7 @@ export default function MobileTabBar() {
               <Icon className="size-[22px]" strokeWidth={1.6} />
               {count != null && count > 0 && (
                 <span
-                  className="absolute -top-1.5 left-3.5 min-w-[18px] rounded-full px-1 text-center font-mono text-[10px] leading-[16px] font-semibold"
+                  className="absolute -top-1.5 start-3.5 min-w-[18px] rounded-full px-1 text-center font-mono text-[10px] leading-[16px] font-semibold"
                   style={{
                     background: "var(--status-error)",
                     color: "var(--background)",

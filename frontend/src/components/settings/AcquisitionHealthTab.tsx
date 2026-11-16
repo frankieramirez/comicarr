@@ -342,11 +342,11 @@ function JobRow({ job }: { job: ScheduledJobHealth }) {
   const error = job.dispatch?.last_error || job.last_error;
   return (
     <tr className="border-t" style={{ borderColor: "var(--border)" }}>
-      <td className="py-2 pr-3 text-[12px] font-medium">{job.name}</td>
-      <td className="py-2 pr-3">
+      <td className="py-2 pe-3 text-[12px] font-medium">{job.name}</td>
+      <td className="py-2 pe-3">
         <HealthStatus label={humanize(status)} tone={toneForState(status)} />
       </td>
-      <td className="hidden py-2 pr-3 font-mono text-[10px] text-muted-foreground sm:table-cell">
+      <td className="hidden py-2 pe-3 font-mono text-[10px] text-muted-foreground sm:table-cell">
         {formatMoment(job.next_run_time)}
       </td>
       <td className="max-w-[180px] py-2 font-mono text-[10px] text-muted-foreground">
@@ -824,7 +824,7 @@ export function AcquisitionHealthTab() {
                 className="overflow-x-auto rounded-lg border"
                 style={{ borderColor: "var(--border)" }}
               >
-                <table className="w-full min-w-[520px] text-left">
+                <table className="w-full min-w-[520px] text-start">
                   <thead className="text-[10px] uppercase tracking-[0.07em] text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 font-medium">
@@ -985,7 +985,7 @@ export function AcquisitionHealthTab() {
                       />
                       <span className="min-w-0">
                         <span className="font-mono">{item.entity_key}</span>
-                        <span className="ml-2 text-muted-foreground">
+                        <span className="ms-2 text-muted-foreground">
                           {humanize(item.reason)} · {humanize(item.fulfillment)}
                         </span>
                       </span>

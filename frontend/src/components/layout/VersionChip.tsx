@@ -52,7 +52,7 @@ export default function VersionChip() {
         className={cn(
           "group-data-[collapsible=icon]:hidden relative font-mono text-[10px] px-1.5 py-0.5 border rounded-sm transition-colors",
           behind
-            ? "border-primary/50 text-foreground pr-3.5 hover:bg-primary/5"
+            ? "border-primary/50 text-foreground pe-3.5 hover:bg-primary/5"
             : "border-transparent px-0 text-muted-foreground",
           !behind && "pointer-events-none",
         )}
@@ -62,7 +62,7 @@ export default function VersionChip() {
         {localLabel}
         {behind && (
           <span
-            className="absolute right-1 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-primary"
+            className="absolute end-1 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-primary"
             aria-hidden
           />
         )}
@@ -70,7 +70,7 @@ export default function VersionChip() {
 
       {behind && latest && (
         <PopoverContent
-          side="right"
+          side="inline-end"
           align="start"
           sideOffset={10}
           positionMethod="fixed"
@@ -231,7 +231,7 @@ function GuidancePanel({
           </pre>
           <button
             type="button"
-            className="absolute top-1 right-1 p-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-secondary"
+            className="absolute top-1 end-1 p-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-secondary"
             aria-label={copied ? t`Copied` : t`Copy command`}
             onClick={() => void onCopy(cmd)}
           >

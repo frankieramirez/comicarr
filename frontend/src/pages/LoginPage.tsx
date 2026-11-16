@@ -465,7 +465,7 @@ export default function LoginPage() {
         </div>
       ) : (
         /* Bottom status strip */
-        <div className="absolute left-5 right-5 bottom-5 flex justify-between font-mono text-[10px] text-muted-foreground z-10 pointer-events-none">
+        <div className="absolute start-5 end-5 bottom-5 flex justify-between font-mono text-[10px] text-muted-foreground z-10 pointer-events-none">
           <span className="flex items-center gap-1.5">
             <span
               className="w-1.5 h-1.5 rounded-full"

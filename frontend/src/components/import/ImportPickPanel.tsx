@@ -264,7 +264,7 @@ export default function ImportPickPanel({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="mt-2 -ml-2 text-foreground-2"
+                className="mt-2 -ms-2 text-foreground-2"
                 data-import-match={rowId}
                 onClick={(event) => onSearchDifferent(event.currentTarget)}
               >
@@ -370,7 +370,7 @@ export default function ImportPickPanel({
         <Button
           type="button"
           size="sm"
-          className="ml-auto max-w-[70%]"
+          className="ms-auto max-w-[70%]"
           disabled={!selected || isBusy}
           onClick={() => selected && onImport(selected)}
         >

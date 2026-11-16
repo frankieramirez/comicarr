@@ -58,7 +58,7 @@ export function CoverCell({
           <span className="font-medium">{title}</span>
           {isManga && (
             <Badge variant="secondary" className="text-xs px-1.5 py-0">
-              <BookOpen className="w-3 h-3 mr-1" />
+              <BookOpen className="w-3 h-3 me-1" />
               <Trans>Manga</Trans>
             </Badge>
           )}

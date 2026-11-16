@@ -892,7 +892,7 @@ export default function SeriesDetailPage() {
           </span>
           <div
             aria-hidden="true"
-            className="ml-3 hidden h-1 w-[120px] shrink-0 gap-0.5 overflow-hidden rounded-full md:flex"
+            className="ms-3 hidden h-1 w-[120px] shrink-0 gap-0.5 overflow-hidden rounded-full md:flex"
           >
             {segments.length === 0 ? (
               <div className="flex-1 bg-surface-3" />
@@ -913,7 +913,7 @@ export default function SeriesDetailPage() {
               <Trans>{wanted} wanted</Trans>
             </span>
           )}
-          <div className="ml-auto flex shrink-0 items-center gap-2">
+          <div className="ms-auto flex shrink-0 items-center gap-2">
             <SearchMissingButton
               blocker={searchBlocker}
               missing={wanted}
@@ -977,7 +977,7 @@ export default function SeriesDetailPage() {
                 className="inline-flex items-center gap-1 hover:text-foreground max-md:text-[15px]"
               >
                 <ChevronLeft
-                  className="size-5 -ml-1 md:hidden"
+                  className="size-5 -ms-1 md:hidden"
                   aria-hidden="true"
                 />
                 <Trans>Library</Trans>
@@ -986,7 +986,7 @@ export default function SeriesDetailPage() {
               <span className="truncate text-foreground max-md:hidden">
                 {comic.ComicName}
               </span>
-              <span className="mono-meta ml-auto hidden shrink-0 sm:inline">
+              <span className="mono-meta ms-auto hidden shrink-0 sm:inline">
                 {providerCode}:{comic.ComicID} · {seriesSyncLabel(comic)}
               </span>
             </nav>
@@ -1262,7 +1262,7 @@ export default function SeriesDetailPage() {
                   </button>
                 ))}
               </div>
-              <div className="mono-meta ml-auto" data-testid="ledger-facets">
+              <div className="mono-meta ms-auto" data-testid="ledger-facets">
                 {ledgerFacets.length
                   ? `${total} · ${ledgerFacets.join(" · ")}`
                   : total}
@@ -1405,7 +1405,7 @@ export default function SeriesDetailPage() {
                           {ledgerKind ? (
                             <span
                               data-testid="phone-row-id"
-                              className="mr-1.5 hidden max-md:inline rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground"
+                              className="me-1.5 hidden max-md:inline rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground"
                             >
                               {LEDGER_KIND_LABEL()[ledgerKind]}
                             </span>

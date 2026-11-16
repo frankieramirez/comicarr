@@ -57,7 +57,7 @@ export default function SeriesCard({ comic, onClick }: SeriesCardProps) {
         )}
 
         {isPaused && (
-          <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-md bg-background/85 px-1.5 py-0.5 text-[11px] text-foreground backdrop-blur-sm">
+          <span className="absolute start-2 top-2 inline-flex items-center gap-1.5 rounded-md bg-background/85 px-1.5 py-0.5 text-[11px] text-foreground backdrop-blur-sm">
             <Trans>
               <span
                 className="size-1.5 rounded-full"

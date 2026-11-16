@@ -22,7 +22,7 @@ export function ChatResultCard({ result }: ChatResultCardProps) {
 
   const coverSrc = seriesCoverSrc(comicId);
   const card = (
-    <div className="group flex min-w-0 flex-1 items-center gap-3 text-left">
+    <div className="group flex min-w-0 flex-1 items-center gap-3 text-start">
       <div className="h-16 w-11 shrink-0 overflow-hidden rounded-sm border bg-muted shadow-sm">
         {coverSrc ? (
           <img
@@ -52,7 +52,7 @@ export function ChatResultCard({ result }: ChatResultCardProps) {
             </span>
           )}
           {result.Status && (
-            <Badge variant="secondary" className="ml-auto shrink-0 uppercase">
+            <Badge variant="secondary" className="ms-auto shrink-0 uppercase">
               {result.Status}
             </Badge>
           )}

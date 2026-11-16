@@ -81,7 +81,7 @@ export function RecommendationCard({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
         {recommendation.because_of && (
-          <div className="absolute bottom-2 left-2 right-2">
+          <div className="absolute bottom-2 start-2 end-2">
             <span className="mono-label inline-flex max-w-full items-center rounded-full bg-black/60 px-2 py-0.5 text-white truncate">
               {t`Because you read ${ph({ title: recommendation.because_of })}`}
             </span>
@@ -106,17 +106,17 @@ export function RecommendationCard({
           >
             {isQueued ? (
               <>
-                <Check className="w-3.5 h-3.5 mr-1" />
+                <Check className="w-3.5 h-3.5 me-1" />
                 <Trans>Queued</Trans>
               </>
             ) : addComicMutation.isPending ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 me-1 animate-spin" />
                 <Trans>Adding…</Trans>
               </>
             ) : (
               <>
-                <Plus className="w-3.5 h-3.5 mr-1" />
+                <Plus className="w-3.5 h-3.5 me-1" />
                 <Trans>Add</Trans>
               </>
             )}

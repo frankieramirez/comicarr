@@ -266,7 +266,7 @@ export default function IndustryReleasesView({
             />
           </div>
         )}
-        <div className="ml-auto">
+        <div className="ms-auto">
           <FilterSelect
             label={t`Sort`}
             value={sortKey}
@@ -491,7 +491,7 @@ function DayStrip({
             aria-current={isToday ? "date" : undefined}
             disabled={count === 0 && !isSelected}
             onClick={() => onSelect(isSelected ? null : key)}
-            className={`min-w-0 rounded-md px-3 py-2.5 text-left max-sm:px-1.5 transition-colors enabled:hover:bg-surface-2 disabled:opacity-60 aria-pressed:bg-surface-3 aria-pressed:shadow-[inset_0_0_0_1px_var(--border-strong)] ${
+            className={`min-w-0 rounded-md px-3 py-2.5 text-start max-sm:px-1.5 transition-colors enabled:hover:bg-surface-2 disabled:opacity-60 aria-pressed:bg-surface-3 aria-pressed:shadow-[inset_0_0_0_1px_var(--border-strong)] ${
               isToday ? "border border-primary" : ""
             }`}
           >
@@ -507,7 +507,7 @@ function DayStrip({
                 </span>
                 {isToday && (
                   <span
-                    className="ml-1.5 text-[11px] font-medium max-md:hidden"
+                    className="ms-1.5 text-[11px] font-medium max-md:hidden"
                     style={{ color: "var(--primary)" }}
                   >
                     <Trans>Today</Trans>
@@ -627,7 +627,7 @@ function WeeklyTable({
       <div
         className={`sticky top-0 z-10 grid ${WEEKLY_ROW_COLS} gap-x-2 md:gap-x-3 mx-4 md:mx-8 px-2 h-8 items-center border-b border-border-subtle bg-background text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground`}
       >
-        <div className="md:pl-10">
+        <div className="md:ps-10">
           <Trans>title</Trans>
         </div>
         <div className={DESKTOP_COL}>
@@ -644,7 +644,7 @@ function WeeklyTable({
             <Trans>status</Trans>
           </span>
         </div>
-        <div className="text-right">
+        <div className="text-end">
           <span className="sr-only">
             <Trans>actions</Trans>
           </span>

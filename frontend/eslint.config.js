@@ -6,6 +6,34 @@ import prettier from 'eslint-config-prettier'
 import tseslint from 'typescript-eslint'
 import lingui from 'eslint-plugin-lingui'
 
+// Comicarr ships right-to-left languages, so spacing, alignment and placement
+// use logical utilities (ms/me, ps/pe, start/end, text-start, border-s,
+// rounded-s) that follow the reading direction. A physical left/right class
+// stays put and leaves the layout half-mirrored. Centering with left-1/2 or
+// left-[50%] plus a translate is direction-neutral, so it is allowed.
+const PHYSICAL_CLASS =
+  String.raw`/(^|[\s"'\x60:])!?-?((m|p)[lr]|left|right|scroll-[mp][lr])-(?!1.2([\s"'\x60]|$)|\[50%\])(\d|\[|auto|full|px)|(^|[\s"'\x60:])(text-(left|right)|border-[lr]|rounded-[tb]?[lr])(-|[\s"'\x60]|$)/`
+const physicalClassMessage =
+  'Use a logical class (ms/me, ps/pe, start/end, text-start/end, border-s/e, rounded-s/e) so the layout mirrors in right-to-left languages.'
+const PHYSICAL_CLASS_RULES = [
+  { selector: `Literal[value=${PHYSICAL_CLASS}]`, message: physicalClassMessage },
+  { selector: `TemplateElement[value.raw=${PHYSICAL_CLASS}]`, message: physicalClassMessage },
+]
+const LOCALE_RULES = [
+  {
+    selector: "Literal[value='en-US']",
+    message: 'Do not hardcode a locale. Format through @/lib/intl, which follows the active language.',
+  },
+  {
+    selector: "CallExpression[callee.property.name=/^toLocale(Date|Time)?String$/]",
+    message: 'Format dates and numbers through @/lib/intl (formatDate, formatNumber) so they follow the active language.',
+  },
+  {
+    selector: "NewExpression[callee.object.name='Intl']",
+    message: 'Build Intl formatters through @/lib/intl so they use the active language and are cached.',
+  },
+]
+
 export default tseslint.config(
   // The data-table ignore also covered the shared renderer the product tables
   // actually use, so it had never been linted. Now that the unused schema-driven
@@ -44,21 +72,7 @@ export default tseslint.config(
       // Dates and numbers follow the language the app runs in. A hardcoded
       // "en-US" (or the browser default from toLocale*String) ignores it, so
       // every formatter goes through src/lib/intl.ts (docs/architecture/i18n.md).
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: "Literal[value='en-US']",
-          message: 'Do not hardcode a locale. Format through @/lib/intl, which follows the active language.',
-        },
-        {
-          selector: "CallExpression[callee.property.name=/^toLocale(Date|Time)?String$/]",
-          message: 'Format dates and numbers through @/lib/intl (formatDate, formatNumber) so they follow the active language.',
-        },
-        {
-          selector: "NewExpression[callee.object.name='Intl']",
-          message: 'Build Intl formatters through @/lib/intl so they use the active language and are cached.',
-        },
-      ],
+      'no-restricted-syntax': ['error', ...LOCALE_RULES, ...PHYSICAL_CLASS_RULES],
       'no-restricted-imports': [
         'error',
         {
@@ -79,6 +93,14 @@ export default tseslint.config(
     files: ['src/lib/intl.ts', 'src/lib/i18n.ts'],
     rules: {
       'no-restricted-syntax': 'off',
+    },
+  },
+  {
+    // These components take a physical `side` and position by it on purpose;
+    // their callers pick the side from the reading direction.
+    files: ['src/components/ui/sidebar.tsx', 'src/components/ui/sheet.tsx'],
+    rules: {
+      'no-restricted-syntax': ['error', ...LOCALE_RULES],
     },
   },
   {

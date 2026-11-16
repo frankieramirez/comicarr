@@ -119,7 +119,7 @@ export default function ArcGenerator() {
         >
           {generateMutation.isPending ? (
             <>
-              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              <Loader2 className="w-4 h-4 me-1 animate-spin" />
               <Trans>Generating...</Trans>
             </>
           ) : (
@@ -162,12 +162,12 @@ export default function ArcGenerator() {
             >
               {saveMutation.isPending ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  <Loader2 className="w-4 h-4 me-1 animate-spin" />
                   <Trans>Saving...</Trans>
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4 mr-1" />
+                  <Save className="w-4 h-4 me-1" />
                   <Trans>Save Arc</Trans>
                 </>
               )}

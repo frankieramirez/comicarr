@@ -148,7 +148,7 @@ function CauseRow({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2 max-sm:ml-8">
+      <div className="flex shrink-0 items-center gap-2 max-sm:ms-8">
         {cause.fix ? (
           <Link
             to={cause.fix.href}
@@ -236,7 +236,7 @@ function BlockerRow({
           {blocker.detail}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2 max-sm:ml-8">
+      <div className="flex shrink-0 items-center gap-2 max-sm:ms-8">
         <Link
           to={blocker.fix.to}
           className={cn(
@@ -415,7 +415,7 @@ export default function NeedsAttentionBand() {
         {hidden.length > 0 && (
           <Link
             to={TRIAGE_HREF}
-            className="block py-2.5 pl-8 text-[13px] text-foreground-2 hover:text-foreground"
+            className="block py-2.5 ps-8 text-[13px] text-foreground-2 hover:text-foreground"
             data-testid="needs-attention-more"
           >
             {plural(hiddenIssues, {

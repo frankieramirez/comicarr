@@ -8,6 +8,7 @@ import {
   formatNumber,
   formatRelative,
   largestUnit,
+  localeDirection,
 } from "@/lib/intl";
 
 function withLocale(locale: string) {
@@ -83,5 +84,19 @@ describe("formatLocale", () => {
     withLocale("en");
     expect(formatLocale()).toBe("en");
     spy.mockRestore();
+  });
+});
+
+describe("localeDirection", () => {
+  it("is rtl for right-to-left languages, with or without a region", () => {
+    for (const tag of ["ar", "ar-EG", "he", "fa-IR", "ur"]) {
+      expect(localeDirection(tag)).toBe("rtl");
+    }
+  });
+
+  it("is ltr for everything else", () => {
+    for (const tag of ["en", "es", "pt-BR", "zh-Hans", "de"]) {
+      expect(localeDirection(tag)).toBe("ltr");
+    }
   });
 });

@@ -35,7 +35,7 @@ export function SaveButton({
       <span className="text-[13px] font-medium text-foreground">
         <Trans>Unsaved changes</Trans>
       </span>
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ms-auto flex items-center gap-2">
         <Button variant="ghost" onClick={onCancel} disabled={isSaving}>
           <Trans>Cancel</Trans>
         </Button>

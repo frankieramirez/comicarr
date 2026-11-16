@@ -2327,7 +2327,7 @@ msgstr "清除范围"
 
 #: src/components/import/ImportBulkActions.tsx
 msgid "Clear selected imports"
-msgstr "清除所选导入"
+msgstr "清除导入选择"
 
 #: src/pages/AttentionPage.tsx
 msgid "clear selection"

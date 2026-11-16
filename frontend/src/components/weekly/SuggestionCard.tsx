@@ -36,7 +36,7 @@ export function SuggestionCard({ suggestion, onAdd }: SuggestionCardProps) {
           onAdd(suggestion.comic_name, suggestion.resolved_comic_id)
         }
       >
-        <Plus className="w-3.5 h-3.5 mr-1" />
+        <Plus className="w-3.5 h-3.5 me-1" />
         <Trans>Add</Trans>
       </Button>
     </div>

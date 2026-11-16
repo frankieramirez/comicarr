@@ -302,7 +302,7 @@ export default function IssueDetailPage() {
               {number ? `#${number}` : title}
             </span>
             <span
-              className="mono-meta ml-auto hidden shrink-0 sm:inline"
+              className="mono-meta ms-auto hidden shrink-0 sm:inline"
               data-testid="issue-detail-ids"
             >
               <Trans>
@@ -398,7 +398,7 @@ export default function IssueDetailPage() {
 
           <aside
             aria-label={t`Details`}
-            className="min-w-0 lg:border-l lg:border-border-subtle lg:pl-8"
+            className="min-w-0 lg:border-s lg:border-border-subtle lg:ps-8"
           >
             <SectionHeader title={t`Details`} />
             <dl>
@@ -411,8 +411,8 @@ export default function IssueDetailPage() {
                   <dd
                     className={
                       row.mono
-                        ? "text-right font-mono text-xs leading-5"
-                        : "text-right"
+                        ? "text-end font-mono text-xs leading-5"
+                        : "text-end"
                     }
                   >
                     {row.value}
@@ -425,7 +425,7 @@ export default function IssueDetailPage() {
                     <Trans>Attempts</Trans>
                   </dt>
                   <dd
-                    className="text-right font-mono text-xs leading-5"
+                    className="text-end font-mono text-xs leading-5"
                     data-testid="issue-attempts"
                   >
                     {attemptsLine(story.data.attempts)}
@@ -439,8 +439,8 @@ export default function IssueDetailPage() {
                 <dd
                   className={
                     location
-                      ? "min-w-0 break-all text-right font-mono text-xs leading-5"
-                      : "text-right text-muted-foreground"
+                      ? "min-w-0 break-all text-end font-mono text-xs leading-5"
+                      : "text-end text-muted-foreground"
                   }
                 >
                   {location ? location : "none"}

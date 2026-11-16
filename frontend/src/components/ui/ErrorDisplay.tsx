@@ -60,7 +60,7 @@ export default function ErrorDisplay({
           className="flex items-center"
         >
           <RefreshCw
-            className={`w-4 h-4 mr-2 ${isRetrying ? "animate-spin" : ""}`}
+            className={`w-4 h-4 me-2 ${isRetrying ? "animate-spin" : ""}`}
           />
           {isRetrying ? t`Retrying...` : t`Try Again`}
         </Button>

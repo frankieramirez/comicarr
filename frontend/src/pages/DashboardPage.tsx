@@ -179,7 +179,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Right rail: is it working, what is coming, what just happened. */}
-          <aside className="flex flex-col gap-7 border-border-subtle px-8 pb-8 pt-2 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:border-l">
+          <aside className="flex flex-col gap-7 border-border-subtle px-8 pb-8 pt-2 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:border-s">
             <InFlightLine />
             {/* On one column, health follows Needs you directly. */}
             <div className="max-lg:-order-1">

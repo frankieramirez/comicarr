@@ -92,7 +92,7 @@ export default function ImportFileRow({
 
   return (
     <div className="grid grid-cols-1 gap-2 border-t border-border bg-muted/20 px-4 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_minmax(8rem,10rem)_minmax(5rem,7rem)] sm:items-center md:px-6">
-      <div className="flex min-w-0 items-center gap-2 md:pl-8">
+      <div className="flex min-w-0 items-center gap-2 md:ps-8">
         <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         <span
           className="font-mono text-xs truncate min-w-0"
@@ -146,12 +146,12 @@ export default function ImportFileRow({
         />
       </label>
 
-      <div className="min-h-5 text-xs sm:text-right">
+      <div className="min-h-5 text-xs sm:text-end">
         <FileSaveState state={saveState} />
       </div>
 
       {hasMatchMetadata && (
-        <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground sm:col-span-3 md:pl-8">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground sm:col-span-3 md:ps-8">
           {file.SuggestedComicName && (
             <span className="truncate">
               {t`Suggested: ${ph({ series: file.SuggestedComicName })}`}
@@ -169,7 +169,7 @@ export default function ImportFileRow({
       )}
 
       {file.IgnoreFile === 1 && (
-        <span className="text-xs bg-surface-3 text-muted-foreground px-2 py-0.5 rounded sm:col-span-3 md:ml-8 w-fit">
+        <span className="text-xs bg-surface-3 text-muted-foreground px-2 py-0.5 rounded sm:col-span-3 md:ms-8 w-fit">
           <Trans>Ignored</Trans>
         </span>
       )}

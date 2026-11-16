@@ -39,17 +39,17 @@ export default function ArcIssueRow({ issue }: ArcIssueRowProps) {
 
   return (
     <div className="flex items-center gap-3 px-3 py-2 text-sm">
-      <span className="w-6 text-right text-muted-foreground font-mono text-xs shrink-0">
+      <span className="w-6 text-end text-muted-foreground font-mono text-xs shrink-0">
         {issue.reading_order}
       </span>
 
       <div className="flex-1 min-w-0">
         <span className="font-medium text-foreground">{issue.series_name}</span>
-        <span className="text-muted-foreground ml-1">
+        <span className="text-muted-foreground ms-1">
           #{issue.issue_number}
         </span>
         {issue.title && (
-          <span className="text-muted-foreground ml-1.5 truncate">
+          <span className="text-muted-foreground ms-1.5 truncate">
             — {issue.title}
           </span>
         )}

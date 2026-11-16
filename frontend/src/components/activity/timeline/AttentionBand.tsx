@@ -38,7 +38,7 @@ function GroupCard({ group, href }: { group: AttentionGroup; href: string }) {
   return (
     <Link
       to={`${href}${href.includes("?") ? "&" : "?"}group=${encodeURIComponent(group.group_key)}`}
-      className="flex w-[200px] shrink-0 flex-col rounded-lg border border-border-subtle bg-surface-1 p-3 text-left hover:border-border-emphasis"
+      className="flex w-[200px] shrink-0 flex-col rounded-lg border border-border-subtle bg-surface-1 p-3 text-start hover:border-border-emphasis"
       style={{ height: CARD_HEIGHT }}
     >
       <div className="flex items-center gap-1.5">
@@ -52,7 +52,7 @@ function GroupCard({ group, href }: { group: AttentionGroup; href: string }) {
         >
           {stageLabel(group.stage)}
         </span>
-        <span className="mono-meta ml-auto tabular-nums">
+        <span className="mono-meta ms-auto tabular-nums">
           ×{group.member_count}
         </span>
       </div>
@@ -117,7 +117,7 @@ export function AttentionBand({
         {newest && <RelativeTime value={newest} />}
         <Link
           to={href}
-          className="ml-auto text-[13px] text-foreground-2 hover:text-foreground"
+          className="ms-auto text-[13px] text-foreground-2 hover:text-foreground"
         >
           <Trans>See all {total} →</Trans>
         </Link>

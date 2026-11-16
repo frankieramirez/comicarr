@@ -115,14 +115,14 @@ function SeriesIssues({ series }: { series: WantedSeries }) {
 
   if (issues.isPending) {
     return (
-      <div className="py-2 pl-12">
+      <div className="py-2 ps-12">
         <Skeleton className="h-8" />
       </div>
     );
   }
   if (issues.isError) {
     return (
-      <p className="py-2 pl-12 text-[13px] text-foreground-2">
+      <p className="py-2 ps-12 text-[13px] text-foreground-2">
         <Trans>Couldn&apos;t load these issues.</Trans>
       </p>
     );
@@ -134,10 +134,10 @@ function SeriesIssues({ series }: { series: WantedSeries }) {
       {rows.map((issue) => (
         <li
           key={issue.IssueID}
-          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border-subtle bg-surface-1 py-2 pr-2 pl-12 text-[13px] md:grid-cols-[minmax(0,1fr)_120px_160px_auto]"
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border-subtle bg-surface-1 py-2 pe-2 ps-12 text-[13px] md:grid-cols-[minmax(0,1fr)_120px_160px_auto]"
         >
           <span className="min-w-0 truncate">
-            <span className="mr-2 font-mono text-xs text-muted-foreground">
+            <span className="me-2 font-mono text-xs text-muted-foreground">
               #{issue.Issue_Number}
             </span>
             {issue.IssueName || `${issue.ComicName} #${issue.Issue_Number}`}
@@ -206,7 +206,7 @@ function SeriesRow({
   const [open, setOpen] = useState(false);
   return (
     <li data-testid="wanted-series-row">
-      <div className="grid grid-cols-[20px_32px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 border-b border-border-subtle py-2 pr-2 md:py-1.5 md:grid-cols-[20px_24px_minmax(0,1fr)_70px_200px_150px_110px]">
+      <div className="grid grid-cols-[20px_32px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 border-b border-border-subtle py-2 pe-2 md:py-1.5 md:grid-cols-[20px_24px_minmax(0,1fr)_70px_200px_150px_110px]">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -219,7 +219,10 @@ function SeriesRow({
           className="flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronRight
-            className={cn("size-4 transition-transform", open && "rotate-90")}
+            className={cn(
+              "size-4 transition-transform",
+              open && "rotate-90 rtl:-rotate-90",
+            )}
           />
         </button>
         <div className="row-span-3 [&>div]:h-11 [&>div]:w-8 [&>div]:rounded-[3px] md:row-span-1 md:[&>div]:h-8 md:[&>div]:w-[22px]">
@@ -239,7 +242,7 @@ function SeriesRow({
             {series.kind === "manga" ? t`Manga` : t`Comic`}
           </span>
         </div>
-        <span className="text-right font-mono text-sm text-foreground">
+        <span className="text-end font-mono text-sm text-foreground">
           {formatNumber(series.missing)}
         </span>
         {/* Phones put which and why on their own lines under the name. */}
@@ -345,7 +348,7 @@ export default function WantedBySeries({
             </button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-2 max-md:hidden">
+        <div className="ms-auto flex items-center gap-2 max-md:hidden">
           <FilterSelect
             label={t`Kind`}
             value={kind}
@@ -366,7 +369,7 @@ export default function WantedBySeries({
           <span className="col-span-3">
             <Trans>Series</Trans>
           </span>
-          <span className="text-right">
+          <span className="text-end">
             <Trans>Missing</Trans>
           </span>
           <span>

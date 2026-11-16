@@ -177,7 +177,7 @@ function ArchiveRow({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-secondary/50"
+        className="flex w-full items-center gap-2 px-4 py-2 text-start hover:bg-secondary/50"
       >
         {open ? (
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -190,7 +190,7 @@ function ArchiveRow({
         {unread && (
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary" />
         )}
-        <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+        <span className="ms-auto font-mono text-[10px] text-muted-foreground">
           {plural(section.bullets.length, {
             one: "# change",
             other: "# changes",
@@ -198,7 +198,7 @@ function ArchiveRow({
         </span>
       </button>
       {open && (
-        <div className="px-4 pb-4 pl-9">
+        <div className="px-4 pb-4 ps-9">
           <VersionSection section={section} density="compact" hideHeading />
         </div>
       )}

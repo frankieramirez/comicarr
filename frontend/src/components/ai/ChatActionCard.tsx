@@ -32,7 +32,7 @@ function CandidateRow({
       aria-pressed={selected}
       disabled={disabled}
       onClick={onSelect}
-      className="relative w-full rounded-md border p-2.5 text-left transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+      className="relative w-full rounded-md border p-2.5 text-start transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
       style={{
         borderColor: selected ? "var(--primary)" : "var(--border)",
       }}
