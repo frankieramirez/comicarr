@@ -136,7 +136,7 @@ export function useImportColumns() {
               <span className="truncate text-sm text-foreground-2">
                 {name}
                 {year && (
-                  <span className="ml-1.5 font-mono text-xs text-muted-foreground">
+                  <span className="ms-1.5 font-mono text-xs text-muted-foreground">
                     {year}
                   </span>
                 )}

@@ -62,7 +62,7 @@ export function DataTable<TData extends RowData>({
                           : "none"
                       : undefined
                   }
-                  className="sticky top-0 z-10 h-8 bg-background px-3 py-0 first:pl-2 last:pr-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground"
+                  className="sticky top-0 z-10 h-8 bg-background px-3 py-0 first:ps-2 last:pe-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground"
                   style={
                     header.column.getSize() !== 150
                       ? { width: header.column.getSize() }
@@ -116,7 +116,7 @@ export function DataTable<TData extends RowData>({
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
-                        className="px-3 py-1.5 first:pl-2 last:pr-2"
+                        className="px-3 py-1.5 first:ps-2 last:pe-2"
                       >
                         {flexRender(
                           cell.column.columnDef.cell,

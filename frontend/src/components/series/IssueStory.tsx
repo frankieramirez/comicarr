@@ -267,7 +267,7 @@ export default function IssueStory({
       {cause && (
         <div
           data-testid="issue-likely-cause"
-          className="mt-5 rounded-lg border border-border-strong bg-surface-1 p-4 sm:ml-7"
+          className="mt-5 rounded-lg border border-border-strong bg-surface-1 p-4 sm:ms-7"
         >
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <span

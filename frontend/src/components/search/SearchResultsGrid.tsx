@@ -79,7 +79,7 @@ function SearchResultCard({
 
         {sourceLabel && (
           <span
-            className="absolute top-2 left-2 font-mono text-[9px] tracking-[0.05em] uppercase px-1.5 py-0.5 rounded-[3px] border"
+            className="absolute top-2 start-2 font-mono text-[9px] tracking-[0.05em] uppercase px-1.5 py-0.5 rounded-[3px] border"
             style={{
               borderColor: "var(--border)",
               background: "var(--background)",
@@ -95,7 +95,7 @@ function SearchResultCard({
             href={comic.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="absolute top-2 right-2 p-1 rounded-[3px] border text-muted-foreground hover:text-foreground"
+            className="absolute top-2 end-2 p-1 rounded-[3px] border text-muted-foreground hover:text-foreground"
             style={{
               borderColor: "var(--border)",
               background: "var(--background)",

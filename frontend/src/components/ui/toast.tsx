@@ -44,7 +44,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
   return (
     <ToastContext.Provider value={{ addToast, removeToast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-md">
+      <div className="fixed bottom-4 end-4 z-50 flex flex-col gap-2 max-w-md">
         {/* Persistent polite live region without role="status": page
             summaries (ImportPage, RouteLoader, etc.) already own that role. */}
         <div

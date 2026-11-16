@@ -34,7 +34,7 @@ export default function ConfidenceBadge({
         className="relative h-1 w-10 overflow-hidden rounded-full bg-surface-3"
       >
         <span
-          className="absolute inset-y-0 left-0 rounded-full"
+          className="absolute inset-y-0 start-0 rounded-full"
           style={{ width: `${pct}%`, background: tone }}
         />
       </span>

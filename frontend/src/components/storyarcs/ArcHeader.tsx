@@ -128,7 +128,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
           <span className="text-muted-foreground">/</span>
           <span className="truncate text-foreground">{arc.StoryArc}</span>
           {arc.CV_ArcID && (
-            <span className="mono-meta ml-auto hidden shrink-0 sm:inline">
+            <span className="mono-meta ms-auto hidden shrink-0 sm:inline">
               cv:{arc.CV_ArcID}
             </span>
           )}

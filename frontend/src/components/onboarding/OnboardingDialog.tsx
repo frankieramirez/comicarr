@@ -167,7 +167,7 @@ export default function OnboardingDialog({
             <span className="font-mono text-[10px] text-muted-foreground px-1.5 py-0.5 border border-border rounded-sm">
               <Trans>onboarding</Trans>
             </span>
-            <div className="ml-auto flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
+            <div className="ms-auto flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
               <StepDots step={visibleStep} />
             </div>
           </div>
@@ -289,7 +289,7 @@ function ChoiceCard({
     <button
       type="button"
       onClick={onClick}
-      className="group text-left p-3.5 rounded-lg border bg-background hover:border-[var(--primary)] transition-colors"
+      className="group text-start p-3.5 rounded-lg border bg-background hover:border-[var(--primary)] transition-colors"
       style={{ borderColor: "var(--border)" }}
     >
       <div className="flex items-center gap-2 mb-2">
@@ -598,7 +598,7 @@ function RunningStep({
         />
       </div>
 
-      <div className="font-mono text-[10px] text-muted-foreground text-right">
+      <div className="font-mono text-[10px] text-muted-foreground text-end">
         {pct}%
       </div>
     </div>

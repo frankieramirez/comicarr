@@ -411,7 +411,7 @@ export default function SeriesTable({
             disabled={bulkDeleteMutation.isPending}
             className="h-7 text-xs"
           >
-            <Trash2 className="w-3 h-3 mr-1" />
+            <Trash2 className="w-3 h-3 me-1" />
             {confirmDelete ? t`Confirm Delete` : t`Delete`}
           </Button>
           <Button
@@ -421,7 +421,7 @@ export default function SeriesTable({
             disabled={bulkPauseMutation.isPending}
             className="h-7 text-xs"
           >
-            <Pause className="w-3 h-3 mr-1" />
+            <Pause className="w-3 h-3 me-1" />
             <Trans>Pause</Trans>
           </Button>
           <Button
@@ -431,7 +431,7 @@ export default function SeriesTable({
             disabled={bulkResumeMutation.isPending}
             className="h-7 text-xs"
           >
-            <Play className="w-3 h-3 mr-1" />
+            <Play className="w-3 h-3 me-1" />
             <Trans>Resume</Trans>
           </Button>
           <Button
@@ -441,9 +441,9 @@ export default function SeriesTable({
               clearSelection();
               setConfirmDeleteFor(null);
             }}
-            className="h-7 text-xs ml-auto"
+            className="h-7 text-xs ms-auto"
           >
-            <X className="w-3 h-3 mr-1" />
+            <X className="w-3 h-3 me-1" />
             <Trans>Clear</Trans>
           </Button>
         </div>
@@ -499,7 +499,7 @@ export default function SeriesTable({
               <span className={DESKTOP_COL}>
                 <Trans>progress</Trans>
               </span>
-              <span className={`${DESKTOP_COL} text-right`}>
+              <span className={`${DESKTOP_COL} text-end`}>
                 <SortHeader
                   label={t`year`}
                   active={sorting[0]?.id === "ComicYear"}
@@ -706,12 +706,12 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
             }}
           />
         </div>
-        <span className="mono-meta w-9 text-right tabular-nums">
+        <span className="mono-meta w-9 text-end tabular-nums">
           {total > 0 ? `${progress}%` : "–"}
         </span>
       </div>
 
-      <div className={`mono-meta ${DESKTOP_COL} text-right`}>
+      <div className={`mono-meta ${DESKTOP_COL} text-end`}>
         {comic.ComicYear || "—"}
       </div>
     </div>

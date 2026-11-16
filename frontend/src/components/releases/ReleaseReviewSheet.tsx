@@ -439,7 +439,7 @@ export function ReleaseReviewSheet({
         }
       >
         <SheetContent className="flex h-full w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
-          <SheetHeader className="shrink-0 border-b border-border p-5 pr-12 text-left">
+          <SheetHeader className="shrink-0 border-b border-border p-5 pe-12 text-start">
             <SheetTitle>
               <Trans>Review releases</Trans>
             </SheetTitle>
@@ -577,7 +577,7 @@ export function ReleaseReviewSheet({
                       key={candidate.candidate_id}
                       type="button"
                       onClick={() => setSelectedId(candidate.candidate_id)}
-                      className="relative w-full overflow-hidden rounded-md border p-3 pl-5 text-left transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="relative w-full overflow-hidden rounded-md border p-3 ps-5 text-start transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       style={{
                         borderColor: isSelected
                           ? "var(--primary)"
@@ -586,7 +586,7 @@ export function ReleaseReviewSheet({
                       aria-pressed={isSelected}
                     >
                       <span
-                        className="absolute inset-y-0 left-0 w-1"
+                        className="absolute inset-y-0 start-0 w-1"
                         style={{ background: verdictColor(candidate) }}
                       />
                       <span className="flex items-start gap-3">

@@ -488,7 +488,7 @@ export default function ImportPage() {
                 >
                   {label}
                   {buckets && (
-                    <span className="ml-1.5 mono-meta">
+                    <span className="ms-1.5 mono-meta">
                       {formatNumber(buckets[value])}
                     </span>
                   )}
@@ -498,7 +498,7 @@ export default function ImportPage() {
             <div className="relative w-full max-w-60 max-sm:max-w-none">
               <Search
                 aria-hidden="true"
-                className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                className="pointer-events-none absolute start-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
               />
               <Input
                 type="search"
@@ -511,7 +511,7 @@ export default function ImportPage() {
                   resetPage();
                   clearSelection();
                 }}
-                className="h-8 pl-8 text-sm"
+                className="h-8 ps-8 text-sm"
               />
             </div>
             <p className="sr-only" aria-live="polite">

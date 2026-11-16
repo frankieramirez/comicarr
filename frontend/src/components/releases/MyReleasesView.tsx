@@ -300,7 +300,7 @@ export default function MyReleasesView({
           widthCap="sm"
         />
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ms-auto flex items-center gap-2">
           <Button
             type="button"
             variant="ghost"
@@ -440,7 +440,7 @@ export default function MyReleasesView({
                         {dayCounts.get(day)}
                       </span>
                       {day && isNewComicDay(day) && (
-                        <span className="ml-auto text-xs text-muted-foreground">
+                        <span className="ms-auto text-xs text-muted-foreground">
                           <Trans>New comic day</Trans>
                         </span>
                       )}

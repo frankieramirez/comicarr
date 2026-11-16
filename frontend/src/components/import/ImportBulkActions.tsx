@@ -61,7 +61,7 @@ export default function ImportBulkActions({
                     onClick={onUnignore}
                     disabled={isLoading}
                   >
-                    <Eye className="w-4 h-4 mr-1" />
+                    <Eye className="w-4 h-4 me-1" />
                     <Trans>Unignore</Trans>
                   </Button>
                 </TooltipTrigger>
@@ -78,7 +78,7 @@ export default function ImportBulkActions({
                     onClick={onIgnore}
                     disabled={isLoading}
                   >
-                    <EyeOff className="w-4 h-4 mr-1" />
+                    <EyeOff className="w-4 h-4 me-1" />
                     <Trans>Ignore</Trans>
                   </Button>
                 </TooltipTrigger>
@@ -96,7 +96,7 @@ export default function ImportBulkActions({
                   onClick={onDelete}
                   disabled={isLoading}
                 >
-                  <Trash2 className="w-4 h-4 mr-1" />
+                  <Trash2 className="w-4 h-4 me-1" />
                   <Trans>Delete</Trans>
                 </Button>
               </TooltipTrigger>

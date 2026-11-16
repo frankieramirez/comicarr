@@ -28,7 +28,7 @@ const CAP_CLASS: Record<NonNullable<FilterFieldProps["widthCap"]>, string> = {
 /**
  * Canonical Direction B filter/search input.
  *
- * 28px tall, 12px text, left-aligned 14px search icon, optional `/` kbd
+ * 28px tall, 12px text, start-aligned 14px search icon, optional `/` kbd
  * hint on the right. Used across Library filter, Wanted filter, Story
  * Arcs search, etc. so every surface feels the same.
  */

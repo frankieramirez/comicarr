@@ -64,7 +64,7 @@ function Source({
 }) {
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-3 ${divided ? "border-border-subtle max-md:border-t md:border-l" : ""}`}
+      className={`flex items-center gap-3 px-4 py-3 ${divided ? "border-border-subtle max-md:border-t md:border-s" : ""}`}
     >
       <span className="text-muted-foreground">{icon}</span>
       <div className="min-w-0 flex-1">

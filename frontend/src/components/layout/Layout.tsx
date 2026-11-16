@@ -80,7 +80,7 @@ function LazyDrawerPlaceholder({
   error: Error | null;
   onDismiss: () => void;
 }) {
-  const card = `fixed right-4 top-4 z-[100] rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg`;
+  const card = `fixed end-4 top-4 z-[100] rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg`;
   if (error) {
     return (
       <div className={card}>
@@ -145,7 +145,7 @@ export default function Layout({ children }: LayoutProps) {
         <div className="hidden md:flex h-10 shrink-0 items-center gap-3 border-b border-border-subtle bg-background px-4 mono-meta">
           <SidebarTrigger />
           <AppStatusBar />
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ms-auto flex items-center gap-3">
             {mock && (
               <span
                 className="px-1.5 py-0.5 rounded-sm border font-mono text-[10px] tracking-wider uppercase"

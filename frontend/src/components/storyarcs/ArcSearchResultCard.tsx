@@ -87,7 +87,7 @@ export default function ArcSearchResultCard({
         <div className="mt-3">
           {added ? (
             <Button variant="outline" size="sm" className="w-full" disabled>
-              <Check className="w-4 h-4 mr-1" />
+              <Check className="w-4 h-4 me-1" />
               <Trans>Added</Trans>
             </Button>
           ) : (
@@ -99,9 +99,9 @@ export default function ArcSearchResultCard({
               disabled={addMutation.isPending}
             >
               {addMutation.isPending ? (
-                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                <Loader2 className="w-4 h-4 me-1 animate-spin" />
               ) : (
-                <Plus className="w-4 h-4 mr-1" />
+                <Plus className="w-4 h-4 me-1" />
               )}
               <Trans>Add Arc</Trans>
             </Button>

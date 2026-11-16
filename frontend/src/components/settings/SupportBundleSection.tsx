@@ -209,7 +209,7 @@ export function SupportBundleSection() {
           ].map(([label, copy]) => (
             <li
               key={label}
-              className="sm:px-3 first:sm:pl-0 last:sm:pr-0 list-none"
+              className="sm:px-3 first:sm:ps-0 last:sm:pe-0 list-none"
             >
               <div className="mono-meta uppercase tracking-[0.05em]">
                 {label}

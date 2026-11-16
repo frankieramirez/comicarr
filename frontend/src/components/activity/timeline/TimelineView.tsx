@@ -143,9 +143,9 @@ function DetailLine({ story }: { story: Story }) {
   return (
     <div className="truncate text-[12px] text-foreground-2">
       {line.phrase}
-      {line.rawCode && <span className="mono-meta ml-2">{line.rawCode}</span>}
-      {line.detail && <span className="mono-meta ml-2">{line.detail}</span>}
-      {actor && <span className="mono-meta ml-2">{actor}</span>}
+      {line.rawCode && <span className="mono-meta ms-2">{line.rawCode}</span>}
+      {line.detail && <span className="mono-meta ms-2">{line.detail}</span>}
+      {actor && <span className="mono-meta ms-2">{actor}</span>}
     </div>
   );
 }
@@ -287,7 +287,7 @@ export function TimelineView({
               Scoped to {scope_type}:{scope_id}
             </Trans>
           </span>
-          <Link to="/activity" className="ml-auto hover:text-foreground">
+          <Link to="/activity" className="ms-auto hover:text-foreground">
             <Trans>clear scope</Trans>
           </Link>
         </div>
@@ -378,13 +378,13 @@ export function TimelineView({
                   <div className="min-w-0 text-[13px] leading-snug">
                     <Headline story={story} />
                     {runProgress(story) && (
-                      <span className="ml-2 mono-meta">
+                      <span className="ms-2 mono-meta">
                         {runProgress(story)}
                       </span>
                     )}
                     {multi && (
                       <span
-                        className="mono-meta ml-2"
+                        className="mono-meta ms-2"
                         title={plural(story.events.length, {
                           one: "# event in this story",
                           other: "# events in this story",
@@ -403,7 +403,7 @@ export function TimelineView({
                   <DetailLine story={story} />
                 </div>
 
-                <span className="text-right">
+                <span className="text-end">
                   <RelativeTime value={story.opened_at} compact />
                 </span>
               </div>
@@ -444,7 +444,7 @@ export function TimelineView({
                 ? t`${ph({ first: start + 1 })}–${ph({ last: Math.min(start + STORY_PAGE_SIZE, filtered.length) })} of ${ph({ total: filtered.length })}+ stories`
                 : t`${ph({ first: start + 1 })}–${ph({ last: Math.min(start + STORY_PAGE_SIZE, filtered.length) })} of ${ph({ total: filtered.length })} stories`}
           </span>
-          <div className="ml-auto flex gap-1.5">
+          <div className="ms-auto flex gap-1.5">
             <button
               type="button"
               disabled={page === 0}

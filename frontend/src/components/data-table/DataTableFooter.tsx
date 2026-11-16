@@ -58,7 +58,7 @@ export function DataTableFooter({
       {pageCount > 1 && (
         <nav
           aria-label={t`Pagination`}
-          className="ml-auto flex items-center gap-2"
+          className="ms-auto flex items-center gap-2"
         >
           <button
             type="button"

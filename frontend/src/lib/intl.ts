@@ -31,6 +31,33 @@ export function formatLocale(): string {
   return regional || ui;
 }
 
+/**
+ * Base languages written right to left. Kept as a list rather than asking
+ * `Intl.Locale#getTextInfo()`, which Firefox does not implement.
+ */
+const RTL_LANGUAGES = new Set([
+  "ar",
+  "arc",
+  "ckb",
+  "dv",
+  "fa",
+  "he",
+  "ks",
+  "ku",
+  "ps",
+  "sd",
+  "syr",
+  "ug",
+  "ur",
+  "yi",
+]);
+
+/** Writing direction for a BCP 47 tag, for `<html dir>` and Base UI. */
+export function localeDirection(locale: string): "ltr" | "rtl" {
+  const base = locale.split("-")[0].toLowerCase();
+  return RTL_LANGUAGES.has(base) ? "rtl" : "ltr";
+}
+
 const cache = new Map<string, unknown>();
 
 function cached<T>(kind: string, options: object, build: () => T): T {

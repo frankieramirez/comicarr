@@ -180,7 +180,7 @@ export function ChatComposer({
               size="icon-sm"
               variant="destructive"
               aria-label={t`Stop response`}
-              className="ml-auto"
+              className="ms-auto"
               onClick={onStop}
             >
               <Square />
@@ -191,7 +191,7 @@ export function ChatComposer({
               size="icon-sm"
               variant="default"
               aria-label={t`Send message`}
-              className="ml-auto"
+              className="ms-auto"
               disabled={!value.trim() && images.length === 0}
             >
               <ArrowUp />

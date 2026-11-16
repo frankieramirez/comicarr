@@ -90,7 +90,7 @@ export default function WhatsNewModal() {
       }}
     >
       <DialogContent className="max-w-2xl p-0 overflow-hidden gap-0">
-        <DialogHeader className="border-b border-border bg-primary/10 px-6 py-4 text-left">
+        <DialogHeader className="border-b border-border bg-primary/10 px-6 py-4 text-start">
           <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-primary">
             <Sparkles className="h-3.5 w-3.5" />
             <Trans>Comicarr updated</Trans>

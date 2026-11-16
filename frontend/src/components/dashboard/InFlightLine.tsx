@@ -134,7 +134,7 @@ export default function InFlightLine() {
         ))}
       </ul>
       {view.recovered > 0 && (
-        <p className="pl-3.5 text-xs text-muted-foreground">
+        <p className="ps-3.5 text-xs text-muted-foreground">
           {plural(view.recovered, {
             one: "# recovered from a restart",
             other: "# recovered from a restart",

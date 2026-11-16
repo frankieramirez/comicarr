@@ -11,6 +11,7 @@
  */
 import { i18n, type Messages } from "@lingui/core";
 import { messages as englishMessages } from "@/locales/en/messages.po";
+import { localeDirection } from "@/lib/intl";
 
 export const SOURCE_LOCALE = "en";
 const STORAGE_KEY = "comicarr.locale";
@@ -121,6 +122,7 @@ export async function activateLocale(locale: string): Promise<void> {
   i18n.loadAndActivate({ locale: target, messages });
   if (typeof document !== "undefined") {
     document.documentElement.lang = target;
+    document.documentElement.dir = localeDirection(target);
   }
 }
 
@@ -138,6 +140,7 @@ export function initI18n(): Promise<void> {
   i18n.loadAndActivate({ locale: SOURCE_LOCALE, messages: englishMessages });
   if (typeof document !== "undefined") {
     document.documentElement.lang = SOURCE_LOCALE;
+    document.documentElement.dir = localeDirection(SOURCE_LOCALE);
   }
   const detected = detectLocale();
   return detected === SOURCE_LOCALE

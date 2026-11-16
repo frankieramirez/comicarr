@@ -115,7 +115,7 @@ export default function MangaAddDialog({
                   role="radio"
                   aria-checked={selected}
                   onClick={() => setPicked(match.id)}
-                  className={`flex w-full items-center gap-3 rounded-md border p-2 text-left text-[13px] transition-colors ${
+                  className={`flex w-full items-center gap-3 rounded-md border p-2 text-start text-[13px] transition-colors ${
                     selected
                       ? "border-primary bg-surface-2"
                       : "border-border-subtle hover:bg-surface-1"

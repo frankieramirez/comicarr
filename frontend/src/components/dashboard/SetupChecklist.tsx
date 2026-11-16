@@ -95,7 +95,7 @@ export default function SetupChecklist({ steps }: { steps: SetupStep[] }) {
                       variant: step.key === next ? "default" : "outline",
                       size: "toolbar",
                     }),
-                    "max-sm:ml-8",
+                    "max-sm:ms-8",
                   )}
                 >
                   {step.fix.label}

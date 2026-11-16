@@ -157,12 +157,12 @@ export function ProwlarrSettings({
         >
           {isTesting ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="h-4 w-4 me-2 animate-spin" />
               <Trans>Testing...</Trans>
             </>
           ) : (
             <>
-              <Zap className="h-4 w-4 mr-2" />
+              <Zap className="h-4 w-4 me-2" />
               <Trans>Test Connection</Trans>
             </>
           )}

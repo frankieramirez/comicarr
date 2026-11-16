@@ -38,7 +38,7 @@ export default function PageHeader({
         )}
       </div>
       {actions != null && (
-        <div className="ml-auto flex items-center gap-2">{actions}</div>
+        <div className="ms-auto flex items-center gap-2">{actions}</div>
       )}
     </div>
   );
@@ -97,7 +97,7 @@ export function Tab({ active, label, onClick, meta }: TabProps) {
         <span className="font-mono text-xs text-muted-foreground">{meta}</span>
       )}
       <span
-        className={`absolute left-0 right-0 bottom-0 h-0.5 ${
+        className={`absolute start-0 end-0 bottom-0 h-0.5 ${
           active ? "bg-primary" : "bg-transparent"
         }`}
       />

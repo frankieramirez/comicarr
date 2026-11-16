@@ -271,7 +271,7 @@ export default function WantedPage() {
         <div
           role="group"
           aria-label={t`Group Wanted`}
-          className={`${SEGMENTED_GROUP} ml-auto max-md:hidden`}
+          className={`${SEGMENTED_GROUP} ms-auto max-md:hidden`}
         >
           <button
             type="button"

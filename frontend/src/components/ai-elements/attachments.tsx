@@ -149,7 +149,7 @@ export const Attachments = ({
         className={cn(
           "flex items-start",
           variant === "list" ? "flex-col gap-2" : "flex-wrap gap-2",
-          variant === "grid" && "ml-auto w-fit",
+          variant === "grid" && "ms-auto w-fit",
           className,
         )}
         {...props}
@@ -309,7 +309,7 @@ export const AttachmentRemove = ({
       aria-label={label}
       className={cn(
         variant === "grid" && [
-          "absolute top-2 right-2 size-6 rounded-full p-0",
+          "absolute top-2 end-2 size-6 rounded-full p-0",
           "bg-background/80 backdrop-blur-sm",
           "opacity-0 transition-opacity group-hover:opacity-100",
           "hover:bg-background",

@@ -66,7 +66,7 @@ export function BulletBody({ text }: { text: string }) {
         block.kind === "ul" ? (
           <ul
             key={i}
-            className={cn("list-disc space-y-1 pl-4", i > 0 && "mt-1.5")}
+            className={cn("list-disc space-y-1 ps-4", i > 0 && "mt-1.5")}
           >
             {block.lines.map((line, j) => (
               <li key={j}>

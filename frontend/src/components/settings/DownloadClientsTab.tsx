@@ -113,7 +113,9 @@ function Switch({
         aria-hidden="true"
         className={cn(
           "inline-block size-3.5 rounded-full bg-background transition-transform",
-          checked ? "translate-x-[1.125rem]" : "translate-x-[0.1875rem]",
+          checked
+            ? "translate-x-[1.125rem] rtl:-translate-x-[1.125rem]"
+            : "translate-x-[0.1875rem] rtl:-translate-x-[0.1875rem]",
         )}
       />
     </button>
@@ -590,7 +592,7 @@ function ClientRow({
           aria-expanded={open}
           aria-controls={bodyId}
           onClick={onToggleOpen}
-          className="min-w-0 flex-1 text-left focus-visible:outline-none"
+          className="min-w-0 flex-1 text-start focus-visible:outline-none"
         >
           <span className="flex items-center gap-2">
             <span className="text-sm font-semibold text-foreground">

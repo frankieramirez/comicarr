@@ -279,7 +279,7 @@ export default function AttentionPage() {
               </span>
               <Link
                 to="/activity/attention"
-                className="ml-auto hover:text-foreground"
+                className="ms-auto hover:text-foreground"
               >
                 <Trans>clear scope</Trans>
               </Link>
@@ -354,7 +354,7 @@ export default function AttentionPage() {
                 {t`select all ${ph({ count: filteredKeys.length })}`}
               </label>
             )}
-            <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+            <span className="ms-auto font-mono text-[10px] text-muted-foreground">
               <Trans>unresolved only · History keeps the full ledger</Trans>
             </span>
           </div>
@@ -420,7 +420,7 @@ export default function AttentionPage() {
               <button
                 type="button"
                 onClick={() => setSelected(new Set())}
-                className="ml-auto font-mono text-[10px] text-muted-foreground hover:text-foreground"
+                className="ms-auto font-mono text-[10px] text-muted-foreground hover:text-foreground"
               >
                 <Trans>clear selection</Trans>
               </button>
@@ -577,7 +577,7 @@ function GroupPanel({
               {stageLabel(group.stage)}
             </span>
             <RelativeTime value={group.newest_updated_at} />
-            <span className="ml-auto font-mono text-[12px] tabular-nums">
+            <span className="ms-auto font-mono text-[12px] tabular-nums">
               ×{group.member_count}
             </span>
           </div>
@@ -632,7 +632,7 @@ function GroupPanel({
                   if (focused) onFocusSeen();
                 }}
                 aria-expanded={expanded}
-                className="ml-auto font-mono text-[10px] text-muted-foreground hover:text-foreground"
+                className="ms-auto font-mono text-[10px] text-muted-foreground hover:text-foreground"
               >
                 {expanded
                   ? t`hide issues`
@@ -673,7 +673,7 @@ function GroupPanel({
                       {stageLabel(member.stage)}
                     </span>
                   )}
-                  <span className="ml-auto shrink-0">
+                  <span className="ms-auto shrink-0">
                     <RelativeTime value={member.updated_date} />
                   </span>
                 </li>

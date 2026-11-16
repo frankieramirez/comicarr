@@ -490,7 +490,7 @@ export default function ChatPage() {
           type="button"
           variant="ghost"
           size="toolbar"
-          className="absolute left-3 top-3"
+          className="absolute start-3 top-3"
           onClick={() => navigate("/")}
         >
           <ArrowLeft />
@@ -514,7 +514,7 @@ export default function ChatPage() {
           type="button"
           variant="ghost"
           size="toolbar"
-          className="absolute left-3 top-3"
+          className="absolute start-3 top-3"
           onClick={() => navigate("/")}
         >
           <ArrowLeft />
@@ -557,7 +557,7 @@ export default function ChatPage() {
   return (
     <MessageScrollerProvider>
       <div className="flex h-full min-h-0 bg-background">
-        <aside className="hidden w-66 shrink-0 border-r border-border-subtle lg:flex">
+        <aside className="hidden w-66 shrink-0 border-e border-border-subtle lg:flex">
           {threadList}
         </aside>
         <section className="flex min-w-0 flex-1 flex-col">

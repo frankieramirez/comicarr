@@ -1,5 +1,6 @@
 import { useEffect, useState, SubmitEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useDirection } from "@/hooks/useDirection";
 import { msg, plural } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import { Trans, useLingui } from "@lingui/react/macro";
@@ -81,6 +82,7 @@ interface NavItem {
 
 export default function AppSidebar() {
   const { logout, user } = useAuth();
+  const direction = useDirection();
   const { preference, setPreference } = useTheme();
   const { addToast } = useToast();
   const { t, i18n } = useLingui();
@@ -227,7 +229,11 @@ export default function AppSidebar() {
     });
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar">
+    <Sidebar
+      collapsible="icon"
+      variant="sidebar"
+      side={direction === "rtl" ? "right" : "left"}
+    >
       {/* Brand header */}
       <SidebarHeader className="h-14 justify-center px-4 py-0">
         <div className="flex items-center gap-2">
@@ -276,7 +282,7 @@ export default function AppSidebar() {
                 <Search className="w-4 h-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">
+            <TooltipContent side="inline-end">
               <Trans>Search</Trans>
             </TooltipContent>
           </Tooltip>
@@ -315,7 +321,7 @@ export default function AppSidebar() {
             <span className="flex size-4.5 shrink-0 items-center justify-center rounded-control bg-primary/15">
               <span className="size-[5px] rounded-[1px] bg-primary" />
             </span>
-            <span className="flex-1 text-left text-[13px] font-medium">
+            <span className="flex-1 text-start text-[13px] font-medium">
               <Trans>Ask Comicarr</Trans>
             </span>
             <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground" />
@@ -348,7 +354,7 @@ export default function AppSidebar() {
                 </span>
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">
+            <TooltipContent side="inline-end">
               <Trans>Ask Comicarr</Trans>
             </TooltipContent>
           </Tooltip>
@@ -371,17 +377,17 @@ export default function AppSidebar() {
                     {avatarInitials}
                   </AvatarFallback>
                 </Avatar>
-                <span className="flex-1 truncate text-left text-sm font-medium">
+                <span className="flex-1 truncate text-start text-sm font-medium">
                   {username}
                 </span>
-                <ChevronsUpDown className="ml-auto size-4" />
+                <ChevronsUpDown className="ms-auto size-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 className={`rounded-lg ${!isMobile && sidebarState === "collapsed" ? "min-w-56" : "w-(--anchor-width)"}`}
                 // Open upward over the trigger, at its width. Only the
                 // collapsed icon rail has no room above, so it opens right.
                 side={
-                  !isMobile && sidebarState === "collapsed" ? "right" : "top"
+                  !isMobile && sidebarState === "collapsed" ? "inline-end" : "top"
                 }
                 align={
                   !isMobile && sidebarState === "collapsed" ? "end" : "start"
@@ -395,7 +401,7 @@ export default function AppSidebar() {
                   <div
                     role="group"
                     aria-label={t`Theme`}
-                    className={`ml-auto ${SEGMENTED_GROUP}`}
+                    className={`ms-auto ${SEGMENTED_GROUP}`}
                   >
                     {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
                       <button
@@ -422,7 +428,7 @@ export default function AppSidebar() {
                       onChange={(event) =>
                         void chooseLocale(event.target.value)
                       }
-                      className="ml-auto h-6 rounded-control border border-border bg-surface-2 px-1.5 text-[13px] text-foreground"
+                      className="ms-auto h-6 rounded-control border border-border bg-surface-2 px-1.5 text-[13px] text-foreground"
                     >
                       {AVAILABLE_LOCALES.map((locale) => (
                         <option key={locale} value={locale} lang={locale}>

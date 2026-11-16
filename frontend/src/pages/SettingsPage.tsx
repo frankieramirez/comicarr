@@ -392,7 +392,7 @@ export default function SettingsPage() {
         {/* Desktop left rail */}
         <nav
           aria-label={t`Settings sections`}
-          className="hidden md:block overflow-auto pb-8 pl-8 pr-4"
+          className="hidden md:block overflow-auto pb-8 ps-8 pe-4"
         >
           {SECTION_GROUPS().map((group) => (
             <div key={group.label} className="mb-4">
@@ -407,7 +407,7 @@ export default function SettingsPage() {
                     type="button"
                     aria-current={active ? "page" : undefined}
                     onClick={() => setSection(s.id)}
-                    className={`flex h-8 w-full items-center rounded-control px-2.5 text-left text-[13px] ${
+                    className={`flex h-8 w-full items-center rounded-control px-2.5 text-start text-[13px] ${
                       active
                         ? "bg-surface-2 font-medium text-foreground"
                         : "text-foreground-2 hover:bg-surface-1 hover:text-foreground"

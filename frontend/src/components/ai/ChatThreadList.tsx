@@ -150,7 +150,7 @@ export function ChatThreadList({
           onClick={onNew}
         >
           <Plus />
-          <span className="flex-1 text-left">
+          <span className="flex-1 text-start">
             <Trans>New chat</Trans>
           </span>
           <Kbd>⌘⇧K</Kbd>
@@ -210,7 +210,7 @@ export function ChatThreadList({
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-auto min-w-0 flex-1 flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left whitespace-normal hover:bg-transparent"
+                        className="h-auto min-w-0 flex-1 flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-start whitespace-normal hover:bg-transparent"
                         onClick={() => onSelect(thread.id)}
                       >
                         <span className="block w-full truncate text-[13px] font-medium">
@@ -231,7 +231,7 @@ export function ChatThreadList({
                               variant="ghost"
                               size="icon-sm"
                               aria-label={t`Actions for ${ph({ title: thread.title })}`}
-                              className="mr-1 shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 data-popup-open:opacity-100"
+                              className="me-1 shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 data-popup-open:opacity-100"
                             />
                           }
                         >

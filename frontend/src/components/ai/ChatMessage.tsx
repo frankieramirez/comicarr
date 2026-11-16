@@ -58,7 +58,7 @@ export function ChatMessage({ message, onActionChange }: ChatMessageProps) {
         )}
 
         {message.attachments.length > 0 && (
-          <Attachments variant="grid" className={isUser ? "ml-auto" : "ml-0"}>
+          <Attachments variant="grid" className={isUser ? "ms-auto" : "ms-0"}>
             {message.attachments.map((attachment) => (
               <Attachment
                 key={attachment.id}
@@ -84,7 +84,7 @@ export function ChatMessage({ message, onActionChange }: ChatMessageProps) {
             <BubbleContent
               className={
                 isUser
-                  ? "rounded-2xl rounded-br-md bg-card px-3.5 py-2.5 whitespace-pre-wrap"
+                  ? "rounded-2xl rounded-ee-md bg-card px-3.5 py-2.5 whitespace-pre-wrap"
                   : "text-[15px] leading-[1.65] text-pretty whitespace-pre-wrap"
               }
             >

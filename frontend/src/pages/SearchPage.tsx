@@ -297,7 +297,7 @@ export default function SearchPage() {
               {t`${startIndex}–${endIndex} of ${ph({ total: pagination.total })}`}
             </span>
           )}
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ms-auto flex items-center gap-3">
             {urlQuery && (
               <span className="hidden text-[13px] text-foreground-2 md:inline">
                 {providerNote}

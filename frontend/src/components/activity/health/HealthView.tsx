@@ -94,7 +94,7 @@ function JobLine({ job }: { job: JobRow }) {
       data-testid="health-job"
       className={cn(
         `grid ${JOB_COLS} min-h-10 items-center gap-x-3 border-b border-border-subtle px-4 py-1.5 text-[13px]`,
-        job.failing && "border-l-2 bg-surface-1",
+        job.failing && "border-s-2 bg-surface-1",
       )}
       style={
         job.failing ? { borderLeftColor: "var(--status-error)" } : undefined
@@ -112,7 +112,7 @@ function JobLine({ job }: { job: JobRow }) {
       </span>
       <span
         className={cn(
-          "truncate max-md:col-span-2 max-md:row-start-2 max-md:pl-3.5",
+          "truncate max-md:col-span-2 max-md:row-start-2 max-md:ps-3.5",
           job.failing ? "font-mono text-xs" : "text-foreground-2",
         )}
         style={job.failing ? { color: "var(--status-error)" } : undefined}
@@ -173,7 +173,7 @@ function ConnectionLine({ row }: { row: ConnectionRow }) {
         {ago(row.lastChecked)}
       </span>
       <span
-        className="truncate text-foreground-2 max-md:col-span-2 max-md:row-start-2 max-md:pl-3.5"
+        className="truncate text-foreground-2 max-md:col-span-2 max-md:row-start-2 max-md:ps-3.5"
         title={row.result}
       >
         {test.isPending ? t`Checking…` : row.result}
@@ -215,7 +215,7 @@ function DeprecationLine({ entry }: { entry: DeprecationInUse }) {
         <Dot tone="warn" />
         <span className="text-foreground">{entry.name}</span>
       </span>
-      <span className="text-foreground-2 max-md:col-span-2 max-md:row-start-2 max-md:pl-3.5">
+      <span className="text-foreground-2 max-md:col-span-2 max-md:row-start-2 max-md:ps-3.5">
         {entry.replacement}
       </span>
       <span className="font-mono text-xs text-foreground-2 max-md:hidden">

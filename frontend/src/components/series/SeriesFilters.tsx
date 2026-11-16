@@ -154,14 +154,14 @@ export default function SeriesFilters({
             onProgressChange("all");
             onStatusChange("all");
           }}
-          className="order-3 ml-1 px-1 text-[13px] text-foreground-2 underline-offset-2 hover:text-foreground hover:underline"
+          className="order-3 ms-1 px-1 text-[13px] text-foreground-2 underline-offset-2 hover:text-foreground hover:underline"
         >
           <Trans>Clear</Trans>
         </button>
       )}
 
       {(resultCount !== undefined || sortLabel) && (
-        <div className="mono-meta order-3 ml-auto flex items-center gap-1.5">
+        <div className="mono-meta order-3 ms-auto flex items-center gap-1.5">
           {resultCount !== undefined && (
             <span>
               {plural(resultCount, { one: "# result", other: "# results" })}

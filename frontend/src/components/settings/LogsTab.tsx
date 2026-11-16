@@ -506,7 +506,7 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
             type="button"
             variant="outline"
             size="sm"
-            className="ml-3"
+            className="ms-3"
             onClick={refresh}
             disabled={isFetching || files.isFetching}
           >

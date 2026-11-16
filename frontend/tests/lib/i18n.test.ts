@@ -46,5 +46,6 @@ describe("locales", () => {
     await activateLocale("xx-unknown");
     expect(i18n.locale).toBe("en");
     expect(document.documentElement.lang).toBe("en");
+    expect(document.documentElement.dir).toBe("ltr");
   });
 });
