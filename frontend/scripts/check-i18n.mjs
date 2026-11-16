@@ -22,6 +22,7 @@ import { ESLint } from "eslint";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BASELINE = path.join(ROOT, "i18n-baseline.json");
 const update = process.argv.includes("--update");
+const RULES = new Set(["lingui/no-unlocalized-strings", "local/visible-text"]);
 
 const LINGUI = path.join(ROOT, "node_modules/@lingui/cli/dist/lingui.js");
 
@@ -47,9 +48,12 @@ async function scanUnlocalized() {
   const results = await eslint.lintFiles(["src/**/*.{ts,tsx}"]);
   const counts = {};
   for (const result of results) {
-    const n = result.messages.filter(
-      (m) => m.ruleId === "lingui/no-unlocalized-strings",
-    ).length;
+    // Both rules can flag the same JSX text; count each position once.
+    const n = new Set(
+      result.messages
+        .filter((m) => RULES.has(m.ruleId))
+        .map((m) => `${m.line}:${m.column}`),
+    ).size;
     if (n) counts[path.relative(ROOT, result.filePath).split(path.sep).join("/")] = n;
   }
   return { counts, results };
@@ -94,7 +98,7 @@ async function checkBaseline() {
       console.error(`  ${file}: ${n} unlocalized, baseline allows ${allowed}`);
       const result = results.find((r) => r.filePath.endsWith(file));
       const lines = readFileSync(path.join(ROOT, file), "utf8").split("\n");
-      for (const m of result.messages.slice(0, 5)) {
+      for (const m of result.messages.filter((x) => RULES.has(x.ruleId)).slice(0, 5)) {
         console.error(`    ${m.line}:${m.column}  ${lines[m.line - 1].trim().slice(0, 100)}`);
       }
     }

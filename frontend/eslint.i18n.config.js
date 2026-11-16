@@ -5,6 +5,46 @@
 import lingui from 'eslint-plugin-lingui'
 import tseslint from 'typescript-eslint'
 
+// The Lingui rule's ignore patterns see only a string's value, so to keep
+// identifiers out they also skip single lowercase words. In JSX text and in
+// visible attributes a single word ("ready", "downstream") is still text, so
+// this local rule covers those positions.
+const VISIBLE_ATTRIBUTES = new Set([
+  'title', 'placeholder', 'alt', 'aria-label', 'aria-description',
+  'aria-placeholder', 'aria-roledescription', 'aria-valuetext', 'label',
+  'description', 'helpText', 'tooltip',
+])
+const local = {
+  rules: {
+    'visible-text': {
+      meta: { type: 'problem', schema: [] },
+      create(context) {
+        const insideTrans = (node) => {
+          for (let p = node.parent; p; p = p.parent) {
+            if (p.type === 'JSXElement' && p.openingElement.name.name === 'Trans') return true
+          }
+          return false
+        }
+        return {
+          JSXText(node) {
+            if (/[A-Za-z]/.test(node.value) && !insideTrans(node)) {
+              context.report({ node, message: 'Visible text not marked for translation.' })
+            }
+          },
+          JSXAttribute(node) {
+            const name = node.name.type === 'JSXIdentifier' ? node.name.name : null
+            const value = node.value
+            if (name && VISIBLE_ATTRIBUTES.has(name) && value?.type === 'Literal' &&
+                typeof value.value === 'string' && /[A-Za-z]/.test(value.value)) {
+              context.report({ node: value, message: 'Visible attribute not marked for translation.' })
+            }
+          },
+        }
+      },
+    },
+  },
+}
+
 export default tseslint.config(
   {
     ignores: [
@@ -23,9 +63,10 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}'],
     languageOptions: { parser: tseslint.parser },
-    plugins: { lingui },
+    plugins: { lingui, local },
     linterOptions: { reportUnusedDisableDirectives: 'off' },
     rules: {
+      'local/visible-text': 'error',
       'lingui/no-unlocalized-strings': [
         'error',
         {
