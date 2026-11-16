@@ -241,6 +241,8 @@ def test_bulk_wanted_run_handoff_restart_and_owned_projection(monkeypatch, tmp_p
         "inFlight": 0,
         "missing": 0,
         "monitored": 1,
+        "wantedMissing": 0,
+        "notWanted": 0,
         "wanted": 0,
         "skipped": 0,
         "ignored": 0,
