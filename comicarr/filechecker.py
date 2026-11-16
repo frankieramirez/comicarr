@@ -73,6 +73,11 @@ def strip_trailing_volume_label(series_name, volume_number):
     return stripped or series_name
 
 
+# Comic books start in the 1930s; an earlier four-digit number in a filename is
+# an issue or chapter number, not a year.
+EARLIEST_PUBLICATION_YEAR = 1900
+
+
 class FileChecker(object):
     def __init__(
         self,
@@ -1034,6 +1039,12 @@ class FileChecker(object):
                 logger.fdebug("sctd: %s" % sctd)
                 if int(ab) > int(sctd) + 1:
                     logger.fdebug("year is in the future, ignoring and assuming part of series title.")
+                    yearposition = None
+                    yearmodposition = None
+                    continue
+                if len(ab) == 4 and int(ab) < EARLIEST_PUBLICATION_YEAR:
+                    # "One Piece 1195" is chapter 1195, not the year 1195.
+                    logger.fdebug("%s is too early to be a publication year, keeping it as a number." % ab)
                     yearposition = None
                     yearmodposition = None
                     continue
