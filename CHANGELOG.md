@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.57.0
+
+### Minor Changes
+
+- 2036d98: A fresh install now shows a "Finish setting up" checklist in Needs you on the dashboard. It lists the four steps to a first download: library folder, ComicVine API key, indexer, and download client. Each step shows whether it's done, and if not, gives one button that opens the right setting. The checklist goes away once you've added a series and every step is done. The "Start fresh" welcome screen lists the same four steps instead of saying none are required. You can now choose the library folder in Settings, General, instead of editing config.ini, and Comicarr refuses a folder that doesn't exist on the server.
+- 38a99b6: When Comicarr has no indexer or no download client, every screen now says so instead of showing progress that can't happen. The dashboard's Needs you lists each missing step with a button that opens the right settings page, rather than "Nothing needs you". System health reads "Search paused: no indexer" instead of "Search running". On Releases, issues that are out show "Can't search" under Needs you instead of "Searching", and upcoming ones say "search paused". Wanted shows "Search paused" instead of "Queued". Both pages show one banner with the fix. On a series page, the main button becomes "Add an indexer to search". Everything goes back to normal as soon as an indexer and a client are set up.
+- 5c3763f: "Wanted" now means the same thing everywhere. Before, the dashboard counted every gap as wanted, the series page counted Skipped issues as missing, and only the Wanted page counted what Comicarr would actually search for. Now the series page splits gaps into Wanted and Not wanted chips, the progress bar and "Search N wanted" button count only wanted issues, and the dashboard's Most wanted ranks series by the same count as the Wanted page. A not-wanted issue has a Want button on its row. Issues marked Skipped or Ignored, including ones carried over from Mylar, are no longer picked up by "Search missing" or automatic search; mark them Wanted to search for them again.
+
+### Patch Changes
+
+- e635a92: Deluge works again on the Docker image and any Python 3.12+ install. Before this fix, Test in Settings and every Deluge handoff failed with "module 'ssl' has no attribute 'wrap_socket'". The connection now requires TLS 1.2 or newer.
+
 ## 0.56.1
 
 ### Patch Changes
