@@ -1382,11 +1382,13 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
             return torrent_info
 
     elif comicarr.USE_RTORRENT:
-        from . import rtorrent_test_client
+        from comicarr.torrent.clients import rtorrent
 
-        rp = rtorrent_test_client.RTorrent()
-
-        torrent_info = rp.main(filepath=filepath)
+        try:
+            torrent_info = rtorrent.send_or_check(filepath=filepath)
+        except Exception as e:
+            logger.error("Could not send the torrent to rTorrent: %s" % e)
+            return "fail"
 
         if torrent_info:
             torrent_info["clientmode"] = "rtorrent"

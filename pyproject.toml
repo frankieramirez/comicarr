@@ -95,7 +95,6 @@ filterwarnings = [
 branch = true
 source = ["comicarr"]
 omit = [
-    "comicarr/rtorrent_test_client.py",
     "comicarr/dependency_check.py",
     "comicarr/_vendor/*",
 ]

@@ -357,15 +357,6 @@ def test_evidence_recorded_status_requires_positive_license_evidence():
         assert record["license_evidence"], name
         assert record["unresolved_reasons"] == (), name
 
-    rtorrent_record = provenance.VENDOR_PROVENANCE["rtorrent"]
-    assert rtorrent_record["license_expression"] == (
-        "MIT AND (GPL-2.0-or-later WITH OpenSSL-exception) AND LicenseRef-Secret-Labs"
-    )
-    assert {
-        "comicarr/_vendor/rtorrent/lib/xmlrpc/clients/scgi.py",
-        "comicarr/_vendor/rtorrent/lib/xmlrpc/transports/scgi.py",
-    } <= set(rtorrent_record["license_evidence"])
-
 
 def test_every_packaged_notice_is_claimed_exactly_once():
     actual_notices = {

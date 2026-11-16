@@ -109,10 +109,12 @@ def configured_route():
 
 
 def _probe_rtorrent(torrent_hash):
-    from comicarr import rtorrent_test_client
+    from comicarr.torrent.clients import rtorrent
 
-    client = rtorrent_test_client.RTorrent()
-    info = client.main(torrent_hash, check=True)
+    try:
+        info = rtorrent.send_or_check(torrent_hash, check=True)
+    except Exception as e:
+        return unreachable(e)
     if not info:
         return absent(torrent_hash)
     return _found(
