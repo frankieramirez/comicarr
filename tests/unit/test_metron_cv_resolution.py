@@ -26,14 +26,14 @@ import comicarr
 
 class TestPrefixHelpers:
     def test_is_metron_id(self):
-        from comicarr import metron
+        from comicarr.app.metadata import metron
 
         assert metron.is_metron_id("metron-9253")
         assert not metron.is_metron_id("9253")
         assert not metron.is_metron_id(None)
 
     def test_strip_metron_prefix(self):
-        from comicarr import metron
+        from comicarr.app.metadata import metron
 
         assert metron.strip_metron_prefix("metron-9253") == "9253"
         assert metron.strip_metron_prefix("9253") == "9253"
@@ -41,10 +41,10 @@ class TestPrefixHelpers:
 
 
 class TestSearchSeriesIds:
-    @patch("comicarr.metron._backfill_images")
-    @patch("comicarr.metron.listLibrary", return_value={})
+    @patch("comicarr.app.metadata.metron._backfill_images")
+    @patch("comicarr.app.metadata.metron.listLibrary", return_value={})
     def test_results_carry_metron_prefix(self, _mock_library, _mock_images):
-        from comicarr import metron
+        from comicarr.app.metadata import metron
 
         fake_series = SimpleNamespace(
             id=9253,
@@ -65,7 +65,7 @@ class TestSearchSeriesIds:
 
 class TestGetCvId:
     def test_resolves_cv_id_from_series_detail(self):
-        from comicarr import metron
+        from comicarr.app.metadata import metron
 
         fake_api = MagicMock()
         fake_api.series.return_value = SimpleNamespace(cv_id=145678)
@@ -76,7 +76,7 @@ class TestGetCvId:
         fake_api.series.assert_called_once_with(9253)
 
     def test_returns_none_when_metron_has_no_mapping(self):
-        from comicarr import metron
+        from comicarr.app.metadata import metron
 
         fake_api = MagicMock()
         fake_api.series.return_value = SimpleNamespace(cv_id=None)
@@ -85,7 +85,7 @@ class TestGetCvId:
             assert metron.get_cv_id("9253") is None
 
     def test_returns_none_when_api_not_initialized(self):
-        from comicarr import metron
+        from comicarr.app.metadata import metron
 
         with patch.object(comicarr, "METRON_API", None):
             assert metron.get_cv_id("9253") is None
@@ -96,7 +96,7 @@ class TestAddComictoDBResolution:
         from comicarr import importer
 
         with (
-            patch("comicarr.metron.get_cv_id", return_value=None),
+            patch("comicarr.app.metadata.metron.get_cv_id", return_value=None),
             patch("comicarr.importer.db") as mock_db,
         ):
             with pytest.raises(ValueError, match="no ComicVine mapping"):
@@ -108,7 +108,7 @@ class TestAddComictoDBResolution:
         from comicarr import importer
 
         with (
-            patch("comicarr.metron.get_cv_id", return_value="145678"),
+            patch("comicarr.app.metadata.metron.get_cv_id", return_value="145678"),
             patch("comicarr.importer.db") as mock_db,
             patch("comicarr.importer.helpers"),
             patch("comicarr.importer.cv") as mock_cv,
@@ -134,7 +134,7 @@ class TestAddComicServiceResolution:
         from comicarr.app.search import service
 
         with (
-            patch("comicarr.metron.get_cv_id", return_value="145678") as mock_resolve,
+            patch("comicarr.app.metadata.metron.get_cv_id", return_value="145678") as mock_resolve,
             patch("comicarr.importer.importer_thread") as mock_thread,
         ):
             result = service.add_comic(None, "metron-9253")
@@ -148,7 +148,7 @@ class TestAddComicServiceResolution:
         from comicarr.app.search import service
 
         with (
-            patch("comicarr.metron.get_cv_id", return_value=None),
+            patch("comicarr.app.metadata.metron.get_cv_id", return_value=None),
             patch("comicarr.importer.importer_thread") as mock_thread,
         ):
             result = service.add_comic(None, "metron-9253")
@@ -161,7 +161,7 @@ class TestAddComicServiceResolution:
         from comicarr.app.search import service
 
         with (
-            patch("comicarr.metron.get_cv_id") as mock_resolve,
+            patch("comicarr.app.metadata.metron.get_cv_id") as mock_resolve,
             patch("comicarr.importer.importer_thread") as mock_thread,
         ):
             result = service.add_comic(None, "145678")
@@ -186,7 +186,7 @@ class TestAnnualSearchRouting:
         with (
             patch.object(comicarr, "CONFIG", fake_config),
             patch.object(comicarr, "METRON_API", MagicMock()),
-            patch("comicarr.metron.search_series") as mock_metron_search,
+            patch("comicarr.app.metadata.metron.search_series") as mock_metron_search,
             patch("comicarr.mb.listLibrary", side_effect=_StopSearch),
         ):
             with pytest.raises(_StopSearch):

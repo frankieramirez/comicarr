@@ -104,7 +104,8 @@ def manga_volume_for_issue(issueid):
     # preserves that ordering.
     from sqlalchemy import select
 
-    from comicarr import db, series_kind
+    from comicarr import db
+    from comicarr.app.common import series_kind
     from comicarr.app.manga import ledger
     from comicarr.tables import comics, issues
 

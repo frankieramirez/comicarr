@@ -30,7 +30,8 @@ from collections.abc import Mapping
 from sqlalchemy import bindparam, func, select, text, update
 
 import comicarr
-from comicarr import db, filechecker, helpers, logger, series_kind
+from comicarr import db, filechecker, helpers, logger
+from comicarr.app.common import series_kind
 from comicarr.app.manga import volumes as manga_volumes
 from comicarr.app.manga.ledger import volume_number_from_id
 from comicarr.tables import (

@@ -71,7 +71,7 @@ def get_series_image(ctx, series_id):
     except (ValueError, TypeError):
         return None
 
-    from comicarr import metron
+    from comicarr.app.metadata import metron
 
     return metron.get_series_image(series_id)
 

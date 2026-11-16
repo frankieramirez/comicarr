@@ -12,7 +12,7 @@
 from sqlalchemy import func, not_, or_, select
 
 from comicarr import db
-from comicarr.series_kind import comic_sql_clause, magazine_sql_clause, manga_sql_clause
+from comicarr.app.common.series_kind import comic_sql_clause, magazine_sql_clause, manga_sql_clause
 from comicarr.tables import activity_events
 from comicarr.tables import comics as t_comics
 

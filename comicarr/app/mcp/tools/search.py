@@ -22,9 +22,10 @@ from typing import Annotated, Literal
 from mcp_types import CallToolResult, ToolAnnotations
 from pydantic import Field
 
-from comicarr import logger, series_kind
+from comicarr import logger
 from comicarr.app.acquisition.maintenance import acquisition_paused
 from comicarr.app.activity import producers as activity
+from comicarr.app.common import series_kind
 from comicarr.app.mcp.contracts import (
     ContractError,
     FoundSeries,

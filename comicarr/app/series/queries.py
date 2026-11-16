@@ -17,7 +17,8 @@ import json
 
 from sqlalchemy import and_, case, delete, func, literal, or_, select, update
 
-from comicarr import db, series_kind
+from comicarr import db
+from comicarr.app.common import series_kind
 from comicarr.app.core.database import paginated_query  # noqa: F401 — re-exported
 from comicarr.tables import acquisition_run_items as t_acquisition_run_items
 from comicarr.tables import annuals as t_annuals

@@ -210,7 +210,7 @@ def _normalize_comic_id(comic_id):
     if comic_id.startswith("4050-"):
         comic_id = re.sub("4050-", "", comic_id).strip()
     try:
-        from comicarr import metron
+        from comicarr.app.metadata import metron
 
         if metron.is_metron_id(comic_id):
             cv_id = metron.get_cv_id(comic_id)

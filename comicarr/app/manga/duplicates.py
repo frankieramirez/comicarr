@@ -19,7 +19,8 @@
 
 from sqlalchemy import or_, select
 
-from comicarr import db, series_kind
+from comicarr import db
+from comicarr.app.common import series_kind
 from comicarr.tables import comics
 
 

@@ -12,8 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from comicarr import series_kind
-from comicarr.app.common import library_roots
+from comicarr.app.common import library_roots, series_kind
 from comicarr.app.series import location as series_location
 from comicarr.app.series import service as series_service
 

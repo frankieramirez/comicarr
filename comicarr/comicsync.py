@@ -33,7 +33,8 @@ import traceback
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, logger, series_kind, updater
+from comicarr import db, logger, updater
+from comicarr.app.common import series_kind
 from comicarr.app.imports.scanutil import COMIC_EXTENSIONS, find_best_match, normalize_title
 from comicarr.tables import comics
 

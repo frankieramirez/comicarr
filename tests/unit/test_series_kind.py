@@ -16,7 +16,7 @@ consecutive fixes.
 
 import pytest
 
-from comicarr.series_kind import (
+from comicarr.app.common.series_kind import (
     MANGA_PROVIDERS,
     SeriesProvider,
     add_prefix,

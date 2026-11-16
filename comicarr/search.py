@@ -44,19 +44,8 @@ from sqlalchemy import or_, select
 from urllib3.util.retry import Retry
 
 import comicarr
-from comicarr import (
-    db,
-    failed,
-    filechecker,
-    getcomics,
-    helpers,
-    logger,
-    nzbget,
-    rsscheck,
-    sabnzbd,
-    series_kind,
-    updater,
-)
+from comicarr import db, failed, filechecker, getcomics, helpers, logger, nzbget, rsscheck, sabnzbd, updater
+from comicarr.app.common import series_kind
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.common.remote_artifacts import (
     resolve_remote_artifact_path,

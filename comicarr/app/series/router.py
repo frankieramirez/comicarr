@@ -19,7 +19,8 @@ import asyncio
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
-from comicarr import logger, series_kind
+from comicarr import logger
+from comicarr.app.common import series_kind
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.exceptions import NotFoundError
 from comicarr.app.core.security import COOKIE_NAME, require_api_key, require_session

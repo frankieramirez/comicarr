@@ -24,7 +24,7 @@ from collections.abc import Mapping
 import sqlalchemy
 
 import comicarr
-from comicarr import db, logger, series_kind
+from comicarr import db, logger
 from comicarr.app.acquisition.evidence import has_verified_library_file
 from comicarr.app.acquisition.models import AcquisitionIntent, Fulfillment
 from comicarr.app.acquisition.policy import (
@@ -33,6 +33,7 @@ from comicarr.app.acquisition.policy import (
     evaluate_eligibility,
     project_legacy_state,
 )
+from comicarr.app.common import series_kind
 from comicarr.app.common.filesystem import is_path_within_allowed_dirs
 from comicarr.app.common.library_roots import is_strict_library_descendant
 from comicarr.app.common.strings import filesafe

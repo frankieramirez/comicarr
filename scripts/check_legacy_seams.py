@@ -66,7 +66,7 @@ SKIP_DIR_NAMES = {"__pycache__"}
 # The MCP tool layer follows the router rule, with no allowlist (ADR-0005).
 MCP_DIR = "comicarr/app/mcp/"
 
-INFRASTRUCTURE = frozenset({"logger", "db", "tables", "config", "encrypted", "helpers", "series_kind"})
+INFRASTRUCTURE = frozenset({"logger", "db", "tables", "config", "encrypted", "helpers"})
 
 # Foundations legacy module -> the seam modules allowed to import it under
 # comicarr/app/. Most seams do not exist yet; each seam ticket creates its file.
@@ -118,12 +118,10 @@ DEFERRED_ALLOWLIST = {
     ("comicarr/app/imports/finalization.py", "cmtag"): ("tags placed files (cmtag.run)", DEFERRED),
     ("comicarr/app/imports/finalization.py", "filechecker"): ("validateAndCreateDirectory", DEFERRED),
     ("comicarr/app/imports/metadata.py", "filers"): ("FileHandlers for folder names", DEFERRED),
-    ("comicarr/app/imports/metadata.py", "metron"): ("get_cv_id and is_metron_id", DEFERRED),
     ("comicarr/app/metadata/service.py", "cmtag"): ("tags files (cmtag.run)", DEFERRED),
     ("comicarr/app/metadata/service.py", "cv"): ("ComicVine getComic", DEFERRED),
     ("comicarr/app/metadata/service.py", "filers"): ("FileHandlers for folder names", DEFERRED),
     ("comicarr/app/metadata/service.py", "getimage"): ("cover extract_image and retrieve_image", DEFERRED),
-    ("comicarr/app/metadata/service.py", "metron"): ("Metron get_series_image", DEFERRED),
     ("comicarr/app/opds/service.py", "getimage"): ("OPDS page streaming opens archives and scales pages", DEFERRED),
     ("comicarr/app/opds/service.py", "readinglist"): ("OPDS download marks the issue read", DEFERRED),
     ("comicarr/app/search/evaluation.py", "filechecker"): ("FileChecker parses release names", DEFERRED),
@@ -131,7 +129,6 @@ DEFERRED_ALLOWLIST = {
     ("comicarr/app/search/interactive.py", "search"): ("interactive search drives search.py", DEFERRED),
     ("comicarr/app/search/service.py", "filers"): ("FileHandlers for folder names", DEFERRED),
     ("comicarr/app/search/service.py", "mb"): ("findComic", DEFERRED),
-    ("comicarr/app/search/service.py", "metron"): ("Metron id helpers", DEFERRED),
     ("comicarr/app/search/service.py", "search"): ("searchforissue", DEFERRED),
     ("comicarr/app/series/location.py", "filers"): ("FileHandlers for folder names", DEFERRED),
     ("comicarr/app/series/service.py", "comicsync"): ("comicScan and import_selected_series", DEFERRED),
@@ -141,7 +138,6 @@ DEFERRED_ALLOWLIST = {
     ("comicarr/app/storyarcs/service.py", "filechecker"): ("FileChecker and validateAndCreateDirectory", DEFERRED),
     ("comicarr/app/storyarcs/service.py", "filers"): ("FileHandlers for folder names", DEFERRED),
     ("comicarr/app/storyarcs/service.py", "mb"): ("findComic and storyarcinfo", DEFERRED),
-    ("comicarr/app/storyarcs/service.py", "metron"): ("Metron id helpers", DEFERRED),
     ("comicarr/app/storyarcs/service.py", "readinglist"): ("Readinglist", DEFERRED),
     ("comicarr/app/system/service.py", "changelog_notes"): ("get_release_notes", DEFERRED),
     ("comicarr/app/system/service.py", "migration"): ("Mylar3Migration", DEFERRED),

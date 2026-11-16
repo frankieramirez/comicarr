@@ -627,7 +627,7 @@ def initialize(config_file):
                 logger.info("ComicVine API session initialized with connection pooling")
 
             if CV_RATE_LIMITER is None:
-                from comicarr import rate_limiter
+                from comicarr.app.metadata import rate_limiter
 
                 cvapi_rate = (
                     comicarr.CONFIG.CVAPI_RATE if comicarr.CONFIG.CVAPI_RATE and comicarr.CONFIG.CVAPI_RATE >= 2 else 2
@@ -636,7 +636,7 @@ def initialize(config_file):
                 logger.info("ComicVine rate limiter initialized with %s second interval" % cvapi_rate)
 
             if CV_CACHE is None:
-                from comicarr import cv_cache
+                from comicarr.app.metadata import cv_cache
 
                 cache_db_path = os.path.join(comicarr.DATA_DIR, "cv_cache.db")
                 CV_CACHE = cv_cache.CVCache(cache_db_path)
@@ -650,7 +650,7 @@ def initialize(config_file):
             if METRON_API is None and CONFIG.USE_METRON_SEARCH:
                 if CONFIG.METRON_USERNAME and CONFIG.METRON_PASSWORD:
                     try:
-                        from comicarr import metron
+                        from comicarr.app.metadata import metron
 
                         METRON_API = metron.initialize_metron_api()
                         if METRON_API:

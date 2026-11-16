@@ -16,8 +16,10 @@ import requests
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, filers, helpers, metron, series_kind
+from comicarr import db, filers, helpers
+from comicarr.app.common import series_kind
 from comicarr.app.common.library_roots import is_strict_library_descendant
+from comicarr.app.metadata import metron
 from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.tables import comics, issues
 
