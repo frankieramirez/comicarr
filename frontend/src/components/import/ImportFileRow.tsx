@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useRef, useState } from "react";
 import { FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -9,16 +11,32 @@ type SaveState = "idle" | "dirty" | "saving" | "saved" | "error" | "required";
 
 function FileSaveState({ state }: { state: SaveState }) {
   if (state === "saving") {
-    return <span className="text-muted-foreground">Saving...</span>;
+    return (
+      <span className="text-muted-foreground">
+        <Trans>Saving...</Trans>
+      </span>
+    );
   }
   if (state === "saved") {
-    return <span className="text-[var(--status-active)]">Saved</span>;
+    return (
+      <span className="text-[var(--status-active)]">
+        <Trans>Saved</Trans>
+      </span>
+    );
   }
   if (state === "error") {
-    return <span className="text-destructive">Save failed</span>;
+    return (
+      <span className="text-destructive">
+        <Trans>Save failed</Trans>
+      </span>
+    );
   }
   if (state === "required") {
-    return <span className="text-destructive">Required</span>;
+    return (
+      <span className="text-destructive">
+        <Trans>Required</Trans>
+      </span>
+    );
   }
   return null;
 }
@@ -87,9 +105,9 @@ export default function ImportFileRow({
       <label className="grid gap-1 text-xs text-muted-foreground sm:max-w-[10rem]">
         <span className="font-mono uppercase tracking-wider">{label}</span>
         <Input
-          aria-label={`${label} for ${file.ComicFilename}`}
+          aria-label={t`${label} for ${ph({ file: file.ComicFilename })}`}
           value={issueNumber}
-          placeholder="Unknown"
+          placeholder={t`Unknown`}
           disabled={
             isMetadataSaving || !onIssueNumberChange || saveState === "saving"
           }
@@ -136,12 +154,12 @@ export default function ImportFileRow({
         <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground sm:col-span-3 md:pl-8">
           {file.SuggestedComicName && (
             <span className="truncate">
-              Suggested: {file.SuggestedComicName}
+              {t`Suggested: ${ph({ series: file.SuggestedComicName })}`}
             </span>
           )}
           {file.SuggestedComicID && !file.SuggestedComicName && (
             <span className="truncate">
-              Suggested ID: {file.SuggestedComicID}
+              {t`Suggested ID: ${ph({ id: file.SuggestedComicID })}`}
             </span>
           )}
           {file.MatchConfidence != null && (
@@ -152,7 +170,7 @@ export default function ImportFileRow({
 
       {file.IgnoreFile === 1 && (
         <span className="text-xs bg-surface-3 text-muted-foreground px-2 py-0.5 rounded sm:col-span-3 md:ml-8 w-fit">
-          Ignored
+          <Trans>Ignored</Trans>
         </span>
       )}
     </div>

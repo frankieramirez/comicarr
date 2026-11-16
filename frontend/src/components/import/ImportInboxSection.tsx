@@ -1,3 +1,6 @@
+import { ph, t } from "@lingui/core/macro";
+import { errorText } from "@/lib/api";
+import { Trans } from "@lingui/react/macro";
 import { Inbox, RefreshCw, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRefreshImport } from "@/hooks/useImport";
@@ -13,11 +16,11 @@ export default function ImportInboxSection() {
   const handleScanNow = async () => {
     try {
       await refreshImportMutation.mutateAsync();
-      addToast({ type: "info", message: "Import inbox scan started." });
+      addToast({ type: "info", message: t`Import inbox scan started.` });
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to start inbox scan: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to start inbox scan: ${ph({ error: errorText(err) })}`,
       });
     }
   };
@@ -40,7 +43,7 @@ export default function ImportInboxSection() {
 
         <div className="flex-1 min-w-0">
           <div className="text-[13px] font-medium leading-tight">
-            Import directory
+            <Trans>Import directory</Trans>
           </div>
           {configured ? (
             <div className="flex items-center gap-1.5 mt-0.5 font-mono text-[10.5px] text-muted-foreground truncate">
@@ -49,8 +52,10 @@ export default function ImportInboxSection() {
             </div>
           ) : (
             <div className="text-[11px] text-muted-foreground mt-0.5">
-              Set an Import Directory in your config.ini to enable
-              auto-importing.
+              <Trans>
+                Set an Import Directory in your config.ini to enable
+                auto-importing.
+              </Trans>
             </div>
           )}
         </div>
@@ -71,7 +76,7 @@ export default function ImportInboxSection() {
               }}
               strokeWidth={2}
             />
-            <span>{busy ? "scanning" : "scan now"}</span>
+            <span>{busy ? t`scanning` : t`scan now`}</span>
           </Button>
         ) : (
           <Button
@@ -82,7 +87,9 @@ export default function ImportInboxSection() {
             disabled
             className="shrink-0 text-muted-foreground"
           >
-            <span>not set</span>
+            <span>
+              <Trans>not set</Trans>
+            </span>
           </Button>
         )}
       </div>

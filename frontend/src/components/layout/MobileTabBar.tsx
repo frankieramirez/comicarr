@@ -1,3 +1,5 @@
+import { plural } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Link, useLocation } from "react-router-dom";
 import { useLingui } from "@lingui/react/macro";
 import {
@@ -81,7 +83,10 @@ export default function MobileTabBar() {
                     background: "var(--status-error)",
                     color: "var(--background)",
                   }}
-                  aria-label={`${count} need you`}
+                  aria-label={plural(count, {
+                    one: "# needs you",
+                    other: "# need you",
+                  })}
                 >
                   {count > 99 ? "99+" : count}
                 </span>
@@ -98,7 +103,7 @@ export default function MobileTabBar() {
         className={itemClass(!anyActive)}
       >
         <Menu className="size-[22px]" strokeWidth={1.6} />
-        More
+        <Trans>More</Trans>
       </button>
     </nav>
   );

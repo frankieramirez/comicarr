@@ -346,9 +346,12 @@ export default function AttentionPage() {
                       node.indeterminate = selectedIssues > 0 && !allSelected;
                   }}
                   onChange={() => setKeysSelected(filteredKeys, !allSelected)}
-                  aria-label={t`Select all ${ph({ length: filteredKeys.length })} issues`}
+                  aria-label={plural(filteredKeys.length, {
+                    one: "Select all # issue",
+                    other: "Select all # issues",
+                  })}
                 />
-                <Trans>select all</Trans> {filteredKeys.length}
+                {t`select all ${ph({ count: filteredKeys.length })}`}
               </label>
             )}
             <span className="ml-auto font-mono text-[10px] text-muted-foreground">

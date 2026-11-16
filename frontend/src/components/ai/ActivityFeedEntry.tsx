@@ -1,3 +1,4 @@
+import { ph, plural, t } from "@lingui/core/macro";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle } from "lucide-react";
 import type { AiActivityEntry } from "@/hooks/useAiActivity";
@@ -48,11 +49,10 @@ export function ActivityFeedEntry({ entry }: ActivityFeedEntryProps) {
         )}
         <div className="flex items-center gap-2 mt-1">
           <span className="text-xs text-muted-foreground">
-            {formatNumber(totalTokens)} tokens
+            {plural(totalTokens, { one: "# token", other: "# tokens" })}
           </span>
           <span className="text-xs text-muted-foreground">
-            ({formatNumber(entry.prompt_tokens)} prompt +{" "}
-            {formatNumber(entry.completion_tokens)} completion)
+            {t`(${ph({ prompt: formatNumber(entry.prompt_tokens) })} prompt + ${ph({ completion: formatNumber(entry.completion_tokens) })} completion)`}
           </span>
         </div>
       </div>

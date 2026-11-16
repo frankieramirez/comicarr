@@ -58,6 +58,9 @@ import {
 import { useToast } from "@/components/ui/toast";
 import type { Comic } from "@/types";
 
+// Column ids (data keys), not visible text.
+const STATUS_COLUMN = "Status";
+
 const columnHelper = createColumnHelper<ComicarrTableFeatures, Comic>();
 
 const LIBRARY_VIEW_KEY = "comicarr-library-view";
@@ -149,7 +152,7 @@ export default function SeriesTable({
       columnHelper.columns([
         columnHelper.accessor("ComicName", { id: "ComicName" }),
         columnHelper.accessor("ComicPublisher", { id: "ComicPublisher" }),
-        columnHelper.accessor("Status", { id: "Status" }),
+        columnHelper.accessor(STATUS_COLUMN, { id: STATUS_COLUMN }),
         columnHelper.accessor("ComicYear", { id: "ComicYear" }),
       ]),
     [],

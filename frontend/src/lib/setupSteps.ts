@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 /**
  * The four steps between a fresh install and a first download, pure. The
  * dashboard shows them as "Finish setting up" until the library has a series
@@ -42,41 +43,41 @@ export function setupSteps({
   return [
     {
       key: "library",
-      title: "Library folder",
+      title: t`Library folder`,
       detail: isSet(library)
         ? library
-        : "Where Comicarr keeps your comics. New series folders go here.",
+        : t`Where Comicarr keeps your comics. New series folders go here.`,
       done: isSet(library),
-      fix: { label: "Choose a folder", to: "/settings?section=general" },
+      fix: { label: t`Choose a folder`, to: "/settings?section=general" },
     },
     {
       key: "comicvine",
-      title: "ComicVine API key",
+      title: t`ComicVine API key`,
       detail: comicvineDone
         ? comicvineNeeded
-          ? "Saved"
-          : "Not needed: ComicVine is off"
-        : "Free from comicvine.gamespot.com. Needed to add series and fetch issues.",
+          ? t`Saved`
+          : t`Not needed: ComicVine is off`
+        : t`Free from comicvine.gamespot.com. Needed to add series and fetch issues.`,
       done: comicvineDone,
-      fix: { label: "Add API key", to: "/settings?section=api" },
+      fix: { label: t`Add API key`, to: "/settings?section=api" },
     },
     {
       key: "indexer",
-      title: "Indexer",
+      title: t`Indexer`,
       detail: missing.has("indexer")
-        ? "Prowlarr, a Newznab or Torznab indexer, or GetComics."
-        : "Ready to search",
+        ? t`Prowlarr, a Newznab or Torznab indexer, or GetComics.`
+        : t`Ready to search`,
       done: !missing.has("indexer"),
-      fix: { label: "Add an indexer", to: SETTINGS_INDEXERS },
+      fix: { label: t`Add an indexer`, to: SETTINGS_INDEXERS },
     },
     {
       key: "client",
-      title: "Download client",
+      title: t`Download client`,
       detail: missing.has("client")
-        ? "SABnzbd, NZBGet, qBittorrent, or another client."
-        : "Ready to download",
+        ? t`SABnzbd, NZBGet, qBittorrent, or another client.`
+        : t`Ready to download`,
       done: !missing.has("client"),
-      fix: { label: "Add a download client", to: SETTINGS_CLIENTS },
+      fix: { label: t`Add a download client`, to: SETTINGS_CLIENTS },
     },
   ];
 }

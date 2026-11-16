@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useMemo, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -53,18 +55,24 @@ function formatThreadTime(value: string): string {
 }
 
 /** Bucket a thread by how recently it was touched, newest bucket first. */
-function threadBucket(value: string): "Today" | "Yesterday" | "Earlier" {
+function threadBucket(value: string): "today" | "yesterday" | "earlier" {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Earlier";
+  if (Number.isNaN(date.getTime())) return "earlier";
   const now = new Date();
-  if (date.toDateString() === now.toDateString()) return "Today";
+  if (date.toDateString() === now.toDateString()) return "today";
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
-  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return "Earlier";
+  if (date.toDateString() === yesterday.toDateString()) return "yesterday";
+  return "earlier";
 }
 
-const BUCKET_ORDER = ["Today", "Yesterday", "Earlier"] as const;
+const BUCKET_ORDER = ["today", "yesterday", "earlier"] as const;
+
+function bucketLabel(bucket: (typeof BUCKET_ORDER)[number]): string {
+  if (bucket === "today") return t`Today`;
+  if (bucket === "yesterday") return t`Yesterday`;
+  return t`Earlier`;
+}
 
 export function ChatThreadList({
   threads,
@@ -113,19 +121,22 @@ export function ChatThreadList({
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Back to Comicarr"
+          aria-label={t`Back to Comicarr`}
           onClick={onBack}
         >
           <ArrowLeft />
         </Button>
         <div className="min-w-0">
           <div className="text-[13px] font-semibold tracking-tight">
-            Ask Comicarr
+            <Trans>Ask Comicarr</Trans>
           </div>
           <div className="mono-meta">
             {seriesIndexed === undefined
-              ? "library assistant"
-              : `${seriesIndexed} series indexed`}
+              ? t`library assistant`
+              : plural(seriesIndexed, {
+                  one: "# series indexed",
+                  other: "# series indexed",
+                })}
           </div>
         </div>
       </div>
@@ -139,7 +150,9 @@ export function ChatThreadList({
           onClick={onNew}
         >
           <Plus />
-          <span className="flex-1 text-left">New chat</span>
+          <span className="flex-1 text-left">
+            <Trans>New chat</Trans>
+          </span>
           <Kbd>⌘⇧K</Kbd>
         </Button>
         <div className="flex h-8 items-center gap-2 rounded-control border border-border-strong bg-surface-2 px-2.5 focus-within:border-border-emphasis">
@@ -147,8 +160,8 @@ export function ChatThreadList({
           <input
             type="search"
             value={filter}
-            aria-label="Search chats"
-            placeholder="Search chats"
+            aria-label={t`Search chats`}
+            placeholder={t`Search chats`}
             className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
             onChange={(event) => setFilter(event.target.value)}
           />
@@ -159,29 +172,33 @@ export function ChatThreadList({
         {isLoading ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <LoaderCircle className="animate-spin" />
-            <span className="sr-only">Loading saved chats</span>
+            <span className="sr-only">
+              <Trans>Loading saved chats</Trans>
+            </span>
           </div>
         ) : error ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-5 text-center text-sm text-muted-foreground">
             <p>{error}</p>
             <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-              Try again
+              <Trans>Try again</Trans>
             </Button>
           </div>
         ) : threads.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center px-5 text-center text-sm text-muted-foreground">
             <MessageSquareText className="mb-3" />
-            Saved conversations appear here.
+            <Trans>Saved conversations appear here.</Trans>
           </div>
         ) : matches.length === 0 ? (
           <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-            No chats match “{filter.trim()}”.
+            {t`No chats match “${ph({ filter: filter.trim() })}”.`}
           </div>
         ) : (
           <div className="flex flex-col gap-3.5">
             {groups.map((group) => (
               <div key={group.label} className="flex flex-col gap-0.5">
-                <div className="mono-label px-2 pt-1.5 pb-1">{group.label}</div>
+                <div className="mono-label px-2 pt-1.5 pb-1">
+                  {bucketLabel(group.label)}
+                </div>
                 {group.threads.map((thread) => {
                   const active = thread.id === selectedId;
                   return (
@@ -200,8 +217,10 @@ export function ChatThreadList({
                           {thread.title}
                         </span>
                         <span className="mono-meta block w-full truncate">
-                          {thread.message_count} msgs ·{" "}
-                          {formatThreadTime(thread.updated_at)}
+                          {plural(thread.message_count, {
+                            one: `# msg · ${formatThreadTime(thread.updated_at)}`,
+                            other: `# msgs · ${formatThreadTime(thread.updated_at)}`,
+                          })}
                         </span>
                       </Button>
                       <DropdownMenu>
@@ -211,7 +230,7 @@ export function ChatThreadList({
                               type="button"
                               variant="ghost"
                               size="icon-sm"
-                              aria-label={`Actions for ${thread.title}`}
+                              aria-label={t`Actions for ${ph({ title: thread.title })}`}
                               className="mr-1 shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 data-popup-open:opacity-100"
                             />
                           }
@@ -235,7 +254,7 @@ export function ChatThreadList({
                               }}
                             >
                               <Pencil />
-                              Rename
+                              <Trans>Rename</Trans>
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive"
@@ -248,7 +267,7 @@ export function ChatThreadList({
                               }}
                             >
                               <Trash2 />
-                              Delete
+                              <Trans>Delete</Trans>
                             </DropdownMenuItem>
                           </DropdownMenuGroup>
                         </DropdownMenuContent>
@@ -271,7 +290,7 @@ export function ChatThreadList({
                     className="animate-spin"
                   />
                 )}
-                Load older chats
+                <Trans>Load older chats</Trans>
               </Button>
             )}
           </div>

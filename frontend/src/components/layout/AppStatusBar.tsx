@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -75,7 +77,7 @@ export default function AppStatusBar() {
       <StatusShell liveText="">
         <LibrarySegment
           text={
-            libraryPending ? "loading…" : libraryFailed ? "unavailable" : null
+            libraryPending ? t`loading…` : libraryFailed ? t`unavailable` : null
           }
           seriesCount={libraryFailed || libraryPending ? null : librarySeries}
         />
@@ -83,7 +85,11 @@ export default function AppStatusBar() {
         <ApiSegment api={api} />
         <Sep />
         <span className="text-foreground">
-          {activityPending ? "loading…" : activityFailed ? "unavailable" : "…"}
+          {activityPending
+            ? t`loading…`
+            : activityFailed
+              ? t`unavailable`
+              : "…"}
         </span>
       </StatusShell>
     );
@@ -97,7 +103,7 @@ export default function AppStatusBar() {
     return (
       <StatusShell liveText={liveText}>
         <LibrarySegment
-          text={libraryFailed ? "unavailable" : null}
+          text={libraryFailed ? t`unavailable` : null}
           seriesCount={libraryFailed ? null : librarySeries}
         />
         <Sep />
@@ -106,9 +112,9 @@ export default function AppStatusBar() {
         <Link
           to="/activity"
           className="text-foreground hover:underline"
-          title="Activity status unavailable — open Activity"
+          title={t`Activity status unavailable — open Activity`}
         >
-          unavailable
+          <Trans>unavailable</Trans>
         </Link>
       </StatusShell>
     );
@@ -139,7 +145,7 @@ function StatusShell({
   return (
     <div
       className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 mono-meta"
-      aria-label="Application status"
+      aria-label={t`Application status`}
     >
       {children}
       {/* Outer row is not aria-live; dedicated polite region for policy events only. */}
@@ -166,19 +172,26 @@ function LibrarySegment({
   seriesCount: number | null;
 }) {
   const display =
-    text ?? (seriesCount === 1 ? "1 series" : `${seriesCount ?? 0} series`);
+    text ?? plural(seriesCount ?? 0, { one: "# series", other: "# series" });
   return (
-    <span title="Active series in your library" className="text-foreground">
+    <span title={t`Active series in your library`} className="text-foreground">
       {display}
     </span>
   );
 }
 
 function ApiSegment({ api }: { api: ActivityApiState }) {
-  const display = api === "checking" ? "checking…" : api;
+  const display =
+    api === "checking"
+      ? t`checking…`
+      : api === "online"
+        ? t`online`
+        : api === "offline"
+          ? t`offline`
+          : api;
   return (
     <span
-      title="Connection to the Comicarr API"
+      title={t`Connection to the Comicarr API`}
       className="inline-flex items-center gap-1.5"
     >
       <span
@@ -205,19 +218,22 @@ function SegmentView({
   }
 
   if (segment.role === "library") {
-    const value = segment.text.replace(/^library:\s*/, "");
+    const value = segment.display ?? segment.text;
     return (
-      <span title="Active series in your library" className="text-foreground">
+      <span
+        title={t`Active series in your library`}
+        className="text-foreground"
+      >
         {value}
       </span>
     );
   }
 
   if (segment.role === "api") {
-    const value = segment.text.replace(/^api:\s*/, "");
+    const value = segment.display ?? segment.text;
     return (
       <span
-        title="Connection to the Comicarr API"
+        title={t`Connection to the Comicarr API`}
         className="inline-flex items-center gap-1.5"
       >
         <span
@@ -237,21 +253,18 @@ function SegmentView({
       <Link
         to={segment.href ?? "/activity/attention"}
         className="text-[var(--status-error)] hover:underline"
-        title="Needs you: open the list"
+        title={t`Needs you: open the list`}
       >
-        {segment.text
-          .replace(/^⚠\s*/, "")
-          .replace("need attention", "need you")}
+        {segment.display ?? segment.text}
       </Link>
     );
   }
 
-  const title =
-    segment.text === "unreachable"
-      ? "Server unreachable — open Activity"
-      : segment.text === "idle"
-        ? "No open work → Activity"
-        : "Open work (searches + open pipeline stages) → Activity";
+  const title = segment.unreachable
+    ? t`Server unreachable — open Activity`
+    : segment.role === "idle"
+      ? t`No open work → Activity`
+      : t`Open work (searches + open pipeline stages) → Activity`;
 
   if (segment.href) {
     return (

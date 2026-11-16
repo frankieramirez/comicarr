@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import type { ChatAction, LibraryChatMessage } from "@/types/chat";
 import {
   Attachment,
@@ -94,7 +96,9 @@ export function ChatMessage({ message, onActionChange }: ChatMessageProps) {
         {message.results && message.results.length > 0 && (
           <div className="flex w-full max-w-2xl flex-col gap-2">
             <div className="flex items-center gap-2">
-              <span className="mono-label shrink-0">In your library</span>
+              <span className="mono-label shrink-0">
+                <Trans>In your library</Trans>
+              </span>
               <span className="h-px flex-1 bg-border" />
             </div>
             {message.results.slice(0, 10).map((result, index) => (
@@ -105,7 +109,10 @@ export function ChatMessage({ message, onActionChange }: ChatMessageProps) {
             ))}
             {message.results.length > 10 && (
               <p className="px-1 text-xs text-muted-foreground">
-                {message.results.length - 10} more matches
+                {plural(message.results.length - 10, {
+                  one: "# more match",
+                  other: "# more matches",
+                })}
               </p>
             )}
           </div>
@@ -126,7 +133,7 @@ export function ChatMessage({ message, onActionChange }: ChatMessageProps) {
               <ThinkingDots />
             </MarkerIcon>
             <MarkerContent className="shimmer">
-              Reading your library…
+              <Trans>Reading your library…</Trans>
             </MarkerContent>
           </Marker>
         )}
@@ -137,7 +144,7 @@ export function ChatMessage({ message, onActionChange }: ChatMessageProps) {
               <AlertCircle />
             </MarkerIcon>
             <MarkerContent>
-              {message.content || "The response could not be completed."}
+              {message.content || t`The response could not be completed.`}
             </MarkerContent>
           </Marker>
         )}
@@ -147,7 +154,9 @@ export function ChatMessage({ message, onActionChange }: ChatMessageProps) {
             <MarkerIcon>
               <CircleStop />
             </MarkerIcon>
-            <MarkerContent>Response stopped</MarkerContent>
+            <MarkerContent>
+              <Trans>Response stopped</Trans>
+            </MarkerContent>
           </Marker>
         )}
       </MessageContent>

@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { useState, SyntheticEvent } from "react";
 import { BookOpen, ImageOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +59,7 @@ export function CoverCell({
           {isManga && (
             <Badge variant="secondary" className="text-xs px-1.5 py-0">
               <BookOpen className="w-3 h-3 mr-1" />
-              Manga
+              <Trans>Manga</Trans>
             </Badge>
           )}
         </div>

@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Bot, Compass, RefreshCw } from "lucide-react";
@@ -46,9 +48,9 @@ export default function DiscoverPage() {
     } catch (error) {
       addToast({
         type: "error",
-        title: "Failed to refresh recommendations",
+        title: t`Failed to refresh recommendations`,
         description:
-          error instanceof Error ? error.message : "Please try again.",
+          error instanceof Error ? error.message : t`Please try again.`,
       });
     } finally {
       refreshInFlight.current = false;
@@ -79,8 +81,8 @@ export default function DiscoverPage() {
         restoreRecommendation(queryClient, recommendation);
         addToast({
           type: "error",
-          title: "Failed to add series",
-          description: detail.message || "Please try again.",
+          title: t`Failed to add series`,
+          description: detail.message || t`Please try again.`,
         });
       }
     };
@@ -98,34 +100,37 @@ export default function DiscoverPage() {
   const count = recommendations?.length ?? 0;
   const meta =
     statusError || refresh.isError || isError
-      ? "unavailable"
+      ? t`unavailable`
       : refresh.isPending
-        ? "generating…"
+        ? t`generating…`
         : aiConfigured
           ? isLoading
-            ? "loading…"
-            : `${count} recommendation${count === 1 ? "" : "s"}`
-          : "AI not configured";
+            ? t`loading…`
+            : plural(count, {
+                one: "# recommendation",
+                other: "# recommendations",
+              })
+          : t`AI not configured`;
 
   const refreshButton = aiConfigured ? (
     <button
       type="button"
       onClick={() => void handleRefresh()}
       disabled={refresh.isPending}
-      title="Regenerate recommendations from your library"
+      title={t`Regenerate recommendations from your library`}
       className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
     >
       <RefreshCw
         className={`w-3.5 h-3.5 ${refresh.isPending ? "animate-spin" : ""}`}
       />
-      {refresh.isPending ? "Refreshing…" : "Refresh"}
+      {refresh.isPending ? t`Refreshing…` : t`Refresh`}
     </button>
   ) : null;
 
   return (
     <PageShell
       header={
-        <PageHeader title="Discover" meta={meta} actions={refreshButton} />
+        <PageHeader title={t`Discover`} meta={meta} actions={refreshButton} />
       }
     >
       <div className="px-5 py-4">
@@ -147,42 +152,46 @@ export default function DiscoverPage() {
           </div>
         ) : statusError ? (
           <div className="py-12 text-center" role="alert">
-            <div className="mono-label mb-2">DISCOVER · ERROR</div>
+            <div className="mono-label mb-2">
+              <Trans>DISCOVER · ERROR</Trans>
+            </div>
             <div className="text-base font-semibold">
-              Failed to check AI status
+              <Trans>Failed to check AI status</Trans>
             </div>
             <button
               type="button"
               onClick={() => void retryStatus()}
               className="mt-3 text-xs text-muted-foreground hover:text-foreground"
             >
-              Retry
+              <Trans>Retry</Trans>
             </button>
           </div>
         ) : !aiConfigured ? (
           <EmptyState
             variant="custom"
             icon={Bot}
-            eyebrow="DISCOVER · AI"
-            title="Connect an AI provider"
-            description="Comicarr can suggest series you might enjoy based on the library you already track. Configure an AI provider in Settings to enable recommendations."
-            action={{ label: "AI settings", to: "/settings?tab=ai" }}
+            eyebrow={t`DISCOVER · AI`}
+            title={t`Connect an AI provider`}
+            description={t`Comicarr can suggest series you might enjoy based on the library you already track. Configure an AI provider in Settings to enable recommendations.`}
+            action={{ label: t`AI settings`, to: "/settings?tab=ai" }}
           />
         ) : refresh.isPending ? (
           <EmptyState
             variant="custom"
             icon={Bot}
-            eyebrow="DISCOVER · AI"
-            title="Generating recommendations"
-            description="Looking for series that fit your library."
+            eyebrow={t`DISCOVER · AI`}
+            title={t`Generating recommendations`}
+            description={t`Looking for series that fit your library.`}
           />
         ) : refresh.isError || isError ? (
           <div className="py-12 text-center" role="alert">
-            <div className="mono-label mb-2">DISCOVER · ERROR</div>
+            <div className="mono-label mb-2">
+              <Trans>DISCOVER · ERROR</Trans>
+            </div>
             <div className="text-base font-semibold">
               {refresh.isError
-                ? "Failed to refresh recommendations"
-                : "Failed to load recommendations"}
+                ? t`Failed to refresh recommendations`
+                : t`Failed to load recommendations`}
             </div>
             <button
               type="button"
@@ -192,7 +201,7 @@ export default function DiscoverPage() {
               disabled={refresh.isPending}
               className="mt-3 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
             >
-              Retry
+              <Trans>Retry</Trans>
             </button>
           </div>
         ) : recommendations && recommendations.length > 0 ? (
@@ -209,11 +218,11 @@ export default function DiscoverPage() {
           <EmptyState
             variant="custom"
             icon={Compass}
-            eyebrow="DISCOVER · EMPTY"
-            title="No recommendations yet"
-            description="Recommendations refresh with the weekly pull list, or on demand."
+            eyebrow={t`DISCOVER · EMPTY`}
+            title={t`No recommendations yet`}
+            description={t`Recommendations refresh with the weekly pull list, or on demand.`}
             action={{
-              label: "Generate recommendations",
+              label: t`Generate recommendations`,
               onClick: () => void handleRefresh(),
             }}
           />

@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -95,15 +97,15 @@ export default function ArcGenerator() {
       <div className="flex items-center gap-2">
         <Sparkles className="w-4 h-4 text-primary" />
         <h3 className="text-sm font-medium text-foreground">
-          AI Reading Order Generator
+          <Trans>AI Reading Order Generator</Trans>
         </h3>
       </div>
 
       <div className="flex gap-2">
         <Input
           type="text"
-          aria-label="Story arc description"
-          placeholder="e.g. Dark Phoenix Saga, Secret Wars 2015, Spider-Verse..."
+          aria-label={t`Story arc description`}
+          placeholder={t`e.g. Dark Phoenix Saga, Secret Wars 2015, Spider-Verse...`}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -118,10 +120,10 @@ export default function ArcGenerator() {
           {generateMutation.isPending ? (
             <>
               <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-              Generating...
+              <Trans>Generating...</Trans>
             </>
           ) : (
-            "Generate"
+            t`Generate`
           )}
         </Button>
       </div>
@@ -129,7 +131,7 @@ export default function ArcGenerator() {
       {generateMutation.isError && (
         <p className="text-sm text-destructive">
           {generateMutation.error?.message ||
-            "Failed to generate reading order"}
+            t`Failed to generate reading order`}
         </p>
       )}
 
@@ -137,7 +139,9 @@ export default function ArcGenerator() {
         generateMutation.isSuccess &&
         generatedIssues.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No issues found for this arc. Try a more specific description.
+            <Trans>
+              No issues found for this arc. Try a more specific description.
+            </Trans>
           </p>
         )}
 
@@ -145,7 +149,10 @@ export default function ArcGenerator() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {generatedIssues.length} issues in reading order
+              {plural(generatedIssues.length, {
+                one: "# issue in reading order",
+                other: "# issues in reading order",
+              })}
             </p>
             <Button
               onClick={handleSave}
@@ -156,12 +163,12 @@ export default function ArcGenerator() {
               {saveMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                  Saving...
+                  <Trans>Saving...</Trans>
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4 mr-1" />
-                  Save Arc
+                  <Trans>Save Arc</Trans>
                 </>
               )}
             </Button>
@@ -169,7 +176,7 @@ export default function ArcGenerator() {
 
           {saveMutation.isError && (
             <p className="text-sm text-destructive">
-              {saveMutation.error?.message || "Failed to save arc"}
+              {saveMutation.error?.message || t`Failed to save arc`}
             </p>
           )}
 
@@ -187,13 +194,15 @@ export default function ArcGenerator() {
       {savedArcId && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Arc saved.{" "}
-            <Link
-              to={`/story-arcs/${savedArcId}`}
-              className="text-primary hover:underline"
-            >
-              Open it in Story Arcs
-            </Link>
+            <Trans>
+              Arc saved.{" "}
+              <Link
+                to={`/story-arcs/${savedArcId}`}
+                className="text-primary hover:underline"
+              >
+                Open it in Story Arcs
+              </Link>
+            </Trans>
           </p>
           {savedArc.data && savedArc.data.missing.length > 0 && (
             <ArcMissingSeries

@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useEffect, useState } from "react";
 import {
   ArrowRight,
@@ -149,10 +151,12 @@ export default function OnboardingDialog({
           style={{ borderColor: "var(--border)" }}
         >
           <DialogPrimitive.Title className="sr-only">
-            Comicarr onboarding
+            <Trans>Comicarr onboarding</Trans>
           </DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
-            Guided setup to migrate from Mylar3 or start with a fresh library.
+            <Trans>
+              Guided setup to migrate from Mylar3 or start with a fresh library.
+            </Trans>
           </DialogPrimitive.Description>
           {/* Header */}
           <div
@@ -161,7 +165,7 @@ export default function OnboardingDialog({
           >
             <Logo className="h-3.5 w-auto text-foreground" />
             <span className="font-mono text-[10px] text-muted-foreground px-1.5 py-0.5 border border-border rounded-sm">
-              onboarding
+              <Trans>onboarding</Trans>
             </span>
             <div className="ml-auto flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
               <StepDots step={visibleStep} />
@@ -235,28 +239,32 @@ function WelcomeStep({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <MonoLabel>Welcome · {formatAppVersion()}</MonoLabel>
+      <MonoLabel>
+        {t`Welcome · ${ph({ version: formatAppVersion() })}`}
+      </MonoLabel>
       <div className="text-[20px] font-semibold tracking-tight">
-        Let's get your library set up.
+        <Trans>Let's get your library set up.</Trans>
       </div>
       <div className="text-[13px] text-muted-foreground leading-relaxed">
-        Comicarr can start fresh or pull your existing series, issues, and
-        download history from a Mylar3 installation.
+        <Trans>
+          Comicarr can start fresh or pull your existing series, issues, and
+          download history from a Mylar3 installation.
+        </Trans>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         <ChoiceCard
           icon={Database}
-          eyebrow="Migrate"
-          title="I'm coming from Mylar3"
-          description="Import my library and settings."
+          eyebrow={t`Migrate`}
+          title={t`I'm coming from Mylar3`}
+          description={t`Import my library and settings.`}
           onClick={onMigrate}
         />
         <ChoiceCard
           icon={Sparkles}
-          eyebrow="Start fresh"
-          title="I'm new to Comicarr"
-          description="Begin with an empty library."
+          eyebrow={t`Start fresh`}
+          title={t`I'm new to Comicarr`}
+          description={t`Begin with an empty library.`}
           onClick={onFresh}
         />
       </div>
@@ -299,7 +307,7 @@ function ChoiceCard({
         {description}
       </div>
       <div className="mt-3 inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground group-hover:text-[var(--primary)]">
-        choose <ArrowRight className="w-3 h-3" />
+        <Trans>choose</Trans> <ArrowRight className="w-3 h-3" />
       </div>
     </button>
   );
@@ -329,21 +337,27 @@ function MigrateStep({
           className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="w-3 h-3" />
-          back
+          <Trans>back</Trans>
         </button>
       </div>
 
-      <MonoLabel>Migrate from Mylar3</MonoLabel>
+      <MonoLabel>
+        <Trans>Migrate from Mylar3</Trans>
+      </MonoLabel>
       <div className="text-[18px] font-semibold tracking-tight">
-        Point us at your Mylar3 data directory.
+        <Trans>Point us at your Mylar3 data directory.</Trans>
       </div>
       <div className="text-[12px] text-muted-foreground leading-relaxed">
-        Typically mounted into the container as a Docker volume. We'll read it,
-        but won't modify anything.
+        <Trans>
+          Typically mounted into the container as a Docker volume. We'll read
+          it, but won't modify anything.
+        </Trans>
       </div>
 
       <div>
-        <MonoLabel>Mylar3 path</MonoLabel>
+        <MonoLabel>
+          <Trans>Mylar3 path</Trans>
+        </MonoLabel>
         <div
           className="flex items-center gap-2 px-3 py-2 rounded-control border bg-background mt-1.5"
           style={{ borderColor: "var(--border)" }}
@@ -354,7 +368,7 @@ function MigrateStep({
           />
           <input
             type="text"
-            aria-label="Mylar3 data directory path"
+            aria-label={t`Mylar3 data directory path`}
             value={path}
             onChange={(e) => setPath(e.target.value)}
             onKeyDown={(e) => {
@@ -378,7 +392,7 @@ function MigrateStep({
             ) : (
               <SearchCheck className="w-3 h-3" />
             )}
-            validate
+            <Trans>validate</Trans>
           </button>
         </div>
       </div>
@@ -396,19 +410,21 @@ function MigrateStep({
       {preview.data && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <MonoLabel>Preview</MonoLabel>
+            <MonoLabel>
+              <Trans>Preview</Trans>
+            </MonoLabel>
             <span className="font-mono text-[10px] text-muted-foreground">
-              mylar3 v{preview.data.version}
+              {t`mylar3 v${ph({ version: preview.data.version })}`}
             </span>
           </div>
           <div className="grid grid-cols-4 gap-2">
-            <Stat label="series" value={preview.data.series_count} />
-            <Stat label="issues" value={preview.data.issue_count} />
+            <Stat label={t`series`} value={preview.data.series_count} />
+            <Stat label={t`issues`} value={preview.data.issue_count} />
             <Stat
-              label="config"
+              label={t`config`}
               value={preview.data.config_categories.length}
             />
-            <Stat label="tables" value={preview.data.tables.length} />
+            <Stat label={t`tables`} value={preview.data.tables.length} />
           </div>
           {preview.data.path_warnings.length > 0 && (
             <div
@@ -420,8 +436,11 @@ function MigrateStep({
             >
               <TriangleAlert className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <span>
-                {preview.data.path_warnings.length} path settings may need
-                updating for Docker — review after migration.
+                {plural(preview.data.path_warnings.length, {
+                  one: "# path setting may need updating for Docker. Review it after migration.",
+                  other:
+                    "# path settings may need updating for Docker. Review them after migration.",
+                })}
               </span>
             </div>
           )}
@@ -432,7 +451,9 @@ function MigrateStep({
         className="flex items-center justify-between pt-3 mt-1 border-t"
         style={{ borderColor: "var(--border)" }}
       >
-        <GhostButton onClick={onBack}>Cancel</GhostButton>
+        <GhostButton onClick={onBack}>
+          <Trans>Cancel</Trans>
+        </GhostButton>
         {preview.data && (
           <PrimaryButton
             onClick={onStart}
@@ -442,10 +463,12 @@ function MigrateStep({
             {start.isPending ? (
               <>
                 <Loader2 className="animate-spin" />
-                Starting…
+                <Trans>Starting…</Trans>
               </>
             ) : (
-              <>Start migration</>
+              <>
+                <Trans>Start migration</Trans>
+              </>
             )}
           </PrimaryButton>
         )}
@@ -457,13 +480,17 @@ function MigrateStep({
 function FreshStep({ onFinish }: { onFinish: () => void }) {
   return (
     <div className="flex flex-col gap-4">
-      <MonoLabel>Start fresh</MonoLabel>
+      <MonoLabel>
+        <Trans>Start fresh</Trans>
+      </MonoLabel>
       <div className="text-[18px] font-semibold tracking-tight">
-        Four steps to your first download
+        <Trans>Four steps to your first download</Trans>
       </div>
       <div className="text-[12px] text-muted-foreground leading-relaxed">
-        Your dashboard keeps this list under Needs you, with a button for each
-        step, until they are all done.
+        <Trans>
+          Your dashboard keeps this list under Needs you, with a button for each
+          step, until they are all done.
+        </Trans>
       </div>
 
       <div
@@ -472,23 +499,23 @@ function FreshStep({ onFinish }: { onFinish: () => void }) {
       >
         {[
           {
-            label: "Choose a library folder",
-            hint: "Settings → General",
+            label: t`Choose a library folder`,
+            hint: t`Settings → General`,
             icon: FolderOpen,
           },
           {
-            label: "Add your ComicVine API key",
-            hint: "Settings → Sources and keys",
+            label: t`Add your ComicVine API key`,
+            hint: t`Settings → Sources and keys`,
             icon: Database,
           },
           {
-            label: "Add an indexer",
-            hint: "Settings → Indexers and search",
+            label: t`Add an indexer`,
+            hint: t`Settings → Indexers and search`,
             icon: SearchCheck,
           },
           {
-            label: "Add a download client",
-            hint: "Settings → Download clients",
+            label: t`Add a download client`,
+            hint: t`Settings → Download clients`,
             icon: Download,
           },
         ].map(({ label, hint, icon: Icon }) => (
@@ -513,7 +540,7 @@ function FreshStep({ onFinish }: { onFinish: () => void }) {
         style={{ borderColor: "var(--border)" }}
       >
         <PrimaryButton onClick={onFinish} endKbd="↵">
-          Take me to the dashboard
+          <Trans>Take me to the dashboard</Trans>
         </PrimaryButton>
       </div>
     </div>
@@ -534,9 +561,11 @@ function RunningStep({
     : 0;
   return (
     <div className="flex flex-col gap-4">
-      <MonoLabel>Migrating · do not close this tab</MonoLabel>
+      <MonoLabel>
+        <Trans>Migrating · do not close this tab</Trans>
+      </MonoLabel>
       <div className="text-[18px] font-semibold tracking-tight">
-        Importing your library…
+        <Trans>Importing your library…</Trans>
       </div>
 
       <div className="flex items-center gap-3">
@@ -546,10 +575,12 @@ function RunningStep({
         />
         <div className="flex-1 min-w-0">
           <div className="mono-meta truncate">
-            current:{" "}
-            <span className="text-foreground">
-              {progress?.current_table || "—"}
-            </span>
+            <Trans>
+              current:{" "}
+              <span className="text-foreground">
+                {ph({ table: progress?.current_table || "—" })}
+              </span>
+            </Trans>
           </div>
         </div>
         <div className="mono-meta">
@@ -588,22 +619,28 @@ function DoneStep({
   if (errored) {
     return (
       <div className="flex flex-col gap-4">
-        <MonoLabel>Migration failed</MonoLabel>
+        <MonoLabel>
+          <Trans>Migration failed</Trans>
+        </MonoLabel>
         <div className="text-[18px] font-semibold tracking-tight">
-          Something went wrong.
+          <Trans>Something went wrong.</Trans>
         </div>
         <Callout
           tone="error"
           className="rounded-md p-3 font-mono text-[11.5px]"
         >
-          {progress?.error || "Unknown error"}
+          {progress?.error || t`Unknown error`}
         </Callout>
         <div
           className="flex justify-between pt-3 border-t"
           style={{ borderColor: "var(--border)" }}
         >
-          <GhostButton onClick={onFinish}>Skip for now</GhostButton>
-          <PrimaryButton onClick={onRetry}>Try again</PrimaryButton>
+          <GhostButton onClick={onFinish}>
+            <Trans>Skip for now</Trans>
+          </GhostButton>
+          <PrimaryButton onClick={onRetry}>
+            <Trans>Try again</Trans>
+          </PrimaryButton>
         </div>
       </div>
     );
@@ -611,25 +648,29 @@ function DoneStep({
 
   return (
     <div className="flex flex-col gap-4">
-      <MonoLabel>Migration complete</MonoLabel>
+      <MonoLabel>
+        <Trans>Migration complete</Trans>
+      </MonoLabel>
       <div className="flex items-center gap-2 text-[18px] font-semibold tracking-tight">
         <Check
           className="w-5 h-5"
           style={{ color: "var(--status-active)" }}
           strokeWidth={2.25}
         />
-        Your library is ready.
+        <Trans>Your library is ready.</Trans>
       </div>
       <div className="text-[12px] text-muted-foreground leading-relaxed">
-        Everything from Mylar3 has been imported. You may need to refresh
-        metadata on a few series.
+        <Trans>
+          Everything from Mylar3 has been imported. You may need to refresh
+          metadata on a few series.
+        </Trans>
       </div>
       <div
         className="flex justify-end pt-3 border-t"
         style={{ borderColor: "var(--border)" }}
       >
         <PrimaryButton onClick={onFinish} endKbd="↵">
-          Go to dashboard
+          <Trans>Go to dashboard</Trans>
         </PrimaryButton>
       </div>
     </div>

@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import {
   useRef,
   type ClipboardEvent,
@@ -56,15 +58,15 @@ export function ChatComposer({
       ACCEPTED_IMAGE_TYPE_SET.has(file.type),
     );
     if (imageFiles.length !== incoming.length) {
-      onValidationError("Choose JPEG, PNG, or WebP images.");
+      onValidationError(t`Choose JPEG, PNG, or WebP images.`);
       return;
     }
     if (imageFiles.some((file) => file.size > MAX_IMAGE_BYTES)) {
-      onValidationError("Each image must be 10 MB or smaller.");
+      onValidationError(t`Each image must be 10 MB or smaller.`);
       return;
     }
     if (images.length + imageFiles.length > MAX_IMAGES) {
-      onValidationError("Attach up to four images per message.");
+      onValidationError(t`Attach up to four images per message.`);
       return;
     }
     onImagesChange([
@@ -126,7 +128,9 @@ export function ChatComposer({
                 >
                   <AttachmentPreview />
                   <AttachmentInfo />
-                  <AttachmentRemove label={`Remove ${image.file.name}`} />
+                  <AttachmentRemove
+                    label={t`Remove ${ph({ name: image.file.name })}`}
+                  />
                 </Attachment>
               ))}
             </Attachments>
@@ -135,9 +139,9 @@ export function ChatComposer({
         <InputGroupTextarea
           value={value}
           disabled={isSending}
-          aria-label="Message Chat"
+          aria-label={t`Message Chat`}
           aria-invalid={Boolean(error)}
-          placeholder="Ask about your library, or drop a cover to identify it"
+          placeholder={t`Ask about your library, or drop a cover to identify it`}
           className="min-h-16 max-h-40 text-sm"
           onChange={(event) => onChange(event.target.value)}
           onPaste={handlePaste}
@@ -164,7 +168,7 @@ export function ChatComposer({
           <InputGroupButton
             type="button"
             size="icon-sm"
-            aria-label="Attach images"
+            aria-label={t`Attach images`}
             disabled={isSending}
             onClick={() => fileInputRef.current?.click()}
           >
@@ -175,7 +179,7 @@ export function ChatComposer({
               type="button"
               size="icon-sm"
               variant="destructive"
-              aria-label="Stop response"
+              aria-label={t`Stop response`}
               className="ml-auto"
               onClick={onStop}
             >
@@ -186,7 +190,7 @@ export function ChatComposer({
               type="submit"
               size="icon-sm"
               variant="default"
-              aria-label="Send message"
+              aria-label={t`Send message`}
               className="ml-auto"
               disabled={!value.trim() && images.length === 0}
             >
@@ -203,10 +207,10 @@ export function ChatComposer({
               : "mono-meta hidden text-[10px] sm:inline"
           }
         >
-          {error || "enter sends · shift+enter new line"}
+          {error || t`enter sends · shift+enter new line`}
         </span>
         <span className="mono-meta shrink-0 text-[10px]">
-          jpeg · png · webp · 10 MB
+          <Trans>jpeg · png · webp · 10 MB</Trans>
         </span>
       </div>
     </form>

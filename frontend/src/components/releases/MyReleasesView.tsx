@@ -1,3 +1,6 @@
+import { ph, t } from "@lingui/core/macro";
+import { errorText } from "@/lib/api";
+import { Trans } from "@lingui/react/macro";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { RefreshCw, Search } from "lucide-react";
 import {
@@ -37,12 +40,12 @@ import type { UpcomingIssue } from "@/types";
 
 type StateTab = "all" | Exclude<ReleaseBucket, "other">;
 
-const TABS: { value: StateTab; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "needs_you", label: "Needs you" },
-  { value: "in_progress", label: "In progress" },
-  { value: "downloaded", label: "Downloaded" },
-  { value: "coming_up", label: "Coming up" },
+const TABS = (): { value: StateTab; label: string }[] => [
+  { value: "all", label: t`All` },
+  { value: "needs_you", label: t`Needs you` },
+  { value: "in_progress", label: t`In progress` },
+  { value: "downloaded", label: t`Downloaded` },
+  { value: "coming_up", label: t`Coming up` },
 ];
 
 const byDayThenName = (a: UpcomingIssue, b: UpcomingIssue) =>
@@ -196,7 +199,7 @@ export default function MyReleasesView({
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to queue issues: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to queue issues: ${ph({ error: errorText(err) })}`,
       });
     }
   };
@@ -210,13 +213,13 @@ export default function MyReleasesView({
     } catch (err) {
       addToast({
         type: "error",
-        message: `Failed to skip issues: ${err instanceof Error ? err.message : "Unknown error"}`,
+        message: t`Failed to skip issues: ${ph({ error: errorText(err) })}`,
       });
     }
   };
 
   const handleForceSearch = async () => {
-    if (window.confirm("Manual search may take several minutes. Continue?")) {
+    if (window.confirm(t`Manual search may take several minutes. Continue?`)) {
       try {
         const result = await forceSearchMutation.mutateAsync();
         setForceRunId(
@@ -227,12 +230,12 @@ export default function MyReleasesView({
           message:
             result.message ||
             result.error ||
-            "Search did not start for the wanted issues",
+            t`Search did not start for the wanted issues`,
         });
       } catch (err) {
         addToast({
           type: "error",
-          message: `Failed to start search: ${err instanceof Error ? err.message : "Unknown error"}`,
+          message: t`Failed to start search: ${ph({ error: errorText(err) })}`,
         });
       }
     }
@@ -271,10 +274,10 @@ export default function MyReleasesView({
       <div className="shrink-0 flex flex-wrap items-center gap-2 px-4 py-3 md:px-8">
         <div
           role="group"
-          aria-label="Where it stands"
+          aria-label={t`Where it stands`}
           className="-mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:px-0"
         >
-          {TABS.map((option) => (
+          {TABS().map((option) => (
             <button
               key={option.value}
               type="button"
@@ -290,8 +293,8 @@ export default function MyReleasesView({
           ))}
         </div>
         <FilterField
-          aria-label="Filter releases"
-          placeholder="Filter series or publisher"
+          aria-label={t`Filter releases`}
+          placeholder={t`Filter series or publisher`}
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           widthCap="sm"
@@ -304,8 +307,8 @@ export default function MyReleasesView({
             size="icon-sm"
             onClick={() => refetch()}
             disabled={isFetching}
-            aria-label="Reload this list"
-            title="Reload this list"
+            aria-label={t`Reload this list`}
+            title={t`Reload this list`}
           >
             <RefreshCw className={isFetching ? "animate-spin" : ""} />
           </Button>
@@ -320,20 +323,20 @@ export default function MyReleasesView({
                     await retrySearchMutation.mutateAsync(forceRunId);
                   addToast({
                     type: result.success ? "info" : "error",
-                    message: result.message || "Queue handoff retry completed",
+                    message: result.message || t`Queue handoff retry completed`,
                   });
                 } catch (err) {
                   addToast({
                     type: "error",
-                    message: `Retry failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+                    message: t`Retry failed: ${ph({ error: errorText(err) })}`,
                   });
                 }
               }}
               disabled={retrySearchMutation.isPending}
             >
               {retrySearchMutation.isPending
-                ? "Retrying…"
-                : "Retry queue handoff"}
+                ? t`Retrying…`
+                : t`Retry queue handoff`}
             </Button>
           )}
           {/* With nothing to search with, the banner's fix is the action. */}
@@ -346,7 +349,9 @@ export default function MyReleasesView({
               disabled={forceSearchMutation.isPending}
             >
               <Search />
-              <span className="max-md:sr-only">Force search</span>
+              <span className="max-md:sr-only">
+                <Trans>Force search</Trans>
+              </span>
             </Button>
           )}
         </div>
@@ -367,7 +372,7 @@ export default function MyReleasesView({
           <div className="px-8 py-4">
             <ErrorDisplay
               error={error}
-              title="Unable to load your releases"
+              title={t`Unable to load your releases`}
               onRetry={() => refetch()}
             />
           </div>
@@ -378,18 +383,20 @@ export default function MyReleasesView({
             data-testid="pull-unavailable-note"
             className="px-8 pb-2 text-[13px] text-muted-foreground max-md:px-4"
           >
-            The comics pull list for this week isn&rsquo;t available yet, so
-            this shows your series&rsquo; own release dates. Some comics may be
-            missing until it is.
+            <Trans>
+              The comics pull list for this week isn&rsquo;t available yet, so
+              this shows your series&rsquo; own release dates. Some comics may
+              be missing until it is.
+            </Trans>
           </p>
         )}
 
         {!isLoading && !error && issues.length === 0 && pullUnavailable && (
           <EmptyState
             variant="custom"
-            eyebrow="RELEASES · PULL LIST UNAVAILABLE"
-            title="This week's pull list isn't available yet"
-            description="The comics pull source hasn't published this week or can't be reached, and none of your series has a release date in it. Try Refresh releases later, or turn off Only my library to see this week's manga."
+            eyebrow={t`RELEASES · PULL LIST UNAVAILABLE`}
+            title={t`This week's pull list isn't available yet`}
+            description={t`The comics pull source hasn't published this week or can't be reached, and none of your series has a release date in it. Try Refresh releases later, or turn off Only my library to see this week's manga.`}
           />
         )}
 
@@ -400,12 +407,12 @@ export default function MyReleasesView({
         {!isLoading && !error && issues.length > 0 && rows.length === 0 && (
           <EmptyState
             variant="custom"
-            eyebrow="RELEASES · FILTERED"
-            title="Nothing matches that filter"
+            eyebrow={t`RELEASES · FILTERED`}
+            title={t`Nothing matches that filter`}
             description={
               filtered
-                ? "Pick All or clear the filter to see the whole week."
-                : "Nothing to show for this week."
+                ? t`Pick All or clear the filter to see the whole week.`
+                : t`Nothing to show for this week.`
             }
           />
         )}
@@ -427,14 +434,14 @@ export default function MyReleasesView({
                   <td colSpan={colSpan} className="px-2 pt-4 pb-2">
                     <div className="flex items-baseline gap-2 text-[13px]">
                       <span className="font-semibold text-foreground">
-                        {day ? dayHeading(day) : "No release date"}
+                        {day ? dayHeading(day) : t`No release date`}
                       </span>
                       <span className="font-mono text-xs text-muted-foreground">
                         {dayCounts.get(day)}
                       </span>
                       {day && isNewComicDay(day) && (
                         <span className="ml-auto text-xs text-muted-foreground">
-                          New comic day
+                          <Trans>New comic day</Trans>
                         </span>
                       )}
                     </div>

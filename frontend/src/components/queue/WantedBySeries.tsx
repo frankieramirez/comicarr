@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Search } from "lucide-react";
@@ -30,23 +32,23 @@ import { formatNumber } from "@/lib/intl";
 
 const PAGE_SIZE = 50;
 
-const TABS: { value: WantedSeriesParams["state"]; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "not_found", label: "Not found" },
-  { value: "searching", label: "Searching" },
-  { value: "queued", label: "Queued" },
+const TABS = (): { value: WantedSeriesParams["state"]; label: string }[] => [
+  { value: "all", label: t`All` },
+  { value: "not_found", label: t`Not found` },
+  { value: "searching", label: t`Searching` },
+  { value: "queued", label: t`Queued` },
 ];
 
-const KINDS: { value: WantedSeriesParams["kind"]; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "comic", label: "Comics" },
-  { value: "manga", label: "Manga" },
+const KINDS = (): { value: WantedSeriesParams["kind"]; label: string }[] => [
+  { value: "all", label: t`All` },
+  { value: "comic", label: t`Comics` },
+  { value: "manga", label: t`Manga` },
 ];
 
-const SORTS: { value: WantedSeriesParams["sort"]; label: string }[] = [
-  { value: "problems", label: "Problems first" },
-  { value: "missing", label: "Most missing" },
-  { value: "name", label: "Name" },
+const SORTS = (): { value: WantedSeriesParams["sort"]; label: string }[] => [
+  { value: "problems", label: t`Problems first` },
+  { value: "missing", label: t`Most missing` },
+  { value: "name", label: t`Name` },
 ];
 
 const BUCKET_COLOR: Record<WantedBucket, string> = {
@@ -73,9 +75,9 @@ function WhyCell({
         />
         <span
           className="text-foreground"
-          title={`Search paused: ${searchPaused}`}
+          title={t`Search paused: ${searchPaused}`}
         >
-          Search paused
+          <Trans>Search paused</Trans>
         </span>
       </span>
     );
@@ -121,7 +123,7 @@ function SeriesIssues({ series }: { series: WantedSeries }) {
   if (issues.isError) {
     return (
       <p className="py-2 pl-12 text-[13px] text-foreground-2">
-        Couldn&apos;t load these issues.
+        <Trans>Couldn&apos;t load these issues.</Trans>
       </p>
     );
   }
@@ -151,7 +153,7 @@ function SeriesIssues({ series }: { series: WantedSeries }) {
               type="button"
               size="compact"
               variant="ghost"
-              aria-label={`Search ${issue.ComicName} #${issue.Issue_Number}`}
+              aria-label={t`Search ${ph({ series: issue.ComicName ?? "" })} #${ph({ Issue_Number: issue.Issue_Number })}`}
               disabled={searchOne.isPending}
               onClick={() =>
                 searchOne.mutate(issue.IssueID, {
@@ -162,8 +164,8 @@ function SeriesIssues({ series }: { series: WantedSeries }) {
                         result.message ||
                         result.error ||
                         (result.success
-                          ? "Search accepted."
-                          : "Unable to start this search."),
+                          ? t`Search accepted.`
+                          : t`Unable to start this search.`),
                     }),
                   onError: (err) =>
                     addToast({ type: "error", message: getErrorMessage(err) }),
@@ -171,7 +173,7 @@ function SeriesIssues({ series }: { series: WantedSeries }) {
               }
             >
               <Search />
-              Search
+              <Trans>Search</Trans>
             </Button>
             <Button
               type="button"
@@ -185,7 +187,7 @@ function SeriesIssues({ series }: { series: WantedSeries }) {
                 })
               }
             >
-              Skip
+              <Trans>Skip</Trans>
             </Button>
           </span>
         </li>
@@ -209,7 +211,11 @@ function SeriesRow({
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          aria-label={`${open ? "Hide" : "Show"} issues for ${series.comic_name}`}
+          aria-label={
+            open
+              ? t`Hide issues for ${ph({ series: series.comic_name })}`
+              : t`Show issues for ${ph({ series: series.comic_name })}`
+          }
           className="flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronRight
@@ -230,7 +236,7 @@ function SeriesRow({
             {series.comic_name}
           </Link>
           <span className="shrink-0 rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground max-md:hidden">
-            {series.kind === "manga" ? "Manga" : "Comic"}
+            {series.kind === "manga" ? t`Manga` : t`Comic`}
           </span>
         </div>
         <span className="text-right font-mono text-sm text-foreground">
@@ -321,10 +327,10 @@ export default function WantedBySeries({
       <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 pb-3 md:px-8">
         <div
           role="group"
-          aria-label="Why it's missing"
+          aria-label={t`Why it's missing`}
           className="-mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:px-0"
         >
-          {TABS.map((tab) => (
+          {TABS().map((tab) => (
             <button
               key={tab.value}
               type="button"
@@ -341,15 +347,15 @@ export default function WantedBySeries({
         </div>
         <div className="ml-auto flex items-center gap-2 max-md:hidden">
           <FilterSelect
-            label="Kind"
+            label={t`Kind`}
             value={kind}
-            options={KINDS}
+            options={KINDS()}
             onChange={choose(setKind)}
           />
           <FilterSelect
-            label="Sort"
+            label={t`Sort`}
             value={sort}
-            options={SORTS}
+            options={SORTS()}
             onChange={choose(setSort)}
           />
         </div>
@@ -357,11 +363,21 @@ export default function WantedBySeries({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 md:px-8">
         <div className="grid grid-cols-[20px_24px_minmax(0,1fr)_70px_200px_150px_110px] gap-x-3 border-b border-border-subtle pb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground max-md:hidden">
-          <span className="col-span-3">Series</span>
-          <span className="text-right">Missing</span>
-          <span>Which</span>
-          <span>Why</span>
-          <span>Last searched</span>
+          <span className="col-span-3">
+            <Trans>Series</Trans>
+          </span>
+          <span className="text-right">
+            <Trans>Missing</Trans>
+          </span>
+          <span>
+            <Trans>Which</Trans>
+          </span>
+          <span>
+            <Trans>Why</Trans>
+          </span>
+          <span>
+            <Trans>Last searched</Trans>
+          </span>
         </div>
 
         {query.isPending && (
@@ -375,7 +391,7 @@ export default function WantedBySeries({
           <div className="py-4">
             <ErrorDisplay
               error={query.error}
-              title="Unable to load wanted series"
+              title={t`Unable to load wanted series`}
               onRetry={() => void query.refetch()}
             />
           </div>
@@ -383,12 +399,12 @@ export default function WantedBySeries({
         {data && data.series.length === 0 && (
           <p className="py-6 text-sm text-foreground-2">
             {search.trim() || state !== "all" || kind !== "all"
-              ? "No wanted series match."
-              : "Nothing is wanted."}
+              ? t`No wanted series match.`
+              : t`Nothing is wanted.`}
           </p>
         )}
         {data && data.series.length > 0 && (
-          <ul aria-label="Wanted series">
+          <ul aria-label={t`Wanted series`}>
             {data.series.map((series) => (
               <SeriesRow
                 key={series.comicid}
@@ -403,8 +419,7 @@ export default function WantedBySeries({
       {pagination && pagination.total > PAGE_SIZE && (
         <div className="flex shrink-0 items-center justify-between border-t border-border-subtle px-4 py-2 md:px-8">
           <span className="mono-meta">
-            {offset + 1}–{Math.min(offset + PAGE_SIZE, pagination.total)} of{" "}
-            {pagination.total} series
+            {t`${ph({ first: offset + 1 })}–${ph({ last: Math.min(offset + PAGE_SIZE, pagination.total) })} of ${ph({ total: pagination.total })} series`}
           </span>
           <span className="flex gap-2">
             <Button
@@ -414,7 +429,7 @@ export default function WantedBySeries({
               disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
             >
-              Previous
+              <Trans>Previous</Trans>
             </Button>
             <Button
               type="button"
@@ -423,7 +438,7 @@ export default function WantedBySeries({
               disabled={!pagination.has_more}
               onClick={() => setOffset(offset + PAGE_SIZE)}
             >
-              Next
+              <Trans>Next</Trans>
             </Button>
           </span>
         </div>

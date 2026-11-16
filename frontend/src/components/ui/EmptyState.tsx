@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -36,7 +37,7 @@ interface EmptyStateProps {
   children?: ReactNode;
 }
 
-const VARIANT_CONFIGS: Record<
+const VARIANT_CONFIGS = (): Record<
   Exclude<EmptyStateVariant, "custom">,
   {
     icon: LucideIcon;
@@ -45,52 +46,46 @@ const VARIANT_CONFIGS: Record<
     description: string;
     action?: EmptyStateAction;
   }
-> = {
+> => ({
   library: {
     icon: Library,
-    eyebrow: "LIBRARY · EMPTY",
-    title: "No series tracked yet",
-    description:
-      "Search the providers you've connected and add series to start monitoring issues.",
-    action: { label: "Add series", to: "/search" },
+    eyebrow: t`LIBRARY · EMPTY`,
+    title: t`No series tracked yet`,
+    description: t`Search the providers you've connected and add series to start monitoring issues.`,
+    action: { label: t`Add series`, to: "/search" },
   },
   wanted: {
     icon: ListTodo,
-    eyebrow: "WANTED · EMPTY",
-    title: "No wanted issues",
-    description:
-      "Mark issues as wanted from a series and Comicarr will search for them automatically.",
+    eyebrow: t`WANTED · EMPTY`,
+    title: t`No wanted issues`,
+    description: t`Mark issues as wanted from a series and Comicarr will search for them automatically.`,
   },
   upcoming: {
     icon: Calendar,
-    eyebrow: "UPCOMING · EMPTY",
-    title: "No releases this week",
-    description:
-      "Add more series to surface upcoming issues on the weekly schedule.",
-    action: { label: "Browse series", to: "/search" },
+    eyebrow: t`UPCOMING · EMPTY`,
+    title: t`No releases this week`,
+    description: t`Add more series to surface upcoming issues on the weekly schedule.`,
+    action: { label: t`Browse series`, to: "/search" },
   },
   search: {
     icon: Search,
-    eyebrow: "SEARCH · NO MATCH",
-    title: "No results found",
-    description:
-      "Adjust the query or filters — try the series title, author, or publisher.",
+    eyebrow: t`SEARCH · NO MATCH`,
+    title: t`No results found`,
+    description: t`Adjust the query or filters — try the series title, author, or publisher.`,
   },
   issues: {
     icon: BookOpen,
-    eyebrow: "ISSUES · EMPTY",
-    title: "No issues indexed",
-    description:
-      "This series has no issues tracked yet. Refresh to pull the latest metadata.",
+    eyebrow: t`ISSUES · EMPTY`,
+    title: t`No issues indexed`,
+    description: t`This series has no issues tracked yet. Refresh to pull the latest metadata.`,
   },
   "story-arcs": {
     icon: BookOpen,
-    eyebrow: "ARCS · EMPTY",
-    title: "No story arcs tracked",
-    description:
-      "Search for arcs above to track reading progress across series and issues.",
+    eyebrow: t`ARCS · EMPTY`,
+    title: t`No story arcs tracked`,
+    description: t`Search for arcs above to track reading progress across series and issues.`,
   },
-};
+});
 
 export default function EmptyState({
   variant = "custom",
@@ -101,11 +96,11 @@ export default function EmptyState({
   action: customAction,
   children,
 }: EmptyStateProps) {
-  const config = variant !== "custom" ? VARIANT_CONFIGS[variant] : null;
+  const config = variant !== "custom" ? VARIANT_CONFIGS()[variant] : null;
 
   const Icon = CustomIcon || config?.icon || BookOpen;
   const eyebrow = customEyebrow || config?.eyebrow || "EMPTY";
-  const title = customTitle || config?.title || "Nothing here yet";
+  const title = customTitle || config?.title || t`Nothing here yet`;
   const description = customDescription || config?.description || "";
   const action = customAction || config?.action;
 

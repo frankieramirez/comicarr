@@ -47,6 +47,10 @@ import StatusBadge from "@/components/StatusBadge";
 import { useToast } from "@/components/ui/toast";
 import type { PaginationMeta } from "@/types";
 
+// Column ids (data keys), not visible text.
+const PROVIDER_COLUMN = "Provider";
+const STATUS_COLUMN = "Status";
+
 type ActivityView = ActivityTab;
 const PAGE_SIZE = 25;
 
@@ -596,7 +600,7 @@ function QueueView() {
     async (item: QueueItem) => {
       if (
         !window.confirm(
-          "Requeue this failed direct download? It will be retried by the DDL worker.",
+          t`Requeue this failed direct download? It will be retried by the DDL worker.`,
         )
       ) {
         return;
@@ -806,7 +810,7 @@ function HistoryView() {
             </span>
           ),
         }),
-        historyColumnHelper.accessor("Provider", {
+        historyColumnHelper.accessor(PROVIDER_COLUMN, {
           id: "provider",
           header: ({ column }) => (
             <DataTableSortHeader column={column} title={t`Provider`} />
@@ -815,7 +819,7 @@ function HistoryView() {
             <span className="text-muted-foreground">{getValue() || "—"}</span>
           ),
         }),
-        historyColumnHelper.accessor("Status", {
+        historyColumnHelper.accessor(STATUS_COLUMN, {
           id: "status",
           header: ({ column }) => (
             <DataTableSortHeader column={column} title={t`Status`} />

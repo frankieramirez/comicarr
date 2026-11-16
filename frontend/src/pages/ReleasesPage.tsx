@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { errorText } from "@/lib/api";
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { RefreshCw } from "lucide-react";
@@ -69,15 +71,15 @@ export default function ReleasesPage() {
   const refreshMessage = !refreshRequested
     ? null
     : weeklyStatus === "queued"
-      ? "Refresh queued — it will start shortly."
+      ? t`Refresh queued — it will start shortly.`
       : weeklyStatus === "running"
-        ? "Refreshing releases…"
+        ? t`Refreshing releases…`
         : weeklyStatus === "error"
           ? weeklyJob?.last_error ||
-            "Refresh failed. Check the pull source, then retry."
+            t`Refresh failed. Check the pull source, then retry.`
           : weeklyStatus === "waiting" && refreshObservedActive
-            ? "Releases refreshed."
-            : "Refresh queued — it will start shortly.";
+            ? t`Releases refreshed.`
+            : t`Refresh queued — it will start shortly.`;
 
   useEffect(() => {
     if (
@@ -133,7 +135,7 @@ export default function ReleasesPage() {
           type: "error",
           message:
             result.error ||
-            "Weekly refresh is paused. Resume it in Settings, then retry.",
+            t`Weekly refresh is paused. Resume it in Settings, then retry.`,
         });
         return;
       }
@@ -148,13 +150,13 @@ export default function ReleasesPage() {
         message:
           result.message ||
           (result.state === "running"
-            ? "Release refresh is already running."
-            : "Release refresh queued."),
+            ? t`Release refresh is already running.`
+            : t`Release refresh queued.`),
       });
     } catch (error) {
       addToast({
         type: "error",
-        message: `Unable to refresh releases: ${error instanceof Error ? error.message : "Unknown error"}`,
+        message: t`Unable to refresh releases: ${ph({ error: errorText(error) })}`,
       });
     }
   };
@@ -162,11 +164,11 @@ export default function ReleasesPage() {
   return (
     <div className="page-transition flex h-full min-h-0 flex-col">
       <PageHeader
-        title="Releases"
+        title={t`Releases`}
         meta={
           libraryOnly
-            ? "New issues and chapters from series you follow, week by week"
-            : "Everything out this week: comics, manga, manhwa and manhua"
+            ? t`New issues and chapters from series you follow, week by week`
+            : t`Everything out this week: comics, manga, manhwa and manhua`
         }
         actions={
           <div className="flex items-center gap-2">
@@ -193,10 +195,10 @@ export default function ReleasesPage() {
               />
               <span className="max-md:sr-only">
                 {weeklyStatus === "running"
-                  ? "Refreshing…"
+                  ? t`Refreshing…`
                   : weeklyStatus === "queued"
-                    ? "Queued…"
-                    : "Refresh releases"}
+                    ? t`Queued…`
+                    : t`Refresh releases`}
               </span>
             </Button>
           </div>
@@ -221,8 +223,7 @@ export default function ReleasesPage() {
           {weeklyStatus === "error" &&
             !/Walksoftly is unreachable|down upstream/i.test(
               weeklyJob?.last_error || "",
-            ) &&
-            " Retry after fixing the pull source connection."}
+            ) && <> {t`Retry after fixing the pull source connection.`}</>}
         </div>
       )}
 

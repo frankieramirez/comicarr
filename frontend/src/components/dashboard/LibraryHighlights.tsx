@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ImageOff } from "lucide-react";
@@ -60,14 +62,14 @@ export function RecentlyAdded() {
   return (
     <section data-testid="recently-added">
       <SectionHeader
-        title="Recently added"
-        action={{ label: "Open library", to: "/library" }}
+        title={t`Recently added`}
+        action={{ label: t`Open library`, to: "/library" }}
       />
       <PanelBody
         state={state}
-        label="Recently added"
+        label={t`Recently added`}
         skeleton={<PanelSkeleton rows={1} rowHeight={180} />}
-        empty="No series yet. Add one from the search box."
+        empty={t`No series yet. Add one from the search box.`}
         onRetry={() => void series.refetch()}
         isRetrying={series.isFetching}
       >
@@ -109,22 +111,25 @@ export function MostWanted() {
   return (
     <section data-testid="most-wanted">
       <SectionHeader
-        title="Most wanted"
+        title={t`Most wanted`}
         meta={
           state === "content"
-            ? `${formatNumber(totalWanted)} wanted across ${ranked.length} series`
+            ? plural(ranked.length, {
+                one: `${formatNumber(totalWanted)} wanted across # series`,
+                other: `${formatNumber(totalWanted)} wanted across # series`,
+              })
             : undefined
         }
-        action={{ label: "Open Wanted", to: "/wanted" }}
+        action={{ label: t`Open Wanted`, to: "/wanted" }}
       />
       <PanelBody
         state={state}
-        label="Most wanted"
+        label={t`Most wanted`}
         skeleton={<PanelSkeleton rows={3} rowHeight={36} />}
         empty={
           (series.data?.length ?? 0) === 0
-            ? "Nothing wanted yet. Add a series to start."
-            : "No issues are wanted right now."
+            ? t`Nothing wanted yet. Add a series to start.`
+            : t`No issues are wanted right now.`
         }
         onRetry={() => void series.refetch()}
         isRetrying={series.isFetching}
@@ -141,7 +146,7 @@ export function MostWanted() {
                   {comic.ComicName}
                 </span>
                 <span className="font-mono text-xs text-foreground-2">
-                  {wanted} wanted
+                  <Trans>{wanted} wanted</Trans>
                 </span>
               </Link>
             ))}

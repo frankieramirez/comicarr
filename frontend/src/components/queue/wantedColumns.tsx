@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -36,14 +38,14 @@ export function useWantedColumns() {
           id: "select",
           header: ({ table }) => (
             <Checkbox
-              aria-label="Select all rows"
+              aria-label={t`Select all rows`}
               checked={getIsAllSelected(table)}
               onCheckedChange={(value) => toggleAllSelected(table, !!value)}
             />
           ),
           cell: ({ row }) => (
             <Checkbox
-              aria-label={`Select ${row.original.ComicName}`}
+              aria-label={t`Select ${ph({ series: row.original.ComicName ?? "" })}`}
               checked={row.getIsSelected()}
               onCheckedChange={(value) => row.toggleSelected(!!value)}
               onClick={(e) => e.stopPropagation()}
@@ -64,7 +66,7 @@ export function useWantedColumns() {
         }),
         columnHelper.accessor("ComicName", {
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Series" />
+            <DataTableSortHeader column={column} title={t`Series`} />
           ),
           cell: ({ row }) => (
             <Link
@@ -93,25 +95,31 @@ export function useWantedColumns() {
           enableSorting: false,
         }),
         columnHelper.accessor("IssueName", {
-          header: "Issue",
+          header: t`Issue`,
           cell: ({ getValue }) => {
             const name = getValue();
             return name ? (
               <span className="text-sm text-foreground-2">{name}</span>
             ) : (
-              <span className="text-sm text-muted-foreground">N/A</span>
+              <span className="text-sm text-muted-foreground">
+                <Trans>N/A</Trans>
+              </span>
             );
           },
           enableSorting: false,
         }),
         columnHelper.accessor("DateAdded", {
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Added" />
+            <DataTableSortHeader column={column} title={t`Added`} />
           ),
           cell: ({ getValue }) => {
             const date = getValue();
             if (!date)
-              return <span className="text-muted-foreground">N/A</span>;
+              return (
+                <span className="text-muted-foreground">
+                  <Trans>N/A</Trans>
+                </span>
+              );
             return (
               <span className="font-mono text-xs text-foreground-2">
                 {date}
@@ -121,12 +129,16 @@ export function useWantedColumns() {
         }),
         columnHelper.accessor("IssueDate", {
           header: ({ column }) => (
-            <DataTableSortHeader column={column} title="Released" />
+            <DataTableSortHeader column={column} title={t`Released`} />
           ),
           cell: ({ getValue }) => {
             const date = getValue();
             if (!date)
-              return <span className="text-muted-foreground">N/A</span>;
+              return (
+                <span className="text-muted-foreground">
+                  <Trans>N/A</Trans>
+                </span>
+              );
             return (
               <span className="font-mono text-xs text-foreground-2">
                 {date}
@@ -136,7 +148,7 @@ export function useWantedColumns() {
         }),
         columnHelper.display({
           id: "acquisition",
-          header: "Status",
+          header: t`Status`,
           cell: ({ row }) => {
             const label = formatWantedAcquisitionAnnotation(
               row.original.acquisition,
@@ -181,7 +193,11 @@ export function useWantedColumns() {
         }),
         columnHelper.display({
           id: "actions",
-          header: () => <span className="sr-only">Actions</span>,
+          header: () => (
+            <span className="sr-only">
+              <Trans>Actions</Trans>
+            </span>
+          ),
           cell: ({ row }) => (
             <Button
               size="compact"
@@ -201,7 +217,7 @@ export function useWantedColumns() {
               className="text-foreground-2 opacity-60 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100"
             >
               <X />
-              Skip
+              <Trans>Skip</Trans>
             </Button>
           ),
         }),

@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useNavigate } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import {
@@ -36,7 +38,7 @@ export function AiSuggestions() {
   if (state === "unavailable") {
     return (
       <PanelUnavailable
-        label="Suggestions"
+        label={t`Suggestions`}
         onRetry={() => void query.refetch()}
         isRetrying={query.isFetching}
       />
@@ -48,7 +50,7 @@ export function AiSuggestions() {
       <div className="rounded-lg border border-border bg-card p-6 text-center">
         <Sparkles className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
         <p className="text-sm text-muted-foreground">
-          Nothing new this week matches your collection
+          <Trans>Nothing new this week matches your collection</Trans>
         </p>
       </div>
     );
@@ -58,7 +60,9 @@ export function AiSuggestions() {
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Sparkles className="w-4 h-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold">Suggested For You</h3>
+        <h3 className="text-sm font-semibold">
+          <Trans>Suggested For You</Trans>
+        </h3>
       </div>
       <div className="space-y-2">
         {suggestions.map((suggestion: PullSuggestion, index: number) => (

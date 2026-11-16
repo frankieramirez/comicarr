@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/toast";
@@ -245,8 +246,8 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
 
         addToast({
           type: "info",
-          title: "Server Restarting",
-          description: "Comicarr is restarting. Reconnecting automatically…",
+          title: t`Server Restarting`,
+          description: t`Comicarr is restarting. Reconnecting automatically…`,
         });
       });
 
@@ -255,8 +256,8 @@ export function useServerEvents(enabled = true): UseServerEventsReturn {
 
         addToast({
           type: "error",
-          title: "Server Shutting Down",
-          description: "The server is shutting down. Please wait...",
+          title: t`Server Shutting Down`,
+          description: t`The server is shutting down. Please wait...`,
         });
 
         evtSource.close();

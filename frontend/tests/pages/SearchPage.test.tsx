@@ -42,7 +42,7 @@ describe("SearchPage result views", () => {
       });
 
       expect(await screen.findByText("Exact lookup volume")).toBeTruthy();
-      expect(screen.getByText(`1 results for "${query}"`)).toBeTruthy();
+      expect(screen.getByText(`1 result for "${query}"`)).toBeTruthy();
       expect(screen.getAllByText("1–1 of 1")).toHaveLength(2);
       expect(screen.queryByText("no rows")).toBeNull();
       expect(

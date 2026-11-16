@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState, useEffect } from "react";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,34 @@ interface LibraryScanResultsProps {
   onConfirm: (scanId: string, selectedIds: string[]) => void;
   isConfirming: boolean;
   type: "comic" | "manga";
+}
+
+/** "Reconciled 3 existing manga series." / "3 existing comic series reconciled". */
+function reconciledLine(
+  type: "comic" | "manga",
+  count: number,
+  sentence: boolean,
+): string {
+  if (type === "manga") {
+    return sentence
+      ? plural(count, {
+          one: "Reconciled # existing manga series.",
+          other: "Reconciled # existing manga series.",
+        })
+      : plural(count, {
+          one: "# existing manga series reconciled",
+          other: "# existing manga series reconciled",
+        });
+  }
+  return sentence
+    ? plural(count, {
+        one: "Reconciled # existing comic series.",
+        other: "Reconciled # existing comic series.",
+      })
+    : plural(count, {
+        one: "# existing comic series reconciled",
+        other: "# existing comic series reconciled",
+      });
 }
 
 export default function LibraryScanResults({
@@ -69,11 +99,13 @@ export default function LibraryScanResults({
   if (importableResults.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-muted/50 p-6 text-center text-muted-foreground">
-        No new series found in directory. All series are already in your
-        library.
+        <Trans>
+          No new series found in directory. All series are already in your
+          library.
+        </Trans>
         {reconciledResults.length > 0 && (
           <span className="block mt-1 text-foreground">
-            Reconciled {reconciledResults.length} existing {type} series.
+            {reconciledLine(type, reconciledResults.length, true)}
           </span>
         )}
       </div>
@@ -84,25 +116,24 @@ export default function LibraryScanResults({
     <div className="rounded-lg border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="text-sm text-muted-foreground">
-          {matchedResults.length} matched of {importableResults.length} series
-          found
+          {t`${ph({ matched: matchedResults.length })} matched of ${ph({ found: importableResults.length })} series found`}
           {reconciledResults.length > 0 && (
             <span className="ml-2">
-              {reconciledResults.length} existing {type} series reconciled
+              {reconciledLine(type, reconciledResults.length, false)}
             </span>
           )}
           {selectedIds.length > 0 && (
             <span className="ml-2 font-medium text-foreground">
-              ({selectedIds.length} selected)
+              {t`(${ph({ count: selectedIds.length })} selected)`}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={selectAll}>
-            Select All
+            <Trans>Select All</Trans>
           </Button>
           <Button variant="ghost" size="sm" onClick={deselectAll}>
-            Deselect All
+            <Trans>Deselect All</Trans>
           </Button>
           <Button
             size="sm"
@@ -110,7 +141,7 @@ export default function LibraryScanResults({
             disabled={selectedIds.length === 0 || isConfirming}
           >
             <Check className="w-4 h-4 mr-1" />
-            Import Selected ({selectedIds.length})
+            {t`Import Selected (${ph({ count: selectedIds.length })})`}
           </Button>
         </div>
       </div>
@@ -132,7 +163,7 @@ export default function LibraryScanResults({
               }
             >
               <Checkbox
-                aria-label={`Select ${result.series_name}`}
+                aria-label={t`Select ${ph({ series_name: result.series_name })}`}
                 checked={isSelected}
                 disabled={!isSelectable}
                 onChange={() =>
@@ -146,8 +177,10 @@ export default function LibraryScanResults({
                     {result.series_name}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    ({result.file_count} file
-                    {result.file_count !== 1 ? "s" : ""})
+                    {plural(result.file_count, {
+                      one: "(# file)",
+                      other: "(# files)",
+                    })}
                   </span>
                 </div>
                 {result.match && (
@@ -177,7 +210,9 @@ export default function LibraryScanResults({
               {result.match ? (
                 <ConfidenceBadge confidence={result.match.confidence} />
               ) : (
-                <span className="text-xs text-muted-foreground">No match</span>
+                <span className="text-xs text-muted-foreground">
+                  <Trans>No match</Trans>
+                </span>
               )}
             </div>
           );

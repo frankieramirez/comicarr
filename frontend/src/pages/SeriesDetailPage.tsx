@@ -1057,7 +1057,7 @@ export default function SeriesDetailPage() {
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-[12px] text-foreground-2 hover:text-foreground hover:underline"
                       >
-                        <Trans>View on</Trans> {link.label}
+                        {t`View on ${ph({ site: link.label })}`}
                         <ExternalLink className="h-3 w-3" aria-hidden="true" />
                       </a>
                     ))}
