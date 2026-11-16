@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { lingui } from '@lingui/vite-plugin'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -8,7 +9,9 @@ const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || 'http://localhost:80
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  // Lingui compiles .po catalogs on import and expands its macros natively,
+  // so no Babel pass is added to the build.
+  plugins: [react(), lingui({ macroTransform: true })],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

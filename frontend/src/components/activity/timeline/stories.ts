@@ -15,6 +15,7 @@
 
 import type { FeedNode, Story, TimelineEvent } from "./types";
 import { severityOf } from "./types";
+import { formatDate } from "@/lib/intl";
 
 /** Issue/annual/series advances that open or extend a multi-event story. */
 const ISSUE_ADVANCES = new Set([
@@ -160,19 +161,17 @@ export function dayLabel(iso: string, now: Date = new Date()): string {
 
   if (date.toDateString() === today.toDateString()) return "TODAY";
   if (date.toDateString() === yesterday.toDateString()) return "YESTERDAY";
-  return date
-    .toLocaleDateString(undefined, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    })
-    .toUpperCase();
+  return formatDate(date, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).toUpperCase();
 }
 
 export function clockOf(iso: string): string {
   const date = parseTimelineDate(iso);
   if (!date) return "—";
-  return date.toLocaleTimeString(undefined, {
+  return formatDate(date, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,

@@ -1,6 +1,7 @@
 import type { UpcomingIssue } from "@/types";
 import { releaseDay, releaseState } from "@/lib/releaseState";
 import { isoDay, parseDay, weekDays } from "@/lib/releaseWeek";
+import { formatDate } from "@/lib/intl";
 
 /**
  * Seven days of the shown week with a count and one dash per release,
@@ -8,7 +9,7 @@ import { isoDay, parseDay, weekDays } from "@/lib/releaseWeek";
  */
 
 const MAX_DASHES = 8;
-const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "short" });
+const WEEKDAY: Intl.DateTimeFormatOptions = { weekday: "short" };
 
 export default function WeekStrip({
   issues,
@@ -46,7 +47,7 @@ export default function WeekStrip({
               <span
                 className={isToday ? "text-foreground" : "text-foreground-2"}
               >
-                {WEEKDAY.format(date)}{" "}
+                {formatDate(date, WEEKDAY)}{" "}
                 <span className="font-mono text-xs text-muted-foreground">
                   {date.getDate()}
                 </span>

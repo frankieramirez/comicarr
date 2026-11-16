@@ -40,6 +40,7 @@ import type {
   InteractiveSatisfiedIssue,
   ReleaseReviewIssue,
 } from "@/types";
+import { formatBytes, formatDate } from "@/lib/intl";
 
 interface ReleaseReviewSheetProps {
   issue: ReleaseReviewIssue | null;
@@ -145,23 +146,21 @@ function VerdictPill({
   );
 }
 
-function formatBytes(value: number | null) {
+function formatSize(value: number | null) {
   if (!value || value < 1) return "size unknown";
-  const units = ["B", "KB", "MB", "GB"];
-  const unit = Math.min(Math.floor(Math.log(value) / Math.log(1024)), 3);
-  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value / 1024 ** unit)} ${units[unit]}`;
+  return formatBytes(value);
 }
 
 function formatPublished(value: string | null) {
   if (!value) return "date unknown";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "date unknown";
-  return new Intl.DateTimeFormat(undefined, {
+  return formatDate(date, {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  }).format(date);
+  });
 }
 
 function formatSatisfies(
@@ -196,7 +195,7 @@ function CandidateFacts({
     <div className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px] tabular-nums text-muted-foreground">
       <span>{candidate.candidate.provider}</span>
       <span>{candidate.candidate.source_kind.toUpperCase()}</span>
-      <span>{formatBytes(candidate.candidate.size_bytes)}</span>
+      <span>{formatSize(candidate.candidate.size_bytes)}</span>
       <span>{formatPublished(candidate.candidate.published_at)}</span>
       {candidate.candidate.pack ? <span>pack</span> : null}
       {coverage ? <span>covers {coverage}</span> : null}

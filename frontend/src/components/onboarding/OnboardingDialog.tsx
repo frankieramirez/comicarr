@@ -23,6 +23,7 @@ import { Callout } from "@/components/ui/callout";
 import { Kbd } from "@/components/ui/kbd";
 import Logo from "@/components/Logo";
 import { formatAppVersion } from "@/lib/version";
+import { formatNumber } from "@/lib/intl";
 
 type Step = "welcome" | "migrate" | "fresh" | "running" | "done";
 
@@ -100,7 +101,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
     >
       <MonoLabel>{label}</MonoLabel>
       <div className="text-[18px] font-semibold tracking-tight mt-0.5">
-        {typeof value === "number" ? value.toLocaleString() : value}
+        {typeof value === "number" ? formatNumber(value) : value}
       </div>
     </div>
   );

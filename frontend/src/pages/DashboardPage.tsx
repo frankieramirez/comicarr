@@ -33,6 +33,7 @@ import {
   useMangaScan,
   useMangaScanProgress,
 } from "@/hooks/useImport";
+import { formatNumber } from "@/lib/intl";
 
 /** The header's version of the same rule: a fact only once a panel has one. */
 function summarize(state: PanelState, source: string, fact: string): string {
@@ -88,7 +89,7 @@ export default function DashboardPage() {
   const summary = summarize(
     libraryState,
     "library",
-    `${activeSeries.toLocaleString()} series · ${totalIssues.toLocaleString()} issues${
+    `${formatNumber(activeSeries)} series · ${formatNumber(totalIssues)} issues${
       pausedReason ? " · search paused" : ""
     }`,
   );

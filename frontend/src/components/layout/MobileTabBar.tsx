@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useLingui } from "@lingui/react/macro";
 import {
   Activity,
   BookOpen,
@@ -40,12 +41,13 @@ export default function MobileTabBar() {
   const { setOpenMobile, openMobile } = useSidebar();
   const { data: status } = useActivityStatus();
   const attention = status?.attention ?? 0;
+  const { t } = useLingui();
 
   const tabs: Tab[] = [
-    { path: "/", label: "Home", icon: LayoutDashboard },
-    { path: "/library", label: "Library", icon: BookOpen },
-    { path: "/wanted", label: "Wanted", icon: ListTodo },
-    { path: "/activity", label: "Activity", icon: Activity, count: attention },
+    { path: "/", label: t`Home`, icon: LayoutDashboard },
+    { path: "/library", label: t`Library`, icon: BookOpen },
+    { path: "/wanted", label: t`Wanted`, icon: ListTodo },
+    { path: "/activity", label: t`Activity`, icon: Activity, count: attention },
   ];
   const anyActive = tabs.some((tab) => isActive(pathname, tab.path));
 
@@ -57,7 +59,7 @@ export default function MobileTabBar() {
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label={t`Primary`}
       className="flex shrink-0 border-t border-border-subtle bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
       data-testid="mobile-tab-bar"
     >

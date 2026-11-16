@@ -1,5 +1,6 @@
 import type { UpcomingIssue } from "@/types";
 import { parseDay } from "@/lib/releaseWeek";
+import { formatDate } from "@/lib/intl";
 
 /**
  * Where one of this week's releases stands, in the words Releases > Mine
@@ -20,13 +21,13 @@ export interface ReleaseState {
   setupBlocked?: boolean;
 }
 
-const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "long" });
-const DAY_AND_TIME = new Intl.DateTimeFormat("en-US", {
+const WEEKDAY: Intl.DateTimeFormatOptions = { weekday: "long" };
+const DAY_AND_TIME: Intl.DateTimeFormatOptions = {
   weekday: "short",
   hour: "2-digit",
   minute: "2-digit",
   hour12: false,
-});
+};
 
 /** "12m ago", "2h ago", "yesterday", "Tue 21:40" for when a download landed. */
 export function landedLabel(
@@ -45,7 +46,7 @@ export function landedLabel(
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
   if (at.toDateString() === yesterday.toDateString()) return "yesterday";
-  return DAY_AND_TIME.format(at).replace(",", "");
+  return formatDate(at, DAY_AND_TIME).replace(",", "");
 }
 
 export function releaseDay(issue: UpcomingIssue): string {
@@ -99,7 +100,7 @@ export function releaseState(
     if (day && day > today) {
       return {
         bucket: "coming_up",
-        label: `Out ${WEEKDAY.format(parseDay(day))}`,
+        label: `Out ${formatDate(parseDay(day), WEEKDAY)}`,
         detail: searchPaused ? "search paused" : "wanted",
         tone: "var(--text-muted)",
       };

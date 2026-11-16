@@ -35,6 +35,7 @@ import ImportSourcesStrip from "@/components/import/ImportSourcesStrip";
 import { useServerPage } from "@/components/data-table/useServerPage";
 import { useTableState } from "@/components/data-table/useTableState";
 import type { ImportBucket, ImportCandidate, ImportGroup } from "@/types";
+import { formatNumber } from "@/lib/intl";
 
 const TABS: Array<[ImportBucket, string]> = [
   ["needs_pick", "Needs a pick"],
@@ -404,7 +405,7 @@ export default function ImportPage() {
                 title="Import every Confident group as its suggested series"
               >
                 <CheckCheck />
-                Import {confidentCount.toLocaleString()} confident match
+                Import {formatNumber(confidentCount)} confident match
                 {confidentCount === 1 ? "" : "es"}
               </Button>
             )}
@@ -436,7 +437,7 @@ export default function ImportPage() {
                   {label}
                   {buckets && (
                     <span className="ml-1.5 mono-meta">
-                      {buckets[value].toLocaleString()}
+                      {formatNumber(buckets[value])}
                     </span>
                   )}
                 </button>
@@ -515,7 +516,7 @@ export default function ImportPage() {
                         aria-hidden="true"
                         className="size-3.5 text-muted-foreground"
                       />
-                      {confidentCount.toLocaleString()} more matched with high
+                      {formatNumber(confidentCount)} more matched with high
                       confidence. They wait under Confident so you can import
                       them in one go.
                     </p>

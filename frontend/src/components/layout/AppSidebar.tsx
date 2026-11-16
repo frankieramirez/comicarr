@@ -1,5 +1,9 @@
 import { useEffect, useState, SubmitEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { msg } from "@lingui/core/macro";
+import type { MessageDescriptor } from "@lingui/core";
+import { Trans, useLingui } from "@lingui/react/macro";
+import { AVAILABLE_LOCALES, chooseLocale, localeName } from "@/lib/i18n";
 import Logo from "@/components/Logo";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -58,12 +62,12 @@ import type { ThemePreference } from "@/contexts/ThemeContext";
 
 const THEME_OPTIONS: {
   value: ThemePreference;
-  label: string;
+  label: MessageDescriptor;
   icon: LucideIcon;
 }[] = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: Monitor },
+  { value: "light", label: msg`Light`, icon: Sun },
+  { value: "dark", label: msg`Dark`, icon: Moon },
+  { value: "system", label: msg`System`, icon: Monitor },
 ];
 
 interface NavItem {
@@ -79,6 +83,7 @@ export default function AppSidebar() {
   const { logout, user } = useAuth();
   const { preference, setPreference } = useTheme();
   const { addToast } = useToast();
+  const { t, i18n } = useLingui();
   const navigate = useNavigate();
   const location = useLocation();
   const { isMobile, setOpenMobile, state: sidebarState } = useSidebar();
@@ -101,8 +106,7 @@ export default function AppSidebar() {
       }
       addToast({
         type: "error",
-        message:
-          "Logout failed. Your session is still active; please try again.",
+        message: t`Logout failed. Your session is still active; please try again.`,
       });
     } finally {
       setIsLoggingOut(false);
@@ -122,15 +126,15 @@ export default function AppSidebar() {
   // v2 nav: Story arcs lives inside Library; built-in AI (Discover, Ask
   // Comicarr) only appears once an AI provider is configured.
   const primaryNav: NavItem[] = [
-    { path: "/", label: "Dashboard", icon: LayoutDashboard, kbd: "G D" },
-    { path: "/library", label: "Library", icon: BookOpen, kbd: "G L" },
-    { path: "/wanted", label: "Wanted", icon: ListTodo, kbd: "G W" },
-    { path: "/releases", label: "Releases", icon: Calendar, kbd: "G R" },
+    { path: "/", label: t`Dashboard`, icon: LayoutDashboard, kbd: "G D" },
+    { path: "/library", label: t`Library`, icon: BookOpen, kbd: "G L" },
+    { path: "/wanted", label: t`Wanted`, icon: ListTodo, kbd: "G W" },
+    { path: "/releases", label: t`Releases`, icon: Calendar, kbd: "G R" },
     ...(aiConfigured
       ? [
           {
             path: "/discover",
-            label: "Discover",
+            label: t`Discover`,
             icon: Compass,
             kbd: "G V",
           },
@@ -141,13 +145,13 @@ export default function AppSidebar() {
   const managementNav: NavItem[] = [
     {
       path: "/activity",
-      label: "Activity",
+      label: t`Activity`,
       icon: Activity,
       kbd: "G Y",
       count: attention,
     },
-    { path: "/import", label: "Import", icon: FolderInput, kbd: "G I" },
-    { path: "/settings", label: "Settings", icon: Settings, kbd: "G S" },
+    { path: "/import", label: t`Import`, icon: FolderInput, kbd: "G I" },
+    { path: "/settings", label: t`Settings`, icon: Settings, kbd: "G S" },
   ];
 
   const isActive = (path: string): boolean => {
@@ -203,7 +207,7 @@ export default function AppSidebar() {
               {count ? (
                 <span
                   className="font-mono text-xs text-[var(--status-error)] group-data-[collapsible=icon]:hidden"
-                  aria-label={`${count} need you`}
+                  aria-label={t`${count} need you`}
                 >
                   {count}
                 </span>
@@ -227,7 +231,7 @@ export default function AppSidebar() {
           <Link
             to="/"
             onClick={handleNavClick}
-            aria-label="Comicarr home"
+            aria-label={t`Comicarr home`}
             className="flex items-center gap-2 flex-1 min-w-0"
           >
             <Logo className="h-3.5 w-auto text-foreground" />
@@ -246,8 +250,8 @@ export default function AppSidebar() {
             <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             <SidebarInput
               data-global-search="true"
-              aria-label="Search"
-              placeholder="Search or add"
+              aria-label={t`Search`}
+              placeholder={t`Search or add`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-auto border-0 bg-transparent p-0 text-[13px] placeholder:text-foreground-2 focus-visible:ring-0 shadow-none"
@@ -263,13 +267,15 @@ export default function AppSidebar() {
             <TooltipTrigger asChild>
               <button
                 onClick={() => navigate("/search")}
-                aria-label="Search"
+                aria-label={t`Search`}
                 className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               >
                 <Search className="w-4 h-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Search</TooltipContent>
+            <TooltipContent side="right">
+              <Trans>Search</Trans>
+            </TooltipContent>
           </Tooltip>
         </div>
       </div>
@@ -277,12 +283,12 @@ export default function AppSidebar() {
       {/* Sections */}
       <SidebarContent className="px-2.5 pt-1">
         <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground px-2.5 pt-3 pb-1.5 group-data-[collapsible=icon]:hidden">
-          Library
+          <Trans>Library</Trans>
         </div>
         <SidebarMenu>{renderNav(primaryNav)}</SidebarMenu>
 
         <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground px-2.5 pt-5 pb-1.5 group-data-[collapsible=icon]:hidden">
-          System
+          <Trans>System</Trans>
         </div>
         <SidebarMenu>{renderNav(managementNav)}</SidebarMenu>
       </SidebarContent>
@@ -307,13 +313,13 @@ export default function AppSidebar() {
               <span className="size-[5px] rounded-[1px] bg-primary" />
             </span>
             <span className="flex-1 text-left text-[13px] font-medium">
-              Ask Comicarr
+              <Trans>Ask Comicarr</Trans>
             </span>
             <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
           <div className="flex items-center justify-between gap-2 px-2.5 pt-1.5">
             <span className="mono-meta text-[10px]">
-              ask about your library
+              <Trans>ask about your library</Trans>
             </span>
             <Kbd className="font-mono text-[10px]">⌘⇧K</Kbd>
           </div>
@@ -331,7 +337,7 @@ export default function AppSidebar() {
               <button
                 type="button"
                 onClick={openChat}
-                aria-label="Ask Comicarr"
+                aria-label={t`Ask Comicarr`}
                 className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               >
                 <span className="flex size-4.5 items-center justify-center rounded-control bg-primary/15">
@@ -339,7 +345,9 @@ export default function AppSidebar() {
                 </span>
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Ask Comicarr</TooltipContent>
+            <TooltipContent side="right">
+              <Trans>Ask Comicarr</Trans>
+            </TooltipContent>
           </Tooltip>
         </div>
 
@@ -378,10 +386,12 @@ export default function AppSidebar() {
                 sideOffset={4}
               >
                 <div className="flex items-center gap-2 px-2 py-1.5 text-[13px]">
-                  <span className="text-foreground-2">Theme</span>
+                  <span className="text-foreground-2">
+                    <Trans>Theme</Trans>
+                  </span>
                   <div
                     role="group"
-                    aria-label="Theme"
+                    aria-label={t`Theme`}
                     className={`ml-auto ${SEGMENTED_GROUP}`}
                   >
                     {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
@@ -389,8 +399,8 @@ export default function AppSidebar() {
                         key={value}
                         type="button"
                         aria-pressed={preference === value}
-                        aria-label={label}
-                        title={label}
+                        aria-label={i18n._(label)}
+                        title={i18n._(label)}
                         onClick={() => setPreference(value)}
                         className={`${SEGMENTED_ITEM} h-6 px-2 [&>svg]:size-3.5`}
                       >
@@ -399,6 +409,26 @@ export default function AppSidebar() {
                     ))}
                   </div>
                 </div>
+                {AVAILABLE_LOCALES.length > 1 && (
+                  <label className="flex items-center gap-2 px-2 py-1.5 text-[13px]">
+                    <span className="text-foreground-2">
+                      <Trans>Language</Trans>
+                    </span>
+                    <select
+                      value={i18n.locale}
+                      onChange={(event) =>
+                        void chooseLocale(event.target.value)
+                      }
+                      className="ml-auto h-6 rounded-control border border-border bg-surface-2 px-1.5 text-[13px] text-foreground"
+                    >
+                      {AVAILABLE_LOCALES.map((locale) => (
+                        <option key={locale} value={locale} lang={locale}>
+                          {localeName(locale)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuItem
@@ -408,7 +438,7 @@ export default function AppSidebar() {
                     }}
                   >
                     <Settings />
-                    Settings
+                    <Trans>Settings</Trans>
                     <DropdownMenuShortcut className="font-mono tracking-normal">
                       G S
                     </DropdownMenuShortcut>
@@ -420,7 +450,7 @@ export default function AppSidebar() {
                   onClick={handleLogout}
                 >
                   <LogOut />
-                  {isLoggingOut ? "Logging out…" : "Log out"}
+                  {isLoggingOut ? t`Logging out…` : t`Log out`}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

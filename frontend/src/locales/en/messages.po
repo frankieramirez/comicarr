@@ -1,0 +1,107 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-11-16 14:26+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "{count} need you"
+msgstr "{count} need you"
+
+#: src/components/layout/AppSidebar.tsx
+#: src/components/layout/MobileTabBar.tsx
+msgid "Activity"
+msgstr "Activity"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "ask about your library"
+msgstr "ask about your library"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Ask Comicarr"
+msgstr "Ask Comicarr"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Comicarr home"
+msgstr "Comicarr home"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Dark"
+msgstr "Dark"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Dashboard"
+msgstr "Dashboard"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Discover"
+msgstr "Discover"
+
+#: src/components/layout/MobileTabBar.tsx
+msgid "Home"
+msgstr "Home"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Import"
+msgstr "Import"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Language"
+msgstr "Language"
+
+#: src/components/layout/AppSidebar.tsx
+#: src/components/layout/MobileTabBar.tsx
+msgid "Library"
+msgstr "Library"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Light"
+msgstr "Light"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Log out"
+msgstr "Log out"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Logging out…"
+msgstr "Logging out…"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Logout failed. Your session is still active; please try again."
+msgstr "Logout failed. Your session is still active; please try again."
+
+#: src/components/layout/MobileTabBar.tsx
+msgid "Primary"
+msgstr "Primary"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Releases"
+msgstr "Releases"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Search"
+msgstr "Search"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Search or add"
+msgstr "Search or add"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Settings"
+msgstr "Settings"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "System"
+msgstr "System"
+
+#: src/components/layout/AppSidebar.tsx
+msgid "Theme"
+msgstr "Theme"
+
+#: src/components/layout/AppSidebar.tsx
+#: src/components/layout/MobileTabBar.tsx
+msgid "Wanted"
+msgstr "Wanted"

@@ -23,6 +23,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import WantedBySeries from "@/components/queue/WantedBySeries";
 import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import { useSearchBlockers } from "@/hooks/useAcquisitionHealth";
+import { formatNumber } from "@/lib/intl";
 
 export default function WantedPage() {
   const { limit, offset, nextPage, prevPage, resetPage } = useServerPage(50);
@@ -190,11 +191,11 @@ export default function WantedPage() {
         meta={
           view === "series"
             ? seriesTotals
-              ? `${seriesTotals.issues.toLocaleString()} missing in ${seriesTotals.series.toLocaleString()} series`
+              ? `${formatNumber(seriesTotals.issues)} missing in ${formatNumber(seriesTotals.series)} series`
               : "loading…"
             : isLoading
               ? "loading…"
-              : `${total.toLocaleString()} missing issue${total === 1 ? "" : "s"}`
+              : `${formatNumber(total)} missing issue${total === 1 ? "" : "s"}`
         }
         actions={
           <>

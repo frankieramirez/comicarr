@@ -26,6 +26,7 @@ import WantedPacingBanner from "@/components/queue/WantedPacingBanner";
 import SearchBlockedBanner from "@/components/releases/SearchBlockedBanner";
 import { useSearchBlockers } from "@/hooks/useAcquisitionHealth";
 import type { WantedBucket, WantedSeries } from "@/types";
+import { formatNumber } from "@/lib/intl";
 
 const PAGE_SIZE = 50;
 
@@ -233,7 +234,7 @@ function SeriesRow({
           </span>
         </div>
         <span className="text-right font-mono text-sm text-foreground">
-          {series.missing.toLocaleString()}
+          {formatNumber(series.missing)}
         </span>
         {/* Phones put which and why on their own lines under the name. */}
         <span className="col-start-3 truncate font-mono text-xs text-foreground-2 md:col-start-auto">
@@ -333,7 +334,7 @@ export default function WantedBySeries({
             >
               {tab.label}
               <span className="font-mono text-xs text-muted-foreground">
-                {(counts?.[tab.value] ?? 0).toLocaleString()}
+                {formatNumber(counts?.[tab.value] ?? 0)}
               </span>
             </button>
           ))}

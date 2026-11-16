@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/intl";
 /**
  * Week helpers shared by Releases > Mine and Industry. Weeks are
  * Sunday-based, matching the weekly pull list the backend stores.
@@ -35,7 +36,7 @@ export function weekDays(start: string): string[] {
 }
 
 export function formatDay(iso: string, withYear: boolean): string {
-  return parseDay(iso).toLocaleDateString("en-US", {
+  return formatDate(parseDay(iso), {
     month: "short",
     day: "numeric",
     year: withYear ? "numeric" : undefined,
@@ -44,7 +45,7 @@ export function formatDay(iso: string, withYear: boolean): string {
 
 /** "Wednesday, Nov 11", for a day group heading. */
 export function dayHeading(iso: string): string {
-  return parseDay(iso).toLocaleDateString("en-US", {
+  return formatDate(parseDay(iso), {
     weekday: "long",
     month: "short",
     day: "numeric",

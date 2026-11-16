@@ -47,6 +47,7 @@ import {
   type WeeklyIssue,
   type WeeklyLibraryState,
 } from "@/pages/weeklyReleaseRowKey";
+import { formatDate } from "@/lib/intl";
 
 const WEEKLY_ROW_COLS =
   "grid-cols-[minmax(0,1fr)_auto_auto] md:grid-cols-[minmax(0,1fr)_110px_160px_110px_120px]";
@@ -74,7 +75,7 @@ const SORTS: { value: SortKey; label: string }[] = [
 ];
 
 const ALL_PUBLISHERS = "__all__";
-const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "short" });
+const WEEKDAY: Intl.DateTimeFormatOptions = { weekday: "short" };
 const MANGA_GROUPS = ["Manga", "Manhwa", "Manhua"];
 
 function rowState(issue: WeeklyIssue): WeeklyLibraryState {
@@ -493,7 +494,7 @@ function DayStrip({
                   isToday ? "font-medium text-foreground" : "text-foreground-2"
                 }
               >
-                {WEEKDAY.format(date)}{" "}
+                {formatDate(date, WEEKDAY)}{" "}
                 <span className="font-mono text-xs text-muted-foreground">
                   {date.getDate()}
                 </span>

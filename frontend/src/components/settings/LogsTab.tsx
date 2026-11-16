@@ -31,6 +31,7 @@ import type {
   SettingsFormData,
   WritableConfig,
 } from "../../types/config.generated";
+import { formatDate, formatNumber } from "@/lib/intl";
 
 interface LogsTabProps {
   config: ReadableConfig;
@@ -296,8 +297,11 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
               ) : null}
               {(files.data?.files ?? []).map((file) => (
                 <SelectItem key={file.selector} value={file.selector}>
-                  {file.name} · {file.size.toLocaleString()} bytes ·{" "}
-                  {new Date(file.modified).toLocaleString()}
+                  {file.name} · {formatNumber(file.size)} bytes ·{" "}
+                  {formatDate(new Date(file.modified), {
+                    dateStyle: "short",
+                    timeStyle: "medium",
+                  })}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -399,11 +403,20 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
       {data?.file && !hasError ? (
         <p role="status" className="text-sm text-muted-foreground">
           <span className="font-mono">{data.file.name}</span> ·{" "}
-          {data.lines_scanned?.toLocaleString()} lines scanned ·{" "}
-          {data.records_matched?.toLocaleString()} matched ·{" "}
-          {data.records_returned?.toLocaleString()} returned
+          {data.lines_scanned == null
+            ? undefined
+            : formatNumber(data.lines_scanned)}{" "}
+          lines scanned ·{" "}
+          {data.records_matched == null
+            ? undefined
+            : formatNumber(data.records_matched)}{" "}
+          matched ·{" "}
+          {data.records_returned == null
+            ? undefined
+            : formatNumber(data.records_returned)}{" "}
+          returned
           {data.truncated
-            ? ` · Truncated: newest whole records only (up to ${data.record_limit?.toLocaleString()} records / 8 MiB)`
+            ? ` · Truncated: newest whole records only (up to ${data.record_limit == null ? undefined : formatNumber(data.record_limit)} records / 8 MiB)`
             : " · Complete matches"}
           {isFetching ? " · Searching…" : ""}
         </p>

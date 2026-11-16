@@ -12,6 +12,7 @@ import type {
   SettingsFormData,
   WritableConfig,
 } from "../../types/config.generated";
+import { formatNumber } from "@/lib/intl";
 
 interface AiTabProps {
   config: ReadableConfig;
@@ -193,14 +194,14 @@ export function AiTab({ config: _config, formData, onChange }: AiTabProps) {
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Today's Requests</p>
               <p className="text-sm font-medium text-foreground">
-                {status.today_requests.toLocaleString()}
+                {formatNumber(status.today_requests)}
               </p>
             </div>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Today's Tokens</p>
               <p className="text-sm font-medium text-foreground">
-                {status.today_tokens.toLocaleString()} /{" "}
-                {status.daily_limit.toLocaleString()}
+                {formatNumber(status.today_tokens)} /{" "}
+                {formatNumber(status.daily_limit)}
               </p>
             </div>
             <div className="space-y-1">

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { approxDuration, untilLabel } from "@/lib/wantedPacing";
 import type { WantedPacing } from "@/types";
+import { formatNumber } from "@/lib/intl";
 
 function everyLabel(minutes: number): string {
   if (minutes % 1440 === 0) {
@@ -43,8 +44,8 @@ export default function WantedPacingBanner({
   let title: string;
   let detail: string;
   if (pacing.state === "checking") {
-    title = `Auto-search is checking the backlog at ${pacing.per_hour.toLocaleString()} an hour`;
-    detail = `${pacing.per_pass.toLocaleString()} at a time against new releases, newest first. ${fresh}${
+    title = `Auto-search is checking the backlog at ${formatNumber(pacing.per_hour)} an hour`;
+    detail = `${formatNumber(pacing.per_pass)} at a time against new releases, newest first. ${fresh}${
       nextPass ? ` Next batch ${nextPass}.` : ""
     }`;
   } else if (pacing.state === "waiting_for_feed") {

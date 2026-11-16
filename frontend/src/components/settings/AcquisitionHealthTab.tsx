@@ -27,6 +27,7 @@ import {
   type AcquisitionWorkerHealth,
   type ScheduledJobHealth,
 } from "@/hooks/useAcquisitionHealth";
+import { formatDate } from "@/lib/intl";
 
 type Tone = "ready" | "warning" | "danger" | "neutral";
 
@@ -59,12 +60,12 @@ function parseMoment(value: number | string | null | undefined) {
 function formatMoment(value: number | string | null | undefined) {
   const date = parseMoment(value);
   if (!date) return "—";
-  return new Intl.DateTimeFormat(undefined, {
+  return formatDate(date, {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  }).format(date);
+  });
 }
 
 function formatAge(value: number | string | null | undefined) {

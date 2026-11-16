@@ -197,3 +197,44 @@ afterEach(() => {
 
 // Export storage mocks for direct manipulation in tests
 export { sessionStorageMock, localStorageMock };
+
+// =============================================================================
+// i18n: every render gets an I18nProvider with the English catalog
+// =============================================================================
+
+// Components read strings through Lingui, which needs a provider. Tests render
+// components directly with many different wrappers, so the provider is added
+// to RTL's render/renderHook here instead of in each test.
+vi.mock("@testing-library/react", async (importOriginal) => {
+  const rtl = await importOriginal<typeof import("@testing-library/react")>();
+  const React = await import("react");
+  const { I18nProvider } = await import("@lingui/react");
+  const { i18n, initI18n } = await import("@/lib/i18n");
+  await initI18n();
+
+  type Wrapper = React.JSXElementConstructor<{ children: React.ReactNode }>;
+  const withI18n = (Inner?: Wrapper) =>
+    function I18nWrapper({ children }: { children: React.ReactNode }) {
+      const content = Inner
+        ? React.createElement(Inner, null, children)
+        : children;
+      return React.createElement(I18nProvider, { i18n }, content);
+    };
+
+  const render: typeof rtl.render = ((ui: React.ReactNode, options = {}) =>
+    rtl.render(ui, {
+      ...options,
+      wrapper: withI18n(options.wrapper as Wrapper | undefined),
+    })) as typeof rtl.render;
+
+  const renderHook: typeof rtl.renderHook = ((
+    hook: (props: unknown) => unknown,
+    options: { wrapper?: Wrapper } = {},
+  ) =>
+    rtl.renderHook(hook, {
+      ...options,
+      wrapper: withI18n(options.wrapper),
+    })) as typeof rtl.renderHook;
+
+  return { ...rtl, render, renderHook };
+});

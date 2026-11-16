@@ -10,6 +10,7 @@ import { useSeries } from "@/hooks/useSeries";
 import { panelState } from "@/lib/panelState";
 import { seriesCoverSrc } from "@/lib/series-utils";
 import type { Comic } from "@/types";
+import { formatNumber } from "@/lib/intl";
 
 /**
  * The two library sections of the v2 dashboard's main column: the newest
@@ -111,7 +112,7 @@ export function MostWanted() {
         title="Most wanted"
         meta={
           state === "content"
-            ? `${totalWanted.toLocaleString()} wanted across ${ranked.length} series`
+            ? `${formatNumber(totalWanted)} wanted across ${ranked.length} series`
             : undefined
         }
         action={{ label: "Open Wanted", to: "/wanted" }}

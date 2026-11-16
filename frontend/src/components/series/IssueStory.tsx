@@ -23,21 +23,22 @@ import {
   rejectionBreakdown,
   type SearchHistory,
 } from "@/hooks/useIssueStoryDetails";
+import { formatDate } from "@/lib/intl";
 
 /** Actions the issue page can take in one click; the rest need a dialog. */
 const ONE_CLICK: BandAction[] = ["retry", "search_again"];
 
-const WHEN = new Intl.DateTimeFormat("en-US", {
+const WHEN: Intl.DateTimeFormatOptions = {
   month: "short",
   day: "numeric",
   hour: "2-digit",
   minute: "2-digit",
   hour12: false,
-});
+};
 
 function when(iso: string): string {
   const date = new Date(iso.includes("T") ? iso : iso.replace(" ", "T"));
-  return Number.isNaN(date.getTime()) ? iso : WHEN.format(date);
+  return Number.isNaN(date.getTime()) ? iso : formatDate(date, WHEN);
 }
 
 function StepIcon({ event }: { event: TimelineEvent }) {

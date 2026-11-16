@@ -14,7 +14,7 @@
  *    reported itself fine while this line read "11 days ago".
  */
 
-import { formatDistanceStrict } from "date-fns";
+import { formatRelative } from "@/lib/intl";
 import type {
   AcquisitionHealthResponse,
   AcquisitionRouteHealth,
@@ -323,11 +323,11 @@ function lastSearchLine(
       ? searchIntervalMinutes
       : DEFAULT_SEARCH_INTERVAL_MINUTES;
   const ageSeconds = now / 1000 - at;
-  const age = formatDistanceStrict(new Date(at * 1000), new Date(now));
+  const age = formatRelative(new Date(at * 1000), new Date(now));
   return {
     at,
     stale: ageSeconds > interval * 60 * 2,
-    text: `Last successful search: ${age} ago`,
+    text: `Last successful search: ${age}`,
   };
 }
 

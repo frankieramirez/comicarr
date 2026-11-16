@@ -22,6 +22,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import { formatDate } from "@/lib/intl";
 
 interface ChatThreadListProps {
   threads: ChatThreadSummary[];
@@ -46,9 +47,9 @@ function formatThreadTime(value: string): string {
   if (Number.isNaN(date.getTime())) return "";
   const now = new Date();
   if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return formatDate(date, { hour: "numeric", minute: "2-digit" });
   }
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  return formatDate(date, { month: "short", day: "numeric" });
 }
 
 /** Bucket a thread by how recently it was touched, newest bucket first. */
