@@ -860,10 +860,6 @@ class Config(object):
 
     def _reserved_provider_names(self):
         reserved = set()
-        if self.ENABLE_TORRENT_SEARCH and self.ENABLE_32P:
-            reserved.add("32p")
-        if self.EXPERIMENTAL:
-            reserved.add("experimental")
         if self.ENABLE_DDL and self.ENABLE_GETCOMICS:
             reserved.add("ddl(getcomics)")
         if self.ENABLE_DDL and self.ENABLE_EXTERNAL_SERVER:
@@ -2330,14 +2326,6 @@ class Config(object):
         extra_torznabs = self.EXTRA_TORZNABS if extra_torznabs is None else extra_torznabs
         PR = []
         PR_NUM = 0
-        if self.ENABLE_TORRENT_SEARCH:
-            if self.ENABLE_32P:
-                PR.append("32p")
-                PR_NUM += 1
-        if self.EXPERIMENTAL:
-            PR.append("Experimental")
-            PR_NUM += 1
-
         if self.ENABLE_DDL:
             if self.ENABLE_GETCOMICS:
                 PR.append("DDL(GetComics)")
@@ -2346,7 +2334,7 @@ class Config(object):
                 PR.append("DDL(External)")
                 PR_NUM += 1
 
-        PPR = ["Experimental", "DDL(GetComics)", "DDL(External)"]
+        PPR = ["DDL(GetComics)", "DDL(External)"]
         if self.NEWZNAB:
             for ens in extra_newznabs:
                 if str(ens[5]) == "1":

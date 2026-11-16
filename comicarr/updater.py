@@ -371,17 +371,14 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                 except Exception as emit_err:
                     logger.fdebug("[ACTIVITY] refresh.failed emit skipped: %s" % emit_err)
                 return
-        elif not comicarr.CONFIG.CV_ONLY or ComicID[:1] == "G":
-            CV_EXcomicid = db.select_one(text("SELECT * from exceptions WHERE ComicID=:cid").bindparams(cid=ComicID))
-            if CV_EXcomicid is None:
-                pass
-            else:
-                if CV_EXcomicid["variloop"] == "99":
-                    mismatch = "yes"
-            if ComicID[:1] == "G":
-                comicarr.importer.GCDimport(ComicID)
-            else:
-                importer.addComictoDB(ComicID, mismatch)
+        elif ComicID[:1] == "G":
+            # Grand Comics Database series can no longer refresh: the GCD
+            # scraper was removed with the site's search (ADR-0007, #1404).
+            logger.warn(
+                "[GCD] %s was added from the Grand Comics Database, which Comicarr can no longer read. "
+                "Add the series again from ComicVine to keep it up to date." % ComicID
+            )
+            return
         else:
             if comicarr.CONFIG.CV_ONETIMER == 1:
                 logger.fdebug("CV_OneTimer option enabled...")
@@ -837,7 +834,7 @@ def upcoming_update(
     if comicarr.CONFIG.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
         lastupdatechk = db.select_one(select(comics).where(comics.c.ComicID == ComicID))
         if lastupdatechk is None:
-            pullupd = "yes"
+            pass
         else:
             c_date = lastupdatechk["LastUpdated"]
             if c_date is None:
@@ -1027,10 +1024,12 @@ def upcoming_update(
                     db.upsert("comics", newVal, newKey)
 
                 if hours > 5 or forcecheck == "yes":
-                    pullupd = "yes"
                     logger.fdebug("Now Refreshing comic " + ComicName + " to make sure it is up-to-date")
                     if ComicID[:1] == "G":
-                        comicarr.importer.GCDimport(ComicID, pullupd)
+                        logger.warn(
+                            "[GCD] %s was added from the Grand Comics Database, which Comicarr can no longer read."
+                            % ComicID
+                        )
                     else:
                         comicarr.importer.updateissuedata(ComicID, ComicName, calledfrom="weeklycheck")
                 else:

@@ -32,7 +32,7 @@ import sqlalchemy
 from sqlalchemy import and_, delete, select, text, update
 
 import comicarr
-from comicarr import db, helpers, importer, locg, logger, mb, newpull, updater
+from comicarr import db, helpers, importer, locg, logger, mb, updater
 from comicarr.tables import annuals, comics, futureupcoming, issues, weekly
 
 
@@ -162,10 +162,9 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
     newrl = os.path.join(comicarr.CONFIG.CACHE_DIR, "newreleases.txt")
     comicarr.PULLBYFILE = False
 
-    if comicarr.CONFIG.ALT_PULL == 1:
-        logger.info("[PULL-LIST] Populating & Loading pull-list data directly from webpage")
-        newpull.newpull()
-    elif comicarr.CONFIG.ALT_PULL == 2:
+    # ALT_PULL is always 2 (config.configure forces it); the PreviewsWorld
+    # scraper behind ALT_PULL 1 was removed (ADR-0007, #1404).
+    if comicarr.CONFIG.ALT_PULL == 2:
         logger.info("[PULL-LIST] Populating & Loading pull-list data directly from alternate website")
         weekly_info = helpers.weekly_info()
         current_weeknumber = weekly_info["weeknumber"]

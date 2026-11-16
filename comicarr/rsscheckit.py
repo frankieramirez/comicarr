@@ -22,7 +22,7 @@ import datetime
 import threading
 
 import comicarr
-from comicarr import auth32p, helpers, logger, rsscheck
+from comicarr import helpers, logger, rsscheck
 
 rss_lock = threading.Lock()
 
@@ -60,71 +60,6 @@ class tehMain:
                 if comicarr.CONFIG.ENABLE_PUBLIC:
                     logger.info("[RSS-FEEDS] Initiating Torrent RSS Feed Check on Demonoid / WorldWideTorrents.")
                     rsscheck.torrents(pickfeed="Public")
-                if comicarr.CONFIG.ENABLE_32P is True:
-                    logger.info("[RSS-FEEDS] Initiating Torrent RSS Feed Check on 32P.")
-                    if comicarr.CONFIG.MODE_32P is False:
-                        logger.fdebug("[RSS-FEEDS] 32P mode set to Legacy mode. Monitoring New Releases feed only.")
-                        if any(
-                            [
-                                comicarr.CONFIG.PASSKEY_32P is None,
-                                comicarr.CONFIG.PASSKEY_32P == "",
-                                comicarr.CONFIG.RSSFEED_32P is None,
-                                comicarr.CONFIG.RSSFEED_32P == "",
-                            ]
-                        ):
-                            logger.error(
-                                "[RSS-FEEDS] Unable to validate information from provided RSS Feed. Verify that the feed provided is a current one."
-                            )
-                        else:
-                            rsscheck.torrents(pickfeed="1", feedinfo=comicarr.KEYS_32P)
-                    else:
-                        continue_search = True
-                        logger.fdebug(
-                            "[RSS-FEEDS] 32P mode set to Auth mode. Monitoring all personal notification feeds & New Releases feed"
-                        )
-                        if any(
-                            [
-                                comicarr.CONFIG.USERNAME_32P is None,
-                                comicarr.CONFIG.USERNAME_32P == "",
-                                comicarr.CONFIG.PASSWORD_32P is None,
-                            ]
-                        ):
-                            logger.error(
-                                "[RSS-FEEDS] Unable to sign-on to 32P to validate settings. Please enter/check your username password in the configuration."
-                            )
-                            continue_search = False
-                        else:
-                            if comicarr.KEYS_32P is None:
-                                feed32p = auth32p.info32p(smode="RSS")
-                                feedinfo = feed32p.authenticate()
-                                if feedinfo["status"] is False and feedinfo["status_msg"] == "disable":
-                                    helpers.disable_provider("32P")
-                                    continue_search = False
-                                elif feedinfo["status"] is False:
-                                    logger.error(
-                                        "[RSS-FEEDS] Unable to retrieve any information from 32P for RSS Feeds. Skipping for now."
-                                    )
-                                    continue_search = False
-                                else:
-                                    feeds = feedinfo["feedinfo"]
-                            else:
-                                feeds = comicarr.FEEDINFO_32P
-                            if continue_search is True:
-                                try:
-                                    logger.fdebug("feedinfo: %s" % feedinfo)
-                                except Exception:
-                                    feedinfo = None
-                                if feedinfo is None or all([len(feedinfo) == 0, feedinfo["status"] is False]):
-                                    logger.error(
-                                        "[RSS-FEEDS] Unable to retrieve any information from 32P for RSS Feeds. Skipping for now."
-                                    )
-                                else:
-                                    rsscheck.torrents(pickfeed="1", feedinfo=comicarr.KEYS_32P)
-                                    x = 0
-                                    for fi in feeds:
-                                        x += 1
-                                        pfeed_32p = str(7 + x)
-                                        rsscheck.torrents(pickfeed=pfeed_32p, feedinfo=fi)
 
             logger.info("[RSS-FEEDS] Initiating RSS Feed Check for NZB Providers.")
             rsscheck.nzbs(forcerss=forcerss)
