@@ -77,7 +77,7 @@ export default tseslint.config(
             '^[A-Z0-9_\\-:./ ]+$',
             '^[^A-Za-z]*$',
             // Class lists outside className/cn(): every token has a - or :.
-            '^(?:\S*[-:\[]\S*\s*)+$',
+            '^(?:\\S*[-:\\[]\\S*\\s*)+$',
             '^https?://',
             '^use (?:client|strict)$',
           ],
