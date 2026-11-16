@@ -54,7 +54,6 @@ from comicarr import (
     maintenance,
     rsscheckit,
     sabnzbd,
-    searchit,
     updater,
     versioncheckit,
     weeklypullit,
@@ -967,9 +966,10 @@ def start(ctx):
             )
             UPDATER_SCHEDULER.pause()
 
-            ss = searchit.CurrentSearcher()
+            from comicarr.app.search.service import run_scheduled_search
+
             SEARCH_SCHEDULER = _add_recurring_job(
-                func=ss.run,
+                func=run_scheduled_search,
                 id="search",
                 next_run_time=datetime.datetime.utcnow(),
                 name="Auto-Search",

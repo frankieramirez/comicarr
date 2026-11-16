@@ -33,7 +33,7 @@ from sqlalchemy import Column, Integer, MetaData, Table, Text, func, or_, select
 from sqlalchemy.exc import OperationalError
 
 import comicarr
-from comicarr import db, filechecker, ftpsshup, helpers, logger, utorrent
+from comicarr import db, filechecker, helpers, logger, utorrent
 from comicarr.app.search.backlog import (
     get_rss_provider_lookup,
     put_rss_provider_lookup,
@@ -46,8 +46,6 @@ from comicarr.tables import comics, rssdb
 from comicarr.torrent.clients import deluge as deluge
 from comicarr.torrent.clients import qbittorrent as qbittorrent
 from comicarr.torrent.clients import transmission
-
-from . import ftpsshup
 
 REDIRECT_STATUS_CODES = (301, 302, 303, 307, 308)
 
@@ -1472,8 +1470,9 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
             torrent_info["filepath"] = filepath
             return torrent_info
         else:
-            tssh = ftpsshup.putfile(filepath, filename)
-            return tssh
+            from comicarr.app.downloads import seedbox
+
+            return seedbox.put_torrent(filepath, filename)
 
 
 def delete_cache_entry(id):
