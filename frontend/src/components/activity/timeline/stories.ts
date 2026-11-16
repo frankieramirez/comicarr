@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 /**
  * Story grouping for the Activity timeline (#428 / Activity Center ADR §5).
  *
@@ -159,8 +160,10 @@ export function dayLabel(iso: string, now: Date = new Date()): string {
   const yesterday = new Date(now);
   yesterday.setDate(today.getDate() - 1);
 
-  if (date.toDateString() === today.toDateString()) return "TODAY";
-  if (date.toDateString() === yesterday.toDateString()) return "YESTERDAY";
+  if (date.toDateString() === today.toDateString())
+    return t`Today`.toUpperCase();
+  if (date.toDateString() === yesterday.toDateString())
+    return t`Yesterday`.toUpperCase();
   return formatDate(date, {
     weekday: "short",
     month: "short",

@@ -22,7 +22,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { causeSubline, plural, seriesList } from "@/lib/attentionCause";
+import {
+  causeSubline,
+  countNoun as plural,
+  seriesList,
+} from "@/lib/attentionCause";
 import {
   DropdownMenu,
   DropdownMenuContent,

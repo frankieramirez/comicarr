@@ -180,14 +180,9 @@ export default function MyReleasesView({
 
   const reportBulkResult = (
     result: BulkIssueResult,
-    verb: "queued" | "skipped",
-    failureVerb: "queue" | "skip",
+    action: "queue" | "skip",
   ) => {
-    const { type, message, keep } = describeBulkResult(
-      result,
-      verb,
-      failureVerb,
-    );
+    const { type, message, keep } = describeBulkResult(result, action);
     addToast({ type, message });
     table.setRowSelection(Object.fromEntries(keep.map((id) => [id, true])));
   };
@@ -196,7 +191,6 @@ export default function MyReleasesView({
     try {
       reportBulkResult(
         await bulkQueueMutation.mutateAsync(selectedIds),
-        "queued",
         "queue",
       );
     } catch (err) {
@@ -211,7 +205,6 @@ export default function MyReleasesView({
     try {
       reportBulkResult(
         await bulkUnqueueMutation.mutateAsync(selectedIds),
-        "skipped",
         "skip",
       );
     } catch (err) {

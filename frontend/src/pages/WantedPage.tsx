@@ -79,7 +79,6 @@ export default function WantedPage() {
     try {
       const { type, message, keep } = describeBulkResult(
         await bulkUnqueue.mutateAsync(selectedIds),
-        "skipped",
         "skip",
       );
       addToast({ type, message });

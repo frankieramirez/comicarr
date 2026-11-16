@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 /**
  * Consequence confirmation for multi-member stop-wanting (#525).
  *
@@ -35,7 +37,9 @@ export function StopWantingDialog({
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Stop wanting {count} issues?</DialogTitle>
+          <DialogTitle>
+            <Trans>Stop wanting {count} issues?</Trans>
+          </DialogTitle>
           <DialogDescription>
             {stopWantingConsequence(count, seriesLabel)}
           </DialogDescription>
@@ -43,10 +47,10 @@ export function StopWantingDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={busy}>
-            Cancel
+            <Trans>Cancel</Trans>
           </Button>
           <Button onClick={onConfirm} disabled={busy}>
-            {busy ? "Stopping…" : "Stop wanting"}
+            {busy ? t`Stopping…` : t`Stop wanting`}
           </Button>
         </DialogFooter>
       </DialogContent>

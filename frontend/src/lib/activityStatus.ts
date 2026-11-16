@@ -1,3 +1,4 @@
+import { ph, plural, t } from "@lingui/core/macro";
 /**
  * Quiet-count status line for AppStatusBar (Activity Center ADR §9, Variant A).
  * Pure composition — no React, no I/O.
@@ -41,17 +42,25 @@ export interface QuietStatusMeta {
   segments: StatusSegment[];
 }
 
-function seriesLabel(n: number): string {
-  return n === 1 ? "1 series" : `${n} series`;
-}
-
 function libraryText(s: ActivityStatusSnapshot): string {
-  if (s.librarySeries === null) return "library: unavailable";
-  return `library: ${seriesLabel(s.librarySeries)}`;
+  if (s.librarySeries === null) return t`library: unavailable`;
+  return plural(s.librarySeries, {
+    one: "library: # series",
+    other: "library: # series",
+  });
 }
 
 function apiText(s: ActivityStatusSnapshot): string {
-  return `api: ${s.api === "checking" ? "checking…" : s.api}`;
+  switch (s.api) {
+    case "checking":
+      return t`api: checking…`;
+    case "online":
+      return t`api: online`;
+    case "offline":
+      return t`api: offline`;
+    default:
+      return t`api: ${ph({ api: s.api })}`;
+  }
 }
 
 /**
@@ -69,26 +78,26 @@ export function formatQuietStatus(s: ActivityStatusSnapshot): QuietStatusMeta {
   if (s.live === "lost" || (s.api === "offline" && s.librarySeries === null)) {
     segments.push({
       role: "activity",
-      text: "unreachable",
+      text: t`unreachable`,
       href: "/activity",
     });
   } else if (s.inFlight === 0 && s.attention === 0) {
     segments.push({
       role: "idle",
-      text: "idle",
+      text: t`idle`,
       href: "/activity",
     });
   } else {
     if (s.inFlight > 0) {
       segments.push({
         role: "activity",
-        text: `${s.inFlight} in flight`,
+        text: t`${ph({ count: s.inFlight })} in flight`,
         href: "/activity?state=in_flight",
       });
     } else {
       segments.push({
         role: "idle",
-        text: "idle",
+        text: t`idle`,
         href: "/activity",
       });
     }
@@ -96,7 +105,7 @@ export function formatQuietStatus(s: ActivityStatusSnapshot): QuietStatusMeta {
       segments.push({ role: "separator", text: "·" });
       segments.push({
         role: "attention",
-        text: `⚠ ${s.attention} need attention`,
+        text: t`⚠ ${ph({ count: s.attention })} need attention`,
         href: "/activity/attention",
       });
     }
@@ -117,30 +126,31 @@ export function liveAnnouncement(
   next: ActivityStatusSnapshot,
 ): string {
   if (!prev) {
-    if (next.live === "lost") return "Server unreachable";
-    if (next.api === "offline") return "API offline";
-    if (next.attention > 0) return `${next.attention} need attention`;
+    if (next.live === "lost") return t`Server unreachable`;
+    if (next.api === "offline") return t`API offline`;
+    if (next.attention > 0)
+      return t`${ph({ count: next.attention })} need attention`;
     return "";
   }
   if (prev.live !== next.live) {
-    if (next.live === "lost") return "Server unreachable";
-    if (prev.live === "lost") return "Reconnected";
+    if (next.live === "lost") return t`Server unreachable`;
+    if (prev.live === "lost") return t`Reconnected`;
   }
   if (prev.api !== next.api) {
-    if (next.api === "offline") return "API offline";
-    if (next.api === "online" && prev.api === "offline") return "API online";
+    if (next.api === "offline") return t`API offline`;
+    if (next.api === "online" && prev.api === "offline") return t`API online`;
   }
   if (prev.attention !== next.attention) {
-    if (next.attention === 0) return "Attention cleared";
-    return `${next.attention} need attention`;
+    if (next.attention === 0) return t`Attention cleared`;
+    return t`${ph({ count: next.attention })} need attention`;
   }
   const prevBusy = prev.inFlight > 0;
   const nextBusy = next.inFlight > 0;
   if (!prevBusy && nextBusy) {
-    return `${next.inFlight} in flight`;
+    return t`${ph({ count: next.inFlight })} in flight`;
   }
   if (prevBusy && !nextBusy && next.attention === 0) {
-    return "Idle";
+    return t`Idle`;
   }
   return "";
 }

@@ -81,7 +81,12 @@ export default tseslint.config(
             // Class lists outside className/cn(): every token has a - or :.
             '^(?:\\S*[-:\\[]\\S*\\s*)+$',
             '^https?://',
+            // One token with an inner dot, slash, digit or similar: file names,
+            // paths. Not a word ending in punctuation, like "Saved.".
+            '^[^\\s]*[./@:_\\d][^\\s]*[^\\s.!?…:]$',
             '^use (?:client|strict)$',
+            // Product names stay as they are in every language.
+            '^(?:Deluge|Transmission|ComicVine|Metron|MangaDex|MyAnimeList|Prowlarr|Mylar3?|Comicarr|GetComics|Pixeldrain|MediaFire|Mega)$',
           ],
           ignoreNames: [
             { regex: { pattern: '^[A-Z0-9_]+$' } },
@@ -94,7 +99,7 @@ export default tseslint.config(
             'navigate', 'querySelector', 'querySelectorAll', '*.addEventListener', '*.removeEventListener',
             'localStorage.*', 'sessionStorage.*', 'useQueryState', 'parseAsString*', 'z.*', 'require',
             'new Date', 'Date.parse', '*.startsWith', '*.endsWith', '*.includes', '*.split', '*.replace',
-            '*.replaceAll', '*.match', '*.test', 'RegExp', 'invariant', 'encodeURIComponent', 'postMessage',
+            '*.replaceAll', '*.accessor', '*.match', '*.test', 'RegExp', 'invariant', 'encodeURIComponent', 'postMessage',
             'dispatchEvent', 'CustomEvent', 'Event', 'matchMedia', '*.getItem', '*.setItem', '*.removeItem',
             'document.*', 'window.*', 'expect',
           ],

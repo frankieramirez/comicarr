@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 /**
  * Bounded needs-attention preview above the chronological feed (#526).
  *
@@ -89,26 +91,35 @@ export function AttentionBand({
   const newest = preview[0]?.newest_updated_at;
 
   return (
-    <section aria-label="Needs attention" className="shrink-0 px-8 pt-4 pb-4">
+    <section
+      aria-label={t`Needs attention`}
+      className="shrink-0 px-8 pt-4 pb-4"
+    >
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 pb-2">
         <AlertTriangle
           className="h-3.5 w-3.5 self-center"
           style={{ color: "var(--status-error)" }}
         />
         <span className="text-[13px] font-semibold text-foreground">
-          {total} need{total === 1 ? "s" : ""} attention
+          {plural(total, {
+            one: "# needs attention",
+            other: "# need attention",
+          })}
         </span>
         <span className="mono-meta">
           {memberTotal === total
-            ? "clears only by action"
-            : `${memberTotal} issues · clears only by action`}
+            ? t`clears only by action`
+            : plural(memberTotal, {
+                one: "# issue · clears only by action",
+                other: "# issues · clears only by action",
+              })}
         </span>
         {newest && <RelativeTime value={newest} />}
         <Link
           to={href}
           className="ml-auto text-[13px] text-foreground-2 hover:text-foreground"
         >
-          See all {total} →
+          <Trans>See all {total} →</Trans>
         </Link>
       </div>
 
@@ -123,7 +134,9 @@ export function AttentionBand({
             style={{ height: CARD_HEIGHT }}
           >
             +{more}
-            <span className="mt-1">more</span>
+            <span className="mt-1">
+              <Trans>more</Trans>
+            </span>
           </Link>
         )}
       </div>

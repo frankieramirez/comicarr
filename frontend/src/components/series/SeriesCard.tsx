@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { useState, type SyntheticEvent } from "react";
 import { ImageOff } from "lucide-react";
 import { getProgressPercentage, seriesCoverSrc } from "@/lib/series-utils";
@@ -57,12 +58,14 @@ export default function SeriesCard({ comic, onClick }: SeriesCardProps) {
 
         {isPaused && (
           <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-md bg-background/85 px-1.5 py-0.5 text-[11px] text-foreground backdrop-blur-sm">
-            <span
-              className="size-1.5 rounded-full"
-              style={{ background: "var(--status-paused)" }}
-              aria-hidden="true"
-            />
-            Paused
+            <Trans>
+              <span
+                className="size-1.5 rounded-full"
+                style={{ background: "var(--status-paused)" }}
+                aria-hidden="true"
+              />
+              Paused
+            </Trans>
           </span>
         )}
 

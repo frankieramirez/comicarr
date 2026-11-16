@@ -65,18 +65,13 @@ describe("applySequentially", () => {
 describe("describeBulkResult", () => {
   it("reports a clean batch as a success and clears the selection", () => {
     expect(
-      describeBulkResult(
-        result({ succeeded: ["issue-1", "issue-2"] }),
-        "skipped",
-        "skip",
-      ),
+      describeBulkResult(result({ succeeded: ["issue-1", "issue-2"] }), "skip"),
     ).toEqual({ type: "success", message: "2 issues skipped", keep: [] });
   });
 
   it("singularizes a one-issue batch", () => {
     expect(
-      describeBulkResult(result({ succeeded: ["issue-1"] }), "queued", "queue")
-        .message,
+      describeBulkResult(result({ succeeded: ["issue-1"] }), "queue").message,
     ).toBe("1 issue queued");
   });
 
@@ -86,7 +81,6 @@ describe("describeBulkResult", () => {
         succeeded: ["issue-1", "issue-2"],
         failed: [{ id: "issue-3", error: "Issue not found" }],
       }),
-      "skipped",
       "skip",
     );
 
@@ -105,7 +99,6 @@ describe("describeBulkResult", () => {
           { id: "issue-2", error: "Unauthorized" },
         ],
       }),
-      "queued",
       "queue",
     );
 

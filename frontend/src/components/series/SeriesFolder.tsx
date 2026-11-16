@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { FolderOpen, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,25 +20,35 @@ import {
 } from "@/hooks/useSeries";
 import { ApiError } from "@/lib/api";
 
-function files(count: number) {
-  return `${count} ${count === 1 ? "file" : "files"}`;
-}
-
 function stayReadable(count: number) {
-  return count === 1
-    ? "1 file stays readable where it was."
-    : `${count} files stay readable where they were.`;
+  return plural(count, {
+    one: "# file stays readable where it was.",
+    other: "# files stay readable where they were.",
+  });
 }
 
 function describeLocationChange(result: SeriesLocationResult): string {
-  const destination = `New downloads and imports go to ${result.comic_location}.`;
-  if (result.files_moved > 0 && result.files_left === 0) {
-    return `Moved ${files(result.files_moved)} from ${result.previous_location}. ${destination}`;
+  const location = result.comic_location ?? "";
+  const previous = result.previous_location ?? "";
+  const destination = t`New downloads and imports go to ${location}.`;
+  const moved = result.files_moved;
+  if (moved > 0 && result.files_left === 0) {
+    const movedFrom = plural(moved, {
+      one: `Moved # file from ${previous}.`,
+      other: `Moved # files from ${previous}.`,
+    });
+    return `${movedFrom} ${destination}`;
   }
   if (result.files_left > 0) {
-    const moved =
-      result.files_moved > 0 ? `Moved ${files(result.files_moved)}. ` : "";
-    return `${moved}${stayReadable(result.files_left)} ${destination}`;
+    const left = stayReadable(result.files_left);
+    if (moved > 0) {
+      const movedOnly = plural(moved, {
+        one: "Moved # file.",
+        other: "Moved # files.",
+      });
+      return `${movedOnly} ${left} ${destination}`;
+    }
+    return `${left} ${destination}`;
   }
   return destination;
 }
@@ -49,7 +61,7 @@ function partialMoveMessage(error: unknown): string {
     }
     return error.userMessage;
   }
-  return "Comicarr could not change the folder. Try again.";
+  return t`Comicarr could not change the folder. Try again.`;
 }
 
 interface SeriesFolderProps {
@@ -92,8 +104,8 @@ export function SeriesFolder({
       addToast({
         type: "success",
         title: result.override
-          ? "Series folder changed"
-          : "Series folder is automatic again",
+          ? t`Series folder changed`
+          : t`Series folder is automatic again`,
         description: describeLocationChange(result),
       });
     } catch (saveError) {
@@ -115,24 +127,24 @@ export function SeriesFolder({
               id="series-folder-title"
               className="text-[13px] font-semibold"
             >
-              Library folder
+              <Trans>Library folder</Trans>
             </span>
             <span className="mono-label">
               {override ? "chosen" : "automatic"}
             </span>
           </div>
           <p className="mono-meta mt-1 break-all" data-testid="series-folder">
-            {location || "Not set yet"}
+            {location || t`Not set yet`}
           </p>
           {retained.length > 0 ? (
             <p className="mt-1 text-[13px] leading-relaxed text-foreground-2">
-              Earlier files are still read from {retained.join(", ")}.
+              {t`Earlier files are still read from ${ph({ folders: retained.join(", ") })}.`}
             </p>
           ) : null}
         </div>
         <Button variant="outline" size="sm" onClick={openDialog}>
           <FolderOpen aria-hidden="true" />
-          Change folder
+          <Trans>Change folder</Trans>
         </Button>
       </div>
 
@@ -142,11 +154,15 @@ export function SeriesFolder({
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Library folder</DialogTitle>
+            <DialogTitle>
+              <Trans>Library folder</Trans>
+            </DialogTitle>
             <DialogDescription>
-              Choose a folder on the server, inside one of your library roots.
-              New downloads and imports for this series are placed, renamed and
-              tagged there.
+              <Trans>
+                Choose a folder on the server, inside one of your library roots.
+                New downloads and imports for this series are placed, renamed
+                and tagged there.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
 
@@ -158,7 +174,9 @@ export function SeriesFolder({
             }}
           >
             <div className="grid gap-1.5">
-              <Label htmlFor="series-folder-input">Folder</Label>
+              <Label htmlFor="series-folder-input">
+                <Trans>Folder</Trans>
+              </Label>
               <Input
                 id="series-folder-input"
                 value={folder}
@@ -169,14 +187,16 @@ export function SeriesFolder({
                 spellCheck={false}
               />
               <p className="text-xs text-muted-foreground">
-                Use the path Comicarr sees. In Docker, that is the path inside
-                the container. Extra roots are listed under Settings → Media.
+                <Trans>
+                  Use the path Comicarr sees. In Docker, that is the path inside
+                  the container. Extra roots are listed under Settings → Media.
+                </Trans>
               </p>
             </div>
 
             <fieldset className="grid gap-2">
               <legend className="mb-1 text-sm font-medium">
-                Files already in the library
+                <Trans>Files already in the library</Trans>
               </legend>
               <label className="flex items-start gap-2 text-sm">
                 <input
@@ -187,10 +207,12 @@ export function SeriesFolder({
                   className="mt-1 accent-primary"
                 />
                 <span>
-                  Leave them where they are
-                  <span className="block text-xs text-muted-foreground">
-                    They stay readable from their current folder.
-                  </span>
+                  <Trans>
+                    Leave them where they are
+                    <span className="block text-xs text-muted-foreground">
+                      They stay readable from their current folder.
+                    </span>
+                  </Trans>
                 </span>
               </label>
               <label className="flex items-start gap-2 text-sm">
@@ -202,11 +224,13 @@ export function SeriesFolder({
                   className="mt-1 accent-primary"
                 />
                 <span>
-                  Move them to the new folder
-                  <span className="block text-xs text-muted-foreground">
-                    Only this series&apos; files move. Nothing moves if a file
-                    with the same name is already there.
-                  </span>
+                  <Trans>
+                    Move them to the new folder
+                    <span className="block text-xs text-muted-foreground">
+                      Only this series&apos; files move. Nothing moves if a file
+                      with the same name is already there.
+                    </span>
+                  </Trans>
                 </span>
               </label>
             </fieldset>
@@ -225,7 +249,7 @@ export function SeriesFolder({
                   disabled={mutation.isPending}
                   onClick={() => void save(null)}
                 >
-                  Use automatic folder
+                  <Trans>Use automatic folder</Trans>
                 </Button>
               ) : (
                 <span />
@@ -237,7 +261,7 @@ export function SeriesFolder({
                   disabled={mutation.isPending}
                   onClick={() => setOpen(false)}
                 >
-                  Cancel
+                  <Trans>Cancel</Trans>
                 </Button>
                 <Button
                   type="submit"
@@ -250,7 +274,7 @@ export function SeriesFolder({
                       aria-hidden="true"
                     />
                   ) : null}
-                  {mutation.isPending ? "Saving…" : "Save folder"}
+                  {mutation.isPending ? t`Saving…` : t`Save folder`}
                 </Button>
               </div>
             </DialogFooter>

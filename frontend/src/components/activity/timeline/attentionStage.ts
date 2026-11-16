@@ -1,3 +1,4 @@
+import { plural, t } from "@lingui/core/macro";
 /**
  * Stage display for needs-attention groups.
  *
@@ -16,26 +17,26 @@ export function stageAccent(stage: string): string {
 }
 
 export function stageLabel(stage: string): string {
-  if (stage === "failed") return "failed";
-  if (stage === "manual_review") return "review";
-  return "mixed";
+  if (stage === "failed") return t`failed`;
+  if (stage === "manual_review") return t`review`;
+  return t`mixed`;
 }
 
 export function stageDescription(stage: string): string {
-  if (stage === "failed") return "Comicarr couldn't finish this.";
-  if (stage === "manual_review") return "Waiting on your decision.";
-  return "Members are at different stages — select the rows you mean.";
+  if (stage === "failed") return t`Comicarr couldn't finish this.`;
+  if (stage === "manual_review") return t`Waiting on your decision.`;
+  return t`Members are at different stages — select the rows you mean.`;
 }
 
-const ACTION_LABELS: Record<BandAction, string> = {
-  retry: "Retry",
-  search_again: "Search again",
-  import: "Import",
-  stop_wanting: "Stop wanting",
-};
+const ACTION_LABELS = (): Record<BandAction, string> => ({
+  retry: t`Retry`,
+  search_again: t`Search again`,
+  import: t`Import`,
+  stop_wanting: t`Stop wanting`,
+});
 
 export function actionLabel(action: BandAction): string {
-  return ACTION_LABELS[action] ?? action;
+  return ACTION_LABELS()[action] ?? action;
 }
 
 /**
@@ -44,7 +45,15 @@ export function actionLabel(action: BandAction): string {
  * differently (#525).
  */
 export function stopWantingConsequence(count: number, seriesLabel?: string) {
-  const subject = count === 1 ? "This issue" : `These ${count} issues`;
-  const where = seriesLabel ? ` in ${seriesLabel}` : "";
-  return `${subject}${where} will be marked ignored in your library, leave Needs attention, and will not be searched again until you want them back.`;
+  if (seriesLabel) {
+    return plural(count, {
+      one: `This issue in ${seriesLabel} will be marked ignored in your library, leave Needs attention, and will not be searched again until you want it back.`,
+      other: `These # issues in ${seriesLabel} will be marked ignored in your library, leave Needs attention, and will not be searched again until you want them back.`,
+    });
+  }
+  return plural(count, {
+    one: "This issue will be marked ignored in your library, leave Needs attention, and will not be searched again until you want it back.",
+    other:
+      "These # issues will be marked ignored in your library, leave Needs attention, and will not be searched again until you want them back.",
+  });
 }
