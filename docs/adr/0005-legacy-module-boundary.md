@@ -1,6 +1,6 @@
 # ADR-0005: Legacy module boundary and seam modules
 
-**Status:** Accepted
+**Status:** Accepted; end state amended by [ADR-0007](./0007-zero-legacy.md)
 **Date:** 2026-11-13
 **Related:** [Foundations plan](../architecture/foundations-plan.md),
 [ADR-0003](./0003-attention-module-ownership.md),
