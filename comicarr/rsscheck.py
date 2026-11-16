@@ -423,15 +423,27 @@ def ddl(forcerss=False):
     feedme = feedparser.parse(r.content)
     results = []
     for entry in feedme.entries:
-        soup = BeautifulSoup(entry.summary, "html.parser")
+        soup = BeautifulSoup(entry.get("summary", ""), "html.parser")
         orig_find = soup.find("p", {"style": "text-align: center;"})
+        if orig_find is None:
+            # GetComics changes its post markup from time to time. One post
+            # without the details paragraph used to abort the whole RSS run
+            # ('NoneType' object has no attribute 'findNext') before the
+            # watchlist check ever ran.
+            logger.fdebug("[RSS][DDL] Skipping %s: no release details in the post." % entry.get("title"))
+            continue
         i = 0
         option_find = orig_find
+        size = None
         while True:
             prev_option = option_find
             option_find = option_find.findNext(text=True)
+            if option_find is None:
+                break
             if "Year" in option_find:
                 year = option_find.findNext(text=True)
+                if year is None:
+                    break
                 year = re.sub(r"\|", "", year).strip()
             else:
                 if "Size" in prev_option:
@@ -440,6 +452,9 @@ def ddl(forcerss=False):
                         size = "0 MB"
                     break
         i += 1
+        if size is None:
+            logger.fdebug("[RSS][DDL] Skipping %s: no size in the post." % entry.get("title"))
+            continue
 
         title = entry.title
         updated = entry.updated
@@ -447,6 +462,7 @@ def ddl(forcerss=False):
             updated = updated[:-5].strip()
         tmpid = entry.id
         id = tmpid[tmpid.find("=") + 1 :]
+        sz = "M"
         if "KB" in size:
             sz = "K"
         elif "GB" in size:
@@ -467,6 +483,25 @@ def ddl(forcerss=False):
         rssdbupdate(results, len(results), "ddl")
 
     return
+
+
+def _newznab_api_url(host):
+    """The Newznab API endpoint for a configured host, the way search builds it.
+
+    Hosts are saved either as the site root or already ending in ``/api``
+    (Prowlarr's per-indexer ``http://prowlarr:9696/<id>/api``). Appending
+    ``/api`` to the latter produced ``/api/api``.
+    """
+    host = str(host or "").strip().rstrip("/")
+    return host if host.endswith("api") else host + "/api"
+
+
+def _newznab_rss_url(host):
+    """The site's ``/rss`` feed URL, taken from the root rather than the API path."""
+    host = str(host or "").strip().rstrip("/")
+    if host.endswith("/api"):
+        host = host[: -len("/api")]
+    return host + "/rss"
 
 
 def nzbs(provider=None, forcerss=False):
@@ -498,6 +533,16 @@ def nzbs(provider=None, forcerss=False):
                     return False
 
         feedme = feedparser.parse(r.content)
+
+        if not feedme.get("version") and not feedme.entries:
+            # A 200 that is not RSS/Atom, such as Prowlarr's web page for an
+            # unknown path. Report it as a failure so the caller falls back to
+            # the API instead of indexing nothing.
+            logger.warn(
+                "[RSS] %s did not return a feed (content type %s)."
+                % (site, (getattr(r, "headers", None) or {}).get("Content-Type", "unknown"))
+            )
+            return False
 
         feedthis.append({"site": site, "feed": feedme})
 
@@ -554,7 +599,7 @@ def nzbs(provider=None, forcerss=False):
                 }
                 check = _parse_feed(site, url, bool(int(newznab_host[2])), params)
             else:
-                url = newznab_host[1].rstrip() + "/rss"
+                url = _newznab_rss_url(newznab_host[1])
                 params = {
                     "t": str(newznabcat),
                     "dl": "1",
@@ -569,7 +614,7 @@ def nzbs(provider=None, forcerss=False):
                     logger.fdebug(
                         "RSS url returning error code. Attempting to use API to get most recent items in lieu of RSS feed"
                     )
-                    url = newznab_host[1].rstrip() + "/api"
+                    url = _newznab_api_url(newznab_host[1])
                     params = {
                         "t": "search",
                         "cat": str(newznabcat),
