@@ -6,11 +6,6 @@ import type { AttentionCause } from "@/components/activity/timeline";
  * folds series into causes; this only phrases what it sent.
  */
 
-/** English-only count for callers not yet localized; prefer the `plural` macro. */
-export function countNoun(n: number, word: string) {
-  return `${n} ${word}${n === 1 ? "" : "s"}`;
-}
-
 /** "A", "A and B", "A, B and C", "A, B and 3 more series". */
 export function seriesList(labels: string[]): string {
   const [first = "", second = "", third = ""] = labels;

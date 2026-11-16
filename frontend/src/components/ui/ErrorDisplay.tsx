@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { AlertCircle, RefreshCw, WifiOff, ServerOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getErrorMessage, isRetryableError } from "@/lib/api";
@@ -46,7 +47,7 @@ export default function ErrorDisplay({
         {getIcon()}
       </div>
       <h3 className="text-lg font-semibold text-foreground mb-2">
-        {title || "Something went wrong"}
+        {title || t`Something went wrong`}
       </h3>
       <p className="text-muted-foreground text-center max-w-md mb-6">
         {message}
@@ -61,7 +62,7 @@ export default function ErrorDisplay({
           <RefreshCw
             className={`w-4 h-4 mr-2 ${isRetrying ? "animate-spin" : ""}`}
           />
-          {isRetrying ? "Retrying..." : "Try Again"}
+          {isRetrying ? t`Retrying...` : t`Try Again`}
         </Button>
       )}
     </div>

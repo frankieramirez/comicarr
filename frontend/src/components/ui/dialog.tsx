@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
@@ -56,7 +57,9 @@ const DialogContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-popup-open:bg-accent data-popup-open:text-muted-foreground">
         <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
+        <span className="sr-only">
+          <Trans>Close</Trans>
+        </span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Popup>
   </DialogPortal>

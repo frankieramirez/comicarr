@@ -1,3 +1,4 @@
+import { ph, plural, t } from "@lingui/core/macro";
 import { Link } from "react-router-dom";
 import { useActivityStatus } from "@/hooks/useActivityStatus";
 import { inFlightView } from "@/lib/inFlight";
@@ -25,8 +26,8 @@ export default function InFlightLine() {
   const header = (
     <SectionHeader
       variant="rail"
-      title="Downloads"
-      action={{ label: "Activity", to: "/activity" }}
+      title={t`Downloads`}
+      action={{ label: t`Activity`, to: "/activity" }}
     />
   );
 
@@ -44,7 +45,7 @@ export default function InFlightLine() {
       <section>
         {header}
         <PanelUnavailable
-          label="In flight"
+          label={t`In flight`}
           onRetry={() => void status.refetch()}
           isRetrying={status.isFetching}
         />
@@ -64,7 +65,7 @@ export default function InFlightLine() {
         {header}
         <Link
           to="/activity"
-          aria-label="In flight"
+          aria-label={t`In flight`}
           className="flex items-center gap-2 py-1 text-[13px] text-foreground-2 hover:text-foreground"
         >
           <span
@@ -80,21 +81,21 @@ export default function InFlightLine() {
 
   const total = view.moving + view.stuck;
   const rows = [
-    { label: "Moving now", count: view.moving, color: "var(--status-active)" },
+    { label: t`Moving now`, count: view.moving, color: "var(--status-active)" },
     {
-      label: "Stuck over 7 days",
+      label: t`Stuck over 7 days`,
       count: view.stuck,
       color: "var(--status-paused)",
     },
   ];
 
   return (
-    <section aria-label="In flight">
+    <section aria-label={t`In flight`}>
       {header}
       <div
         className="mb-1.5 flex h-[3px] overflow-hidden rounded-full bg-surface-3"
         role="img"
-        aria-label={`${view.moving} moving, ${view.stuck} stuck`}
+        aria-label={t`${ph({ moving: view.moving })} moving, ${ph({ stuck: view.stuck })} stuck`}
         data-testid="in-flight-bar"
       >
         {rows.map(
@@ -134,7 +135,10 @@ export default function InFlightLine() {
       </ul>
       {view.recovered > 0 && (
         <p className="pl-3.5 text-xs text-muted-foreground">
-          {view.recovered} recovered from a restart
+          {plural(view.recovered, {
+            one: "# recovered from a restart",
+            other: "# recovered from a restart",
+          })}
         </p>
       )}
     </section>

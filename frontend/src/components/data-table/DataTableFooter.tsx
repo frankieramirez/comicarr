@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -43,7 +45,7 @@ export function DataTableFooter({
   return (
     <div className="shrink-0 flex items-center gap-2 border-t border-border-subtle bg-background px-8 py-1.5 mono-meta">
       <span className="tabular-nums">
-        {total === 0 ? "no rows" : `${start}–${end} of ${total}`}
+        {total === 0 ? t`no rows` : t`${start}–${end} of ${total}`}
       </span>
       {notes != null && (
         <>
@@ -55,30 +57,32 @@ export function DataTableFooter({
       )}
       {pageCount > 1 && (
         <nav
-          aria-label="Pagination"
+          aria-label={t`Pagination`}
           className="ml-auto flex items-center gap-2"
         >
           <button
             type="button"
-            aria-label="Previous page"
+            aria-label={t`Previous page`}
             className={PAGE_BUTTON}
             onClick={onPrevPage}
             disabled={page <= 1}
           >
             <ChevronLeft className="w-3 h-3" aria-hidden="true" />
-            prev
+            <Trans>prev</Trans>
           </button>
           <span className="px-1 tabular-nums">
-            page {page} of {pageCount}
+            <Trans>
+              page {page} of {pageCount}
+            </Trans>
           </span>
           <button
             type="button"
-            aria-label="Next page"
+            aria-label={t`Next page`}
             className={PAGE_BUTTON}
             onClick={onNextPage}
             disabled={page >= pageCount}
           >
-            next
+            <Trans>next</Trans>
             <ChevronRight className="w-3 h-3" aria-hidden="true" />
           </button>
         </nav>

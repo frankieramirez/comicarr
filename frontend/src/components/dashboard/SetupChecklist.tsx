@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { SectionHeader } from "@/components/dashboard/DashboardPanel";
@@ -15,17 +17,19 @@ export default function SetupChecklist({ steps }: { steps: SetupStep[] }) {
   const next = steps.find((step) => !step.done)?.key;
 
   return (
-    <section aria-label="Finish setting up" data-testid="setup-checklist">
+    <section aria-label={t`Finish setting up`} data-testid="setup-checklist">
       <SectionHeader
-        title="Needs you"
-        meta={`${done} of ${steps.length} set up`}
+        title={t`Needs you`}
+        meta={t`${done} of ${ph({ length: steps.length })} set up`}
       />
       <div className="border-t border-border-subtle pt-3">
-        <p className="text-sm font-medium text-foreground">Finish setting up</p>
+        <p className="text-sm font-medium text-foreground">
+          <Trans>Finish setting up</Trans>
+        </p>
         <div
           className="mt-2 mb-1 flex h-1 gap-1"
           role="progressbar"
-          aria-label="Setup progress"
+          aria-label={t`Setup progress`}
           aria-valuemin={0}
           aria-valuemax={steps.length}
           aria-valuenow={done}
@@ -71,7 +75,7 @@ export default function SetupChecklist({ steps }: { steps: SetupStep[] }) {
                 >
                   {step.title}
                   <span className="sr-only">
-                    {step.done ? " (done)" : " (to do)"}
+                    {step.done ? t` (done)` : t` (to do)`}
                   </span>
                 </div>
                 <div

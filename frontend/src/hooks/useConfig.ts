@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import {
   useQuery,
   useMutation,
@@ -49,7 +50,7 @@ export function useUpdateConfig(): UseMutationResult<
     onError: (error: Error) => {
       addToast({
         type: "error",
-        message: error.message || "Failed to update configuration",
+        message: error.message || t`Failed to update configuration`,
       });
     },
   });

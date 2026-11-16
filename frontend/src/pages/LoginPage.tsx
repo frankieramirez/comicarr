@@ -1,3 +1,5 @@
+import { ph, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, AlertCircle, User, Lock, ShieldCheck } from "lucide-react";
@@ -70,15 +72,15 @@ function SetupForm() {
     setError("");
 
     if (!username.trim() || !password.trim()) {
-      setError("Please enter both username and password");
+      setError(t`Please enter both username and password`);
       return;
     }
     if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+      setError(t`Password must be at least 8 characters`);
       return;
     }
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError(t`Passwords do not match`);
       return;
     }
 
@@ -110,17 +112,17 @@ function SetupForm() {
             }
           }
           setError(
-            "Server restart timed out. Refresh the page to try logging in.",
+            t`Server restart timed out. Refresh the page to try logging in.`,
           );
           setIsSubmitting(false);
         };
         pollUntilReady();
       } else {
-        setError(result.error || "Setup failed");
+        setError(result.error || t`Setup failed`);
         setIsSubmitting(false);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Setup failed");
+      setError(err instanceof Error ? err.message : t`Setup failed`);
       setIsSubmitting(false);
     }
   };
@@ -132,16 +134,20 @@ function SetupForm() {
           className="w-3.5 h-3.5"
           style={{ color: "var(--primary)" }}
         />
-        <span>first-run · create admin</span>
+        <span>
+          <Trans>first-run · create admin</Trans>
+        </span>
       </div>
 
       <div>
-        <MonoLabel htmlFor={usernameId}>Username</MonoLabel>
+        <MonoLabel htmlFor={usernameId}>
+          <Trans>Username</Trans>
+        </MonoLabel>
         <FieldShell icon={User} focused={focus === "u"}>
           <input
             id={usernameId}
             type="text"
-            placeholder="Choose a username"
+            placeholder={t`Choose a username`}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onFocus={() => setFocus("u")}
@@ -154,12 +160,14 @@ function SetupForm() {
       </div>
 
       <div>
-        <MonoLabel htmlFor={passwordId}>Password</MonoLabel>
+        <MonoLabel htmlFor={passwordId}>
+          <Trans>Password</Trans>
+        </MonoLabel>
         <FieldShell icon={Lock} focused={focus === "p"}>
           <input
             id={passwordId}
             type="password"
-            placeholder="min 8 characters"
+            placeholder={t`min 8 characters`}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onFocus={() => setFocus("p")}
@@ -172,12 +180,14 @@ function SetupForm() {
       </div>
 
       <div>
-        <MonoLabel htmlFor={confirmPasswordId}>Confirm password</MonoLabel>
+        <MonoLabel htmlFor={confirmPasswordId}>
+          <Trans>Confirm password</Trans>
+        </MonoLabel>
         <FieldShell icon={Lock} focused={focus === "c"}>
           <input
             id={confirmPasswordId}
             type="password"
-            placeholder="confirm"
+            placeholder={t`confirm`}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             onFocus={() => setFocus("c")}
@@ -190,12 +200,14 @@ function SetupForm() {
       </div>
 
       <div>
-        <MonoLabel htmlFor={setupTokenId}>Setup token (optional)</MonoLabel>
+        <MonoLabel htmlFor={setupTokenId}>
+          <Trans>Setup token (optional)</Trans>
+        </MonoLabel>
         <FieldShell icon={ShieldCheck} focused={focus === "t"}>
           <input
             id={setupTokenId}
             type="text"
-            placeholder="from server logs if required"
+            placeholder={t`from server logs if required`}
             value={setupToken}
             onChange={(e) => setSetupToken(e.target.value)}
             onFocus={() => setFocus("t")}
@@ -206,9 +218,11 @@ function SetupForm() {
           />
         </FieldShell>
         <p className="mt-1.5 font-mono text-[10px] text-muted-foreground leading-relaxed">
-          Docker installs print{" "}
-          <span className="text-foreground/80">[SETUP] Setup token:</span> in
-          container logs when a token is required.
+          <Trans>
+            Docker installs print{" "}
+            <span className="text-foreground/80">[SETUP] Setup token:</span> in
+            container logs when a token is required.
+          </Trans>
         </p>
       </div>
 
@@ -234,11 +248,13 @@ function SetupForm() {
         {isSubmitting ? (
           <>
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            {username ? "Restarting server…" : "Creating account…"}
+            {username ? t`Restarting server…` : t`Creating account…`}
           </>
         ) : (
           <>
-            <span>Create account</span>
+            <span>
+              <Trans>Create account</Trans>
+            </span>
             <Kbd
               className="bg-black/10! border-black/20! text-black/70!"
               style={{ color: "rgba(0,0,0,0.7)" }}
@@ -304,20 +320,20 @@ function LoginForm() {
     e.preventDefault();
     setError("");
     if (!username.trim() || !password.trim()) {
-      setError("Please enter both username and password");
+      setError(t`Please enter both username and password`);
       return;
     }
     const result = await login(username, password, remember);
     if (result.success) {
       navigate("/");
     } else {
-      setError(result.error || "Login failed");
+      setError(result.error || t`Login failed`);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <SignInField id={usernameId} label="Username" focused={focus === "u"}>
+      <SignInField id={usernameId} label={t`Username`} focused={focus === "u"}>
         <input
           id={usernameId}
           type="text"
@@ -331,7 +347,7 @@ function LoginForm() {
         />
       </SignInField>
 
-      <SignInField id={passwordId} label="Password" focused={focus === "p"}>
+      <SignInField id={passwordId} label={t`Password`} focused={focus === "p"}>
         <input
           id={passwordId}
           type={showPw ? "text" : "password"}
@@ -348,9 +364,9 @@ function LoginForm() {
           onClick={() => setShowPw((s) => !s)}
           className="font-mono text-[10px] text-muted-foreground hover:text-foreground"
           aria-pressed={showPw}
-          aria-label={showPw ? "Hide password" : "Show password"}
+          aria-label={showPw ? t`Hide password` : t`Show password`}
         >
-          {showPw ? "hide" : "show"}
+          {showPw ? t`hide` : t`show`}
         </button>
       </SignInField>
 
@@ -366,7 +382,7 @@ function LoginForm() {
           disabled={isVerifying}
           className="size-3.5 rounded-sm accent-[var(--foreground)]"
         />
-        Keep me signed in
+        <Trans>Keep me signed in</Trans>
       </label>
 
       {error && (
@@ -391,10 +407,10 @@ function LoginForm() {
         {isVerifying ? (
           <>
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Signing in…
+            <Trans>Signing in…</Trans>
           </>
         ) : (
-          "Sign in"
+          t`Sign in`
         )}
       </button>
     </form>
@@ -430,12 +446,12 @@ export default function LoginPage() {
             needsSetup ? "mb-1 text-lg font-semibold tracking-tight" : "sr-only"
           }
         >
-          {needsSetup ? "Create admin" : "Sign in"}
+          {needsSetup ? t`Create admin` : t`Sign in`}
         </h1>
         <div className="mb-5 text-[13px] text-foreground-2">
           {needsSetup
-            ? "Set up your first account to unlock the library."
-            : `Sign in to your library on ${window.location.hostname}`}
+            ? t`Set up your first account to unlock the library.`
+            : t`Sign in to your library on ${ph({ hostname: window.location.hostname })}`}
         </div>
 
         {needsSetup ? <SetupForm /> : <LoginForm />}
@@ -444,7 +460,7 @@ export default function LoginPage() {
       {showWall ? (
         <div className="absolute inset-x-0 bottom-5 z-10 flex justify-center pointer-events-none">
           <span className="rounded-full border border-border bg-card px-3 py-1 font-mono text-[10px] text-muted-foreground">
-            self-hosted · your covers stay on this server
+            <Trans>self-hosted · your covers stay on this server</Trans>
           </span>
         </div>
       ) : (
@@ -457,7 +473,9 @@ export default function LoginPage() {
             />
             {window.location.hostname}
           </span>
-          <span>COMICARR · READY</span>
+          <span>
+            <Trans>COMICARR · READY</Trans>
+          </span>
         </div>
       )}
     </div>

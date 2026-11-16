@@ -1,3 +1,4 @@
+import { Trans } from "@lingui/react/macro";
 import { Fragment, type KeyboardEvent, type ReactNode } from "react";
 import { flexRender, type RowData } from "@tanstack/react-table";
 import type {
@@ -136,7 +137,7 @@ export function DataTable<TData extends RowData>({
                 colSpan={table.getAllColumns().length}
                 className="h-24 text-center text-muted-foreground"
               >
-                No results.
+                <Trans>No results.</Trans>
               </TableCell>
             </TableRow>
           )}
