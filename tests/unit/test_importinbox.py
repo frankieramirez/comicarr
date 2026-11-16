@@ -23,8 +23,8 @@ def _mock_globals():
 
     with (
         patch("comicarr.CONFIG", mock_config),
-        patch("comicarr.importinbox.logger") as mock_log,
-        patch("comicarr.importinbox.db") as mock_db,
+        patch("comicarr.app.imports.importinbox.logger") as mock_log,
+        patch("comicarr.app.imports.importinbox.db") as mock_db,
         patch("comicarr.app.imports.queries.get_issue_id", return_value="issue-1") as get_issue_id,
         patch("comicarr.app.imports.queries.get_import_rows", return_value=[]),
     ):
@@ -38,7 +38,7 @@ def _mock_globals():
 @pytest.fixture
 def importinbox():
     """Import importinbox fresh for each test and reset globals."""
-    from comicarr import importinbox as ib
+    from comicarr.app.imports import importinbox as ib
 
     ib.INBOX_SCAN_STATUS = None
     ib.INBOX_SCAN_PROGRESS = {

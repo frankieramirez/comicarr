@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import comicarr
-from comicarr import dependency_check
+from comicarr.app.system import dependency_check
 
 
 def _config(tmp_path, unrar_command=None):
@@ -25,7 +25,7 @@ def test_runtime_capabilities_report_an_available_unrar_without_running_pip(tmp_
     diagnostics = dependency_check.RuntimeCapabilityDiagnostics()
 
     with (
-        patch("comicarr.dependency_check.shutil.which", return_value="/usr/local/bin/unrar") as which,
+        patch("comicarr.app.system.dependency_check.shutil.which", return_value="/usr/local/bin/unrar") as which,
         patch("subprocess.Popen") as popen,
     ):
         diagnostics.loaders()
@@ -45,7 +45,7 @@ def test_runtime_capabilities_report_a_missing_unrar_without_crashing(tmp_path, 
 
     diagnostics = dependency_check.RuntimeCapabilityDiagnostics()
 
-    with patch("comicarr.dependency_check.shutil.which", return_value=None):
+    with patch("comicarr.app.system.dependency_check.shutil.which", return_value=None):
         diagnostics.loaders()
 
     assert comicarr.REQS["rar"] == {

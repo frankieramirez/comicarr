@@ -10,7 +10,7 @@
 from sqlalchemy import create_engine, text
 
 from comicarr.app.core.schema import current_revision, upgrade_database
-from comicarr.db_migrate import migrate
+from comicarr.app.system.db_migrate import migrate
 from comicarr.tables import comics
 
 

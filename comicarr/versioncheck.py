@@ -673,7 +673,7 @@ def checkGithub(current_version=None):
             message="Could not compare release versions",
         )
 
-    from comicarr.changelog_notes import set_cached_release_body
+    from comicarr.app.system.changelog_notes import set_cached_release_body
 
     if update_state == UPDATE_STATE_BEHIND and release_body:
         set_cached_release_body(latest_version, release_body)

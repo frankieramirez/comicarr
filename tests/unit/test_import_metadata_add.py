@@ -461,7 +461,7 @@ def test_reopened_retry_does_not_bypass_metadata_readiness(pending_import):
 
 
 def test_scanner_updates_and_auto_source_cannot_clear_pending_readiness(pending_import, monkeypatch):
-    from comicarr import importinbox
+    from comicarr.app.imports import importinbox
 
     finalization, ctx, source, _, importresults = pending_import
     db.upsert("importresults", {"IssueNumber": "99"}, {"impID": "pending"})

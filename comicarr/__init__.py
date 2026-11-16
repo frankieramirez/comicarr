@@ -1018,7 +1018,7 @@ def start(ctx):
             )
             MONITOR_SCHEDULER.pause()
 
-            from comicarr import importinbox
+            from comicarr.app.imports import importinbox
 
             IMPORTINBOX_SCHEDULER = _add_recurring_job(
                 func=importinbox.run,

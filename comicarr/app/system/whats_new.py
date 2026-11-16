@@ -178,13 +178,13 @@ def archive_sections(
 
 def get_archive_notes(ctx) -> dict[str, Any]:
     """Structured About archive: floored/padded sections + pending range."""
-    from comicarr.app.system.service import get_release_version
-    from comicarr.changelog_notes import (
+    from comicarr.app.system.changelog_notes import (
         get_cached_release_body,
         parse_changelog_text,
         parse_release_body,
         read_local_changelog,
     )
+    from comicarr.app.system.service import get_release_version
 
     current = _strip_v(get_release_version())
     last_seen = _strip_v(getattr(comicarr.CONFIG, "LAST_SEEN_VERSION", None))

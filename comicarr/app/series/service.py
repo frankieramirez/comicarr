@@ -1422,7 +1422,7 @@ def delete_import(ctx, imp_ids):
 
 def refresh_import(ctx):
     """Trigger an import inbox scan in the background."""
-    from comicarr import importinbox
+    from comicarr.app.imports import importinbox
 
     import_dir = getattr(comicarr.CONFIG, "IMPORT_DIR", None) if comicarr.CONFIG else None
     if not import_dir:
