@@ -219,7 +219,10 @@ function SeriesRow({
           className="flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronRight
-            className={cn("size-4 transition-transform", open && "rotate-90 rtl:-rotate-90")}
+            className={cn(
+              "size-4 transition-transform",
+              open && "rotate-90 rtl:-rotate-90",
+            )}
           />
         </button>
         <div className="row-span-3 [&>div]:h-11 [&>div]:w-8 [&>div]:rounded-[3px] md:row-span-1 md:[&>div]:h-8 md:[&>div]:w-[22px]">

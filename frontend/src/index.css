@@ -254,7 +254,8 @@ body {
     unicode-bidi: isolate;
   }
 
-  [dir="rtl"] :is(
+  [dir="rtl"]
+    :is(
       .lucide-chevron-left,
       .lucide-chevron-right,
       .lucide-chevrons-left,

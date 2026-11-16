@@ -387,7 +387,9 @@ export default function AppSidebar() {
                 // Open upward over the trigger, at its width. Only the
                 // collapsed icon rail has no room above, so it opens right.
                 side={
-                  !isMobile && sidebarState === "collapsed" ? "inline-end" : "top"
+                  !isMobile && sidebarState === "collapsed"
+                    ? "inline-end"
+                    : "top"
                 }
                 align={
                   !isMobile && sidebarState === "collapsed" ? "end" : "start"

@@ -31,7 +31,9 @@ export function ActivityFeedDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side={direction === "rtl" ? "left" : "right"} className="flex flex-col p-0 sm:max-w-md">
+        side={direction === "rtl" ? "left" : "right"}
+        className="flex flex-col p-0 sm:max-w-md"
+      >
         <SheetHeader className="px-4 pt-6 pb-4 border-b border-border">
           <SheetTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5" />
