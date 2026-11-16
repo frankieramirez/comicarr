@@ -31,6 +31,10 @@ msgstr "· see why"
 msgid "({count} selected)"
 msgstr "({count} selected)"
 
+#: src/components/ai/ActivityFeedEntry.tsx
+msgid "({prompt} prompt + {completion} completion)"
+msgstr "({prompt} prompt + {completion} completion)"
+
 #. placeholder {0}: group.providers.length
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "{0, plural, one { · # provider} other { · # providers}}"
@@ -135,6 +139,11 @@ msgstr "{0, plural, one {# issue in {list}} other {# issues in {list}}}"
 msgid "{0, plural, one {# issue in {series}} other {# issues in {series}}}"
 msgstr "{0, plural, one {# issue in {series}} other {# issues in {series}}}"
 
+#. placeholder {0}: generatedIssues.length
+#: src/components/storyarcs/ArcGenerator.tsx
+msgid "{0, plural, one {# issue in reading order} other {# issues in reading order}}"
+msgstr "{0, plural, one {# issue in reading order} other {# issues in reading order}}"
+
 #. placeholder {0}: preview.excludedCount
 #: src/pages/SeriesDetailPage.tsx
 msgid "{0, plural, one {# issue is excluded from this run.} other {# issues are excluded from this run.}}"
@@ -142,10 +151,28 @@ msgstr "{0, plural, one {# issue is excluded from this run.} other {# issues are
 
 #. placeholder {0}: Number(result.count_of_issues)
 #. placeholder {0}: candidate.issues
+#. placeholder {0}: data.issues.length
+#: src/components/ai/ChatActionCard.tsx
+#: src/components/discover/RecommendationCard.tsx
 #: src/components/import/MatchModal.tsx
+#: src/components/storyarcs/ArcMissingSeries.tsx
+#: src/components/storyarcs/ArcSearchResultCard.tsx
 #: src/lib/importPick.ts
+#: src/pages/StoryArcDetailPage.tsx
 msgid "{0, plural, one {# issue} other {# issues}}"
 msgstr "{0, plural, one {# issue} other {# issues}}"
+
+#. placeholder {0}: message.results.length - 10
+#: src/components/ai/ChatMessage.tsx
+msgid "{0, plural, one {# more match} other {# more matches}}"
+msgstr "{0, plural, one {# more match} other {# more matches}}"
+
+#. placeholder {0}: thread.message_count
+#. placeholder {1}: formatThreadTime(thread.updated_at)
+#. placeholder {2}: formatThreadTime(thread.updated_at)
+#: src/components/ai/ChatThreadList.tsx
+msgid "{0, plural, one {# msg · {1}} other {# msgs · {2}}}"
+msgstr "{0, plural, one {# msg · {1}} other {# msgs · {2}}}"
 
 #. placeholder {0}: next.attention
 #: src/lib/activityStatus.ts
@@ -200,10 +227,11 @@ msgid "{0, plural, one {# series resumed} other {# series resumed}}"
 msgstr "{0, plural, one {# series resumed} other {# series resumed}}"
 
 #. placeholder {0}: distinctSeries(causes)
+#. placeholder {0}: missing.length
 #. placeholder {0}: s.librarySeries
-#. placeholder {0}: seriesCount ?? 0
 #: src/components/dashboard/NeedsAttentionBand.tsx
 #: src/components/layout/AppStatusBar.tsx
+#: src/components/storyarcs/ArcMissingSeries.tsx
 #: src/lib/activityStatus.ts
 msgid "{0, plural, one {# series} other {# series}}"
 msgstr "{0, plural, one {# series} other {# series}}"
@@ -218,10 +246,25 @@ msgstr "{0, plural, one {# setup step} other {# setup steps}}"
 msgid "{0, plural, one {# week ago} other {# weeks ago}}"
 msgstr "{0, plural, one {# week ago} other {# weeks ago}}"
 
+#. placeholder {0}: affected.length - 40
+#: src/components/ai/ChatActionCard.tsx
+msgid "{0, plural, one {+# more} other {+# more}}"
+msgstr "{0, plural, one {+# more} other {+# more}}"
+
 #. placeholder {0}: s.attention
 #: src/lib/activityStatus.ts
 msgid "{0, plural, one {⚠ # needs attention} other {⚠ # need attention}}"
 msgstr "{0, plural, one {⚠ # needs attention} other {⚠ # need attention}}"
+
+#. placeholder {0}: resolved.length
+#: src/components/storyarcs/ArcMissingSeries.tsx
+msgid "{0, plural, one {Add # series & mark issues Wanted} other {Add # series & mark issues Wanted}}"
+msgstr "{0, plural, one {Add # series & mark issues Wanted} other {Add # series & mark issues Wanted}}"
+
+#. placeholder {0}: data.queued ?? resolved.length
+#: src/components/storyarcs/ArcMissingSeries.tsx
+msgid "{0, plural, one {Adding # series. The arc's issues will be marked Wanted as they import.} other {Adding # series. The arc's issues will be marked Wanted as they import.}}"
+msgstr "{0, plural, one {Adding # series. The arc's issues will be marked Wanted as they import.} other {Adding # series. The arc's issues will be marked Wanted as they import.}}"
 
 #. placeholder {0}: tries(attempts)
 #: src/lib/wantedAnnotation.ts
@@ -243,6 +286,11 @@ msgstr "{0, plural, one {Issues added in the last {days} days also get a full se
 msgid "{0, plural, one {library: # series} other {library: # series}}"
 msgstr "{0, plural, one {library: # series} other {library: # series}}"
 
+#. placeholder {0}: series.issue_count
+#: src/components/storyarcs/ArcMissingSeries.tsx
+msgid "{0, plural, one {needs # issue} other {needs # issues}}"
+msgstr "{0, plural, one {needs # issue} other {needs # issues}}"
+
 #. placeholder {0}: tries(attempts)
 #: src/lib/wantedAnnotation.ts
 msgid "{0, plural, one {no match · # try} other {no match · # tries}}"
@@ -257,6 +305,11 @@ msgstr "{0, plural, one {Ready, # indexer paused} other {Ready, # indexers pause
 #: src/components/activity/timeline/sentences.ts
 msgid "{0, plural, one {Refreshed {label} — # new issue} other {Refreshed {label} — # new issues}}"
 msgstr "{0, plural, one {Refreshed {label} — # new issue} other {Refreshed {label} — # new issues}}"
+
+#. placeholder {0}: selectedThread.message_count
+#: src/pages/ChatPage.tsx
+msgid "{0, plural, one {saved · # message} other {saved · # messages}}"
+msgstr "{0, plural, one {saved · # message} other {saved · # messages}}"
 
 #. placeholder {0}: c.accepted
 #: src/components/activity/timeline/sentences.ts
@@ -336,6 +389,10 @@ msgstr "{changes, plural, one {# change} other {# changes}}"
 msgid "{client} settings live in the config file shown in the Settings header."
 msgstr "{client} settings live in the config file shown in the Settings header."
 
+#: src/components/discover/RecommendationCard.tsx
+msgid "{comic_name} is being added to your library."
+msgstr "{comic_name} is being added to your library."
+
 #: src/hooks/useLibrarySummary.ts
 msgid "{comics, plural, one {# comic} other {# comics}}"
 msgstr "{comics, plural, one {# comic} other {# comics}}"
@@ -389,6 +446,10 @@ msgstr "{count, plural, one {# issue} other {# issues}}"
 msgid "{count, plural, one {# needs you} other {# need you}}"
 msgstr "{count, plural, one {# needs you} other {# need you}}"
 
+#: src/pages/DiscoverPage.tsx
+msgid "{count, plural, one {# recommendation} other {# recommendations}}"
+msgstr "{count, plural, one {# recommendation} other {# recommendations}}"
+
 #: src/components/import/LibraryScanResults.tsx
 msgid "{count, plural, one {Reconciled # existing comic series.} other {Reconciled # existing comic series.}}"
 msgstr "{count, plural, one {Reconciled # existing comic series.} other {Reconciled # existing comic series.}}"
@@ -396,6 +457,10 @@ msgstr "{count, plural, one {Reconciled # existing comic series.} other {Reconci
 #: src/components/import/LibraryScanResults.tsx
 msgid "{count, plural, one {Reconciled # existing manga series.} other {Reconciled # existing manga series.}}"
 msgstr "{count, plural, one {Reconciled # existing manga series.} other {Reconciled # existing manga series.}}"
+
+#: src/pages/StoryArcsPage.tsx
+msgid "{count, plural, one {Story arcs are frozen for 1.0: they keep working, but get no new features. # arc tracked.} other {Story arcs are frozen for 1.0: they keep working, but get no new features. # arcs tracked.}}"
+msgstr "{count, plural, one {Story arcs are frozen for 1.0: they keep working, but get no new features. # arc tracked.} other {Story arcs are frozen for 1.0: they keep working, but get no new features. # arcs tracked.}}"
 
 #: src/components/activity/timeline/attentionStage.ts
 msgid "{count, plural, one {This issue in {seriesLabel} will be marked ignored in your library, leave Needs attention, and will not be searched again until you want it back.} other {These # issues in {seriesLabel} will be marked ignored in your library, leave Needs attention, and will not be searched again until you want them back.}}"
@@ -741,6 +806,11 @@ msgstr "{message}. Run {run}."
 msgid "{minutes, plural, one {every minute} other {every # minutes}}"
 msgstr "{minutes, plural, one {every minute} other {every # minutes}}"
 
+#: src/components/storyarcs/ArcHeader.tsx
+#: src/components/storyarcs/StoryArcCard.tsx
+msgid "{missing, plural, one {# missing} other {# missing}}"
+msgstr "{missing, plural, one {# missing} other {# missing}}"
+
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "{missingCount, plural, one {# missing issue} other {# missing issues}}"
 msgstr "{missingCount, plural, one {# missing issue} other {# missing issues}}"
@@ -825,6 +895,10 @@ msgstr "{pendingCount} unread"
 msgid "{pendingReviewMeta}. Pick a group to see the series it could be."
 msgstr "{pendingReviewMeta}. Pick a group to see the series it could be."
 
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "{percent}% held: {Have} of {Total}"
+msgstr "{percent}% held: {Have} of {Total}"
+
 #: src/components/queue/WantedPacingBanner.tsx
 msgid "{perPass} at a time against new releases, newest first. {fresh}"
 msgstr "{perPass} at a time against new releases, newest first. {fresh}"
@@ -844,6 +918,10 @@ msgstr "{problems, plural, one {# problem} other {# problems}}"
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "{provider_completed} providers checked · {candidate_count} candidates"
 msgstr "{provider_completed} providers checked · {candidate_count} candidates"
+
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "{queued, plural, one {# issue marked as Wanted.} other {# issues marked as Wanted.}}"
+msgstr "{queued, plural, one {# issue marked as Wanted.} other {# issues marked as Wanted.}}"
 
 #: src/components/activity/health/HealthView.tsx
 msgid "{reachable} of {length} reachable"
@@ -902,6 +980,7 @@ msgid "{selectedGroupCount, plural, one {# group} other {# groups}}"
 msgstr "{selectedGroupCount, plural, one {# group} other {# groups}}"
 
 #: src/components/dashboard/NeedsAttentionBand.tsx
+#: src/components/storyarcs/ArcMissingSeries.tsx
 msgid "{series} · {issues}"
 msgstr "{series} · {issues}"
 
@@ -912,6 +991,10 @@ msgstr "{series} {release} is Wanted."
 #: src/hooks/useLibrarySummary.ts
 msgid "{seriesCount} · {comicCount} · {mangaCount}"
 msgstr "{seriesCount} · {comicCount} · {mangaCount}"
+
+#: src/components/ai/ChatThreadList.tsx
+msgid "{seriesIndexed, plural, one {# series indexed} other {# series indexed}}"
+msgstr "{seriesIndexed, plural, one {# series indexed} other {# series indexed}}"
 
 #: src/lib/importPick.ts
 msgid "{size} B"
@@ -932,6 +1015,10 @@ msgstr "{start}–{end} of {total}"
 #: src/pages/SearchPage.tsx
 msgid "{startIndex}–{endIndex} of {total}"
 msgstr "{startIndex}–{endIndex} of {total}"
+
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "{StoryArc} has been removed."
+msgstr "{StoryArc} has been removed."
 
 #: src/components/dashboard/NeedsAttentionBand.tsx
 #: src/pages/AttentionPage.tsx
@@ -954,9 +1041,18 @@ msgstr "{total, plural, one {# series} other {# series}}"
 msgid "{total} of {total} indexers responding"
 msgstr "{total} of {total} indexers responding"
 
+#: src/components/storyarcs/ArcMissingSeries.tsx
 #: src/pages/DashboardPage.tsx
 msgid "{totalIssues, plural, one {# issue} other {# issues}}"
 msgstr "{totalIssues, plural, one {# issue} other {# issues}}"
+
+#: src/components/storyarcs/ArcMissingSeries.tsx
+msgid "{totalIssues, plural, one {These series will be added to your library, and the # issue this arc needs will be marked Wanted. The rest of each series is left alone.} other {These series will be added to your library, and the # issues this arc needs will be marked Wanted. The rest of each series is left alone.}}"
+msgstr "{totalIssues, plural, one {These series will be added to your library, and the # issue this arc needs will be marked Wanted. The rest of each series is left alone.} other {These series will be added to your library, and the # issues this arc needs will be marked Wanted. The rest of each series is left alone.}}"
+
+#: src/components/ai/ActivityFeedEntry.tsx
+msgid "{totalTokens, plural, one {# token} other {# tokens}}"
+msgstr "{totalTokens, plural, one {# token} other {# tokens}}"
 
 #: src/components/dashboard/LibraryHighlights.tsx
 #: src/pages/SeriesDetailPage.tsx
@@ -1128,9 +1224,18 @@ msgstr "actions"
 #: src/components/activity/health/HealthView.tsx
 #: src/components/queue/upcomingColumns.tsx
 #: src/components/queue/wantedColumns.tsx
+#: src/components/storyarcs/ArcIssueTable.tsx
 #: src/pages/ActivityPage.tsx
 msgid "Actions"
 msgstr "Actions"
+
+#: src/components/storyarcs/ArcIssueTable.tsx
+msgid "Actions for {ComicName} #{IssueNumber}"
+msgstr "Actions for {ComicName} #{IssueNumber}"
+
+#: src/components/ai/ChatThreadList.tsx
+msgid "Actions for {title}"
+msgstr "Actions for {title}"
 
 #: src/components/series/SeriesFilters.tsx
 #: src/lib/statusTone.ts
@@ -1169,6 +1274,11 @@ msgstr "Activity status unavailable — open Activity"
 msgid "Activity timeline"
 msgstr "Activity timeline"
 
+#: src/components/ai/ActivityFeedDrawer.tsx
+msgid "Activity will appear here when AI features are used"
+msgstr "Activity will appear here when AI features are used"
+
+#: src/components/discover/RecommendationCard.tsx
 #: src/components/releases/IndustryReleasesView.tsx
 #: src/components/search/SearchAddButton.tsx
 #: src/components/weekly/SuggestionCard.tsx
@@ -1198,6 +1308,10 @@ msgstr "Add {title}"
 #: src/pages/SearchPage.tsx
 msgid "Add a Comic Vine API key in Settings → API to search comics."
 msgstr "Add a Comic Vine API key in Settings → API to search comics."
+
+#: src/components/storyarcs/ArcSearch.tsx
+msgid "Add a Comic Vine API key in Settings → API to search story arcs."
+msgstr "Add a Comic Vine API key in Settings → API to search story arcs."
 
 #: src/components/onboarding/OnboardingDialog.tsx
 #: src/lib/searchBlockers.ts
@@ -1239,6 +1353,10 @@ msgstr "Add and import as {series}"
 #: src/lib/setupSteps.ts
 msgid "Add API key"
 msgstr "Add API key"
+
+#: src/components/storyarcs/ArcSearchResultCard.tsx
+msgid "Add Arc"
+msgstr "Add Arc"
 
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Add client"
@@ -1295,12 +1413,17 @@ msgstr "Add to a chosen folder"
 msgid "Add Torznab indexer"
 msgstr "Add Torznab indexer"
 
+#: src/components/storyarcs/ArcMissingSeries.tsx
+msgid "Add what's missing"
+msgstr "Add what's missing"
+
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "Add your ComicVine API key"
 msgstr "Add your ComicVine API key"
 
 #: src/components/queue/wantedColumns.tsx
 #: src/components/search/SearchAddButton.tsx
+#: src/components/storyarcs/ArcSearchResultCard.tsx
 msgid "Added"
 msgstr "Added"
 
@@ -1329,6 +1452,10 @@ msgstr "Adding {label}"
 msgid "Adding {name}"
 msgstr "Adding {name}"
 
+#: src/components/storyarcs/ArcSearchResultCard.tsx
+msgid "Adding {name}..."
+msgstr "Adding {name}..."
+
 #: src/components/import/MatchModal.tsx
 msgid "Adding and importing..."
 msgstr "Adding and importing..."
@@ -1337,14 +1464,27 @@ msgstr "Adding and importing..."
 msgid "Adding comic..."
 msgstr "Adding comic..."
 
+#: src/components/discover/RecommendationCard.tsx
+msgid "Adding Comic..."
+msgstr "Adding Comic..."
+
 #: src/components/search/SearchAddButton.tsx
 msgid "Adding manga..."
 msgstr "Adding manga..."
+
+#: src/components/storyarcs/ArcMissingSeries.tsx
+msgid "Adding Series"
+msgstr "Adding Series"
 
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "adding…"
 msgstr "adding…"
 
+#: src/components/storyarcs/ArcMissingSeries.tsx
+msgid "Adding..."
+msgstr "Adding..."
+
+#: src/components/discover/RecommendationCard.tsx
 #: src/components/releases/MangaAddDialog.tsx
 #: src/components/search/SearchAddButton.tsx
 msgid "Adding…"
@@ -1375,6 +1515,11 @@ msgstr "Agents (MCP)"
 msgid "AI"
 msgstr "AI"
 
+#: src/components/ai/ActivityFeedDrawer.tsx
+msgid "AI activity"
+msgstr "AI activity"
+
+#: src/components/ai/ActivityFeedDrawer.tsx
 #: src/components/layout/Layout.tsx
 msgid "AI Activity"
 msgstr "AI Activity"
@@ -1387,9 +1532,21 @@ msgstr "AI activity failed to load"
 msgid "AI activity failed to load. Reload the page if this persists."
 msgstr "AI activity failed to load. Reload the page if this persists."
 
+#: src/pages/DiscoverPage.tsx
+msgid "AI not configured"
+msgstr "AI not configured"
+
 #: src/components/settings/AiTab.tsx
 msgid "AI Provider"
 msgstr "AI Provider"
+
+#: src/components/storyarcs/ArcGenerator.tsx
+msgid "AI Reading Order Generator"
+msgstr "AI Reading Order Generator"
+
+#: src/pages/DiscoverPage.tsx
+msgid "AI settings"
+msgstr "AI settings"
 
 #: src/components/settings/AiTab.tsx
 msgid "AI Status"
@@ -1426,6 +1583,11 @@ msgstr "Allow packs"
 msgid "Allow write tools"
 msgstr "Allow write tools"
 
+#: src/components/ai/ChatExamplePrompts.tsx
+msgid "Almost done"
+msgstr "Almost done"
+
+#: src/components/discover/RecommendationCard.tsx
 #: src/components/search/SearchAddButton.tsx
 msgid "An error occurred while adding the series."
 msgstr "An error occurred while adding the series."
@@ -1442,6 +1604,7 @@ msgstr "An unexpected error occurred. Please try again."
 msgid "Announce releases to notifiers"
 msgstr "Announce releases to notifiers"
 
+#: src/components/ai/ChatActionCard.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Annual"
 msgstr "Annual"
@@ -1453,6 +1616,10 @@ msgstr "Annual · {issueStatus}"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Annual {number}"
 msgstr "Annual {number}"
+
+#: src/components/ai/ChatActionCard.tsx
+msgid "annuals"
+msgstr "annuals"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "annuals: {annualCount}"
@@ -1562,9 +1729,17 @@ msgstr "Application Token"
 msgid "applied"
 msgstr "applied"
 
+#: src/components/ai/ChatActionCard.tsx
+msgid "Applied"
+msgstr "Applied"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Apply confirmed repair"
 msgstr "Apply confirmed repair"
+
+#: src/components/ai/ChatActionCard.tsx
+msgid "Apply this change?"
+msgstr "Apply this change?"
 
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Apply uses the confirmed manifest only and fences new acquisition work first."
@@ -1573,6 +1748,26 @@ msgstr "Apply uses the confirmed manifest only and fences new acquisition work f
 #: src/pages/SeriesDetailPage.tsx
 msgid "arc"
 msgstr "arc"
+
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "Arc"
+msgstr "Arc"
+
+#: src/pages/StoryArcDetailPage.tsx
+msgid "ARC · EMPTY"
+msgstr "ARC · EMPTY"
+
+#: src/components/storyarcs/ArcSearchResultCard.tsx
+msgid "Arc Added"
+msgstr "Arc Added"
+
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "Arc Deleted"
+msgstr "Arc Deleted"
+
+#: src/components/storyarcs/ArcGenerator.tsx
+msgid "Arc saved. <0>Open it in Story Arcs</0>"
+msgstr "Arc saved. <0>Open it in Story Arcs</0>"
 
 #: src/components/series/IssueStatusMenu.tsx
 #: src/lib/statusTone.ts
@@ -1591,6 +1786,10 @@ msgstr "Are you sure you want to regenerate the API key? This will invalidate an
 msgid "Are you sure you want to regenerate the API key? This will invalidate any existing API integrations."
 msgstr "Are you sure you want to regenerate the API key? This will invalidate any existing API integrations."
 
+#: src/components/ai/ChatExamplePrompts.tsx
+msgid "Ask about anything in your collection — gaps, publishers, duplicates — or drop a cover and I’ll tell you what it is."
+msgstr "Ask about anything in your collection — gaps, publishers, duplicates — or drop a cover and I’ll tell you what it is."
+
 #: src/components/layout/AppSidebar.tsx
 msgid "ask about your library"
 msgstr "ask about your library"
@@ -1599,6 +1798,11 @@ msgstr "ask about your library"
 msgid "Ask about your library"
 msgstr "Ask about your library"
 
+#: src/components/ai/ChatComposer.tsx
+msgid "Ask about your library, or drop a cover to identify it"
+msgstr "Ask about your library, or drop a cover to identify it"
+
+#: src/components/ai/ChatThreadList.tsx
 #: src/components/layout/AppSidebar.tsx
 #: src/pages/DashboardPage.tsx
 msgid "Ask Comicarr"
@@ -1616,9 +1820,21 @@ msgstr "At least one enabled indexer is required for torrent search."
 msgid "At least one enabled indexer is required for Usenet search."
 msgstr "At least one enabled indexer is required for Usenet search."
 
+#: src/components/ai/ChatComposer.tsx
+msgid "Attach images"
+msgstr "Attach images"
+
 #: src/components/settings/SupportBundleSection.tsx
 msgid "Attach it publicly only when comfortable; otherwise send it privately to a maintainer."
 msgstr "Attach it publicly only when comfortable; otherwise send it privately to a maintainer."
+
+#: src/components/ai/ChatComposer.tsx
+msgid "Attach up to four images per message."
+msgstr "Attach up to four images per message."
+
+#: src/components/ai-elements/attachments.tsx
+msgid "Attachment"
+msgstr "Attachment"
 
 #: src/pages/IssueDetailPage.tsx
 msgid "Attempts"
@@ -1704,6 +1920,11 @@ msgstr "Back to Activity"
 msgid "Back to all activity"
 msgstr "Back to all activity"
 
+#: src/components/ai/ChatThreadList.tsx
+#: src/pages/ChatPage.tsx
+msgid "Back to Comicarr"
+msgstr "Back to Comicarr"
+
 #: src/pages/IssueDetailPage.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Back to library"
@@ -1712,6 +1933,10 @@ msgstr "Back to library"
 #: src/pages/IssueDetailPage.tsx
 msgid "Back to series"
 msgstr "Back to series"
+
+#: src/pages/StoryArcDetailPage.tsx
+msgid "Back to story arcs"
+msgstr "Back to story arcs"
 
 #: src/pages/ActivityPage.tsx
 msgid "Back to timeline"
@@ -1744,6 +1969,10 @@ msgstr "Base URL"
 #: src/components/settings/InterfaceTab.tsx
 msgid "Basic server configuration (read-only, modify in config.ini)"
 msgstr "Basic server configuration (read-only, modify in config.ini)"
+
+#: src/components/discover/RecommendationCard.tsx
+msgid "Because you read {title}"
+msgstr "Because you read {title}"
 
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "Begin with an empty library."
@@ -1783,6 +2012,7 @@ msgstr "Bot Token"
 msgid "Boxcar"
 msgstr "Boxcar"
 
+#: src/components/storyarcs/ArcHeader.tsx
 #: src/pages/IssueDetailPage.tsx
 #: src/pages/SearchPage.tsx
 #: src/pages/SeriesDetailPage.tsx
@@ -1825,6 +2055,10 @@ msgstr "Built in. Comicarr downloads GetComics, Mega, MediaFire and Pixeldrain l
 msgid "By issue"
 msgstr "By issue"
 
+#: src/components/ai/ChatExamplePrompts.tsx
+msgid "By publisher"
+msgstr "By publisher"
+
 #: src/pages/WantedPage.tsx
 msgid "By series"
 msgstr "By series"
@@ -1848,6 +2082,9 @@ msgstr "Can't search"
 #: src/components/series/SeriesSearchProviders.tsx
 #: src/components/settings/SaveButton.tsx
 #: src/components/settings/SupportBundleSection.tsx
+#: src/components/storyarcs/ArcHeader.tsx
+#: src/components/storyarcs/ArcIssueTable.tsx
+#: src/components/storyarcs/ArcMissingSeries.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Cancel"
 msgstr "Cancel"
@@ -1961,6 +2198,30 @@ msgstr "Chapters only"
 msgid "chapters: {chapterCount}"
 msgstr "chapters: {chapterCount}"
 
+#: src/pages/ChatPage.tsx
+msgid "Chat"
+msgstr "Chat"
+
+#: src/pages/ChatPage.tsx
+msgid "Chat · AI"
+msgstr "Chat · AI"
+
+#: src/pages/ChatPage.tsx
+msgid "Chat history"
+msgstr "Chat history"
+
+#: src/pages/ChatPage.tsx
+msgid "Chat needs an OpenAI-compatible provider and model before it can read your collection."
+msgstr "Chat needs an OpenAI-compatible provider and model before it can read your collection."
+
+#: src/lib/chatApi.ts
+msgid "Chat request failed ({status})."
+msgstr "Chat request failed ({status})."
+
+#: src/pages/ChatPage.tsx
+msgid "Chat request failed."
+msgstr "Chat request failed."
+
 #: src/components/settings/AboutTab.tsx
 msgid "Check for updates"
 msgstr "Check for updates"
@@ -2023,6 +2284,10 @@ msgstr "Choose a release for this series. A pack can cover several missing issue
 #: src/pages/LoginPage.tsx
 msgid "Choose a username"
 msgstr "Choose a username"
+
+#: src/components/ai/ChatComposer.tsx
+msgid "Choose JPEG, PNG, or WebP images."
+msgstr "Choose JPEG, PNG, or WebP images."
 
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Choose one result for this issue. Nothing downloads until you confirm."
@@ -2166,6 +2431,7 @@ msgstr "Comic Vine API key is configured. Enter a new value to change it."
 msgid "Comic Vine API key must be 40 characters"
 msgstr "Comic Vine API key must be 40 characters"
 
+#: src/components/storyarcs/ArcSearch.tsx
 #: src/pages/SearchPage.tsx
 msgid "Comic Vine API key required"
 msgstr "Comic Vine API key required"
@@ -2198,6 +2464,10 @@ msgstr "Comicarr builds a fresh archive of allowlisted diagnostic facts."
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "Comicarr can start fresh or pull your existing series, issues, and download history from a Mylar3 installation."
 msgstr "Comicarr can start fresh or pull your existing series, issues, and download history from a Mylar3 installation."
+
+#: src/pages/DiscoverPage.tsx
+msgid "Comicarr can suggest series you might enjoy based on the library you already track. Configure an AI provider in Settings to enable recommendations."
+msgstr "Comicarr can suggest series you might enjoy based on the library you already track. Configure an AI provider in Settings to enable recommendations."
 
 #: src/components/series/SeriesFolder.tsx
 msgid "Comicarr could not change the folder. Try again."
@@ -2311,6 +2581,8 @@ msgid "Command palette search"
 msgstr "Command palette search"
 
 #: src/components/series/SeriesFilters.tsx
+#: src/components/storyarcs/ArcHeader.tsx
+#: src/components/storyarcs/StoryArcCard.tsx
 msgid "Complete"
 msgstr "Complete"
 
@@ -2398,6 +2670,12 @@ msgstr "Configured - regenerate to view a new key"
 msgid "confirm"
 msgstr "confirm"
 
+#: src/components/ai/ChatActionCard.tsx
+#: src/components/storyarcs/ArcIssueTable.tsx
+msgid "Confirm"
+msgstr "Confirm"
+
+#: src/components/storyarcs/ArcHeader.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Confirm delete"
 msgstr "Confirm delete"
@@ -2422,6 +2700,10 @@ msgstr "Confirm preview"
 msgid "Confirm search"
 msgstr "Confirm search"
 
+#: src/components/ai/ChatActionCard.tsx
+msgid "Confirmation is in progress. Reload to check the result. If the server restarted, check your library before proposing this action again."
+msgstr "Confirmation is in progress. Reload to check the result. If the server restarted, check your library before proposing this action again."
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Confirmation queues this exact preview once. The run owns retries and outcome tracking."
 msgstr "Confirmation queues this exact preview once. The run owns retries and outcome tracking."
@@ -2437,6 +2719,11 @@ msgstr "conflicts"
 #: src/components/settings/AgentsTab.tsx
 msgid "Connect an agent (MCP)"
 msgstr "Connect an agent (MCP)"
+
+#: src/pages/ChatPage.tsx
+#: src/pages/DiscoverPage.tsx
+msgid "Connect an AI provider"
+msgstr "Connect an AI provider"
 
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Connected"
@@ -2533,13 +2820,33 @@ msgstr "Copy to clipboard"
 msgid "Could not check for updates"
 msgstr "Could not check for updates"
 
+#: src/pages/ChatPage.tsx
+msgid "Could not delete this chat."
+msgstr "Could not delete this chat."
+
+#: src/components/ai/ChatActionCard.tsx
+msgid "Could not dismiss this action."
+msgstr "Could not dismiss this action."
+
 #: src/components/whats-new/WhatsNewArchive.tsx
 msgid "Could not load release history."
 msgstr "Could not load release history."
 
+#: src/pages/ChatPage.tsx
+msgid "Could not load saved chats."
+msgstr "Could not load saved chats."
+
 #: src/components/settings/ProviderOrderSettings.tsx
 msgid "Could not load the search order"
 msgstr "Could not load the search order"
+
+#: src/pages/ChatPage.tsx
+msgid "Could not load this conversation."
+msgstr "Could not load this conversation."
+
+#: src/components/storyarcs/ArcMissingSeries.tsx
+msgid "Could not look up the missing series. Try again."
+msgstr "Could not look up the missing series. Try again."
 
 #: src/lib/updateStatus.ts
 msgid "Could not reach the release source"
@@ -2552,6 +2859,10 @@ msgstr "Could not read {selectedName}: {readErrorText}"
 #: src/components/settings/ProviderOrderSettings.tsx
 msgid "Could not refresh the search order. Showing the last one loaded."
 msgstr "Could not refresh the search order. Showing the last one loaded."
+
+#: src/pages/ChatPage.tsx
+msgid "Could not rename this chat."
+msgstr "Could not rename this chat."
 
 #: src/pages/ActivityPage.tsx
 msgid "Could not retry post-processing"
@@ -2707,6 +3018,7 @@ msgstr "Database Update Interval"
 msgid "date"
 msgstr "date"
 
+#: src/components/storyarcs/ArcIssueTable.tsx
 #: src/pages/ActivityPage.tsx
 msgid "Date"
 msgstr "Date"
@@ -2727,6 +3039,7 @@ msgstr "Debug"
 msgid "Debug and above"
 msgstr "Debug and above"
 
+#: src/components/ai/ChatThreadList.tsx
 #: src/components/import/ImportBulkActions.tsx
 #: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
@@ -2737,6 +3050,10 @@ msgstr "Delete"
 msgid "Delete “{title}”? This also removes its images."
 msgstr "Delete “{title}”? This also removes its images."
 
+#: src/pages/ChatPage.tsx
+msgid "Delete chat"
+msgstr "Delete chat"
+
 #: src/components/import/ImportPickPanel.tsx
 msgid "Delete import record"
 msgstr "Delete import record"
@@ -2745,9 +3062,17 @@ msgstr "Delete import record"
 msgid "Delete selected import records"
 msgstr "Delete selected import records"
 
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "Delete story arc"
+msgstr "Delete story arc"
+
 #: src/components/import/ImportPickPanel.tsx
 msgid "Delete the import record (files on disk are untouched)"
 msgstr "Delete the import record (files on disk are untouched)"
+
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "Delete this arc?"
+msgstr "Delete this arc?"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Delete this series?"
@@ -2835,9 +3160,23 @@ msgid "Discord webhook is configured. Enter a new URL to change it."
 msgstr "Discord webhook is configured. Enter a new URL to change it."
 
 #: src/components/layout/AppSidebar.tsx
+#: src/pages/DiscoverPage.tsx
 msgid "Discover"
 msgstr "Discover"
 
+#: src/pages/DiscoverPage.tsx
+msgid "DISCOVER · AI"
+msgstr "DISCOVER · AI"
+
+#: src/pages/DiscoverPage.tsx
+msgid "DISCOVER · EMPTY"
+msgstr "DISCOVER · EMPTY"
+
+#: src/pages/DiscoverPage.tsx
+msgid "DISCOVER · ERROR"
+msgstr "DISCOVER · ERROR"
+
+#: src/components/ai/ChatActionCard.tsx
 #: src/components/layout/Layout.tsx
 msgid "Dismiss"
 msgstr "Dismiss"
@@ -2845,6 +3184,10 @@ msgstr "Dismiss"
 #: src/components/ui/toast.tsx
 msgid "Dismiss notification"
 msgstr "Dismiss notification"
+
+#: src/components/ai/ChatActionCard.tsx
+msgid "Dismissed"
+msgstr "Dismissed"
 
 #: src/components/whats-new/WhatsNewModal.tsx
 msgid "Dismissing marks {to} as seen for every user of this install."
@@ -2867,6 +3210,10 @@ msgstr "Docs"
 #: src/lib/statusTone.ts
 msgid "Done"
 msgstr "Done"
+
+#: src/components/ai/ChatActionCard.tsx
+msgid "Done."
+msgstr "Done."
 
 #: src/lib/healthBand.ts
 msgid "Download"
@@ -2911,6 +3258,7 @@ msgstr "Download state reported by the provider."
 
 #: src/components/releases/IndustryReleasesView.tsx
 #: src/components/releases/MyReleasesView.tsx
+#: src/components/storyarcs/ArcIssueTable.tsx
 #: src/lib/releaseState.ts
 #: src/lib/statusTone.ts
 #: src/pages/ActivityPage.tsx
@@ -2938,6 +3286,10 @@ msgstr "Downloads"
 msgid "downstream"
 msgstr "downstream"
 
+#: src/pages/ChatPage.tsx
+msgid "draft · not saved yet"
+msgstr "draft · not saved yet"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "draining active work"
 msgstr "draining active work"
@@ -2958,6 +3310,10 @@ msgstr "Durable acquisition runs"
 msgid "e.g. 160294"
 msgstr "e.g. 160294"
 
+#: src/components/storyarcs/ArcGenerator.tsx
+msgid "e.g. Dark Phoenix Saga, Secret Wars 2015, Spider-Verse..."
+msgstr "e.g. Dark Phoenix Saga, Secret Wars 2015, Spider-Verse..."
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "e.g. repair run reviewed and one supported route is ready"
 msgstr "e.g. repair run reviewed and one supported route is ready"
@@ -2970,9 +3326,17 @@ msgstr "e.g., 10"
 msgid "e.g., 500"
 msgstr "e.g., 500"
 
+#: src/components/ai/ChatComposer.tsx
+msgid "Each image must be 10 MB or smaller."
+msgstr "Each image must be 10 MB or smaller."
+
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "Each indexer needs a name, URL, and API key."
 msgstr "Each indexer needs a name, URL, and API key."
+
+#: src/components/ai/ChatThreadList.tsx
+msgid "Earlier"
+msgstr "Earlier"
 
 #: src/components/series/SeriesFolder.tsx
 msgid "Earlier files are still read from {folders}."
@@ -3096,6 +3460,10 @@ msgstr "Ended"
 msgid "Endpoint"
 msgstr "Endpoint"
 
+#: src/components/ai/ChatComposer.tsx
+msgid "enter sends · shift+enter new line"
+msgstr "enter sends · shift+enter new line"
+
 #: src/pages/SettingsPage.tsx
 msgid "Enter the {label} password again when changing the server"
 msgstr "Enter the {label} password again when changing the server"
@@ -3117,6 +3485,10 @@ msgid "Enter your 40-character Comic Vine API key"
 msgstr "Enter your 40-character Comic Vine API key"
 
 #: src/components/series/SeriesTable.tsx
+#: src/components/storyarcs/ArcHeader.tsx
+#: src/components/storyarcs/ArcIssueTable.tsx
+#: src/components/storyarcs/ArcMissingSeries.tsx
+#: src/components/storyarcs/ArcSearchResultCard.tsx
 #: src/pages/IssueDetailPage.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Error"
@@ -3221,9 +3593,22 @@ msgstr "Failed to Add Comic"
 msgid "Failed to Add Manga"
 msgstr "Failed to Add Manga"
 
+#: src/pages/DiscoverPage.tsx
+msgid "Failed to add series"
+msgstr "Failed to add series"
+
+#: src/components/discover/RecommendationCard.tsx
 #: src/components/search/SearchAddButton.tsx
 msgid "Failed to Add Series"
 msgstr "Failed to Add Series"
+
+#: src/components/storyarcs/ArcSearchResultCard.tsx
+msgid "Failed to add story arc."
+msgstr "Failed to add story arc."
+
+#: src/pages/DiscoverPage.tsx
+msgid "Failed to check AI status"
+msgstr "Failed to check AI status"
 
 #: src/components/settings/ApiTab.tsx
 msgid "Failed to copy API key"
@@ -3242,6 +3627,14 @@ msgstr "Failed to delete records: {error}"
 msgid "Failed to delete series"
 msgstr "Failed to delete series"
 
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "Failed to delete story arc."
+msgstr "Failed to delete story arc."
+
+#: src/components/storyarcs/ArcGenerator.tsx
+msgid "Failed to generate reading order"
+msgstr "Failed to generate reading order"
+
 #: src/pages/ImportPage.tsx
 msgid "Failed to ignore files: {error}"
 msgstr "Failed to ignore files: {error}"
@@ -3253,6 +3646,10 @@ msgstr "Failed to import confident matches: {error}"
 #: src/pages/ImportPage.tsx
 msgid "Failed to import: {error}"
 msgstr "Failed to import: {error}"
+
+#: src/pages/DiscoverPage.tsx
+msgid "Failed to load recommendations"
+msgstr "Failed to load recommendations"
 
 #: src/pages/ImportPage.tsx
 msgid "Failed to match: {error}"
@@ -3268,18 +3665,42 @@ msgstr "Failed to pause series"
 msgid "Failed to queue issues: {error}"
 msgstr "Failed to queue issues: {error}"
 
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "Failed to queue issues."
+msgstr "Failed to queue issues."
+
+#: src/components/storyarcs/ArcMissingSeries.tsx
+msgid "Failed to queue the missing series."
+msgstr "Failed to queue the missing series."
+
+#: src/pages/DiscoverPage.tsx
+msgid "Failed to refresh recommendations"
+msgstr "Failed to refresh recommendations"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Failed to refresh series"
 msgstr "Failed to refresh series"
+
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "Failed to refresh story arc."
+msgstr "Failed to refresh story arc."
 
 #: src/components/settings/ApiTab.tsx
 msgid "Failed to regenerate API key"
 msgstr "Failed to regenerate API key"
 
+#: src/components/storyarcs/ArcIssueTable.tsx
+msgid "Failed to remove issue."
+msgstr "Failed to remove issue."
+
 #: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Failed to resume series"
 msgstr "Failed to resume series"
+
+#: src/components/storyarcs/ArcGenerator.tsx
+msgid "Failed to save arc"
+msgstr "Failed to save arc"
 
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "Failed to save indexers"
@@ -3352,6 +3773,10 @@ msgstr "Failed to update search settings"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Failed to update status: {message}"
 msgstr "Failed to update status: {message}"
+
+#: src/components/storyarcs/ArcIssueTable.tsx
+msgid "Failed to update status."
+msgstr "Failed to update status."
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Failed to update statuses: {error}"
@@ -3532,6 +3957,10 @@ msgstr "Find manga to add"
 msgid "Find series already on disk, or check the watched inbox now."
 msgstr "Find series already on disk, or check the watched inbox now."
 
+#: src/components/ai/ChatExamplePrompts.tsx
+msgid "Find the gaps"
+msgstr "Find the gaps"
+
 #: src/components/dashboard/SetupChecklist.tsx
 msgid "Finish setting up"
 msgstr "Finish setting up"
@@ -3610,6 +4039,26 @@ msgstr "Future labels and matching follow this choice. Existing files and issue 
 #: src/pages/SettingsPage.tsx
 msgid "General"
 msgstr "General"
+
+#: src/components/storyarcs/ArcGenerator.tsx
+msgid "Generate"
+msgstr "Generate"
+
+#: src/pages/DiscoverPage.tsx
+msgid "Generate recommendations"
+msgstr "Generate recommendations"
+
+#: src/pages/DiscoverPage.tsx
+msgid "Generating recommendations"
+msgstr "Generating recommendations"
+
+#: src/pages/DiscoverPage.tsx
+msgid "generating…"
+msgstr "generating…"
+
+#: src/components/storyarcs/ArcGenerator.tsx
+msgid "Generating..."
+msgstr "Generating..."
 
 #: src/components/settings/ApiTab.tsx
 msgid "Get your API key from https://comicvine.gamespot.com/api/"
@@ -3858,6 +4307,10 @@ msgstr "Ignore selected import files"
 msgid "Ignored"
 msgstr "Ignored"
 
+#: src/components/ai-elements/attachments.tsx
+msgid "Image"
+msgstr "Image"
+
 #: src/components/activity/attention/ImportManuallyDialog.tsx
 #: src/components/activity/timeline/attentionStage.ts
 #: src/components/layout/AppSidebar.tsx
@@ -3993,6 +4446,7 @@ msgstr "IN FLIGHT · EMPTY"
 msgid "in library"
 msgstr "in library"
 
+#: src/components/ai/ChatActionCard.tsx
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "In library"
 msgstr "In library"
@@ -4010,6 +4464,10 @@ msgstr "In progress"
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "in your library"
 msgstr "in your library"
+
+#: src/components/ai/ChatMessage.tsx
+msgid "In your library"
+msgstr "In your library"
 
 #: src/pages/ActivityPage.tsx
 msgid "In-flight items"
@@ -4087,6 +4545,7 @@ msgstr "Install identity and paths for this instance."
 msgid "intent: {separateIntent}"
 msgstr "intent: {separateIntent}"
 
+#: src/components/storyarcs/ArcIssueTable.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Interactive Search"
 msgstr "Interactive Search"
@@ -4122,6 +4581,7 @@ msgstr "IP address the server listens on"
 #: src/components/queue/upcomingColumns.tsx
 #: src/components/queue/wantedColumns.tsx
 #: src/components/releases/IndustryReleasesView.tsx
+#: src/components/storyarcs/ArcIssueTable.tsx
 #: src/lib/importUtils.ts
 #: src/pages/ActivityPage.tsx
 #: src/pages/IssueDetailPage.tsx
@@ -4145,6 +4605,11 @@ msgstr "Issue {number}"
 msgid "Issue not found"
 msgstr "Issue not found"
 
+#: src/components/storyarcs/ArcIssueTable.tsx
+msgid "Issue removed from arc."
+msgstr "Issue removed from arc."
+
+#: src/components/ai/ChatActionCard.tsx
 #: src/components/onboarding/OnboardingDialog.tsx
 #: src/components/series/SeriesTable.tsx
 msgid "issues"
@@ -4161,6 +4626,10 @@ msgstr "ISSUES · EMPTY"
 #: src/lib/importUtils.ts
 msgid "Issues {first}-{last}"
 msgstr "Issues {first}-{last}"
+
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "Issues Queued"
+msgstr "Issues Queued"
 
 #: src/components/settings/SupportBundleSection.tsx
 msgid "It does not include your database, settings values, raw log lines, library names, paths, chat content, or other free text."
@@ -4181,6 +4650,10 @@ msgstr "job"
 #: src/components/activity/health/HealthView.tsx
 msgid "Job"
 msgstr "Job"
+
+#: src/components/ai/ChatComposer.tsx
+msgid "jpeg · png · webp · 10 MB"
+msgstr "jpeg · png · webp · 10 MB"
 
 #: src/lib/healthRows.ts
 #: src/lib/releaseState.ts
@@ -4306,12 +4779,17 @@ msgstr "Level"
 #: src/pages/SeriesDetailPage.tsx
 #: src/pages/SeriesListPage.tsx
 #: src/pages/SettingsPage.tsx
+#: src/pages/StoryArcsPage.tsx
 msgid "Library"
 msgstr "Library"
 
 #: src/components/ui/EmptyState.tsx
 msgid "LIBRARY · EMPTY"
 msgstr "LIBRARY · EMPTY"
+
+#: src/components/ai/ChatThreadList.tsx
+msgid "library assistant"
+msgstr "library assistant"
 
 #: src/components/series/SeriesFolder.tsx
 #: src/components/settings/GeneralTab.tsx
@@ -4372,14 +4850,30 @@ msgstr "Literal text, any record line"
 msgid "Live, sanitized readiness for routes, durable workers, and repair maintenance."
 msgstr "Live, sanitized readiness for routes, durable workers, and repair maintenance."
 
+#: src/components/ai/ChatThreadList.tsx
+msgid "Load older chats"
+msgstr "Load older chats"
+
 #: src/components/ProtectedRoute.tsx
 #: src/lib/statusTone.ts
 msgid "Loading"
 msgstr "Loading"
 
+#: src/components/ai/ActivityFeedDrawer.tsx
+msgid "Loading activity..."
+msgstr "Loading activity..."
+
 #: src/components/layout/Layout.tsx
 msgid "Loading AI activity…"
 msgstr "Loading AI activity…"
+
+#: src/pages/ChatPage.tsx
+msgid "Loading chat"
+msgstr "Loading chat"
+
+#: src/pages/ChatPage.tsx
+msgid "Loading conversation"
+msgstr "Loading conversation"
 
 #: src/components/settings/SearchTab.tsx
 msgid "Loading indexers…"
@@ -4402,6 +4896,10 @@ msgstr "Loading release notes…"
 msgid "Loading review groups."
 msgstr "Loading review groups."
 
+#: src/components/ai/ChatThreadList.tsx
+msgid "Loading saved chats"
+msgstr "Loading saved chats"
+
 #: src/components/settings/ProviderOrderSettings.tsx
 msgid "Loading search order…"
 msgstr "Loading search order…"
@@ -4420,6 +4918,7 @@ msgstr "Loading week…"
 
 #: src/components/layout/AppStatusBar.tsx
 #: src/hooks/useLibrarySummary.ts
+#: src/pages/DiscoverPage.tsx
 #: src/pages/WantedPage.tsx
 msgid "loading…"
 msgstr "loading…"
@@ -4494,6 +4993,10 @@ msgstr "Logs"
 #: src/components/import/ImportPickPanel.tsx
 msgid "Looking for series outside your library…"
 msgstr "Looking for series outside your library…"
+
+#: src/pages/DiscoverPage.tsx
+msgid "Looking for series that fit your library."
+msgstr "Looking for series that fit your library."
 
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Lowercase filenames"
@@ -4631,6 +5134,22 @@ msgstr "Manual search may take several minutes. Continue?"
 msgid "Mark as read"
 msgstr "Mark as read"
 
+#: src/components/storyarcs/ArcIssueTable.tsx
+msgid "Mark as Read"
+msgstr "Mark as Read"
+
+#: src/components/storyarcs/ArcIssueTable.tsx
+msgid "Mark as Skipped"
+msgstr "Mark as Skipped"
+
+#: src/components/storyarcs/ArcIssueTable.tsx
+msgid "Mark as Unread"
+msgstr "Mark as Unread"
+
+#: src/components/storyarcs/ArcIssueTable.tsx
+msgid "Mark as Wanted"
+msgstr "Mark as Wanted"
+
 #: src/components/ui/EmptyState.tsx
 msgid "Mark issues as wanted from a series and Comicarr will search for them automatically."
 msgstr "Mark issues as wanted from a series and Comicarr will search for them automatically."
@@ -4678,6 +5197,10 @@ msgstr "Matching"
 #: src/components/releases/MangaAddDialog.tsx
 msgid "Matching series"
 msgstr "Matching series"
+
+#: src/components/storyarcs/ArcMissingSeries.tsx
+msgid "Matching series on ComicVine..."
+msgstr "Matching series on ComicVine..."
 
 #: src/components/import/MatchModal.tsx
 msgid "Matching..."
@@ -4738,6 +5261,10 @@ msgstr "MCP is on. Regenerating this key disconnects every connected MCP agent a
 #: src/components/activity/timeline/attentionStage.ts
 msgid "Members are at different stages — select the rows you mean."
 msgstr "Members are at different stages — select the rows you mean."
+
+#: src/components/ai/ChatComposer.tsx
+msgid "Message Chat"
+msgstr "Message Chat"
 
 #: src/pages/SettingsPage.tsx
 msgid "Metadata"
@@ -4806,6 +5333,10 @@ msgstr "Minimum size must be less than maximum size"
 #: src/components/queue/WantedBySeries.tsx
 msgid "Missing"
 msgstr "Missing"
+
+#: src/components/storyarcs/ArcMissingSeries.tsx
+msgid "Missing from your library"
+msgstr "Missing from your library"
 
 #: src/components/activity/timeline/attentionStage.ts
 msgid "mixed"
@@ -4977,6 +5508,11 @@ msgstr "Neither Walksoftly nor ComicVine has this week's comics yet. Future week
 msgid "never searched"
 msgstr "never searched"
 
+#: src/components/ai/ChatThreadList.tsx
+#: src/pages/ChatPage.tsx
+msgid "New chat"
+msgstr "New chat"
+
 #: src/components/releases/MyReleasesView.tsx
 msgid "New comic day"
 msgstr "New comic day"
@@ -5035,9 +5571,25 @@ msgstr "No active downloads"
 msgid "No activity for this scope yet"
 msgstr "No activity for this scope yet"
 
+#: src/components/ai/ActivityFeedDrawer.tsx
+msgid "No AI activity yet"
+msgstr "No AI activity yet"
+
 #: src/components/settings/ApiTab.tsx
 msgid "No API key configured"
 msgstr "No API key configured"
+
+#: src/components/ai-elements/attachments.tsx
+msgid "No attachments"
+msgstr "No attachments"
+
+#: src/components/ai/ChatThreadList.tsx
+msgid "No chats match “{filter}”."
+msgstr "No chats match “{filter}”."
+
+#: src/components/storyarcs/ArcMissingSeries.tsx
+msgid "No ComicVine match — won't be added"
+msgstr "No ComicVine match — won't be added"
 
 #: src/components/activity/timeline/sentences.ts
 msgid "no complete acquisition route is ready"
@@ -5046,6 +5598,10 @@ msgstr "no complete acquisition route is ready"
 #: src/pages/ImportPage.tsx
 msgid "No confident matches waiting"
 msgstr "No confident matches waiting"
+
+#: src/components/ai/ChatResultCard.tsx
+msgid "NO COVER"
+msgstr "NO COVER"
 
 #: src/lib/searchBlockers.ts
 msgid "no download client"
@@ -5107,6 +5663,14 @@ msgstr "No indexers configured"
 msgid "No issues are wanted right now."
 msgstr "No issues are wanted right now."
 
+#: src/components/storyarcs/ArcGenerator.tsx
+msgid "No issues found for this arc. Try a more specific description."
+msgstr "No issues found for this arc. Try a more specific description."
+
+#: src/pages/StoryArcDetailPage.tsx
+msgid "No issues in this arc yet"
+msgstr "No issues in this arc yet"
+
 #: src/components/ui/EmptyState.tsx
 msgid "No issues indexed"
 msgstr "No issues indexed"
@@ -5114,6 +5678,10 @@ msgstr "No issues indexed"
 #: src/pages/SeriesDetailPage.tsx
 msgid "no issues to display"
 msgstr "no issues to display"
+
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "No issues yet"
+msgstr "No issues yet"
 
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "No manga releases for this week"
@@ -5164,6 +5732,10 @@ msgstr "No pending imports"
 #: src/components/series/SeriesSearchProviders.tsx
 msgid "No providers enabled"
 msgstr "No providers enabled"
+
+#: src/pages/DiscoverPage.tsx
+msgid "No recommendations yet"
+msgstr "No recommendations yet"
 
 #: src/components/settings/LogsTab.tsx
 msgid "No records match this search."
@@ -5255,6 +5827,11 @@ msgstr "No series tracked yet"
 msgid "No series yet. Add one from the search box."
 msgstr "No series yet. Add one from the search box."
 
+#: src/components/storyarcs/ArcSearch.tsx
+msgid "No story arcs found for “{activeQuery}”"
+msgstr "No story arcs found for “{activeQuery}”"
+
+#: src/components/storyarcs/StoryArcEmptyState.tsx
 #: src/components/ui/EmptyState.tsx
 msgid "No story arcs tracked"
 msgstr "No story arcs tracked"
@@ -5394,6 +5971,10 @@ msgstr "Not started"
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Not supported here"
 msgstr "Not supported here"
+
+#: src/components/storyarcs/ArcIssueRow.tsx
+msgid "Not Tracked"
+msgstr "Not Tracked"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Not wanted"
@@ -5593,6 +6174,10 @@ msgstr "Open {name} on provider site"
 msgid "open acquisition health"
 msgstr "open acquisition health"
 
+#: src/pages/ChatPage.tsx
+msgid "Open AI Settings"
+msgstr "Open AI Settings"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Open download client settings"
 msgstr "Open download client settings"
@@ -5625,6 +6210,11 @@ msgstr "open search providers"
 msgid "Open search settings"
 msgstr "Open search settings"
 
+#: src/components/ai/ChatActionCard.tsx
+msgid "Open series"
+msgstr "Open series"
+
+#: src/components/storyarcs/ArcSearch.tsx
 #: src/pages/SearchPage.tsx
 msgid "Open settings"
 msgstr "Open settings"
@@ -5644,6 +6234,10 @@ msgstr "Open Wanted"
 #: src/components/layout/AppStatusBar.tsx
 msgid "Open work (searches + open pipeline stages) → Activity"
 msgstr "Open work (searches + open pipeline stages) → Activity"
+
+#: src/pages/ChatPage.tsx
+msgid "Open, rename, or delete a saved conversation."
+msgstr "Open, rename, or delete a saved conversation."
 
 #: src/components/settings/AiTab.tsx
 msgid "OpenAI-compatible API base URL (e.g., Ollama, LiteLLM, OpenRouter)"
@@ -5684,6 +6278,10 @@ msgstr "Override and grab this release?"
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Override this match-policy rejection"
 msgstr "Override this match-policy rejection"
+
+#: src/components/storyarcs/ArcIssueRow.tsx
+msgid "Owned"
+msgstr "Owned"
 
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "pack"
@@ -5799,6 +6397,10 @@ msgstr "Place imported files in the library"
 msgid "Please enter both username and password"
 msgstr "Please enter both username and password"
 
+#: src/pages/DiscoverPage.tsx
+msgid "Please try again."
+msgstr "Please try again."
+
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "Point us at your Mylar3 data directory."
 msgstr "Point us at your Mylar3 data directory."
@@ -5886,6 +6488,7 @@ msgstr "Progress"
 msgid "Provider"
 msgstr "Provider"
 
+#: src/components/storyarcs/ArcSearch.tsx
 #: src/pages/SearchPage.tsx
 msgid "PROVIDER · NOT CONFIGURED"
 msgstr "PROVIDER · NOT CONFIGURED"
@@ -6012,6 +6615,7 @@ msgid "Queue handoff retry completed"
 msgstr "Queue handoff retry completed"
 
 #: src/components/activity/health/HealthView.tsx
+#: src/components/discover/RecommendationCard.tsx
 #: src/components/queue/WantedBySeries.tsx
 #: src/lib/statusTone.ts
 #: src/lib/wantedAnnotation.ts
@@ -6046,6 +6650,14 @@ msgstr "Read about {name}"
 msgid "read-only"
 msgstr "read-only"
 
+#: src/pages/StoryArcDetailPage.tsx
+msgid "Reading order"
+msgstr "Reading order"
+
+#: src/components/ai/ChatMessage.tsx
+msgid "Reading your library…"
+msgstr "Reading your library…"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "ready"
 msgstr "ready"
@@ -6072,6 +6684,10 @@ msgstr "Receive notifications via Telegram bot"
 msgid "Recent activity"
 msgstr "Recent activity"
 
+#: src/components/ai/ActivityFeedDrawer.tsx
+msgid "Recent AI processing activity"
+msgstr "Recent AI processing activity"
+
 #: src/components/dashboard/LibraryHighlights.tsx
 msgid "Recently added"
 msgstr "Recently added"
@@ -6083,6 +6699,10 @@ msgstr "recheck"
 #: src/components/dashboard/HealthBand.tsx
 msgid "Recheck acquisition health"
 msgstr "Recheck acquisition health"
+
+#: src/pages/DiscoverPage.tsx
+msgid "Recommendations refresh with the weekly pull list, or on demand."
+msgstr "Recommendations refresh with the weekly pull list, or on demand."
 
 #: src/lib/activityStatus.ts
 msgid "Reconnected"
@@ -6098,7 +6718,9 @@ msgstr "RECOVERY"
 
 #: src/components/settings/AcquisitionHealthTab.tsx
 #: src/components/settings/LogsTab.tsx
+#: src/components/storyarcs/ArcHeader.tsx
 #: src/pages/ActivityPage.tsx
+#: src/pages/DiscoverPage.tsx
 #: src/pages/SeriesDetailPage.tsx
 #: src/pages/WantedPage.tsx
 msgid "Refresh"
@@ -6132,10 +6754,15 @@ msgstr "Refresh releases"
 msgid "Refresh series"
 msgstr "Refresh series"
 
+#: src/pages/StoryArcDetailPage.tsx
+msgid "Refresh the arc to pull its reading order from ComicVine."
+msgstr "Refresh the arc to pull its reading order from ComicVine."
+
 #: src/components/activity/timeline/sentences.ts
 msgid "Refreshed {label}"
 msgstr "Refreshed {label}"
 
+#: src/components/storyarcs/ArcHeader.tsx
 #: src/pages/ActivityPage.tsx
 msgid "Refreshing"
 msgstr "Refreshing"
@@ -6144,10 +6771,15 @@ msgstr "Refreshing"
 msgid "Refreshing {label}"
 msgstr "Refreshing {label}"
 
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "Refreshing {StoryArc} from ComicVine..."
+msgstr "Refreshing {StoryArc} from ComicVine..."
+
 #: src/pages/ReleasesPage.tsx
 msgid "Refreshing releases…"
 msgstr "Refreshing releases…"
 
+#: src/pages/DiscoverPage.tsx
 #: src/pages/ReleasesPage.tsx
 msgid "Refreshing…"
 msgstr "Refreshing…"
@@ -6155,6 +6787,10 @@ msgstr "Refreshing…"
 #: src/components/settings/ApiTab.tsx
 msgid "Regenerate API key"
 msgstr "Regenerate API key"
+
+#: src/pages/DiscoverPage.tsx
+msgid "Regenerate recommendations from your library"
+msgstr "Regenerate recommendations from your library"
 
 #: src/components/settings/ApiTab.tsx
 msgid "Regenerate the API key before copying it."
@@ -6266,9 +6902,21 @@ msgstr "Reload this list"
 msgid "Removable from"
 msgstr "Removable from"
 
+#: src/components/ai-elements/attachments.tsx
+msgid "Remove"
+msgstr "Remove"
+
+#: src/components/ai/ChatComposer.tsx
+msgid "Remove {name}"
+msgstr "Remove {name}"
+
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Remove folder {number}"
 msgstr "Remove folder {number}"
+
+#: src/components/storyarcs/ArcIssueTable.tsx
+msgid "Remove from Arc"
+msgstr "Remove from Arc"
 
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "Remove indexer {index}"
@@ -6278,7 +6926,16 @@ msgstr "Remove indexer {index}"
 msgid "Remove Torznab indexer {index}"
 msgstr "Remove Torznab indexer {index}"
 
+#: src/components/storyarcs/ArcIssueTable.tsx
+msgid "Removed"
+msgstr "Removed"
+
+#: src/components/ai/ChatThreadList.tsx
+msgid "Rename"
+msgstr "Rename"
+
 #: src/lib/chatDialogs.ts
+#: src/pages/ChatPage.tsx
 msgid "Rename chat"
 msgstr "Rename chat"
 
@@ -6395,6 +7052,14 @@ msgstr "Resolve the loading error before reviewing imports."
 msgid "Response"
 msgstr "Response"
 
+#: src/components/ai/ChatMessage.tsx
+msgid "Response stopped"
+msgstr "Response stopped"
+
+#: src/pages/ChatPage.tsx
+msgid "Response stopped. Send again to retry this message."
+msgstr "Response stopped. Send again to retry this message."
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "restart"
 msgstr "restart"
@@ -6437,6 +7102,7 @@ msgid "retry"
 msgstr "retry"
 
 #: src/components/activity/timeline/attentionStage.ts
+#: src/pages/DiscoverPage.tsx
 msgid "Retry"
 msgstr "Retry"
 
@@ -6468,6 +7134,10 @@ msgstr "Retry queue handoff"
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Retry search"
 msgstr "Retry search"
+
+#: src/components/ai/ChatActionCard.tsx
+msgid "Retry unfinished"
+msgstr "Retry unfinished"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Retrying queue handoff…"
@@ -6638,6 +7308,10 @@ msgstr "safe"
 msgid "Same as downloads"
 msgstr "Same as downloads"
 
+#: src/components/storyarcs/ArcGenerator.tsx
+msgid "Save Arc"
+msgstr "Save Arc"
+
 #: src/components/settings/SaveButton.tsx
 msgid "Save Changes"
 msgstr "Save Changes"
@@ -6695,12 +7369,17 @@ msgstr "Saved - enter a new value to change"
 msgid "Saved (enter a new one to change)"
 msgstr "Saved (enter a new one to change)"
 
+#: src/components/ai/ChatThreadList.tsx
+msgid "Saved conversations appear here."
+msgstr "Saved conversations appear here."
+
 #: src/components/series/SeriesContentKind.tsx
 msgid "Saving content kind"
 msgstr "Saving content kind"
 
 #: src/components/import/ImportFileRow.tsx
 #: src/components/settings/SaveButton.tsx
+#: src/components/storyarcs/ArcGenerator.tsx
 msgid "Saving..."
 msgstr "Saving..."
 
@@ -6801,11 +7480,13 @@ msgstr "search"
 #: src/components/layout/AppSidebar.tsx
 #: src/components/queue/WantedBySeries.tsx
 #: src/components/settings/LogsTab.tsx
+#: src/components/storyarcs/ArcSearch.tsx
 #: src/lib/healthBand.ts
 #: src/pages/SearchPage.tsx
 msgid "Search"
 msgstr "Search"
 
+#: src/components/storyarcs/ArcSearch.tsx
 #: src/pages/SearchPage.tsx
 msgid "SEARCH · ERROR"
 msgstr "SEARCH · ERROR"
@@ -6865,6 +7546,10 @@ msgstr "Search by ID"
 msgid "Search by name, or paste a ComicVine volume ID (4050-12345), ComicVine volume URL, or Metron series URL."
 msgstr "Search by name, or paste a ComicVine volume ID (4050-12345), ComicVine volume URL, or Metron series URL."
 
+#: src/components/ai/ChatThreadList.tsx
+msgid "Search chats"
+msgstr "Search chats"
+
 #: src/pages/SearchPage.tsx
 msgid "Search comics"
 msgstr "Search comics"
@@ -6923,6 +7608,10 @@ msgstr "Search for a manga series..."
 msgid "Search for arcs above to track reading progress across series and issues."
 msgstr "Search for arcs above to track reading progress across series and issues."
 
+#: src/components/storyarcs/StoryArcEmptyState.tsx
+msgid "Search for story arcs above to add them to your watchlist. Track reading progress across multiple series and issues."
+msgstr "Search for story arcs above to add them to your watchlist. Track reading progress across multiple series and issues."
+
 #: src/lib/healthRows.ts
 msgid "Search for wanted"
 msgstr "Search for wanted"
@@ -6962,6 +7651,10 @@ msgstr "Search manga by title, or paste a ComicVine or MangaDex link"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Search missing issues"
 msgstr "Search missing issues"
+
+#: src/components/ai/ChatActionCard.tsx
+msgid "Search not queued"
+msgstr "Search not queued"
 
 #: src/components/queue/WantedPacingBanner.tsx
 msgid "Search now…"
@@ -7044,6 +7737,18 @@ msgstr "Search settings"
 #: src/components/activity/timeline/sentences.ts
 msgid "Search stopped"
 msgstr "Search stopped"
+
+#: src/components/storyarcs/ArcSearch.tsx
+msgid "Search story arcs"
+msgstr "Search story arcs"
+
+#: src/components/storyarcs/StoryArcEmptyState.tsx
+msgid "Search Story Arcs"
+msgstr "Search Story Arcs"
+
+#: src/components/storyarcs/ArcSearch.tsx
+msgid "Search story arcs on ComicVine…"
+msgstr "Search story arcs on ComicVine…"
 
 #: src/components/settings/LogsTab.tsx
 msgid "Search text"
@@ -7223,6 +7928,10 @@ msgstr "Self-update is not supported for this install. Download the notified rel
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Send direct downloads to {client}"
 msgstr "Send direct downloads to {client}"
+
+#: src/components/ai/ChatComposer.tsx
+msgid "Send message"
+msgstr "Send message"
 
 #: src/components/settings/NotificationsTab.tsx
 msgid "Send notifications to a Discord channel via webhook"
@@ -7440,6 +8149,10 @@ msgstr "Show {rejected_count} rejected"
 msgid "Show issues for {series}"
 msgstr "Show issues for {series}"
 
+#: src/components/ai/ChatExamplePrompts.tsx
+msgid "Show me everything from Image Comics"
+msgstr "Show me everything from Image Comics"
+
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "Show only manga in MangaUpdates' weekly top 500, plus your own series"
 msgstr "Show only manga in MangaUpdates' weekly top 500, plus your own series"
@@ -7512,6 +8225,10 @@ msgstr "Skip for now"
 msgid "Skipped"
 msgstr "Skipped"
 
+#: src/components/ai/ChatActionCard.tsx
+msgid "Skipped (changed since preview)"
+msgstr "Skipped (changed since preview)"
+
 #: src/components/series/SeriesSearchProviders.tsx
 msgid "Skips {providers} for this series."
 msgstr "Skips {providers} for this series."
@@ -7545,6 +8262,10 @@ msgstr "Snatched"
 msgid "Softlink"
 msgstr "Softlink"
 
+#: src/components/ai/ChatActionCard.tsx
+msgid "Some changes could not be completed."
+msgstr "Some changes could not be completed."
+
 #: src/pages/WantedPage.tsx
 msgid "Some Wanted issues were queued, but others need attention."
 msgstr "Some Wanted issues were queued, but others need attention."
@@ -7577,6 +8298,10 @@ msgstr "sorted ascending"
 #: src/components/series/SeriesTable.tsx
 msgid "sorted descending"
 msgstr "sorted descending"
+
+#: src/components/ai-elements/attachments.tsx
+msgid "Source"
+msgstr "Source"
 
 #: src/pages/SettingsPage.tsx
 msgid "Sources and keys"
@@ -7630,6 +8355,7 @@ msgstr "status"
 #: src/components/series/SeriesFilters.tsx
 #: src/components/series/SeriesTable.tsx
 #: src/components/settings/AboutTab.tsx
+#: src/components/storyarcs/ArcIssueTable.tsx
 #: src/pages/ActivityPage.tsx
 msgid "Status"
 msgstr "Status"
@@ -7641,6 +8367,10 @@ msgstr "Stop"
 #: src/pages/ActivityPage.tsx
 msgid "Stop {label}"
 msgstr "Stop {label}"
+
+#: src/components/ai/ChatComposer.tsx
+msgid "Stop response"
+msgstr "Stop response"
 
 #: src/components/activity/attention/StopWantingDialog.tsx
 #: src/components/activity/timeline/attentionStage.ts
@@ -7680,16 +8410,34 @@ msgid "Stored encrypted and never returned by the API."
 msgstr "Stored encrypted and never returned by the API."
 
 #: src/pages/IssueDetailPage.tsx
+#: src/pages/StoryArcDetailPage.tsx
 msgid "Story arc"
 msgstr "Story arc"
 
+#: src/components/storyarcs/ArcGenerator.tsx
+msgid "Story arc description"
+msgstr "Story arc description"
+
+#: src/pages/StoryArcDetailPage.tsx
+msgid "Story arc not found"
+msgstr "Story arc not found"
+
+#: src/components/storyarcs/ArcSearch.tsx
+msgid "Story arc search failed"
+msgstr "Story arc search failed"
+
 #: src/components/series/LibraryTabs.tsx
+#: src/components/storyarcs/ArcHeader.tsx
 msgid "Story arcs"
 msgstr "Story arcs"
 
 #: src/components/dashboard/InFlightLine.tsx
 msgid "Stuck over 7 days"
 msgstr "Stuck over 7 days"
+
+#: src/components/ai/ChatActionCard.tsx
+msgid "Suggested action"
+msgstr "Suggested action"
 
 #: src/components/weekly/AiSuggestions.tsx
 msgid "Suggested For You"
@@ -7794,6 +8542,10 @@ msgstr "Testing..."
 msgid "The <0>i=</0> parameter of this indexer’s RSS URL. Leave as 1 unless your indexer says otherwise."
 msgstr "The <0>i=</0> parameter of this indexer’s RSS URL. Leave as 1 unless your indexer says otherwise."
 
+#: src/components/ai/ChatActionCard.tsx
+msgid "The action could not be applied."
+msgstr "The action could not be applied."
+
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "The address Comicarr can reach, including the port and any URL base."
 msgstr "The address Comicarr can reach, including the port and any URL base."
@@ -7882,6 +8634,10 @@ msgstr "The next round starts when the feeds bring something new. {fresh}"
 msgid "The page code did not load. Try again or choose another section."
 msgstr "The page code did not load. Try again or choose another section."
 
+#: src/components/ai/ChatMessage.tsx
+msgid "The response could not be completed."
+msgstr "The response could not be completed."
+
 #: src/pages/ImportPage.tsx
 msgid "The review queue is clear. Scan the watched inbox to check for new files."
 msgstr "The review queue is clear. Scan the watched inbox to check for new files."
@@ -7943,6 +8699,14 @@ msgstr "These paths are set in config.ini and are read-only here."
 msgid "these rows are at different stages — no action fits all of them"
 msgstr "these rows are at different stages — no action fits all of them"
 
+#: src/components/ai/ChatActionCard.tsx
+msgid "This action could not be prepared."
+msgstr "This action could not be prepared."
+
+#: src/components/storyarcs/ArcMissingSeries.tsx
+msgid "This arc reads through series you don't track yet. Add them and Comicarr marks just the issues the arc needs as Wanted."
+msgstr "This arc reads through series you don't track yet. Add them and Comicarr marks just the issues the arc needs as Wanted."
+
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "This candidate cannot be grabbed. Select a ready or overrideable result."
 msgstr "This candidate cannot be grabbed. Select a ready or overrideable result."
@@ -7954,6 +8718,10 @@ msgstr "This key is used to authenticate API requests to Comicarr"
 #: src/lib/importPick.ts
 msgid "This match clears your {confidence_bar}% auto-import bar."
 msgstr "This match clears your {confidence_bar}% auto-import bar."
+
+#: src/pages/ChatPage.tsx
+msgid "This model cannot read images"
+msgstr "This model cannot read images"
 
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "This preview is already frozen into the manifest below."
@@ -7995,6 +8763,7 @@ msgstr "This series is now cataloged as {nextKind}."
 msgid "This series is now cataloged as {nextKind}. New downloads import under the {nextKind} destination. Files already at the previous path were not moved."
 msgstr "This series is now cataloged as {nextKind}. New downloads import under the {nextKind} destination. Files already at the previous path were not moved."
 
+#: src/components/ai/ChatExamplePrompts.tsx
 #: src/components/releases/WeekBar.tsx
 #: src/lib/releaseWeek.ts
 #: src/pages/DashboardPage.tsx
@@ -8052,6 +8821,7 @@ msgid "To Address"
 msgstr "To Address"
 
 #: src/components/activity/timeline/stories.ts
+#: src/components/ai/ChatThreadList.tsx
 #: src/components/releases/IndustryReleasesView.tsx
 #: src/components/releases/WeekStrip.tsx
 msgid "Today"
@@ -8148,9 +8918,11 @@ msgstr "Try a different filter."
 msgid "Try a wider stage or age filter."
 msgstr "Try a wider stage or age filter."
 
+#: src/components/ai/ChatThreadList.tsx
 #: src/components/onboarding/OnboardingDialog.tsx
 #: src/components/RouteLoader.tsx
 #: src/components/settings/SupportBundleSection.tsx
+#: src/pages/ChatPage.tsx
 msgid "Try again"
 msgstr "Try again"
 
@@ -8251,6 +9023,14 @@ msgstr "Unable to load series"
 msgid "Unable to load settings"
 msgstr "Unable to load settings"
 
+#: src/pages/StoryArcDetailPage.tsx
+msgid "Unable to load story arc"
+msgstr "Unable to load story arc"
+
+#: src/pages/StoryArcsPage.tsx
+msgid "Unable to load story arcs"
+msgstr "Unable to load story arcs"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Unable to load the search preview."
 msgstr "Unable to load the search preview."
@@ -8302,6 +9082,7 @@ msgstr "Unable to start this search."
 
 #: src/components/layout/AppStatusBar.tsx
 #: src/lib/activityStatus.ts
+#: src/pages/DiscoverPage.tsx
 msgid "unavailable"
 msgstr "unavailable"
 
@@ -8398,6 +9179,10 @@ msgstr "Update available: {current} → {latest}"
 #: src/lib/healthRows.ts
 msgid "Update check"
 msgstr "Update check"
+
+#: src/components/ai/ChatActionCard.tsx
+msgid "Update failed"
+msgstr "Update failed"
 
 #: src/lib/updateStatus.ts
 msgid "Update status is unavailable"
@@ -8583,6 +9368,10 @@ msgstr "View activity for this issue"
 msgid "View activity for this series"
 msgstr "View activity for this series"
 
+#: src/components/storyarcs/ArcIssueTable.tsx
+msgid "View in Library"
+msgstr "View in Library"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "View on {site}"
 msgstr "View on {site}"
@@ -8641,6 +9430,10 @@ msgstr "Want {COMIC} {label}"
 msgid "Want {rowLabel}"
 msgstr "Want {rowLabel}"
 
+#: src/components/storyarcs/ArcHeader.tsx
+msgid "Want all"
+msgstr "Want all"
+
 #: src/lib/releaseState.ts
 msgid "wanted"
 msgstr "wanted"
@@ -8650,6 +9443,7 @@ msgstr "wanted"
 #: src/components/layout/MobileTabBar.tsx
 #: src/components/releases/IndustryReleasesView.tsx
 #: src/components/series/IssueStatusMenu.tsx
+#: src/components/storyarcs/ArcIssueRow.tsx
 #: src/lib/statusTone.ts
 #: src/pages/SeriesDetailPage.tsx
 #: src/pages/WantedPage.tsx
@@ -8710,6 +9504,10 @@ msgstr "Weekly refresh is paused. Resume it in Settings, then retry."
 msgid "Welcome · {version}"
 msgstr "Welcome · {version}"
 
+#: src/components/ai/ChatExamplePrompts.tsx
+msgid "What are we hunting today?"
+msgstr "What are we hunting today?"
+
 #: src/pages/AttentionPage.tsx
 msgid "What Comicarr can't finish without you"
 msgstr "What Comicarr can't finish without you"
@@ -8717,6 +9515,10 @@ msgstr "What Comicarr can't finish without you"
 #: src/components/series/IssueStory.tsx
 msgid "What happened"
 msgstr "What happened"
+
+#: src/components/ai/ChatExamplePrompts.tsx
+msgid "What landed in the last seven days?"
+msgstr "What landed in the last seven days?"
 
 #: src/components/layout/VersionChip.tsx
 #: src/components/settings/AboutTab.tsx
@@ -8754,6 +9556,14 @@ msgstr "Where it stands"
 #: src/components/queue/WantedBySeries.tsx
 msgid "Which"
 msgstr "Which"
+
+#: src/components/ai/ChatExamplePrompts.tsx
+msgid "Which runs am I missing issues from?"
+msgstr "Which runs am I missing issues from?"
+
+#: src/components/ai/ChatExamplePrompts.tsx
+msgid "Which series are closest to complete?"
+msgstr "Which series are closest to complete?"
 
 #: src/components/queue/WantedBySeries.tsx
 msgid "Why"
@@ -8816,6 +9626,7 @@ msgid "yesterday"
 msgstr "yesterday"
 
 #: src/components/activity/timeline/stories.ts
+#: src/components/ai/ChatThreadList.tsx
 msgid "Yesterday"
 msgstr "Yesterday"
 
@@ -8842,6 +9653,10 @@ msgstr "You upgraded from {from}. {releaseCount} · {changeCount}."
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "Your dashboard keeps this list under Needs you, with a button for each step, until they are all done."
 msgstr "Your dashboard keeps this list under Needs you, with a button for each step, until they are all done."
+
+#: src/pages/ChatPage.tsx
+msgid "Your draft is intact. Choose a vision-capable model in AI Settings."
+msgstr "Your draft is intact. Choose a vision-capable model in AI Settings."
 
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "Your library is ready."

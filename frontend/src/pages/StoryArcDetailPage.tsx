@@ -1,3 +1,5 @@
+import { plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useParams, Link } from "react-router-dom";
 import { BookMarked } from "lucide-react";
 import { useStoryArcDetail } from "@/hooks/useStoryArcs";
@@ -19,7 +21,9 @@ export default function StoryArcDetailPage() {
   if (isLoading) {
     return (
       <div className="space-y-5 px-8 pt-5">
-        <h1 className="sr-only">Story arc</h1>
+        <h1 className="sr-only">
+          <Trans>Story arc</Trans>
+        </h1>
         <Skeleton className="h-4 w-48" />
         <div className="flex gap-5">
           <Skeleton className="aspect-[2/3] w-24 rounded-md" />
@@ -38,7 +42,7 @@ export default function StoryArcDetailPage() {
       <div className="px-8 pt-5">
         <ErrorDisplay
           error={error}
-          title="Unable to load story arc"
+          title={t`Unable to load story arc`}
           onRetry={() => {
             void refetch();
           }}
@@ -52,9 +56,11 @@ export default function StoryArcDetailPage() {
     return (
       <div className="px-8">
         <div className="mx-auto max-w-lg py-16 text-center">
-          <h1 className="text-lg font-semibold">Story arc not found</h1>
+          <h1 className="text-lg font-semibold">
+            <Trans>Story arc not found</Trans>
+          </h1>
           <p className="mt-2 text-sm text-foreground-2">
-            {error?.message || "Story arc not found"}
+            {error?.message || t`Story arc not found`}
           </p>
           <Link
             to="/story-arcs"
@@ -64,7 +70,7 @@ export default function StoryArcDetailPage() {
               className: "mt-6",
             })}
           >
-            Back to story arcs
+            <Trans>Back to story arcs</Trans>
           </Link>
         </div>
       </div>
@@ -82,11 +88,14 @@ export default function StoryArcDetailPage() {
         />
       )}
 
-      <section aria-label="Reading order" className="mt-6">
+      <section aria-label={t`Reading order`} className="mt-6">
         <div className="px-8">
           <SectionHeader
-            title="Reading order"
-            meta={`${data.issues.length} ${data.issues.length === 1 ? "issue" : "issues"}`}
+            title={t`Reading order`}
+            meta={plural(data.issues.length, {
+              one: "# issue",
+              other: "# issues",
+            })}
           />
         </div>
         {data.issues.length > 0 ? (
@@ -98,9 +107,9 @@ export default function StoryArcDetailPage() {
           <EmptyState
             variant="custom"
             icon={BookMarked}
-            eyebrow="ARC · EMPTY"
-            title="No issues in this arc yet"
-            description="Refresh the arc to pull its reading order from ComicVine."
+            eyebrow={t`ARC · EMPTY`}
+            title={t`No issues in this arc yet`}
+            description={t`Refresh the arc to pull its reading order from ComicVine.`}
           />
         )}
       </section>

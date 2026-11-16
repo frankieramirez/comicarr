@@ -1,3 +1,5 @@
+import { ph, plural, t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BookMarked, RefreshCw, Trash2, Search } from "lucide-react";
@@ -36,15 +38,18 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
         const queued = data?.data?.queued ?? 0;
         addToast({
           type: "success",
-          title: "Issues Queued",
-          description: `${queued} issue${queued !== 1 ? "s" : ""} marked as Wanted.`,
+          title: t`Issues Queued`,
+          description: plural(queued, {
+            one: "# issue marked as Wanted.",
+            other: "# issues marked as Wanted.",
+          }),
         });
       },
       onError: () => {
         addToast({
           type: "error",
-          title: "Error",
-          description: "Failed to queue issues.",
+          title: t`Error`,
+          description: t`Failed to queue issues.`,
         });
       },
     });
@@ -55,15 +60,15 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
       onSuccess: () => {
         addToast({
           type: "success",
-          title: "Refreshing",
-          description: `Refreshing ${arc.StoryArc} from ComicVine...`,
+          title: t`Refreshing`,
+          description: t`Refreshing ${ph({ StoryArc: arc.StoryArc })} from ComicVine...`,
         });
       },
       onError: () => {
         addToast({
           type: "error",
-          title: "Error",
-          description: "Failed to refresh story arc.",
+          title: t`Error`,
+          description: t`Failed to refresh story arc.`,
         });
       },
     });
@@ -75,8 +80,8 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
         setShowDeleteConfirm(false);
         addToast({
           type: "success",
-          title: "Arc Deleted",
-          description: `${arc.StoryArc} has been removed.`,
+          title: t`Arc Deleted`,
+          description: t`${ph({ StoryArc: arc.StoryArc })} has been removed.`,
         });
         navigate("/story-arcs");
       },
@@ -84,8 +89,8 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
         setShowDeleteConfirm(false);
         addToast({
           type: "error",
-          title: "Error",
-          description: "Failed to delete story arc.",
+          title: t`Error`,
+          description: t`Failed to delete story arc.`,
         });
       },
     });
@@ -114,11 +119,11 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
 
       <div className="relative px-8 pt-5">
         <nav
-          aria-label="Breadcrumb"
+          aria-label={t`Breadcrumb`}
           className="mb-5 flex items-center gap-2 text-[13px] text-foreground-2"
         >
           <Link to="/story-arcs" className="hover:text-foreground">
-            Story arcs
+            <Trans>Story arcs</Trans>
           </Link>
           <span className="text-muted-foreground">/</span>
           <span className="truncate text-foreground">{arc.StoryArc}</span>
@@ -154,7 +159,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
                 {arc.StoryArc}
               </h1>
               <span className="rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-                Arc
+                <Trans>Arc</Trans>
               </span>
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-foreground-2">
@@ -164,10 +169,10 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
               </span>
               <span>
                 {missing > 0
-                  ? `${missing} missing`
+                  ? plural(missing, { one: "# missing", other: "# missing" })
                   : arc.Total > 0
-                    ? "Complete"
-                    : "No issues yet"}
+                    ? t`Complete`
+                    : t`No issues yet`}
               </span>
             </div>
           </div>
@@ -176,7 +181,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
             {showDeleteConfirm ? (
               <>
                 <span className="text-[13px] text-foreground-2">
-                  Delete this arc?
+                  <Trans>Delete this arc?</Trans>
                 </span>
                 <Button
                   type="button"
@@ -187,7 +192,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
                   className="font-semibold"
                 >
                   <Trash2 />
-                  Confirm delete
+                  <Trans>Confirm delete</Trans>
                 </Button>
                 <Button
                   type="button"
@@ -195,7 +200,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
                   size="toolbar"
                   onClick={() => setShowDeleteConfirm(false)}
                 >
-                  Cancel
+                  <Trans>Cancel</Trans>
                 </Button>
               </>
             ) : (
@@ -207,7 +212,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
                   disabled={anyPending || missing === 0}
                 >
                   <Search />
-                  Want all
+                  <Trans>Want all</Trans>
                 </Button>
                 <Button
                   type="button"
@@ -220,7 +225,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
                   <RefreshCw
                     className={refreshMutation.isPending ? "animate-spin" : ""}
                   />
-                  Refresh
+                  <Trans>Refresh</Trans>
                 </Button>
                 <Button
                   type="button"
@@ -228,7 +233,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
                   size="icon-sm"
                   onClick={() => setShowDeleteConfirm(true)}
                   disabled={anyPending}
-                  aria-label="Delete story arc"
+                  aria-label={t`Delete story arc`}
                 >
                   <Trash2 />
                 </Button>
@@ -241,7 +246,7 @@ export default function ArcHeader({ arc }: ArcHeaderProps) {
         <div
           className="mt-5 flex h-1 gap-0.5 overflow-hidden rounded-full bg-surface-3"
           role="img"
-          aria-label={`${Math.round(heldPct)}% held: ${arc.Have} of ${arc.Total}`}
+          aria-label={t`${ph({ percent: Math.round(heldPct) })}% held: ${ph({ Have: arc.Have })} of ${ph({ Total: arc.Total })}`}
         >
           <div
             className="rounded-full"

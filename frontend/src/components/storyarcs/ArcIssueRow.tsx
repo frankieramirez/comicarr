@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 interface GeneratedIssue {
   series_name: string;
   issue_number: string;
@@ -13,27 +14,28 @@ interface ArcIssueRowProps {
   issue: GeneratedIssue;
 }
 
-const STATUS_CONFIG = {
-  owned: {
-    label: "Owned",
-    dotClass: "bg-[var(--status-downloaded)]",
-    textClass: "text-[var(--status-downloaded)]",
-  },
-  wanted: {
-    label: "Wanted",
-    dotClass: "bg-[var(--status-wanted)]",
-    textClass: "text-[var(--status-wanted)]",
-  },
-  not_tracked: {
-    label: "Not Tracked",
-    dotClass: "bg-[var(--status-skipped)]",
-    textClass: "text-muted-foreground",
-  },
-} as const;
+const STATUS_CONFIG = () =>
+  ({
+    owned: {
+      label: t`Owned`,
+      dotClass: "bg-[var(--status-downloaded)]",
+      textClass: "text-[var(--status-downloaded)]",
+    },
+    wanted: {
+      label: t`Wanted`,
+      dotClass: "bg-[var(--status-wanted)]",
+      textClass: "text-[var(--status-wanted)]",
+    },
+    not_tracked: {
+      label: t`Not Tracked`,
+      dotClass: "bg-[var(--status-skipped)]",
+      textClass: "text-muted-foreground",
+    },
+  }) as const;
 
 export default function ArcIssueRow({ issue }: ArcIssueRowProps) {
   const status =
-    STATUS_CONFIG[issue.library_status] || STATUS_CONFIG.not_tracked;
+    STATUS_CONFIG()[issue.library_status] || STATUS_CONFIG().not_tracked;
 
   return (
     <div className="flex items-center gap-3 px-3 py-2 text-sm">

@@ -1,3 +1,4 @@
+import { plural, t } from "@lingui/core/macro";
 import { useRef } from "react";
 import { useStoryArcs } from "@/hooks/useStoryArcs";
 import { useAiStatus } from "@/hooks/useAiStatus";
@@ -28,14 +29,17 @@ export default function StoryArcsPage() {
 
   return (
     <div className="page-transition flex h-full min-h-0 flex-col">
-      <PageHeader title="Library" meta={summary} />
+      <PageHeader title={t`Library`} meta={summary} />
       <LibraryTabs />
 
       <div className="flex-1 min-h-0 overflow-auto px-8 py-4 space-y-5">
         <p className="flex items-start gap-2 text-[13px] text-foreground-2">
           <Info className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-          Story arcs are frozen for 1.0: they keep working, but get no new
-          features. {count} arc{count === 1 ? "" : "s"} tracked.
+          {plural(count, {
+            one: "Story arcs are frozen for 1.0: they keep working, but get no new features. # arc tracked.",
+            other:
+              "Story arcs are frozen for 1.0: they keep working, but get no new features. # arcs tracked.",
+          })}
         </p>
         {aiStatus?.configured && <ArcGenerator />}
 
@@ -60,7 +64,7 @@ export default function StoryArcsPage() {
         ) : error ? (
           <ErrorDisplay
             error={error}
-            title="Unable to load story arcs"
+            title={t`Unable to load story arcs`}
             onRetry={() => {
               void refetch();
             }}
