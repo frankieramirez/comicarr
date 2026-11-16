@@ -1268,3 +1268,31 @@ def search_queue(queue, ledger=None, maintenance=None):
             _record_search_worker_health("failed", e)
         finally:
             _safe_task_done(queue)
+
+
+def run_scheduled_search() -> None:
+    """The scheduler's "Auto-Search" job: search for every Wanted issue.
+
+    Job status is written before and after the run. A failure is recorded as
+    an Error run and re-raised so the scheduler's health listener sees it.
+    """
+    from comicarr import helpers
+
+    logger.info("[SEARCH] Running Search for Wanted.")
+    helpers.job_management(write=True, job="Auto-Search", current_run=helpers.utctimestamp(), status="Running")
+    comicarr.SEARCH_STATUS = "Running"
+    try:
+        comicarr.search.searchforissue()
+    except Exception as e:
+        comicarr.SEARCH_STATUS = "Error"
+        helpers.job_management(
+            write=True,
+            job="Auto-Search",
+            last_run_completed=helpers.utctimestamp(),
+            status="Error",
+            failure=True,
+            failure_message=e,
+        )
+        raise
+    helpers.job_management(write=True, job="Auto-Search", last_run_completed=helpers.utctimestamp(), status="Waiting")
+    comicarr.SEARCH_STATUS = "Waiting"

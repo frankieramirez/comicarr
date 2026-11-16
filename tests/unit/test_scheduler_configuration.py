@@ -22,8 +22,8 @@ from apscheduler.events import (
 )
 
 import comicarr
-from comicarr import searchit
 from comicarr.app.common.dates import normalize_utc_datetime, utc_date_to_local
+from comicarr.app.search import service as search_service
 from comicarr.app.system import service as system_service
 
 _INIT_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "__init__.py"
@@ -154,13 +154,13 @@ def test_register_scheduler_listener_is_idempotent():
 
 def test_scheduled_search_failure_is_supervised_and_propagated(monkeypatch):
     job_management = MagicMock()
-    monkeypatch.setattr(searchit.helpers, "job_management", job_management)
-    monkeypatch.setattr(searchit.helpers, "utctimestamp", lambda: 123.0)
+    monkeypatch.setattr(comicarr.helpers, "job_management", job_management)
+    monkeypatch.setattr(comicarr.helpers, "utctimestamp", lambda: 123.0)
     failure = RuntimeError("provider down")
     monkeypatch.setattr(comicarr.search, "searchforissue", MagicMock(side_effect=failure))
 
     with pytest.raises(RuntimeError, match="provider down"):
-        searchit.CurrentSearcher().run()
+        search_service.run_scheduled_search()
 
     assert comicarr.SEARCH_STATUS == "Error"
     assert job_management.call_args_list[-1].kwargs == {
