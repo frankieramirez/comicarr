@@ -127,29 +127,29 @@ class TestNameSimilarity:
     """Tests for fuzzy name matching (via scanutil)."""
 
     def test_exact_match(self):
-        from comicarr.scanutil import name_similarity
+        from comicarr.app.imports.scanutil import name_similarity
 
         assert name_similarity("Batman", "Batman") == 1.0
 
     def test_case_insensitive(self):
-        from comicarr.scanutil import name_similarity
+        from comicarr.app.imports.scanutil import name_similarity
 
         assert name_similarity("batman", "BATMAN") == 1.0
 
     def test_partial_match(self):
-        from comicarr.scanutil import name_similarity
+        from comicarr.app.imports.scanutil import name_similarity
 
         score = name_similarity("Batman", "Batman: Year One")
         assert score > 0.5
 
     def test_no_match(self):
-        from comicarr.scanutil import name_similarity
+        from comicarr.app.imports.scanutil import name_similarity
 
         score = name_similarity("Batman", "Naruto")
         assert score < 0.5
 
     def test_empty_string(self):
-        from comicarr.scanutil import name_similarity
+        from comicarr.app.imports.scanutil import name_similarity
 
         assert name_similarity("", "Batman") == 0.0
 

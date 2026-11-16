@@ -27,7 +27,7 @@ from types import SimpleNamespace
 import pytest
 
 import comicarr
-from comicarr import mangadex, myanimelist
+from comicarr.app.manga import mangadex, myanimelist
 from tests.fakes import manga as fake
 from tests.fakes.sabnzbd import NetworkDisabled
 

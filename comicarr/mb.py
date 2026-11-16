@@ -146,7 +146,7 @@ def findComic(
 
     if content_type == "manga" and comicarr.CONFIG.MANGADEX_ENABLED:
         logger.info("[MANGADEX] Using MangaDex API for manga search")
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         return mangadex.search_manga(name, limit=limit, offset=offset, sort=sort)
 

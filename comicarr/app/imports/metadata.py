@@ -145,7 +145,7 @@ def _comic_metadata(series_id, deadline):
 
 
 def _manga_metadata(series_id, deadline):
-    from comicarr import mangadex, myanimelist
+    from comicarr.app.manga import mangadex, myanimelist
     from comicarr.app.manga.duplicates import find_existing_manga_series
     from comicarr.config import get_manga_destination
 

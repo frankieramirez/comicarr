@@ -78,7 +78,7 @@ def find_comic(
     if content_type == "manga":
         if not ctx.config or not getattr(ctx.config, "MANGADEX_ENABLED", False):
             return {"error": "MangaDex integration is not enabled"}
-        from comicarr import mangadex
+        from comicarr.app.manga import mangadex
 
         searchresults = mangadex.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
     elif type_ == "story_arc":
@@ -141,7 +141,7 @@ def find_manga(ctx, name, limit=None, offset=None, sort=None):
     mal_client_id = getattr(ctx.config, "MAL_CLIENT_ID", None)
 
     if mal_enabled and mal_client_id:
-        from comicarr import myanimelist
+        from comicarr.app.manga import myanimelist
 
         try:
             searchresults = myanimelist.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
@@ -151,7 +151,7 @@ def find_manga(ctx, name, limit=None, offset=None, sort=None):
         except Exception as e:
             logger.error("[SEARCH] MAL search failed, falling back to MangaDex: %s" % e)
 
-    from comicarr import mangadex
+    from comicarr.app.manga import mangadex
 
     searchresults = mangadex.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
 
@@ -206,7 +206,7 @@ def add_comic(ctx, comic_id, folder=None, *, want=False):
 def _mangadex_mal_id(comic_id):
     """MangaDex's MyAnimeList id for ``comic_id``, or None when it has none or
     the fetch fails (the worker then reports the failed add itself)."""
-    from comicarr import mangadex
+    from comicarr.app.manga import mangadex
 
     try:
         details = mangadex.get_manga_details(comic_id)

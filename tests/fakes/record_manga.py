@@ -126,7 +126,7 @@ def _configure(mal_client_id=None):
 
 
 def record_mangadex() -> None:
-    from comicarr import mangadex
+    from comicarr.app.manga import mangadex
 
     out = ROOT / "mangadex"
     with _Capture() as capture:
@@ -144,7 +144,7 @@ def record_mangadex() -> None:
 
 
 def record_mal() -> None:
-    from comicarr import mangadex, myanimelist
+    from comicarr.app.manga import mangadex, myanimelist
 
     out = ROOT / "myanimelist"
     with _Capture() as capture:

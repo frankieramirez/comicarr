@@ -1085,7 +1085,7 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
         mal_num_chapters: Chapter count from MAL (None if not from MAL)
         controlValueDict: Dict used as WHERE clause for db.upsert
     """
-    from comicarr import mangadex
+    from comicarr.app.manga import mangadex
 
     issue_count = 0
     latest_chapter = None
@@ -1214,7 +1214,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None, location=None):
     Returns:
         dict with status information
     """
-    from comicarr import mangadex
+    from comicarr.app.manga import mangadex
     from comicarr.app.manga.duplicates import find_existing_manga_series
     from comicarr.config import get_manga_destination
 
@@ -1378,7 +1378,7 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None, location=None):
     Returns:
         dict with status information
     """
-    from comicarr import mangadex, myanimelist
+    from comicarr.app.manga import mangadex, myanimelist
     from comicarr.app.manga.duplicates import find_existing_manga_series
     from comicarr.config import get_manga_destination
 

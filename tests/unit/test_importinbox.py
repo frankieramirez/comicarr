@@ -480,7 +480,7 @@ class TestMatchGroup:
 
     @pytest.mark.parametrize(("offset", "auto_imported"), [(0, 1), (1, 0)])
     def test_auto_import_threshold_comes_from_config(self, importinbox, _mock_globals, offset, auto_imported):
-        from comicarr.scanutil import name_similarity
+        from comicarr.app.imports.scanutil import name_similarity
 
         series_list = [
             {"ComicID": "cv-100", "ComicName": "Batman", "ComicSortName": "Batman", "DynamicName": "batman"},
@@ -751,7 +751,7 @@ class TestAutoImportWritesMetadata:
     ],
 )
 def test_title_identity_preserves_words_and_digits(title, expected):
-    from comicarr.scanutil import normalize_title
+    from comicarr.app.imports.scanutil import normalize_title
 
     assert normalize_title(title) == expected
 

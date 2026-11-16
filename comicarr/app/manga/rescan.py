@@ -18,8 +18,8 @@ import os
 from sqlalchemy import select
 
 from comicarr import db, logger
+from comicarr.app.imports.scanutil import COMIC_EXTENSIONS
 from comicarr.app.manga.parse import parse_in_series_context
-from comicarr.scanutil import COMIC_EXTENSIONS
 from comicarr.tables import comics as t_comics
 from comicarr.tables import issues as t_issues
 

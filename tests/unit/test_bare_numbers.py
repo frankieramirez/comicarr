@@ -10,7 +10,7 @@
 """Bare-number interpretation for manga filenames."""
 
 from comicarr.app.manga.bare_numbers import interpret_bare_numbers
-from comicarr.manga_parser import parse_manga_filename
+from comicarr.app.manga.manga_parser import parse_manga_filename
 
 
 def test_prefixed_volume_is_always_a_volume():

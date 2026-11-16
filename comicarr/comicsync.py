@@ -34,7 +34,7 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr import db, logger, series_kind, updater
-from comicarr.scanutil import COMIC_EXTENSIONS, find_best_match, normalize_title
+from comicarr.app.imports.scanutil import COMIC_EXTENSIONS, find_best_match, normalize_title
 from comicarr.tables import comics
 
 COMIC_SCAN_STATUS = None

@@ -19,7 +19,7 @@
 
 import pytest
 
-from comicarr.scanutil import name_similarity
+from comicarr.app.imports.scanutil import name_similarity
 
 
 @pytest.mark.parametrize(

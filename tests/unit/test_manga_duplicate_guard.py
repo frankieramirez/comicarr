@@ -22,7 +22,6 @@ from comicarr.app.search.service import add_manga
 from comicarr.app.series.service import listLibrary
 from comicarr.tables import comics, metadata
 
-
 MD_UUID = "aaaaaaaa-bbbb-cccc-dddd-onepiece01"
 MAL_ID = "13"
 
@@ -94,9 +93,9 @@ def _mal_details(**overrides):
 
 
 def _patch_add_side_effects(monkeypatch, tmp_path, *, md_details=None, mal_details=None, mal_to_md=MD_UUID):
+    import comicarr.app.manga.mangadex as mangadex
+    import comicarr.app.manga.myanimelist as myanimelist
     from comicarr import config as comicarr_config
-    import comicarr.mangadex as mangadex
-    import comicarr.myanimelist as myanimelist
 
     monkeypatch.setattr(mangadex, "get_manga_details", lambda *a, **k: md_details or _md_details())
     monkeypatch.setattr(myanimelist, "get_manga_details", lambda *a, **k: mal_details or _mal_details())
@@ -261,7 +260,7 @@ def test_add_manga_search_refuses_mangadex_id_whose_mal_id_is_in_the_library(man
     ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=True, MAL_ENABLED=False, MAL_CLIENT_ID=None))
     with (
         patch("comicarr.importer.importer_thread") as mock_thread,
-        patch("comicarr.mangadex.get_manga_details", return_value={"mal_id": MAL_ID}) as details,
+        patch("comicarr.app.manga.mangadex.get_manga_details", return_value={"mal_id": MAL_ID}) as details,
     ):
         result = add_manga(ctx, "md-" + MD_UUID)
 
@@ -277,7 +276,7 @@ def test_add_manga_search_refuses_mangadex_id_whose_mal_id_is_on_another_row(man
     ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=True, MAL_ENABLED=False, MAL_CLIENT_ID=None))
     with (
         patch("comicarr.importer.importer_thread") as mock_thread,
-        patch("comicarr.mangadex.get_manga_details", return_value={"mal_id": MAL_ID}),
+        patch("comicarr.app.manga.mangadex.get_manga_details", return_value={"mal_id": MAL_ID}),
     ):
         result = add_manga(ctx, "md-" + MD_UUID)
 
@@ -292,7 +291,7 @@ def test_add_manga_search_queues_when_mangadex_names_no_known_mal_id(manga_db, d
     kwargs = {"side_effect": details} if isinstance(details, Exception) else {"return_value": details}
     with (
         patch("comicarr.importer.importer_thread") as mock_thread,
-        patch("comicarr.mangadex.get_manga_details", **kwargs),
+        patch("comicarr.app.manga.mangadex.get_manga_details", **kwargs),
     ):
         result = add_manga(ctx, "md-" + MD_UUID)
 
@@ -336,7 +335,7 @@ def test_mal_add_does_not_refuse_a_fuzzy_mangadex_title_match(manga_db, monkeypa
     def fake_find(*_a, allow_title_match=True, **_k):
         return fuzzy_uuid if allow_title_match else None
 
-    monkeypatch.setattr("comicarr.mangadex.find_by_mal_id", fake_find)
+    monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", fake_find)
 
     result = importer.addMangaToDB_MAL("mal-" + MAL_ID)
 

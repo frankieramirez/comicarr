@@ -25,7 +25,16 @@ from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.core.context import AppContext
 from comicarr.app.downloads import handoff, journal, postprocessing, recovery
 from comicarr.app.series import service as series_service
-from comicarr.tables import acquisition_run_items, acquisition_runs, comics, issues, metadata, nzblog, pipeline_journal, snatched
+from comicarr.tables import (
+    acquisition_run_items,
+    acquisition_runs,
+    comics,
+    issues,
+    metadata,
+    nzblog,
+    pipeline_journal,
+    snatched,
+)
 from tests.fakes import manga as manga_fake
 from tests.fakes import pipeline
 from tests.fakes import sabnzbd as sab_fake
@@ -1014,7 +1023,8 @@ MAL_COMIC_ID = "mal-" + manga_fake.MAL_ID
 
 @pytest.fixture
 def recorded(tmp_path, monkeypatch):
-    from comicarr import helpers, mangadex
+    from comicarr import helpers
+    from comicarr.app.manga import mangadex
 
     sab = FakeSabnzbd().install(monkeypatch)
     mangadex_api = manga_fake.FakeMangaDex().install(monkeypatch)
@@ -1049,8 +1059,8 @@ def recorded(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "NZB_QUEUE", queue.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", queue.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "COMICSORT", helpers.ComicSort(sequence="startup"), raising=False)
-    monkeypatch.setattr("comicarr.mangadex._rate_limit", lambda: None)
-    monkeypatch.setattr("comicarr.myanimelist._rate_limit", lambda: None)
+    monkeypatch.setattr("comicarr.app.manga.mangadex._rate_limit", lambda: None)
+    monkeypatch.setattr("comicarr.app.manga.myanimelist._rate_limit", lambda: None)
     monkeypatch.setattr("comicarr.sabnzbd.time.sleep", lambda _seconds: None)
     monkeypatch.setattr("comicarr.app.downloads.service.time.sleep", lambda _seconds: None)
     monkeypatch.setattr(

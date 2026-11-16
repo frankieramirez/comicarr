@@ -305,7 +305,7 @@ class TestMangadexNewChapterCheck:
     """Tests for mangadexNewChapterCheck() — MangaDex polling for new chapters."""
 
     @patch("comicarr.rsscheck.db")
-    @patch("comicarr.mangadex.get_all_chapters")
+    @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_skips_when_no_manga_series(self, mock_get_chapters, mock_db):
         mock_db.select_all.return_value = []
 
@@ -314,7 +314,7 @@ class TestMangadexNewChapterCheck:
         mock_get_chapters.assert_not_called()
 
     @patch("comicarr.rsscheck.db")
-    @patch("comicarr.mangadex.get_all_chapters")
+    @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_adds_new_chapters_as_wanted(self, mock_get_chapters, mock_db):
         series = _make_series()
 
@@ -354,7 +354,7 @@ class TestMangadexNewChapterCheck:
         assert key_dict["IssueID"] == "md-abc123-ch1"
 
     @patch("comicarr.rsscheck.db")
-    @patch("comicarr.mangadex.get_all_chapters")
+    @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_skips_existing_chapters(self, mock_get_chapters, mock_db):
         series = _make_series()
 
@@ -374,7 +374,7 @@ class TestMangadexNewChapterCheck:
         assert value_dict["ChapterNumber"] == "2"
 
     @patch("comicarr.rsscheck.db")
-    @patch("comicarr.mangadex.get_all_chapters")
+    @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_handles_api_error_gracefully(self, mock_get_chapters, mock_db):
         series = _make_series()
 
@@ -389,7 +389,7 @@ class TestMangadexNewChapterCheck:
         mock_db.upsert.assert_not_called()
 
     @patch("comicarr.rsscheck.db")
-    @patch("comicarr.mangadex.get_all_chapters")
+    @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_skips_chapters_with_no_number(self, mock_get_chapters, mock_db):
         series = _make_series()
 
@@ -406,7 +406,7 @@ class TestMangadexNewChapterCheck:
         mock_db.upsert.assert_not_called()
 
     @patch("comicarr.rsscheck.db")
-    @patch("comicarr.mangadex.get_all_chapters")
+    @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_handles_none_from_api(self, mock_get_chapters, mock_db):
         series = _make_series()
 
@@ -421,7 +421,7 @@ class TestMangadexNewChapterCheck:
         mock_db.upsert.assert_not_called()
 
     @patch("comicarr.rsscheck.db")
-    @patch("comicarr.mangadex.get_all_chapters")
+    @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_volume_number_none_when_not_provided(self, mock_get_chapters, mock_db):
         series = _make_series()
 
