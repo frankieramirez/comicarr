@@ -20,9 +20,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # Mock Missing Optional Dependencies
 # =============================================================================
 # Comicarr has many optional dependencies that may not be installed during testing.
-# Keep this list limited to integrations that are still genuinely optional. Bundled
-# vendor clients live under ``comicarr._vendor`` and must be imported for real so
-# adapter tests exercise Comicarr's normalization boundary.
+# Keep this list limited to integrations that are still genuinely optional.
 
 # Create mock modules for optional dependencies
 MOCK_MODULES = [

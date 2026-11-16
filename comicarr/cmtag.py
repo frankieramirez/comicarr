@@ -1,19 +1,20 @@
+"""Tag a placed comic with ComicInfo.xml and ComicBookLover data.
+
+The archive work lives in ``comicarr.app.metadata.comicinfo``; this module
+decides what to write: the archive's own tags, then Comicarr's values, then
+ComicVine's for a ComicVine issue.
+"""
+
 import os
 import re
 import shutil
-import subprocess
 import sys
-
-from packaging.version import parse as parse_version
+import tempfile
 
 import comicarr
 from comicarr import filechecker, logger
+from comicarr.app.metadata import comicinfo
 from comicarr.app.notifications import service as notifiers
-
-# A second save pass over an archive whose tags were just written: no online
-# fetch, no conversion. Generous enough for a large archive on slow storage,
-# short enough that a wedged ComicTagger cannot hold the post-processor.
-_CLEAR_ISSUE_TIMEOUT = 300
 
 
 def current_file_mode(path):
@@ -33,9 +34,9 @@ def restore_tagged_file_mode(path, original_mode, module=""):
     """Give a freshly tagged file the accessibility it had before tagging.
 
     Tagging is a round trip, and a round trip must not change how readable a
-    file is. ComicTagger cannot write into an existing archive, so it builds a
-    NEW file (converting .cbr -> .cbz along the way) with tempfile semantics --
-    0600 -- instead of inheriting the library file's mode. Moving that back
+    file is. A zip cannot be edited in place, so tagging builds a NEW file
+    (converting .cbr -> .cbz along the way) with tempfile semantics -- 0600 --
+    instead of inheriting the library file's mode. Moving that back
     into place leaves a tagged issue less readable than every untagged issue
     beside it, and nothing logs the change.
 
@@ -142,26 +143,17 @@ def manga_volume_for_issue(issueid):
     return volume
 
 
-def volume_metadata_field(comversion, manga_volume, module=""):
-    """The ``volume=`` field of ComicTagger's -m line.
-
-    Split out of run() alongside online_tag_options for the same reason: it is
-    the other half of what a manga tag run has to get right, and the only way
-    to check it otherwise is to grep run()'s source, which passes whether or
-    not the value is correct.
+def volume_value(comversion, manga_volume, module=""):
+    """The <Volume> to write; "" removes the element.
 
     A manga volume is a book, not an instalment of one: the file IS volume N
     and has no issue number, so it overrides the series-level volume label a
     periodical would carry. Written that way, a reader groups the files as the
     volumes they were published as rather than as chapters of one volume named
-    for the series.
-
-    <Volume> can be set here because ComicVine only supplies one when
-    use_series_start_as_volume is on. The issue number cannot: it is set
-    unconditionally by the overlay that runs after -m, so clearing it is
-    clear_issue_number()'s job, once tagging has finished.
+    for the series. Its issue number is removed in run(), after the ComicVine
+    values that would put it back.
     """
-    cvers = "volume="
+    volume = ""
     if comicarr.CONFIG.CMTAG_VOLUME:
         if not comicarr.CONFIG.CMTAG_START_YEAR_AS_VOLUME:
             if comicarr.CONFIG.SETDEFAULTVOLUME:
@@ -174,164 +166,86 @@ def volume_metadata_field(comversion, manga_volume, module=""):
                 else:
                     comversion = re.sub("[^0-9]", "", comversion).strip()
         if comversion is not None:
-            cvers = "volume=%s" % comversion
+            volume = str(comversion)
 
     if manga_volume is not None:
         logger.fdebug(
             "%s [MANGA] tagging as volume %s with no issue number (was volume label: %s)"
             % (module, manga_volume, comversion)
         )
-        cvers = "volume=%s" % manga_volume
-    return cvers
+        volume = str(manga_volume)
+    return volume
 
 
-def online_tag_options(issueid, module=""):
-    """The ComicTagger online-fetch options for this issue.
+def story_arc_values(readingorder):
+    """StoryArc and StoryArcNumber from ``[(arc, order), ...]``; empty values remove them."""
+    if readingorder is None:
+        return {"StoryArcNumber": ""}
+    if isinstance(readingorder, list):
+        return {
+            "StoryArcNumber": ",".join(str(order) for _, order in readingorder),
+            "StoryArc": ",".join(str(arc) for arc, _ in readingorder),
+        }
+    return {"StoryArcNumber": str(readingorder)}
 
-    Split out of run() so the decision can be asserted directly: it is one of
-    the two things about a manga tag run that has to be right, and the only
-    alternative is grepping run()'s source, which passes whether or not the
-    code works.
 
-    A non-numeric id is not a ComicVine issue id. MangaDex ids look like
-    ``md-csm-ch165``, and handing one to ``--id`` makes ComicVine 404 -- which
-    fails the whole tag run, so the file is placed untagged. There is no
-    ComicVine record to fetch for such an issue, so tag from the local metadata
-    instead of asking for one.
+def local_values(comversion, manga_volume, readingorder, agerating, module=""):
+    """The values Comicarr itself knows, laid over the archive's own tags."""
+    values = {"Volume": volume_value(comversion, manga_volume, module)}
+    values.update(story_arc_values(readingorder))
+    values["AgeRating"] = agerating if all([agerating is not None, agerating != "None"]) else ""
+    return values
 
-    ``-f -o`` is not the fallback either: that is an online search BY FILENAME,
-    and for a manga chapter it finds the wrong series more often than the right
-    one. Better an accurate local tag than a confident wrong one.
+
+def is_comicvine_id(issueid):
+    """A ComicVine issue id is numeric; MangaDex ids such as ``md-csm-ch165`` are not.
+
+    Only a ComicVine id is looked up online. Any other issue is tagged from
+    Comicarr's own data, because asking ComicVine for a MangaDex id fails the
+    whole tag and leaves the file untagged.
     """
-    if issueid is None:
-        return ["-f", "-o"]
-    if str(issueid).strip().isdigit():
-        return ["-o", "--id", issueid]
-    logger.fdebug(
-        "%s[COMIC-TAGGER] %s is not a ComicVine issue id -- tagging from local metadata, no online fetch."
-        % (module, issueid)
-    )
-    return []
+    return issueid is not None and str(issueid).strip().isdigit()
 
 
-def exported_filename(out):
-    """The archive name on ComicTagger's export line, or None.
+def comicvine_issue(issueid):
+    """The ComicVine issue record and its series' publisher, or (None, None)."""
+    from sqlalchemy import select
 
-    ComicTagger runs with stderr merged into stdout, so anything the
-    interpreter prints -- a SyntaxWarning from a vendored module compiled
-    without a cached .pyc, say -- lands in the same text. Deriving the
-    filename from the whole output let that warning text become part of
-    the name, after which the lookup failed and the encode fallback joined
-    a str path with bytes ("Can't mix strings and bytes in path
-    components"). Only the line carrying the marker reports the name, and
-    the "(Original deleted)" trailer ComicTagger appends is not part of it.
-    """
-    for line in reversed(out.splitlines()):
-        if "exported successfully to: " in line:
-            name = line.split("exported successfully to: ", 1)[1]
-            return name.strip().removesuffix(" (Original deleted)")
-    return None
+    from comicarr import cv, db
+    from comicarr.tables import comics
 
-
-def clear_issue_number(comictagger_cmd, filepath, module=""):
-    """Remove <Number> from a manga volume's tags, after the online overlay.
-
-    A manga volume is a book: the file *is* volume N and carries no issue
-    number. Asking for that with ``-m "issue="`` is not enough on its own,
-    because ComicTagger applies -m too early to survive the fetch --
-    ``cli.create_local_metadata()`` ends with ``md.overlay(opts.metadata)``
-    under the comment "finally, use explicit stuff", and the caller then runs
-    ``md.overlay(cv_md)``. ComicVine catalogues an English manga volume as an
-    issue, so v7 comes back numbered 7 and that number is written straight back
-    over the clear. The file lands tagged <Number>7</Number>, and a reader files
-    every volume as a chapter of one volume named for the series.
-
-    So re-apply the clear once the overlay is done. A second save pass with no
-    ``-o`` reads back the tags just written, overlays the empty issue and saves:
-    ``GenericMetadata.overlay`` maps "" to None, and the ComicInfo writer skips
-    a None field, so the element is removed rather than left empty. No other
-    field is passed, and there is no online fetch to repeat.
-
-    Deliberately scoped to the manga branch rather than fixed by re-applying
-    opts.metadata after the overlay in general: Comicarr also sends a bare
-    ``volume=`` whenever comversion is None, so a blanket re-apply would strip
-    the start-year <Volume> that a periodical comic legitimately carries.
-
-    Best-effort, like the volume resolution it completes -- a file tagged with
-    one number too many is worth far more than an untagged file -- so a failure
-    warns and leaves the tags as ComicTagger wrote them.
-    """
-    styles = []
-    if comicarr.CONFIG.CT_TAG_CR:
-        styles.append("cr")
-    if comicarr.CONFIG.CT_TAG_CBL:
-        styles.append("cbl")
-
-    cleared = []
-    failed = []
-
-    for style in styles:
-        script_cmd = [
-            sys.executable,
-            comictagger_cmd,
-            "-s",
-            "--configfolder",
-            comicarr.CONFIG.CT_SETTINGSPATH,
-            "--type",
-            style,
-            "-m",
-            "issue=",
-            filepath,
-        ]
+    dom = cv.pulldetails(None, "single_issue", issueid=issueid)
+    if not isinstance(dom, dict):
+        return None, None
+    issue = dom.get("results")
+    if not isinstance(issue, dict) or not issue:
+        return None, None
+    publisher = None
+    series_id = (issue.get("volume") or {}).get("id")
+    if series_id is not None:
         try:
-            p = subprocess.Popen(script_cmd, stdout=subprocess.PIPE, text=True, stderr=subprocess.STDOUT)
-            try:
-                # Bounded, because an unbounded communicate() on a wedged
-                # ComicTagger never returns: the post-processor is waiting on
-                # this call, so no later file in the job places either. A
-                # cosmetic tag fix must not be able to stall the pipeline.
-                out, err = p.communicate(timeout=_CLEAR_ISSUE_TIMEOUT)
-            except subprocess.TimeoutExpired:
-                p.kill()
-                # Reap it, so the killed child does not linger as a zombie.
-                p.communicate()
-                logger.warn(
-                    "%s [MANGA] Timed out after %ss clearing the issue number from the %s tags on %s"
-                    % (module, _CLEAR_ISSUE_TIMEOUT, style, filepath)
-                )
-                failed.append(style)
-                continue
+            row = db.select_one(select(comics.c.ComicPublisher).where(comics.c.ComicID == str(series_id)))
+            if row is not None and row["ComicPublisher"] not in (None, "", "None"):
+                publisher = row["ComicPublisher"]
         except Exception as e:
-            logger.warn("%s [MANGA] Unable to clear the issue number on %s [%s]" % (module, filepath, e))
-            failed.append(style)
-            continue
-        if "Save complete" not in out:
-            logger.warn("%s [MANGA] Could not clear the issue number on %s : %s" % (module, filepath, out))
-            failed.append(style)
-            continue
-        cleared.append(style)
-        logger.fdebug("%s [MANGA] Cleared the issue number from the %s tags on %s" % (module, style, filepath))
-
-    # Every style is attempted even after one fails. Returning early left the
-    # number gone from one tag block and present in the other -- and run()
-    # places the file regardless -- so the two blocks disagreed about what the
-    # file is, which is worse than either outcome on its own.
-    if failed:
-        logger.warn(
-            "%s [MANGA] Issue number cleared from %s but not %s on %s -- the tag blocks now disagree"
-            % (module, cleared or "no", failed, filepath)
-        )
-        return False
-
-    return bool(styles)
+            logger.fdebug("[META-TAGGER] Could not read the publisher for series %s: %s" % (series_id, e))
+    return issue, publisher
 
 
-def _redact_api_key(text):
-    """Hide the ComicVine API key in a logged command line."""
-    api_key = comicarr.CONFIG.COMICVINE_API
-    if not api_key or api_key == "None":
-        return text
-    return text.replace(api_key, "REDACTED")
+def build_tags(existing, values, cv_values=None, cv_credits=(), manga_volume=None):
+    """Tags to write: the archive's own, then Comicarr's values, then ComicVine's.
+
+    A manga volume loses its issue number last, after ComicVine, which
+    catalogues an English volume as an issue and would number it again.
+    """
+    tags = existing or comicinfo.Tags()
+    tags.overlay(values)
+    if cv_values is not None:
+        tags.overlay(cv_values)
+        tags.add_credits(cv_credits)
+    if manga_volume is not None:
+        tags.overlay({"Number": ""})
+    return tags
 
 
 def run(
@@ -346,15 +260,17 @@ def run(
     readingorder=None,
     agerating=None,
 ):
+    """Tag a copy of ``filename`` and return the tagged copy's path.
+
+    Otherwise returns "fail" (not tagged, the original is untouched),
+    "corrupt" (the archive cannot be read) or "file not found||<name>" (the
+    file is not a comic archive). A .cbr comes back as a .cbz.
+    """
     if module is None:
         module = ""
     module += "[META-TAGGER]"
 
     logger.fdebug(module + " dirName:" + dirName)
-
-    comictagger_cmd = os.path.join(comicarr.CMTAGGER_PATH, "comictagger.py")
-    logger.fdebug("ComicTagger Path location for internal comictagger.py set to : " + comictagger_cmd)
-
     logger.fdebug(module + " Filename is : " + filename)
 
     filepath = filename
@@ -365,7 +281,7 @@ def run(
     og_file_mode = current_file_mode(og_filepath)
     try:
         filename = os.path.split(filename)[1]
-    except:
+    except Exception:
         logger.warn(
             "Unable to detect filename within directory - I am aborting the tagging. You best check things out."
         )
@@ -375,19 +291,11 @@ def run(
     new_filepath = None
     new_folder = None
     try:
-        import tempfile
-
-        logger.fdebug("Filepath: %s" % filepath)
-        logger.fdebug("Filename: %s" % filename)
         new_folder = tempfile.mkdtemp(prefix="comicarr_", dir=comicarr.CONFIG.CACHE_DIR)
         os.chmod(new_folder, 0o755)
-        logger.fdebug("New_Folder: %s" % new_folder)
         new_filepath = os.path.join(new_folder, filename)
         logger.fdebug("New_Filepath: %s" % new_filepath)
-        if comicarr.CONFIG.FILE_OPTS == "copy" and not manualmeta:
-            shutil.copy(filepath, new_filepath)
-        else:
-            shutil.copy(filepath, new_filepath)
+        shutil.copy(filepath, new_filepath)
         filepath = new_filepath
     except Exception as e:
         logger.warn("%s Unexpected Error: %s [%s]" % (module, sys.exc_info()[0], e))
@@ -402,276 +310,93 @@ def run(
         tidyup(og_filepath, new_filepath, new_folder, manualmeta)
         return "fail"
 
-    scriptname = os.path.basename(sys.argv[0])
-    downloadpath = os.path.abspath(dirName)
-    sabnzbdscriptpath = os.path.dirname(sys.argv[0])
-    comicpath = new_folder
-
-    logger.fdebug(module + " Paths / Locations:")
-    logger.fdebug(module + " scriptname : " + scriptname)
-    logger.fdebug(module + " downloadpath : " + downloadpath)
-    logger.fdebug(module + " sabnzbdscriptpath : " + sabnzbdscriptpath)
-    logger.fdebug(module + " comicpath : " + comicpath)
-    logger.fdebug(module + " Running the ComicTagger Add-on for Comicarr")
-
-    if comicarr.CONFIG.FILE_OPTS == "move":
-        cbr2cbzoptions = ["--configfolder", comicarr.CONFIG.CT_SETTINGSPATH, "-e", "--delete-rar"]
-    else:
-        cbr2cbzoptions = ["--configfolder", comicarr.CONFIG.CT_SETTINGSPATH, "-e"]
-
-    tagoptions = ["-s"]
-
-    manga_volume = manga_volume_for_issue(issueid)
-    cvers = volume_metadata_field(comversion, manga_volume, module)
-
-    if readingorder is not None:
-        if type(readingorder) == list:
-            orderseq = []
-            arcseq = []
-            for osq in readingorder:
-                orderseq.append(str(osq[1]))
-                arcseq.append(osq[0])
-            arcseqn = ",".join(arcseq).strip()
-            arcseqname = re.sub(r",", "^,", arcseqn).strip()
-            ordersn = ",".join(orderseq).strip()
-            orders = re.sub(r",", "^,", ordersn).strip()
-            rorder = "storyArcNumber=%s, storyArc=%s" % (orders, arcseqname)
-        else:
-            "storyArcNumber=%s" % readingorder
-    else:
-        rorder = "storyArcNumber="
-
-    if all([agerating is not None, agerating != "None"]):
-        arating = "ageRating=%s" % (agerating)
-    else:
-        arating = "ageRating="
-
-    tline = ", ".join(part for part in (cvers, rorder, arating) if part is not None)
-    tagoptions.extend(["-m", tline])
-
-    try:
-        ct_check = subprocess.check_output([sys.executable, comictagger_cmd, "--version"], stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError:
-        logger.warn(module + "[WARNING] Make sure that you are using the comictagger included with Comicarr.")
-        tidyup(filepath, new_filepath, new_folder, manualmeta)
-        return "fail"
-
-    logger.info("ct_check: %s" % ct_check)
-    ctend = str(ct_check).find("[")
-    ct_version = re.sub("[^0-9]", "", str(ct_check)[:ctend])
-    if parse_version(ct_version) >= parse_version("1.3.1"):
-        if any([comicarr.CONFIG.COMICVINE_API == "None", comicarr.CONFIG.COMICVINE_API is None]):
-            logger.fdebug(
-                "%s ComicTagger v.%s being used - no personal ComicVine API Key supplied. Take your chances."
-                % (module, ct_version)
-            )
-        else:
-            logger.fdebug(
-                "%s ComicTagger v.%s being used - using personal ComicVine API key supplied via comicarr."
-                % (module, ct_version)
-            )
-            tagoptions.extend(
-                [
-                    "--cv-api-key",
-                    comicarr.CONFIG.COMICVINE_API,
-                    "--configfolder",
-                    comicarr.CONFIG.CT_SETTINGSPATH,
-                    "--notes_format",
-                    comicarr.CONFIG.CT_NOTES_FORMAT,
-                ]
-            )
-    else:
-        logger.fdebug(
-            "%s ComicTagger v.ct_version being used - personal ComicVine API key not supported in this version. Good luck."
-            % (module, ct_version)
-        )
-
-    i = 1
-    tagcnt = 0
-
+    styles = []
     if comicarr.CONFIG.CBR2CBZ_ONLY:
-        # One pass: the initial run below converts, then the loop breaks
-        # before any tagging type is written.
-        tagcnt = 1
         logger.fdebug(module + " CBR2CBZ Conversion only.")
     else:
         if comicarr.CONFIG.CT_TAG_CR:
-            tagcnt = 1
-            logger.fdebug(module + " CR Tagging enabled.")
-
+            styles.append("cr")
         if comicarr.CONFIG.CT_TAG_CBL:
-            if not comicarr.CONFIG.CT_TAG_CR:
-                i = 2
-            tagcnt = 2
-            logger.fdebug(module + " CBL Tagging enabled.")
-
-    if tagcnt == 0 and not comicarr.CONFIG.CBR2CBZ_ONLY:
-        logger.warn(
-            module
-            + " You have metatagging enabled, but you have not selected the type(s) of metadata to write. Please fix and re-run manually"
-        )
-        tidyup(filepath, new_filepath, new_folder, manualmeta)
-        return "fail"
-
-    if filename.endswith(".cbz"):
-        if comicarr.CONFIG.CT_CBZ_OVERWRITE:
-            logger.fdebug(module + " Will modify existing tag blocks even if it exists.")
-        else:
-            logger.fdebug(module + " Will NOT modify existing tag blocks even if they exist already.")
-            tagoptions.extend(["--nooverwrite"])
-
-    tagoptions.extend(online_tag_options(issueid, module))
-
-    original_tagoptions = tagoptions
-    og_tagtype = None
-    initial_ctrun = True
-
-    while i <= tagcnt:
-        if initial_ctrun:
-            f_tagoptions = cbr2cbzoptions
-            f_tagoptions.extend([filepath])
-        else:
-            if i == 1:
-                tagtype = "cr"
-                tagdisp = "ComicRack tagging"
-            elif i == 2:
-                tagtype = "cbl"
-                tagdisp = "Comicbooklover tagging"
-
-            f_tagoptions = original_tagoptions
-
-            if og_tagtype is not None:
-                for index, item in enumerate(f_tagoptions):
-                    if item == og_tagtype:
-                        f_tagoptions[index] = tagtype
-            else:
-                f_tagoptions.extend(["--type", tagtype, filepath])
-
-            og_tagtype = tagtype
-
-            logger.info(module + " " + tagdisp + " meta-tagging processing started.")
-
-        currentScriptName = [sys.executable, comictagger_cmd]
-        script_cmd = currentScriptName + f_tagoptions
-
-        if initial_ctrun:
-            logger.fdebug("%s Enabling ComicTagger script with options: %s" % (module, f_tagoptions))
-            script_cmdlog = script_cmd
-
-        else:
-            logger.fdebug(
-                "%s Enabling ComicTagger script with options: %s"
-                % (
-                    module,
-                    _redact_api_key(str(f_tagoptions)),
-                )
-            )
-            script_cmdlog = _redact_api_key(str(script_cmd))
-
-        logger.fdebug(module + " Executing command: " + str(script_cmdlog))
-        logger.fdebug(module + " Absolute path to script: " + script_cmd[0])
-        try:
-            p = subprocess.Popen(script_cmd, stdout=subprocess.PIPE, text=True, stderr=subprocess.STDOUT)
-            out, err = p.communicate()
-            if all([err is not None, err != ""]):
-                logger.warn("[ERROR RETURNED FROM COMIC-TAGGER] %s" % (err,))
-            if initial_ctrun and "exported successfully" in out:
-                logger.fdebug("%s[COMIC-TAGGER] : %s" % (module, out))
-                tmpfilename = exported_filename(out)
-                if tmpfilename is None:
-                    logger.warn(
-                        "%s[COMIC-TAGGER] Export reported success, but no exported filename was found in the output."
-                        % module
-                    )
-                    tidyup(og_filepath, new_filepath, new_folder, manualmeta)
-                    return "fail"
-                tmpf = tmpfilename
-                filepath = os.path.join(comicpath, tmpf)
-                if filename.lower() != tmpf.lower() and tmpf.endswith("(1).cbz"):
-                    logger.fdebug(
-                        "New filename [%s] is named incorrectly due to duplication during metatagging - Making sure it's named correctly [%s]."
-                        % (tmpf, filename)
-                    )
-                    tmpfilename = filename
-                    filepath_new = os.path.join(comicpath, tmpfilename)
-                    try:
-                        os.rename(filepath, filepath_new)
-                        filepath = filepath_new
-                    except:
-                        logger.warn(
-                            "%s unable to rename file to accomodate metatagging cbz to the same filename" % module
-                        )
-                if not os.path.isfile(filepath):
-                    logger.warn(
-                        "%s[COMIC-TAGGER] Export reported success, but no archive exists at %s" % (module, filepath)
-                    )
-                    tidyup(og_filepath, new_filepath, new_folder, manualmeta)
-                    return "fail"
-
-                logger.fdebug("%s[COMIC-TAGGER][CBR-TO-CBZ] New filename: %s" % (module, filepath))
-                initial_ctrun = False
-            elif initial_ctrun and "Archive is not a RAR" in out:
-                logger.fdebug("%s Output: %s" % (module, out))
-                logger.warn("%s[COMIC-TAGGER] file is not in a RAR format: %s" % (module, filename))
-                initial_ctrun = False
-            elif initial_ctrun:
-                initial_ctrun = False
-                if any(["file is not expected size" in out, "Failed the read" in out]):
-                    logger.fdebug("%s Output: %s" % (module, out))
-                    tidyup(og_filepath, new_filepath, new_folder, manualmeta)
-                    return "corrupt"
-                else:
-                    logger.fdebug("out: %s" % (out,))
-                    logger.fdebug("filename: %s" % (filename,))
-                    cbz_message = (
-                        "Failed to convert cbr to cbz - check permissions on folder %s and/or the location where Comicarr is trying to tag the files from."
-                        % comicarr.CONFIG.CACHE_DIR
-                    )
-                    logger.warn("%s[COMIC-TAGGER][CBR-TO-CBZ]%s" % (module, cbz_message))
-                    sendnotify("Error - %s" % (cbz_message), filename, module)
-                    tidyup(og_filepath, new_filepath, new_folder, manualmeta)
-                    return "fail"
-            elif "Cannot find" in out:
-                logger.fdebug("%s Output: %s" % (module, out))
-                logger.warn("%s[COMIC-TAGGER] Unable to locate file: %s" % (module, filename))
-                file_error = "file not found||" + filename
-                return file_error
-            elif "not a comic archive!" in out:
-                logger.fdebug("%s Output: %s" % (module, out))
-                logger.warn("%s[COMIC-TAGGER] Unable to locate file: %s" % (module, filename))
-                file_error = "file not found||%s" % filename
-                return file_error
-            else:
-                if "Save complete" not in out:
-                    unknown_message = out
-                    logger.warn("%s[COMIC-TAGGER][UNKNOWN-ERROR-DURING-METATAGGING] %s" % (module, unknown_message))
-                    sendnotify("Error - %s" % (unknown_message), filename, module)
-                    tidyup(og_filepath, new_filepath, new_folder, manualmeta)
-                    return "fail"
-                else:
-                    logger.info("%s[COMIC-TAGGER] Successfully wrote %s [%s]" % (module, tagdisp, filepath))
-                i += 1
-        except OSError:
+            styles.append("cbl")
+        if not styles:
             logger.warn(
-                "%s[COMIC-TAGGER] Unable to run comictagger with the options provided: %s"
-                % (
-                    module,
-                    _redact_api_key(str(script_cmd)),
-                )
+                module
+                + " You have metatagging enabled, but you have not selected the type(s) of metadata to write. Please fix and re-run manually"
             )
             tidyup(filepath, new_filepath, new_folder, manualmeta)
             return "fail"
-        except Exception as e:
-            logger.warn("%s[COMIC-TAGGER] Error : %s" % (module, e))
-            tidyup(filepath, new_filepath, new_folder, manualmeta)
-            return "fail"
-        if comicarr.CONFIG.CBR2CBZ_ONLY and not initial_ctrun:
-            break
 
-    # Tagging is done, so the ComicVine overlay has run and the issue number it
-    # supplied for the catalogued volume is now on the file. Take it back off.
-    if manga_volume is not None and not comicarr.CONFIG.CBR2CBZ_ONLY:
-        clear_issue_number(comictagger_cmd, filepath, module)
+    kind = comicinfo.archive_kind(filepath)
+    if kind is None:
+        logger.warn("%s Unable to read %s as a comic archive." % (module, filename))
+        return "file not found||%s" % filename
+    if kind == "rar":
+        try:
+            filepath = comicinfo.rar_to_cbz(filepath)
+        except comicinfo.NotAComicArchive:
+            logger.warn("%s %s holds no images." % (module, filename))
+            return "file not found||%s" % filename
+        except comicinfo.CorruptArchive as e:
+            logger.warn("%s[CBR-TO-CBZ] %s could not be read: %s" % (module, filename, e))
+            tidyup(og_filepath, new_filepath, new_folder, manualmeta)
+            return "corrupt"
+        logger.fdebug("%s[CBR-TO-CBZ] New filename: %s" % (module, filepath))
+    elif filename.lower().endswith(".cbr"):
+        logger.warn("%s file is not in a RAR format: %s" % (module, filename))
+
+    if comicarr.CONFIG.CBR2CBZ_ONLY:
+        restore_tagged_file_mode(filepath, og_file_mode, module)
+        return filepath
+
+    try:
+        comicinfo.check_archive(filepath)
+    except comicinfo.NotAComicArchive:
+        logger.warn("%s Unable to read %s as a comic archive." % (module, filename))
+        return "file not found||%s" % filename
+
+    try:
+        cv_values = None
+        cv_credits = ()
+        if is_comicvine_id(issueid):
+            issue, publisher = comicvine_issue(issueid)
+            if issue is None:
+                message = "No ComicVine details could be fetched for issue %s" % issueid
+                logger.warn("%s %s" % (module, message))
+                sendnotify("Error - %s" % message, filename, module)
+                tidyup(og_filepath, new_filepath, new_folder, manualmeta)
+                return "fail"
+            cv_values, cv_credits = comicinfo.comicvine_values(
+                issue, publisher=publisher, notes_format=comicarr.CONFIG.CT_NOTES_FORMAT
+            )
+        elif issueid is not None:
+            logger.fdebug("%s %s is not a ComicVine issue id -- tagging from local metadata." % (module, issueid))
+
+        manga_volume = manga_volume_for_issue(issueid)
+        values = local_values(comversion, manga_volume, readingorder, agerating, module)
+        existing = comicinfo.read_tags(filepath)
+        # An existing .cbz keeps its tags unless overwriting is on. A converted
+        # .cbr has no tags of its own worth keeping.
+        overwrite = comicarr.CONFIG.CT_CBZ_OVERWRITE or not filename.endswith(".cbz")
+        pages = comicinfo.page_count(filepath)
+
+        xml = comment = None
+        for style in styles:
+            if existing[style] is not None and not overwrite:
+                logger.fdebug("%s Already has %s tags. Not overwriting." % (module, style))
+                continue
+            tags = build_tags(existing[style], values, cv_values, cv_credits, manga_volume)
+            if style == "cr":
+                xml = comicinfo.comicinfo_xml(tags, pages)
+            else:
+                comment = comicinfo.cbl_comment(tags)
+        if xml is not None or comment is not None:
+            comicinfo.write_tags(filepath, comicinfo=xml, comment=comment)
+            logger.info("%s Successfully wrote %s tags [%s]" % (module, "+".join(styles), filepath))
+    except Exception as e:
+        logger.warn("%s Error : %s" % (module, e))
+        sendnotify("Error - %s" % e, filename, module)
+        tidyup(og_filepath, new_filepath, new_folder, manualmeta)
+        return "fail"
 
     restore_tagged_file_mode(filepath, og_file_mode, module)
     return filepath

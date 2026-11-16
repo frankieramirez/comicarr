@@ -1431,150 +1431,54 @@ class TestRestoreTaggedFileModeWiring:
         )
 
 
-class TestMangaTagShapeWiring:
-    """The resolver is only useful if run() actually consults it."""
+class TestMangaTagShape:
+    """A manga volume is a book: tagged volume N, with no issue number."""
 
-    @staticmethod
-    def _run_source():
+    def test_the_issue_number_is_removed_after_comicvine_numbers_it(self):
+        """ComicVine catalogues an English volume as an issue and numbers it."""
+        from comicarr import cmtag
+
+        tags = cmtag.build_tags(None, {"Volume": "7"}, {"Number": "7", "Series": "One-Punch Man"}, (), "7")
+
+        assert tags.fields["Volume"] == "7"
+        assert "Number" not in tags.fields
+
+    def test_a_periodical_keeps_its_number(self):
+        from comicarr import cmtag
+
+        tags = cmtag.build_tags(None, {"Volume": "2015"}, {"Number": "7"}, (), None)
+
+        assert tags.fields["Number"] == "7"
+
+    def test_run_resolves_a_manga_volume(self):
         import inspect
 
         from comicarr import cmtag
 
-        return inspect.getsource(cmtag.run)
-
-    def test_run_resolves_a_manga_volume(self):
-        assert "manga_volume_for_issue(issueid)" in self._run_source(), (
+        assert "manga_volume_for_issue(issueid)" in inspect.getsource(cmtag.run), (
             "the meta-tagger no longer resolves a manga volume; manga would be "
             "tagged with the series volume label and an issue number again"
         )
 
-    def test_a_manga_volume_clears_the_issue_number_after_tagging(self):
-        """-m cannot do it: the online overlay runs after -m and puts it back."""
-        source = self._run_source()
-        assert "clear_issue_number(comictagger_cmd, filepath, module)" in source, (
-            "manga volumes would keep the issue number ComicVine catalogues them "
-            "under, and a reader would file every volume as a chapter"
-        )
 
-    def test_the_clear_runs_before_the_file_leaves_the_cache(self):
-        """Both passes must land while the file is still the tagging copy."""
-        source = self._run_source()
-        assert source.index("clear_issue_number(") < source.index("restore_tagged_file_mode("), (
-            "the issue number would be cleared after the mode was restored, reducing a library file's permissions again"
-        )
+class TestComicVineIds:
+    """Only a ComicVine id is looked up online."""
 
-    def test_the_tag_options_no_longer_carry_a_doomed_issue_clear(self):
-        """One owner for the clear -- a second, silently-ignored one is a lie."""
-        assert "issue=" not in self._run_source(), (
-            "ComicTagger applies -m before the ComicVine overlay writes the number "
-            "straight back over it, so an issue= in the tag options is a second "
-            "owner of the clear that silently does nothing"
-        )
-
-
-class TestClearIssueNumber:
-    """The clear only works as a SECOND, offline pass.
-
-    ComicTagger applies -m before the ComicVine overlay, so an issue= sent with
-    the tagging run is overwritten by the number ComicVine supplies. Re-applying
-    it with no -o is what actually removes <Number>.
-    """
-
-    @staticmethod
-    def _cfg(cr=True, cbl=False):
-        return SimpleNamespace(CT_TAG_CR=cr, CT_TAG_CBL=cbl, CT_SETTINGSPATH="/config/ct")
-
-    @staticmethod
-    def _popen(out="Save complete\n"):
-        proc = MagicMock()
-        proc.communicate.return_value = (out, "")
-        return MagicMock(return_value=proc)
-
-    def _run(self, cfg, popen):
+    def test_a_comicvine_id_is_fetched(self):
         from comicarr import cmtag
 
-        with patch.object(comicarr, "CONFIG", cfg):
-            with patch.object(cmtag.subprocess, "Popen", popen):
-                return cmtag.clear_issue_number("/app/comictagger.py", "/cache/OPM v07.cbz")
+        assert cmtag.is_comicvine_id("12345") is True
 
-    def test_the_clear_pass_never_goes_online(self):
-        """A second -o would refetch the very number being removed."""
-        popen = self._popen()
-        assert self._run(self._cfg(), popen) is True
-        cmd = popen.call_args[0][0]
-        assert "-o" not in cmd, "the online overlay would rewrite the issue number"
-        assert "--id" not in cmd
-
-    def test_the_clear_pass_saves_an_empty_issue_for_the_written_style(self):
-        popen = self._popen()
-        self._run(self._cfg(), popen)
-        cmd = popen.call_args[0][0]
-        assert "-s" in cmd
-        assert cmd[cmd.index("--type") + 1] == "cr"
-        assert cmd[cmd.index("-m") + 1] == "issue="
-        assert cmd[-1] == "/cache/OPM v07.cbz"
-
-    def test_every_written_tag_style_is_cleared(self):
-        """A style left untouched keeps the number in its own tag block."""
-        popen = self._popen()
-        assert self._run(self._cfg(cr=True, cbl=True), popen) is True
-        assert [c[0][0][c[0][0].index("--type") + 1] for c in popen.call_args_list] == ["cr", "cbl"]
-
-    def test_nothing_runs_when_no_tag_style_is_written(self):
-        popen = self._popen()
-        assert self._run(self._cfg(cr=False, cbl=False), popen) is False
-        popen.assert_not_called()
-
-    def test_a_refused_save_is_reported_not_raised(self):
-        """Best-effort: an extra number beats losing the tags entirely."""
-        popen = self._popen(out="Sorry, but this is not a comic archive!\n")
-        assert self._run(self._cfg(), popen) is False
-
-    def test_a_subprocess_failure_never_breaks_tagging(self):
+    @pytest.mark.parametrize("issueid", ["md-csm-ch165", "md-a1b2", None])
+    def test_other_ids_are_tagged_locally(self, issueid):
+        """Asking ComicVine for a MangaDex id fails the whole tag."""
         from comicarr import cmtag
 
-        with patch.object(comicarr, "CONFIG", self._cfg()):
-            with patch.object(cmtag.subprocess, "Popen", side_effect=OSError("no interpreter")):
-                assert cmtag.clear_issue_number("/app/comictagger.py", "/cache/a.cbz") is False
-
-
-class TestOnlineTagOptions:
-    """Which ComicTagger online options an issue id earns.
-
-    Asserted directly rather than by grepping run()'s source: the source
-    assertions elsewhere in this file pass whether or not the decision is
-    correct, so CI never saw ComicTagger abort on a MangaDex id.
-    """
-
-    def test_a_comicvine_id_is_fetched_by_id(self):
-        from comicarr import cmtag
-
-        assert cmtag.online_tag_options("446055") == ["-o", "--id", "446055"]
-
-    def test_no_id_falls_back_to_a_filename_search(self):
-        from comicarr import cmtag
-
-        assert cmtag.online_tag_options(None) == ["-f", "-o"]
-
-    @pytest.mark.parametrize("issueid", ["md-csm-ch165", "md-opm-v07", "mal-1234"])
-    def test_a_non_comicvine_id_asks_for_nothing_online(self, issueid):
-        """`--id md-csm-ch165` 404s, which fails the run and places it untagged.
-
-        `-f -o` is not the fallback either -- that searches ComicVine by
-        filename, which for a manga chapter finds the wrong series more often
-        than the right one.
-        """
-        from comicarr import cmtag
-
-        options = cmtag.online_tag_options(issueid)
-
-        assert options == []
-        assert "--id" not in options
-        assert "-o" not in options
+        assert cmtag.is_comicvine_id(issueid) is False
 
 
 class TestVolumeMetadataField:
-    """The -m volume= field, asserted on the value rather than on run()'s source."""
+    """The <Volume> value, asserted directly rather than on run()'s source."""
 
     @staticmethod
     def _cfg(**overrides):
@@ -1591,127 +1495,33 @@ class TestVolumeMetadataField:
         from comicarr import cmtag
 
         monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
-        assert cmtag.volume_metadata_field("2015", "7") == "volume=7"
+        assert cmtag.volume_value("2015", "7") == "7"
 
     def test_a_manga_volume_wins_even_with_no_series_label(self, monkeypatch):
         from comicarr import cmtag
 
         monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
-        assert cmtag.volume_metadata_field(None, "7") == "volume=7"
+        assert cmtag.volume_value(None, "7") == "7"
 
     def test_a_manga_volume_wins_over_the_default_volume_setting(self, monkeypatch):
         """SETDEFAULTVOLUME forces 1; the book's own volume must still win."""
         from comicarr import cmtag
 
         monkeypatch.setattr(comicarr, "CONFIG", self._cfg(SETDEFAULTVOLUME=True))
-        assert cmtag.volume_metadata_field(None, "7") == "volume=7"
+        assert cmtag.volume_value(None, "7") == "7"
 
     def test_a_periodical_keeps_its_series_volume_label(self, monkeypatch):
         """Control: with no manga volume the comic behaviour is untouched."""
         from comicarr import cmtag
 
         monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
-        assert cmtag.volume_metadata_field("2015", None) == "volume=2015"
+        assert cmtag.volume_value("2015", None) == "2015"
 
-    def test_volume_tagging_off_still_clears_the_field(self, monkeypatch):
+    def test_volume_tagging_off_removes_the_field(self, monkeypatch):
         from comicarr import cmtag
 
         monkeypatch.setattr(comicarr, "CONFIG", self._cfg(CMTAG_VOLUME=False))
-        assert cmtag.volume_metadata_field("2015", None) == "volume="
-
-
-class TestClearIssueNumberAcrossStyles:
-    """Both tag blocks, or neither -- and never a hang.
-
-    run() places the file whichever way this goes, so returning after the first
-    failure left <Number> gone from one block and present in the other: the two
-    blocks then disagreed about what the file is, which is worse than either
-    outcome alone.
-    """
-
-    @staticmethod
-    def _cfg():
-        return SimpleNamespace(CT_TAG_CR=True, CT_TAG_CBL=True, CT_SETTINGSPATH="/tmp/ct")
-
-    def _run(self, monkeypatch, results):
-        """results: one entry per style, either a stdout string or an Exception."""
-        from comicarr import cmtag
-
-        monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
-        calls = []
-        timeouts = []
-        pending = list(results)
-
-        class FakeProc:
-            def __init__(self, cmd, **kwargs):
-                self.cmd = cmd
-                calls.append(cmd)
-                self._result = pending.pop(0)
-                self._killed = False
-
-            def communicate(self, timeout=None):
-                if self._killed:
-                    # The reap after kill() is deliberately unbounded: the child
-                    # is already dead, so this one cannot block on anything.
-                    calls.append(["reaped"])
-                    return "", ""
-                timeouts.append(timeout)
-                if isinstance(self._result, Exception):
-                    # Only a BOUNDED wait can time out. An unbounded one just
-                    # blocks forever, which a test cannot represent -- so the
-                    # recorded timeout below is what actually pins it.
-                    if timeout is None:
-                        raise AssertionError("communicate() was unbounded; a wedged child would hang here")
-                    raise self._result
-                return self._result, ""
-
-            def kill(self):
-                self._killed = True
-                calls.append(["killed"])
-
-        monkeypatch.setattr(cmtag.subprocess, "Popen", FakeProc)
-        ok = cmtag.clear_issue_number("/tmp/comictagger.py", "/library/One-Punch Man v07.cbz")
-        return ok, calls, timeouts
-
-    def test_both_styles_are_cleared(self, monkeypatch):
-        ok, calls, timeouts = self._run(monkeypatch, ["Save complete", "Save complete"])
-
-        assert ok is True
-        assert [c[c.index("--type") + 1] for c in calls] == ["cr", "cbl"]
-
-    def test_a_failing_style_does_not_skip_the_remaining_one(self, monkeypatch):
-        """The early return left the blocks disagreeing and said nothing."""
-        ok, calls, timeouts = self._run(monkeypatch, ["Save complete", "Error: could not write"])
-
-        assert ok is False, "a partial clear must not report success"
-        assert len(calls) == 2, "the second style was never attempted"
-
-    def test_a_first_style_failure_still_attempts_the_second(self, monkeypatch):
-        ok, calls, timeouts = self._run(monkeypatch, ["Error: could not write", "Save complete"])
-
-        assert ok is False
-        assert [c[c.index("--type") + 1] for c in calls] == ["cr", "cbl"]
-
-    def test_a_wedged_comictagger_is_killed_rather_than_waited_on(self, monkeypatch):
-        """An unbounded communicate() never returns, and the post-processor is
-        waiting on it -- so no later file in the job places either."""
-        import subprocess as sp
-
-        from comicarr import cmtag
-
-        ok, calls, timeouts = self._run(
-            monkeypatch,
-            [sp.TimeoutExpired(cmd="comictagger", timeout=cmtag._CLEAR_ISSUE_TIMEOUT), "Save complete"],
-        )
-
-        assert ok is False
-        assert ["killed"] in calls, "the wedged child was never killed"
-        assert ["reaped"] in calls, "the killed child was never reaped; it lingers as a zombie"
-        assert calls.index(["killed"]) < calls.index(["reaped"]), "a child cannot be reaped before it is killed"
-        assert [c[c.index("--type") + 1] for c in calls if "--type" in c] == ["cr", "cbl"]
-        # The bound itself: an unbounded communicate() cannot time out at all,
-        # it simply never returns, and the post-processor waits on it.
-        assert timeouts[0] == cmtag._CLEAR_ISSUE_TIMEOUT, "the wait was not bounded"
+        assert cmtag.volume_value("2015", None) == ""
 
 
 class TestMangaKeepsTheFileWhenTheDownloadFolderIsTheSeriesFolder:

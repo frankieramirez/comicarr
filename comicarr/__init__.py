@@ -263,7 +263,6 @@ UPDATE_REASON = None
 APILOCK = ThreadSafeLock()
 SEARCHLOCK = ThreadSafeLock()
 DDL_LOCK = ThreadSafeLock()
-CMTAGGER_PATH = None
 ISSUE_EXCEPTIONS = [
     "DEATHS",
     "ALPHA",
@@ -445,7 +444,6 @@ def initialize(config_file):
             PUBLISHER_IMPRINTS, \
             PROG_DIR, \
             DATA_DIR, \
-            CMTAGGER_PATH, \
             KEYS_32P, \
             AUTHKEY_32P, \
             FEED_32P, \

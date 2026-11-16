@@ -1,106 +1,36 @@
 # Vendor dependencies and redistribution evidence
 
-This document describes code shipped inside `comicarr._vendor`. The
-machine-readable manifest is `comicarr/_vendor/provenance.py`; contract tests
-compare it with both the source tree and a built wheel.
+Comicarr ships no vendored third-party code. `comicarr/_vendor/` is gone
+([ADR-0007](../adr/0007-zero-legacy.md)), and
+`scripts/check_root_modules.py` fails if it comes back. Third-party code
+arrives only as a declared dependency in `pyproject.toml` and `uv.lock`.
 
-Inventory and evidence review date: 2026-07-12. Comicarr commit
-`45720b948f8c0cc9153412171dca8891e266f1c8` imported the inherited Mylar3
-snapshot. That commit proves chain of custody, not the original copyright or
-license authority of every copied component.
+Comicarr commit `45720b948f8c0cc9153412171dca8891e266f1c8` imported the
+inherited Mylar3 snapshot, vendored trees included. Each tree was later
+replaced and deleted:
 
-## Status vocabulary
+| Former vendor root | Replaced by | Issue |
+| --- | --- | --- |
+| `utorrent/` | first-party `comicarr/torrent/clients/utorrent_webui.py` | #1229 |
+| `mega/` | first-party `comicarr/downloaders/mega_public.py` | #1230 |
+| `bencode.py` | first-party `comicarr/app/common/torrent_hash.py` | #1409 |
+| `get_image_size.py` | deleted, nothing imported it | #1409 |
+| `qbittorrent/` | the maintained `qbittorrent-api` package | #1410 |
+| `deluge_client/` | the maintained `deluge-client` package | #1411 |
+| `transmissionrpc/` | the maintained `transmission-rpc` package | #1412 |
+| `rtorrent/` | first-party `comicarr/app/downloads/rtorrent_rpc.py` | #1413 |
+| `comictaggerlib/` | first-party `comicarr/app/metadata/comicinfo.py` | #1414 |
 
-- `evidence-recorded` means identifiable license evidence exists as a
-  declaration, header, source notice, or bundled license text. It records
-  engineering evidence; it does not establish completeness or legal clearance.
-- `unresolved` means Comicarr cannot establish redistribution authority for the
-  exact bundled snapshot. No contributor may describe it as cleared without
-  authoritative rights-holder evidence. A Comicarr project owner may separately
-  approve a compatibility-safe replacement or removal without making a
-  redistribution-clearance claim.
-- `integration_owner = Comicarr` identifies the team responsible for the
-  adapter boundary. It does not claim copyright ownership of vendor code.
+The uTorrent and Mega trees never had redistribution authority Comicarr could
+establish; deleting them ended the question rather than answering it. The
+first-party replacements were written from protocol documentation and observed
+behavior, not copied from the vendored files, and are GPL-3.0 like the rest of
+Comicarr.
 
-The root Comicarr GPL license and the historical Mylar3 distribution do not
-fill missing third-party notice or source-revision evidence.
-
-## Packaged inventory
-
-| Vendor root | Runtime role | Source/version evidence | License evidence in copied tree | Redistribution status |
-| --- | --- | --- | --- | --- |
-| `comictaggerlib/` | ComicTagger metadata/archive behavior | Bundled version `1.3.5` in `ctversion.py` | Apache-2.0 notices in source files | `evidence-recorded` |
-
-`bencode.py` was replaced by `comicarr/app/common/torrent_hash.py`, which
-hashes the raw `info` span of a .torrent file, and `get_image_size.py`, which
-nothing imported, was deleted
-([#1409](https://github.com/frankieramirez/comicarr/issues/1409), ADR-0007).
-The qBittorrent, Deluge and Transmission copies were replaced by the
-maintained `qbittorrent-api`, `deluge-client` and `transmission-rpc`
-packages (#1410, #1411, #1412), and the `rtorrent` library by the first-party
-`comicarr/app/downloads/rtorrent_rpc.py` (#1413).
-
-## Removed unresolved trees
-
-Two inherited trees never had redistribution authority that Comicarr could
-establish. Both were deleted rather than cleared; deleting them ends the
-question instead of answering it.
-
-- **uTorrent**, removed by
-  [#1229](https://github.com/frankieramirez/comicarr/issues/1229). The
-  adapter uses `comicarr/torrent/clients/utorrent_webui.py`, written from the
-  public WebUI API and the recorded behavior in
-  `tests/unit/test_utorrent_adapter.py`.
-- **Mega**, removed by
-  [#1230](https://github.com/frankieramirez/comicarr/issues/1230). The Mega
-  downloader uses `comicarr/downloaders/mega_public.py`, written from Mega's
-  public-link protocol and tested in `tests/unit/test_mega_public.py`. It
-  uses the `cryptography` dependency Comicarr already had.
-
-Both replacements are first-party code under Comicarr's GPL-3.0 license. No
-packaged vendor root is `unresolved` now, and a contract test keeps it that
-way.
-
-## Import and artifact contract
-
-- Torrent and downloader integrations import through Comicarr-owned adapters
-  and namespaced `comicarr._vendor` modules.
-- No first-party module imports a vendor package by a top-level name;
-  `tests/unit/test_vendor_contracts.py` enforces it.
-- Every top-level directory or standalone Python module shipped below
-  `comicarr/_vendor` must have exactly one provenance entry.
-- Every declared evidence and notice path must exist. Every actual
-  `LICENSE`, `COPYING`, or `NOTICE` file must be claimed exactly once.
-- Custody sources, identified upstreams, probable origin candidates,
-  replacement candidates, and component-only attributions are separate
-  machine fields; none may be substituted for another.
-- A wheel smoke build must contain the same vendor roots and every declared
-  notice. Comicarr's dist-info GPL license does not satisfy a vendor notice.
-- Snapshot digests identify the exact packaged bytes and must change whenever
-  vendor contents or bundled notices change. They are not upstream revisions.
-
-## Adapter contract and future decisions
-
-`comicarr.torrent.contracts` owns the stable result shapes used by search, RSS,
-and recovery. A replacement must preserve connection failures, identifiers,
-category/save-path behavior, start/pause/delete semantics, and monitor errors
-through adapter fixtures before any dependency swap.
-
-Potential maintained alternatives may be evaluated separately, but this unit
-does not select one. Mega and uTorrent remain active compatibility commitments.
-Changing either provenance status requires all of the following:
-
-1. an authoritative source repository plus exact version/revision match for
-   the bundled snapshot;
-2. copyright and license evidence applicable to that snapshot, including any
-   required notices;
-3. an accountable rights-holder decision that applies to the bundled snapshot.
-
-A Comicarr project owner may instead approve a separate behavior/compatibility
-plan for replacement or removal. That governance decision does not upgrade the
-historical snapshot's redistribution status.
-
-Until then, `unresolved` is the only honest machine and documentation state.
+Tagging no longer runs ComicTagger: Comicarr writes `ComicInfo.xml` and the
+ComicBookLover zip comment itself, from its own ComicVine data. Old
+`[Metatagging]` settings that only ComicTagger read (`cmtagger_path`,
+`ct_settingspath`) are still accepted in `config.ini` and ignored.
 
 ## Selected direction
 

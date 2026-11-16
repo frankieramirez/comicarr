@@ -27,8 +27,7 @@ install at startup. That shipped in 0.50.4 and boot-looped Docker users
 The gate imports ``Comicarr.py``'s package tree module by module and fails on
 any ``ModuleNotFoundError`` for a module outside the ``comicarr`` package.
 Optional integrations guard their imports with ``try``, so they do not raise
-here. Other import errors (the inherited comictaggerlib import cycle) are not
-dependency problems and are ignored.
+here. Other import errors are not dependency problems and are ignored.
 """
 
 import importlib
@@ -38,8 +37,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-# Shipped but never imported by the app: the vendored client's own test module.
-NOT_RUNTIME = {"comicarr._vendor.deluge_client.tests"}
+# Shipped but never imported by the app.
+NOT_RUNTIME: set[str] = set()
 
 
 def main() -> int:

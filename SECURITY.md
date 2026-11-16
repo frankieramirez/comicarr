@@ -29,9 +29,9 @@ You should receive a response within 72 hours. We will work with you to understa
 
 The following items may be flagged by automated security scanners but are **not security vulnerabilities**:
 
-### ComicVine API Key in `comicarr/_vendor/comictaggerlib/comicvinetalker.py`
+### ComicVine API Key in git history
 
-This is the ComicTagger project's publicly distributed default API key, inherited from the upstream Mylar3 codebase. It is not a private credential — the same key is visible in the public ComicTagger repository.
+Older commits contain `comicarr/_vendor/comictaggerlib/comicvinetalker.py`, which held the ComicTagger project's publicly distributed default API key, inherited from the upstream Mylar3 codebase. It is not a private credential — the same key is visible in the public ComicTagger repository. The vendored copy was removed when Comicarr began writing its own tags.
 
 ### CherryPy Test Certificate in Git History
 

@@ -40,10 +40,12 @@ class RuntimeCapabilityDiagnostics:
             commands.append(comicarr.CONFIG.UNRAR_CMD)
             logger.fdebug("[DEPENDENCY-CHECK] unrar_cmd location added to cmd checker: %s" % comicarr.CONFIG.UNRAR_CMD)
 
-        settings_path = os.path.join(comicarr.CONFIG.CT_SETTINGSPATH, "settings")
+        # A ComicTagger settings file left from an older install may name the
+        # unrar the user picked; keep honouring it.
+        settings_path = os.path.join(comicarr.CONFIG.CT_SETTINGSPATH or "", "settings")
         config = configparser.ConfigParser()
         try:
-            if os.path.isfile(settings_path):
+            if comicarr.CONFIG.CT_SETTINGSPATH and os.path.isfile(settings_path):
                 config.read(settings_path, encoding="utf-8")
                 configured_path = config.get("settings", "rar_exe_path", fallback=None)
                 if configured_path:
