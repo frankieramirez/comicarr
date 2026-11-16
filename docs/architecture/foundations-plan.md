@@ -64,7 +64,9 @@ Every module follows the same five steps:
 
 Foundations requires steps 1 to 3 for all five modules, and steps 4 and 5 for
 `notifiers.py`. Steps 4 and 5 for the other four happen as their tests allow
-and are not a 1.0 gate. Legacy callers such as `search.py` and
+and were not a Foundations gate. [ADR-0007](../adr/0007-zero-legacy.md) makes
+them a 1.0 gate, tracked on
+[#1402](https://github.com/frankieramirez/comicarr/issues/1402). Legacy callers such as `search.py` and
 `postprocessor.py` may call a seam; they are not required to.
 
 The order runs smallest and least coupled first. `updater.py` and
