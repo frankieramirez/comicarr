@@ -50,7 +50,6 @@ jobs:
               - 'tests/**'
               - 'scripts/**'
               - 'Comicarr.py'
-              - 'comictagger.py'
               - 'pyproject.toml'
               - 'uv.lock'
               - 'alembic/**'
