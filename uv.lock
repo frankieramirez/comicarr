@@ -362,6 +362,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "cfscrape" },
     { name = "cryptography" },
+    { name = "deluge-client" },
     { name = "fastapi" },
     { name = "feedparser" },
     { name = "jsonschema" },
@@ -420,6 +421,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.8.2" },
     { name = "cfscrape", specifier = ">=2.0.8" },
     { name = "cryptography", specifier = ">=46.0.5" },
+    { name = "deluge-client", specifier = ">=1.10.2" },
     { name = "factory-boy", marker = "extra == 'dev'", specifier = ">=3.3.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "feedparser", specifier = ">=5.2.1" },
@@ -602,6 +604,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/1a/15b92b25eb6ce3089cd49377ae990a0f3ad485a510f968aed1f19dbdcdf2/cryptography-50.0.0-pp311-pypy311_pp73-manylinux_2_34_aarch64.whl", hash = "sha256:62598a8a57f815db4c6259a4e97d857dab56697e7de8e8ab02352ab74da1995d", size = 4691924, upload-time = "2026-07-31T14:24:58.082Z" },
     { url = "https://files.pythonhosted.org/packages/62/15/219075012ab13e8905f3cd572204f4acb4b111df787104346b9bc0cea789/cryptography-50.0.0-pp311-pypy311_pp73-manylinux_2_34_x86_64.whl", hash = "sha256:07479a1cb08219ab719147e742e76090c9c773321959bb94946fffdd397a6437", size = 4699593, upload-time = "2026-07-31T14:24:59.951Z" },
     { url = "https://files.pythonhosted.org/packages/8e/b5/c2c5fce26f0ee40d21bafe7f191d29a34b35a65ac4fe8a1191d1983612e9/cryptography-50.0.0-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:c99c003e088647b8a5b7c145d6f78c335f6348332b62e142d411c4b63d1460b9", size = 3813796, upload-time = "2026-07-31T14:25:02.298Z" },
+]
+
+[[package]]
+name = "deluge-client"
+version = "1.10.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f1/53/d6672ad7b44190d578ce7520822af34e7119760df9934cad4d730b0592a2/deluge-client-1.10.2.tar.gz", hash = "sha256:3881aee3c4e0ca9dd8a56b710047b837e1d087a83e421636a074771f92a9f1b5", size = 12601, upload-time = "2024-02-17T15:15:40.249Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0a/37/167fc27ae423905d3b38824a403f32f12c6b8c5679104e47838dfb294afd/deluge_client-1.10.2-py3-none-any.whl", hash = "sha256:ea052663c0ed3a2247517d316c3784d70c83279dd9e088623fd06b164768f4f1", size = 12355, upload-time = "2024-02-17T15:15:38.561Z" },
 ]
 
 [[package]]

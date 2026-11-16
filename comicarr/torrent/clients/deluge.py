@@ -1,9 +1,10 @@
 import base64
 import os
 
+from deluge_client import DelugeRPCClient
+
 import comicarr
 from comicarr import logger
-from comicarr._vendor.deluge_client import DelugeRPCClient
 from comicarr.torrent.contracts import connection_failure
 
 

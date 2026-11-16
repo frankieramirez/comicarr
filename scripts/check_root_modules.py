@@ -100,7 +100,6 @@ ROOT_PACKAGES: dict[str, int] = {
 # Top-level entry under comicarr/_vendor/ -> retiring issue.
 VENDOR_ROOTS: dict[str, int] = {
     "comictaggerlib": 1414,
-    "deluge_client": 1411,
     "rtorrent": 1413,
     "transmissionrpc": 1412,
 }
