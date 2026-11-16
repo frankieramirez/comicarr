@@ -551,6 +551,7 @@ def test_reason_phrase_matches_on_base_token(activity_db):
                 _journal(
                     release_key="phrase-1",
                     issueid="iss-1",
+                    nzbname="Saga.070",
                     stage="manual_review",
                     fail_reason="downloaded_invalid_artifact_command:PostProcessCommandError",
                     payload_json=_payload(comicid="42", comicname="Saga"),
@@ -558,6 +559,7 @@ def test_reason_phrase_matches_on_base_token(activity_db):
                 _journal(
                     release_key="phrase-2",
                     issueid="iss-2",
+                    nzbname="Other.001",
                     stage="manual_review",
                     fail_reason="some_brand_new_token",
                     payload_json=_payload(comicid="43", comicname="Other"),
@@ -868,7 +870,10 @@ def test_attention_endpoint_collapses_a_production_shaped_pile(activity_db):
         biggest = max(body["results"], key=lambda g: g["member_count"])
         assert biggest["series_label"] == "Looney Tunes"
         assert biggest["member_count"] == 173
-        assert biggest["reason_phrase"] == "downloaded file failed post-process checks"
+        # These rows carry no release name, as the real pile did, so they are
+        # worded as untraceable records rather than a post-process failure.
+        assert biggest["base_reason"] == "untraceable_record"
+        assert biggest["reason_phrase"] == "no release name was saved for this download, so there is nothing to import"
         assert biggest["available_actions"] == ["import", "search_again", "stop_wanting"]
 
         # The status line reports the same 39 the band does.

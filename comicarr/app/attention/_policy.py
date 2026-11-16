@@ -50,6 +50,15 @@ REASON_PHRASES = {
     "torrent_autosnatch_script_error": "the auto-snatch script failed while retrieving a completed torrent",
 }
 
+# Display-only token for a post-process rejection on a row that never recorded
+# which release it was. These are mostly records from before downloads were
+# journaled with their identity; no setting can make them importable. It is
+# never stored, so it stays out of REASON_PHRASES and KNOWN_BASE_TOKENS.
+UNTRACEABLE_RECORD = "untraceable_record"
+DISPLAY_REASON_PHRASES = {
+    UNTRACEABLE_RECORD: "no release name was saved for this download, so there is nothing to import",
+}
+
 UNMAPPED_REASON_PHRASE = "something went wrong"
 
 # Cause-level copy for the dashboard's "Needs you" rows, which group every
@@ -74,6 +83,11 @@ CAUSE_COPY = {
         "icon": "failed",
     },
     "submission_rejected": {"headline": "The downloader rejected these submissions", "icon": "failed"},
+    UNTRACEABLE_RECORD: {
+        "headline": "Old downloads with no release name",
+        "hint": "Nothing can be imported from these. Search again or stop wanting them.",
+        "icon": "file",
+    },
     "sab_completed_file_not_found": {
         "headline": "A finished download wasn't found on disk",
         "hint": "Usually a path mapping between Comicarr and the client.",
@@ -148,6 +162,33 @@ def base_reason(fail_reason):
     if not token:
         return None
     return token.split(":", 1)[0]
+
+
+_POSTPROCESS_COMMAND_TOKENS = frozenset(
+    {"invalid_postprocess_command", "invalid_recovered_postprocess_command", "downloaded_invalid_artifact_command"}
+)
+
+
+def _has_release_name(row, payload):
+    payload = payload if isinstance(payload, dict) else {}
+    for value in (row.get("nzbname"), payload.get("nzb_name"), payload.get("nzbname")):
+        if value is not None and str(value).strip() not in ("", "None"):
+            return True
+    return False
+
+
+def display_reason(row, payload=None):
+    """The base reason a Needs-you row is grouped and worded by.
+
+    A post-process command rejection on a row with no release name is not a
+    settings problem: the validator rejects it for ``nzb_name is required``
+    whatever the configuration. It gets its own cause instead of "Post-processing
+    is misconfigured", whose settings link cannot clear it.
+    """
+    token = base_reason((row or {}).get("fail_reason"))
+    if token in _POSTPROCESS_COMMAND_TOKENS and not _has_release_name(row or {}, payload):
+        return UNTRACEABLE_RECORD
+    return token
 
 
 def reason_phrase(fail_reason):
