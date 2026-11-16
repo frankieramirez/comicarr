@@ -293,7 +293,7 @@ def test_post_process_rejections_without_a_release_name_are_their_own_cause(atte
                     issueid="o1",
                     stage="manual_review",
                     fail_reason="downloaded_invalid_artifact_command:PostProcessCommandError",
-                    payload_json=json.dumps({"comicid": "18839", "comicname": "Looney Tunes", "nzbname": None}),
+                    payload_json=json.dumps({"comicid": "900", "comicname": "Example Series", "nzbname": None}),
                 ),
                 _journal(
                     release_key="old-2",
@@ -301,7 +301,7 @@ def test_post_process_rejections_without_a_release_name_are_their_own_cause(atte
                     issueid="o2",
                     stage="manual_review",
                     fail_reason="invalid_recovered_postprocess_command:PostProcessCommandError",
-                    payload_json=json.dumps({"comicid": "18839", "comicname": "Looney Tunes"}),
+                    payload_json=json.dumps({"comicid": "900", "comicname": "Example Series"}),
                 ),
                 _journal(
                     release_key="named-1",
