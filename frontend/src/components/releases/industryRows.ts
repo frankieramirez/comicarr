@@ -91,6 +91,38 @@ export function mergeReleases(
   return [...comics, ...manga, ...extra];
 }
 
+const MINE_STATUSES = new Set(["wanted", "snatched", "downloaded"]);
+
+/**
+ * Only my library: the library's week from the pull list and store dates,
+ * plus chapters MangaUpdates lists for library manga, so a chapter that
+ * came out this week shows even when its MangaDex date falls elsewhere.
+ */
+export function withLibraryManga(
+  week: WeeklyPullWeek | undefined,
+  issues: UpcomingIssue[],
+): UpcomingIssue[] {
+  const seen = new Set(issues.map((issue) => issue.IssueID));
+  const extra: UpcomingIssue[] = [];
+  for (const row of week?.manga?.rows ?? []) {
+    const issueId = row.library_issue_id;
+    const status = (row.issue_status || "").toLowerCase();
+    if (!issueId || seen.has(issueId) || !MINE_STATUSES.has(status)) continue;
+    seen.add(issueId);
+    extra.push({
+      IssueID: issueId,
+      ComicID: row.ComicID || "",
+      ComicName: row.COMIC,
+      IssueNumber: row.ISSUE,
+      IssueDate: row.SHIPDATE,
+      Status: row.issue_status as UpcomingIssue["Status"],
+      Publisher: null,
+      ContentType: "manga",
+    } as UpcomingIssue);
+  }
+  return [...issues, ...extra];
+}
+
 export function matchesFormat(row: WeeklyIssue, format: ReleaseFormat) {
   if (format === "all") return true;
   if (format === "comics") return row.kind !== "manga";
