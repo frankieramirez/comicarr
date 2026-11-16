@@ -90,6 +90,38 @@ def _weekly_pull_has_data(weeknumber, year):
         return False
 
 
+def _published_now(published):
+    """Whether a series' publication run still includes this year.
+
+    ``ComicPublished`` is blank for series whose metadata never loaded. One
+    blank row used to raise TypeError and abort the whole weekly pull check,
+    so no series on the watchlist got its new issues added.
+    """
+    published = published or ""
+    return "Present" in published or helpers.now()[:4] in published
+
+
+def _latest_issue_date(latestdate):
+    """The series' latest issue date, or None when it cannot be read.
+
+    Accepts ``YYYY-MM-DD``, ``YYYY-MM`` (day defaults to 01) and the old
+    two-digit ``YY-MM`` form. Manga and never-refreshed series carry values
+    like ``Unknown-Unknow-01`` or nothing at all.
+    """
+    latestdate = str(latestdate or "")
+    if latestdate[8:] == "":
+        if "-" in latestdate[:4] and not latestdate.startswith("20"):
+            st_date = latestdate.find("-")
+            latestdate = "20" + latestdate[:st_date] + "-" + latestdate[st_date + 1 :]
+        latest_day = "01"
+    else:
+        latest_day = latestdate[8:]
+    try:
+        return datetime.date(int(latestdate[:4]), int(latestdate[5:7]), int(latest_day))
+    except ValueError:
+        return None
+
+
 def pullit(forcecheck=None, weeknumber=None, year=None):
     if weeknumber is None:
         try:
@@ -634,30 +666,17 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
 
         if len(weeklylist) > 0:
             for week in weeklylist:
-                if (
-                    "Present" in week["ComicPublished"]
-                    or (helpers.now()[:4] in week["ComicPublished"])
-                    or week["ForceContinuing"] == 1
-                ):
+                if _published_now(week["ComicPublished"]) or week["ForceContinuing"] == 1:
                     logger.fdebug("ComicName: " + week["ComicName"])
                     latestdate = week["LatestDate"]
                     logger.fdebug("latestdate:  " + str(latestdate))
-                    if latestdate[8:] == "":
-                        if "-" in latestdate[:4] and not latestdate.startswith("20"):
-                            st_date = latestdate.find("-")
-                            st_remainder = latestdate[st_date + 1 :]
-                            st_year = latestdate[:st_date]
-                            year = "20" + st_year
-                            latestdate = str(year) + "-" + str(st_remainder)
-                        else:
-                            logger.fdebug("invalid date " + str(latestdate) + " appending 01 for day for continuation.")
-                            latest_day = "01"
-                    else:
-                        latest_day = latestdate[8:]
-                    c_date = datetime.date(int(latestdate[:4]), int(latestdate[5:7]), int(latest_day))
+                    c_date = _latest_issue_date(latestdate)
+                    if c_date is None and week["ForceContinuing"] != 1:
+                        logger.fdebug("Unreadable latest date %r for %s - skipping." % (latestdate, week["ComicName"]))
+                        continue
                     n_date = datetime.date.today()
                     logger.fdebug("c_date : " + str(c_date) + " ... n_date : " + str(n_date))
-                    recentchk = (n_date - c_date).days
+                    recentchk = (n_date - c_date).days if c_date is not None else 0
                     logger.fdebug("recentchk: " + str(recentchk) + " days")
                     chklimit = helpers.checkthepub(week["ComicID"])
                     logger.fdebug("Check date limit set to : " + str(chklimit))
@@ -997,38 +1016,19 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
     if len(watchlist) > 0:
         for watch in watchlist:
             listit = [pls for pls in pullist if str(pls) == str(watch["ComicID"])]
-            if (
-                "Present" in watch["ComicPublished"]
-                or (helpers.now()[:4] in watch["ComicPublished"])
-                or watch["ForceContinuing"] == 1
-                or len(listit) > 0
-            ):
-                latestdate = watch["LatestDate"]
-                if latestdate[8:] == "":
-                    if "-" in latestdate[:4] and not latestdate.startswith("20"):
-                        st_date = latestdate.find("-")
-                        st_remainder = latestdate[st_date + 1 :]
-                        st_year = latestdate[:st_date]
-                        year = "20" + st_year
-                        latestdate = str(year) + "-" + str(st_remainder)
-                    else:
-                        logger.fdebug("invalid date " + str(latestdate) + " appending 01 for day for continuation.")
-                        latest_day = "01"
-                else:
-                    latest_day = latestdate[8:]
-                try:
-                    c_date = datetime.date(int(latestdate[:4]), int(latestdate[5:7]), int(latest_day))
-                except ValueError:
-                    logger.error(
-                        "Invalid Latest Date returned for "
-                        + watch["ComicName"]
-                        + ". Series needs to be refreshed so that is what I am going to do."
+            if _published_now(watch["ComicPublished"]) or watch["ForceContinuing"] == 1 or len(listit) > 0:
+                c_date = _latest_issue_date(watch["LatestDate"])
+                if c_date is None:
+                    logger.fdebug(
+                        "[WALKSOFTLY] Unreadable latest date %r for %s; only a pull-list match can include it."
+                        % (watch["LatestDate"], watch["ComicName"])
                     )
-
-                n_date = datetime.date.today()
-                recentchk = (n_date - c_date).days
+                    recentchk = None
+                else:
+                    recentchk = (datetime.date.today() - c_date).days
                 chklimit = helpers.checkthepub(watch["ComicID"])
-                if recentchk < int(chklimit) or watch["ForceContinuing"] == 1 or len(listit) > 0:
+                is_recent = recentchk is not None and recentchk < int(chklimit)
+                if is_recent or watch["ForceContinuing"] == 1 or len(listit) > 0:
                     if watch["ForceContinuing"] == 1:
                         logger.fdebug(
                             "Forcing Continuing Series enabled for %s [%s]" % (watch["ComicName"], watch["ComicID"])
@@ -1053,7 +1053,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                     {"ComicID": an["ReleaseComicID"], "ComicName": an["ReleaseComicName"]}
                                 )
 
-                    annDyn = re.sub("2021 annual", "", watch["DynamicName"].lower()).strip()
+                    annDyn = re.sub("2021 annual", "", (watch["DynamicName"] or "").lower()).strip()
                     annDyn = re.sub("annual", "", annDyn.lower()).strip()
                     weeklylist.append(
                         {
