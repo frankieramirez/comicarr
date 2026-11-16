@@ -1,17 +1,44 @@
+#  Copyright (C) 2025–2026 Comicarr contributors
+#
+#  This file is part of Comicarr.
+#
+#  Comicarr is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+
+"""qBittorrent download client, built on the maintained ``qbittorrent-api`` package."""
+
 import os
 import re
 import time
 from base64 import b16encode, b32decode
 
+import qbittorrentapi
+
 import comicarr
 from comicarr import logger
-from comicarr._vendor.qbittorrent import Client
 from comicarr.torrent.contracts import connection_failure
+
+# Seconds to wait on any single WebUI call. The monitor polls this client from
+# a single-threaded worker, so an unbounded request would stall monitoring for
+# every download rather than failing one probe.
+DEFAULT_TIMEOUT = 30
+
+
+def Client(host):
+    """Build an API client for ``host``; it does not contact qBittorrent yet."""
+    return qbittorrentapi.Client(
+        host=host,
+        REQUESTS_ARGS={"timeout": DEFAULT_TIMEOUT},
+        DISABLE_LOGGING_DEBUG_OUTPUT=True,
+    )
 
 
 class TorrentClient(object):
     def __init__(self):
         self.conn = None
+        self.client = None
 
     def connect(self, host, username, password, test=False):
         if self.conn is not None:
@@ -25,22 +52,38 @@ class TorrentClient(object):
         except Exception as e:
             logger.error("Could not create qBittorrent Object %s" % e)
             return connection_failure(e)
-        else:
+
+        try:
+            self.client.auth_log_in(username=username, password=password)
+        except qbittorrentapi.LoginFailed:
+            logger.error("qBittorrent rejected the login for %s. Check the username and password." % host)
+            return connection_failure("qBittorrent login failed. Check the username and password.")
+        except qbittorrentapi.Forbidden403Error:
+            logger.error("qBittorrent refused the login for %s (too many failed attempts?)." % host)
+            return connection_failure("qBittorrent login failed. Check the username and password.")
+        except Exception as e:
+            logger.error("Could not connect to qBittorrent: %s" % host)
+            return connection_failure(e)
+
+        self.conn = self
+        if test is True:
             try:
-                self.client.login(username, password)
+                version = self.client.app_version()
             except Exception as e:
-                logger.error("Could not connect to qBittorrent: %s" % host)
                 return connection_failure(e)
-            if self.client._is_authenticated is not True:
-                logger.error("qBittorrent rejected the login for %s. Check the username and password." % host)
-                return connection_failure("qBittorrent login failed. Check the username and password.")
-            else:
-                self.conn = self.client
-                if test is True:
-                    version = self.client.qbittorrent_version
-                    return {"status": True, "version": version}
-                else:
-                    return self.client
+            return {"status": True, "version": version}
+        return self
+
+    @property
+    def authenticated(self):
+        return self.conn is not None
+
+    def list_torrents(self, hashes):
+        """Torrents whose info hash is in ``hashes`` (one hash, or several joined by ``|``)."""
+        return [dict(t) for t in self.client.torrents_info(torrent_hashes=str(hashes).lower())]
+
+    def torrent_files(self, hash):
+        return [dict(f) for f in self.client.torrents_files(torrent_hash=hash.lower())]
 
     def find_torrent(self, hash):
         logger.debug("Finding Torrent hash: %s" % hash)
@@ -53,7 +96,7 @@ class TorrentClient(object):
     def get_torrent(self, hash):
         logger.debug("Getting Torrent info hash: %s" % hash)
         try:
-            torrent_info = self.client.get_torrent(hash)
+            torrent_info = dict(self.client.torrents_properties(torrent_hash=hash.lower()))
         except Exception as e:
             logger.error("Could not get torrent info for %s: %s", hash, e)
             return False
@@ -69,7 +112,7 @@ class TorrentClient(object):
         if not filepath.startswith("magnet"):
             logger.info("filepath to torrent file set to : %s" % filepath)
 
-        if self.client._is_authenticated is not True:
+        if not self.authenticated:
             logger.warning("Torrent was not added: not logged in to qBittorrent")
             return {"status": False, "error": "Not logged in to qBittorrent"}
 
@@ -98,15 +141,15 @@ class TorrentClient(object):
                 addargs.update({"category": destination.category})
                 logger.info("Setting download label to: %s" % destination.category)
             if destination.savepath is not None:
-                addargs.update({"savepath": destination.savepath})
+                addargs.update({"save_path": destination.savepath})
                 logger.info("Forcing download location to: %s" % destination.savepath)
             if comicarr.CONFIG.QBITTORRENT_LOADACTION == "pause":
-                addargs.update({"paused": "true"})
+                addargs.update({"is_paused": True})
                 logger.info("Attempting to add torrent in paused state")
 
             if filepath.startswith("magnet"):
                 try:
-                    self.client.download_from_link(filepath, **addargs)
+                    self.client.torrents_add(urls=filepath, **addargs)
                 except Exception as e:
                     logger.error("Torrent not added - %s" % e)
                     return {"status": False, "error": e}
@@ -114,8 +157,8 @@ class TorrentClient(object):
                     logger.debug("Successfully submitted for add as a magnet. Verifying item is now on client.")
             else:
                 try:
-                    torrent_content = open(filepath, "rb")
-                    self.client.download_from_file(torrent_content, **addargs)
+                    with open(filepath, "rb") as torrent_content:
+                        self.client.torrents_add(torrent_files=torrent_content.read(), **addargs)
                 except Exception as e:
                     logger.error("Torrent not added - %s" % e)
                     return {"status": False, "error": e}
@@ -125,8 +168,7 @@ class TorrentClient(object):
         if comicarr.CONFIG.QBITTORRENT_LOADACTION == "force_start":
             logger.info("Attempting to force start torrent")
             try:
-                startit = self.client.force_start(hash)
-                logger.info("startit returned: %s" % startit)
+                self.client.torrents_set_force_start(enable=True, torrent_hashes=hash.lower())
             except Exception as e:
                 logger.warning("Unable to force start torrent: %s", e)
         else:
@@ -143,7 +185,7 @@ class TorrentClient(object):
             return {"status": False, "error": "Torrent not found on qBittorrent after adding it"}
         else:
             logger.info("Torrent successfully added!")
-            filelist = self.client.get_torrent_files(hash)
+            filelist = self.torrent_files(hash)
             if len(filelist) == 1:
                 to_name = filelist[0]["name"]
             else:

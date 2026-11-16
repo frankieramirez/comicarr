@@ -398,13 +398,13 @@ def test_vendor_imports_are_declared_and_legacy_top_level_imports_are_explicit()
 
 def test_vendor_import_classifier_catches_exact_and_dotted_top_level_imports():
     tree = ast.parse(
-        "import deluge_client.client\nfrom qbittorrent.client import Client\nfrom comicarr._vendor import rtorrent\n"
+        "import deluge_client.client\nfrom transmissionrpc.client import Client\nfrom comicarr._vendor import rtorrent\n"
     )
 
     namespaced, legacy = _classify_vendor_imports(tree, "synthetic.py")
 
     assert namespaced == {"rtorrent"}
-    assert legacy == {"deluge_client": {"synthetic.py"}, "qbittorrent": {"synthetic.py"}}
+    assert legacy == {"deluge_client": {"synthetic.py"}, "transmissionrpc": {"synthetic.py"}}
 
 
 def test_vendor_import_scan_includes_root_runtime_entry_points():
@@ -454,7 +454,7 @@ def test_built_wheel_vendor_inventory_and_notices_match_manifest(tmp_path):
 
 @pytest.mark.parametrize(
     "adapter_module",
-    [deluge, qbittorrent, transmission],
+    [deluge, transmission],
 )
 def test_adapters_do_not_import_top_level_vendor_names(adapter_module):
     source = Path(adapter_module.__file__).read_text(encoding="utf-8")

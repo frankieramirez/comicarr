@@ -67,34 +67,6 @@ VENDOR_PROVENANCE = {
         "local_modifications": "Bundled RPC implementation; TLS socket built from ssl.SSLContext (TLS 1.2+) because ssl.wrap_socket was removed in Python 3.12",
         "packaged_snapshot_sha256": "943f2c56221bb42bf905308966027457acc111dc7fc63cee623b2596ba1c6e74",
     },
-    "qbittorrent": {
-        "integration_owner": "Comicarr",
-        "path": "comicarr/_vendor/qbittorrent",
-        "custody_source_url": "https://github.com/mylar3/mylar3",
-        "custody_source_path": "lib/qbittorrent",
-        "custody_revision": None,
-        "upstream_source_url": None,
-        "upstream_revision": None,
-        "import_revision": COMICARR_IMPORT_REVISION,
-        "upstream_version": None,
-        "version_evidence": (),
-        "license_expression": "MIT",
-        "license_evidence": ("comicarr/_vendor/qbittorrent/LICENSE",),
-        "license_conflict_evidence": (),
-        "notice_files": ("comicarr/_vendor/qbittorrent/LICENSE",),
-        "origin_candidates": (),
-        "replacement_candidates": ("https://github.com/rmartin16/qbittorrent-api",),
-        "partial_attributions": (),
-        "redistribution_status": "evidence-recorded",
-        "unresolved_reasons": (),
-        "local_modifications": (
-            "Bundled Web API client; exact upstream revision unidentified. "
-            "Comicarr adds a DEFAULT_TIMEOUT to every WebUI request so a hung "
-            "client cannot block the single-threaded torrent monitor. "
-            "login() also accepts qBittorrent 5.2's 204 No Content reply (#1159)."
-        ),
-        "packaged_snapshot_sha256": "375a141301177ad6e14214966ddb40ae8e938b64e38f9de37104e9a3a4513b73",
-    },
     "rtorrent": {
         "integration_owner": "Comicarr",
         "path": "comicarr/_vendor/rtorrent",

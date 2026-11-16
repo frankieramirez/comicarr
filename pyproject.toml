@@ -33,6 +33,7 @@ dependencies = [
     "urllib3>=2.7.0",
     "uvicorn[standard]>=0.30.0",
     "jsonschema>=4.26.0",
+    "qbittorrent-api>=2024.1",
 ]
 
 [project.optional-dependencies]

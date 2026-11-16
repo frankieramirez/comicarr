@@ -135,7 +135,7 @@ def _qbittorrent(config, hashes):
     if isinstance(client, dict):
         return {}
     found = {}
-    for torrent in client.torrents(hashes="|".join(sorted(hashes))) or []:
+    for torrent in client.list_torrents("|".join(sorted(hashes))) or []:
         try:
             progress = float(torrent.get("progress"))
         except (TypeError, ValueError):
