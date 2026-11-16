@@ -110,9 +110,11 @@ const TONES: Record<string, StatusTone> = {
     badgeVariant: "paused",
     glowColor: "var(--status-paused)",
   },
+  // The projection says "Missing" for a wanted issue with no explicit
+  // intent; on screen it is Wanted, the word every count uses.
   missing: {
     key: "missing",
-    label: "Missing",
+    label: "Wanted",
     token: "var(--status-wanted)",
     badgeVariant: "wanted",
     glowColor: "var(--status-wanted)",

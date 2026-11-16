@@ -16,6 +16,7 @@ import pytest
 from comicarr.app.acquisition.models import AcquisitionIntent, Fulfillment
 from comicarr.app.acquisition.policy import (
     EligibilityInput,
+    effective_intent,
     evaluate_eligibility,
     explicit_intent_values,
     project_legacy_state,
@@ -116,3 +117,33 @@ def test_policy_defers_non_actionable_work(changes, reason):
 
     assert decision.eligible is False
     assert decision.reason == reason
+
+
+@pytest.mark.parametrize(
+    ("raw_intent", "legacy_status", "expected"),
+    [
+        (None, "Skipped", AcquisitionIntent.SKIPPED),
+        ("policy", "Ignored", AcquisitionIntent.IGNORED),
+        ("policy", "Wanted", AcquisitionIntent.POLICY),
+        (None, None, AcquisitionIntent.POLICY),
+        # Explicit intent always wins over the legacy column.
+        ("wanted", "Skipped", AcquisitionIntent.WANTED),
+    ],
+)
+def test_a_legacy_skip_is_not_wanted_without_becoming_explicit(raw_intent, legacy_status, expected):
+    projection = project_legacy_state(raw_intent, legacy_status)
+
+    assert effective_intent(projection, legacy_status) is expected
+    assert projection.intent_is_explicit is (raw_intent == "wanted")
+
+
+def test_search_never_picks_an_issue_skipped_in_mylar():
+    from comicarr.app.search.commands import evaluate_search_candidate
+
+    candidate = {"AcquisitionIntent": "policy", "LegacyStatus": "Skipped", "SeriesStatus": "Active"}
+    assert evaluate_search_candidate(candidate, release_date="2020-01-01", digital_date=None, issue_date=None) == {
+        "status": False,
+        "reason": "intent_skipped",
+    }
+    candidate["LegacyStatus"] = "Wanted"
+    assert evaluate_search_candidate(candidate, release_date="2020-01-01", digital_date=None, issue_date=None)["status"]

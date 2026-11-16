@@ -110,9 +110,25 @@ def with_library_cover_src(row):
     return item
 
 
+def _wanted_count():
+    """Issues of the row's series the Wanted page lists: ``Status == 'Wanted'``.
+
+    The dashboard's Most wanted reads this, so its numbers and the Wanted
+    page's can never disagree.
+    """
+    return (
+        select(func.count())
+        .select_from(t_issues)
+        .where(and_(t_issues.c.ComicID == t_comics.c.ComicID, t_issues.c.Status == "Wanted"))
+        .correlate(t_comics)
+        .scalar_subquery()
+        .label("Wanted")
+    )
+
+
 def list_comics():
-    """List all comics ordered by sort name."""
-    return db.select_all(select(*COMICS_COLUMNS).order_by(t_comics.c.ComicSortName))
+    """List all comics ordered by sort name, each with its Wanted count."""
+    return db.select_all(select(*COMICS_COLUMNS, _wanted_count()).order_by(t_comics.c.ComicSortName))
 
 
 def list_comics_paginated(limit, offset=0, name=None, kind=None, status=None):
@@ -124,7 +140,7 @@ def list_comics_paginated(limit, offset=0, name=None, kind=None, status=None):
     one of ``series_kind.CONTENT_KINDS``; ``comic`` includes magazines, as
     :func:`series_kind.comic_sql_clause` does.
     """
-    stmt = select(*COMICS_COLUMNS).order_by(t_comics.c.ComicSortName, t_comics.c.ComicID)
+    stmt = select(*COMICS_COLUMNS, _wanted_count()).order_by(t_comics.c.ComicSortName, t_comics.c.ComicID)
     if name:
         stmt = stmt.where(
             or_(

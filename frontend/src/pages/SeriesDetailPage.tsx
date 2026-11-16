@@ -76,7 +76,7 @@ import { displayComicDate, pickComicDate } from "@/lib/format";
 import { seriesCoverSrc, seriesSyncLabel } from "@/lib/series-utils";
 import { DESKTOP_COL } from "@/components/data-table/gridColumns";
 
-type IssueFilter = "all" | "have" | "missing" | "monitored";
+type IssueFilter = "all" | "have" | "wanted" | "not_wanted";
 
 function getIssueStatus(issue: Issue): string {
   return issue.displayState ?? issue.status ?? issue.Status ?? "Unknown";
@@ -103,6 +103,26 @@ function isIssueMonitored(issue: Issue): boolean {
   if (typeof issue.monitored === "boolean") return issue.monitored;
   const intent = issue.acquisitionIntent?.toLowerCase();
   return intent !== "skipped" && intent !== "ignored";
+}
+
+/** Missing, and auto-search goes after it: what the Wanted page lists. */
+function isIssueWanted(issue: Issue): boolean {
+  return isIssueMissing(issue) && isIssueMonitored(issue);
+}
+
+/** Missing, but skipped or ignored: auto-search leaves it alone. */
+function isIssueNotWanted(issue: Issue): boolean {
+  return isIssueMissing(issue) && !isIssueMonitored(issue);
+}
+
+/**
+ * The ledger's word for an issue. "Missing" is the projection's name for a
+ * wanted issue with no explicit intent; on screen it is simply Wanted, the
+ * word the chips, Wanted page and dashboard use.
+ */
+function issueLabel(issue: Issue): string {
+  const status = getIssueStatus(issue);
+  return status === "Missing" ? "Wanted" : status;
 }
 
 type LedgerKind = "annual" | "chapter" | "volume";
@@ -239,7 +259,7 @@ function SearchMissingButton({
       aria-label={ariaLabel}
     >
       <Search />
-      {missing > 0 ? `Search ${missing} missing` : "Search missing"}
+      {missing > 0 ? `Search ${missing} wanted` : "Search wanted"}
     </Button>
   );
 }
@@ -509,10 +529,11 @@ export default function SeriesDetailPage() {
   const summary = seriesData.summary;
   const total = summary?.total ?? allIssues.length;
   const have = summary?.owned ?? allIssues.filter(isIssueOwned).length;
-  const missing = summary?.missing ?? allIssues.filter(isIssueMissing).length;
-  const reviewableMissing = summary?.eligible ?? missing;
-  const monitored =
-    summary?.monitored ?? allIssues.filter(isIssueMonitored).length;
+  const wanted =
+    summary?.wantedMissing ?? allIssues.filter(isIssueWanted).length;
+  const notWanted =
+    summary?.notWanted ?? allIssues.filter(isIssueNotWanted).length;
+  const reviewableMissing = summary?.eligible ?? wanted;
   const inFlight =
     summary?.inFlight ?? allIssues.filter(isIssueInFlight).length;
   const annualCount =
@@ -621,8 +642,8 @@ export default function SeriesDetailPage() {
       : "cv";
   const filteredIssues = allIssues.filter((issue) => {
     if (filter === "have") return isIssueOwned(issue);
-    if (filter === "missing") return isIssueMissing(issue);
-    if (filter === "monitored") return isIssueMonitored(issue);
+    if (filter === "wanted") return isIssueWanted(issue);
+    if (filter === "not_wanted") return isIssueNotWanted(issue);
     return true;
   });
   const routeViable = preview?.route?.viable !== false;
@@ -781,14 +802,15 @@ export default function SeriesDetailPage() {
   const segments = [
     { key: "have", value: have, color: "var(--status-downloaded)" },
     { key: "in-flight", value: inFlight, color: "var(--in-flight)" },
+    { key: "wanted", value: wanted, color: "var(--status-wanted)" },
     {
       key: "rest",
-      value: Math.max(0, total - have - inFlight),
+      value: Math.max(0, total - have - inFlight - wanted),
       color: "var(--surface-3)",
     },
   ].filter((segment) => segment.value > 0);
   const progressSummary = [
-    missing > 0 ? `${missing} missing` : null,
+    wanted > 0 ? `${wanted} wanted` : null,
     inFlight > 0 ? `${inFlight} in progress` : null,
   ]
     .filter(Boolean)
@@ -867,15 +889,15 @@ export default function SeriesDetailPage() {
           <span className="hidden shrink-0 font-mono text-xs text-foreground md:inline">
             {have} / {total}
           </span>
-          {missing > 0 && (
+          {wanted > 0 && (
             <span className="hidden shrink-0 text-[13px] text-foreground-2 lg:inline">
-              {missing} missing
+              {wanted} wanted
             </span>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <SearchMissingButton
               blocker={searchBlocker}
-              missing={missing}
+              missing={wanted}
               onClick={handleOpenSearch}
               disabled={!comicId || searchPreview.isFetching}
             />
@@ -1034,7 +1056,7 @@ export default function SeriesDetailPage() {
                   <>
                     <SearchMissingButton
                       blocker={searchBlocker}
-                      missing={missing}
+                      missing={wanted}
                       onClick={handleOpenSearch}
                       disabled={!comicId || searchPreview.isFetching}
                       aria-label="Search all missing"
@@ -1200,8 +1222,8 @@ export default function SeriesDetailPage() {
                   [
                     ["all", "All", total],
                     ["have", "Have", have],
-                    ["missing", "Missing", missing],
-                    ["monitored", "Monitored", monitored],
+                    ["wanted", "Wanted", wanted],
+                    ["not_wanted", "Not wanted", notWanted],
                   ] as const
                 ).map(([key, label, count]) => (
                   <button
@@ -1309,7 +1331,7 @@ export default function SeriesDetailPage() {
                       issue.issueDate,
                       issue.IssueDate,
                     );
-                    const status = getIssueStatus(issue);
+                    const status = issueLabel(issue);
                     const separateIntent = getSeparateIntent(issue);
                     const ledgerKind = getLedgerKind(issue, isManga);
                     const rowKey = issueRowKey(issue);
@@ -1319,7 +1341,7 @@ export default function SeriesDetailPage() {
                     return (
                       <div
                         key={`${issue.annual ? "annual" : "issue"}-${issueId}`}
-                        className={`grid ${ISSUE_GRID_COLS} min-h-9 items-center gap-3 border-b border-border-subtle mx-8 px-2 py-1 text-[13px] transition-colors hover:bg-surface-1`}
+                        className={`group/row grid ${ISSUE_GRID_COLS} min-h-9 items-center gap-3 border-b border-border-subtle mx-8 px-2 py-1 text-[13px] transition-colors hover:bg-surface-1`}
                       >
                         <div className={`${DESKTOP_COL} flex items-center`}>
                           <Checkbox
@@ -1387,6 +1409,22 @@ export default function SeriesDetailPage() {
                               handleIssueStatusSelect(issue, next)
                             }
                           />
+                          {isIssueNotWanted(issue) && issueId && (
+                            <button
+                              type="button"
+                              className="rounded-control px-1.5 text-[12px] text-foreground-2 underline-offset-2 opacity-0 transition-opacity hover:text-foreground hover:underline focus-visible:opacity-100 group-hover/row:opacity-100 max-md:opacity-100"
+                              aria-label={`Want ${rowLabel}`}
+                              disabled={
+                                setIssueStatus.isPending ||
+                                bulkSetIssueStatus.isPending
+                              }
+                              onClick={() =>
+                                handleIssueStatusSelect(issue, "Wanted")
+                              }
+                            >
+                              Want
+                            </button>
+                          )}
                           {separateIntent && (
                             <span
                               className="font-mono text-[9px] lowercase"

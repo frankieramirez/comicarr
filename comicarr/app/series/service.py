@@ -27,7 +27,12 @@ import comicarr
 from comicarr import db, logger, series_kind
 from comicarr.app.acquisition.evidence import has_verified_library_file
 from comicarr.app.acquisition.models import AcquisitionIntent, Fulfillment
-from comicarr.app.acquisition.policy import EligibilityInput, evaluate_eligibility, project_legacy_state
+from comicarr.app.acquisition.policy import (
+    EligibilityInput,
+    effective_intent,
+    evaluate_eligibility,
+    project_legacy_state,
+)
 from comicarr.app.common.filesystem import is_path_within_allowed_dirs
 from comicarr.app.common.library_roots import is_strict_library_descendant
 from comicarr.app.common.strings import filesafe
@@ -92,6 +97,7 @@ def project_issue_state(row, *, series_status, today=None, annual=False, series_
     legacy_status = _row_value(values, "status", "Status")
     acquisition_intent = _row_value(values, "acquisitionIntent", "AcquisitionIntent")
     projection = project_legacy_state(acquisition_intent, legacy_status)
+    intent = effective_intent(projection, legacy_status)
     location = _optional_text(_row_value(values, "location", "Location"))
 
     fulfillment = projection.fulfillment
@@ -112,7 +118,7 @@ def project_issue_state(row, *, series_status, today=None, annual=False, series_
         EligibilityInput(
             series_active=normalized_series_status in {"active", "loading", "paused"},
             paused=normalized_series_status == "paused",
-            intent=projection.intent,
+            intent=intent,
             fulfillment=fulfillment,
             release_date=_row_value(values, "releaseDate", "ReleaseDate"),
             digital_date=_row_value(values, "digitalDate", "DigitalDate"),
@@ -121,14 +127,14 @@ def project_issue_state(row, *, series_status, today=None, annual=False, series_
         today=today,
     )
     display_state = _display_state(
-        projection.__class__(projection.intent, fulfillment, projection.intent_is_explicit),
+        projection.__class__(intent, fulfillment, projection.intent_is_explicit),
         eligibility_reason=decision.reason,
     )
     owned = fulfillment.is_owned
     in_flight = fulfillment.is_in_flight
     covered = fulfillment is Fulfillment.COVERED
     missing = not owned and not in_flight and not covered
-    monitored = projection.intent not in {AcquisitionIntent.SKIPPED, AcquisitionIntent.IGNORED}
+    monitored = intent not in {AcquisitionIntent.SKIPPED, AcquisitionIntent.IGNORED}
     selected_date = decision.selected_date.isoformat() if decision.selected_date else None
     date_source = _DATE_SOURCE_NAMES.get(decision.date_source, decision.date_source)
 
@@ -180,6 +186,10 @@ def _issue_summary(projected):
         "inFlight": sum(bool(row["inFlight"]) for row in projected),
         "missing": sum(bool(row["missing"]) for row in projected),
         "monitored": sum(bool(row["monitored"]) for row in projected),
+        # The two halves of ``missing``: what auto-search goes after, and what
+        # it leaves alone. Wanted and the dashboard count the first.
+        "wantedMissing": sum(bool(row["missing"] and row["monitored"]) for row in projected),
+        "notWanted": sum(bool(row["missing"] and not row["monitored"]) for row in projected),
         "wanted": sum(row["displayState"] == "Wanted" for row in projected),
         "skipped": sum(row["acquisitionIntent"] == AcquisitionIntent.SKIPPED.value for row in projected),
         "ignored": sum(row["acquisitionIntent"] == AcquisitionIntent.IGNORED.value for row in projected),

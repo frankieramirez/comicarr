@@ -13,7 +13,7 @@ import type { Comic } from "@/types";
 
 /**
  * The two library sections of the v2 dashboard's main column: the newest
- * series as covers, and the series with the most missing issues.
+ * series as covers, and the series with the most wanted issues.
  *
  * Both derive from the same `GET /api/series` read the Library page uses, so
  * they share its cache and can never disagree with it.
@@ -96,18 +96,13 @@ export function RecentlyAdded() {
 
 export function MostWanted() {
   const series = useSeries();
+  // The Wanted page's count, per series: a Skipped issue is not wanted.
   const ranked = (series.data ?? [])
-    .map((comic) => ({
-      comic,
-      missing: Math.max(0, count(comic.Total) - count(comic.Have)),
-    }))
-    .filter(
-      ({ comic, missing }) =>
-        missing > 0 && String(comic.Status).toLowerCase() !== "paused",
-    )
-    .sort((a, b) => b.missing - a.missing);
+    .map((comic) => ({ comic, wanted: count(comic.Wanted) }))
+    .filter(({ wanted }) => wanted > 0)
+    .sort((a, b) => b.wanted - a.wanted);
   const top = ranked.slice(0, WANTED_COUNT);
-  const totalMissing = ranked.reduce((sum, row) => sum + row.missing, 0);
+  const totalWanted = ranked.reduce((sum, row) => sum + row.wanted, 0);
   const state = panelState(series, top.length === 0);
 
   return (
@@ -116,7 +111,7 @@ export function MostWanted() {
         title="Most wanted"
         meta={
           state === "content"
-            ? `${totalMissing.toLocaleString()} issues across ${ranked.length} series`
+            ? `${totalWanted.toLocaleString()} wanted across ${ranked.length} series`
             : undefined
         }
         action={{ label: "Open Wanted", to: "/wanted" }}
@@ -128,14 +123,14 @@ export function MostWanted() {
         empty={
           (series.data?.length ?? 0) === 0
             ? "Nothing wanted yet. Add a series to start."
-            : "No active series are missing issues."
+            : "No issues are wanted right now."
         }
         onRetry={() => void series.refetch()}
         isRetrying={series.isFetching}
       >
         {() => (
           <div className="border-t border-border-subtle">
-            {top.map(({ comic, missing }) => (
+            {top.map(({ comic, wanted }) => (
               <Link
                 key={comic.ComicID}
                 to={`/library/${comic.ComicID}`}
@@ -145,7 +140,7 @@ export function MostWanted() {
                   {comic.ComicName}
                 </span>
                 <span className="font-mono text-xs text-foreground-2">
-                  {missing} missing
+                  {wanted} wanted
                 </span>
               </Link>
             ))}
