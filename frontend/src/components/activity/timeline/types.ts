@@ -5,6 +5,8 @@
  * Severity is a pure function of status — never stored.
  */
 
+import type { EventStatus } from "@/types/states.generated";
+
 export type Activity =
   | "search"
   | "grab"
@@ -15,15 +17,12 @@ export type Activity =
   | "tag"
   | "status_change";
 
-/** `retrying` is deliberately absent — #432. */
-export type EventStatus =
-  | "started"
-  | "succeeded"
-  | "no_match"
-  | "cancelled"
-  | "failed"
-  | "blocked"
-  | "needs_attention";
+/**
+ * Generated from the backend registry (activity_event_status in
+ * comicarr/app/common/state_machines.py). `retrying` is deliberately
+ * absent — #432.
+ */
+export type { EventStatus };
 
 export type SubjectType = "issue" | "annual" | "series" | "arc" | "run";
 

@@ -1,4 +1,14 @@
 import { t } from "@lingui/core/macro";
+import type { IssueDisplayState, SeriesStatus } from "@/types/states.generated";
+
+/**
+ * Every issue and series state the backend registry declares
+ * (comicarr/app/common/state_machines.py), lowercased. TONES must name each
+ * one, so a state added there cannot reach a badge without a translated
+ * label and a chosen tone: the build fails first.
+ */
+type RegisteredStatusKey = Lowercase<IssueDisplayState | SeriesStatus>;
+
 export type StatusBadgeVariant =
   | "default"
   | "active"
@@ -23,7 +33,7 @@ const MUTED: Omit<StatusTone, "key" | "label"> = {
   glowColor: "var(--muted-foreground)",
 };
 
-const TONES: Record<string, StatusTone> = {
+const TONES = {
   active: {
     key: "active",
     get label() {
@@ -119,10 +129,29 @@ const TONES: Record<string, StatusTone> = {
     },
     ...MUTED,
   },
+  // A manga chapter inside an owned volume: not a file of its own, so it
+  // stays as quiet as Archived.
+  covered: {
+    key: "covered",
+    get label() {
+      return t`Covered`;
+    },
+    ...MUTED,
+  },
   failed: {
     key: "failed",
     get label() {
       return t`Failed`;
+    },
+    token: "var(--status-error)",
+    badgeVariant: "error",
+    glowColor: "var(--status-error)",
+  },
+  // A series its metadata provider returned nothing for.
+  error: {
+    key: "error",
+    get label() {
+      return t`Error`;
     },
     token: "var(--status-error)",
     badgeVariant: "error",
@@ -193,7 +222,11 @@ const TONES: Record<string, StatusTone> = {
     badgeVariant: "paused",
     glowColor: "var(--status-paused)",
   },
-};
+} satisfies Record<RegisteredStatusKey, StatusTone> &
+  Record<string, StatusTone>;
+
+/** TONES for lookup by a raw status string, which may be any word at all. */
+const TONE_BY_KEY: Record<string, StatusTone> = TONES;
 
 const MANUAL_REVIEW_KEY = "manual review";
 
@@ -201,7 +234,7 @@ export const STATUS_TONE_KEYS = Object.keys(TONES);
 
 function resolveKey(raw: string): string {
   const normalized = raw.trim().toLowerCase();
-  if (normalized in TONES) return normalized;
+  if (normalized in TONE_BY_KEY) return normalized;
   if (normalized.includes("fail") || normalized.includes("error")) {
     return "failed";
   }
@@ -219,8 +252,8 @@ function resolveKey(raw: string): string {
 export function statusTone(status?: string | null): StatusTone | null {
   if (!status) return null;
   const key = resolveKey(status);
-  if (key && TONES[key]) {
-    const tone = TONES[key];
+  if (key && TONE_BY_KEY[key]) {
+    const tone = TONE_BY_KEY[key];
     if (status.trim().toLowerCase() === key) return tone;
     return { ...tone, label: status };
   }

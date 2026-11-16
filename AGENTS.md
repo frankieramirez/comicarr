@@ -74,6 +74,7 @@ Post-processing callers use `app/downloads/postprocessing.py`: `run(request)` fo
 - GPL license header on new Python files
 - Frontend: `npm` only (not bun)
 - Do not manually bump versions — Changesets automation
+- **State vocabularies**: a status or state that crosses a layer is declared in `comicarr/app/common/state_machines.py`; read the entry before branching on a status string, and never hand-write the frontend union (`npm run lint:fix:generated` regenerates `frontend/src/types/states.generated.ts`). Rules and inventory: `docs/architecture/state-machines.md`
 - **Before finishing a change**: run `npm run lint` (or `npm run lint:fix` then re-check). Do not skip with `--no-verify`
 
 ## Common patterns
