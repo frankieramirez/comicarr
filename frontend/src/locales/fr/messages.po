@@ -7663,7 +7663,7 @@ msgstr "Rechercher maintenant…"
 
 #: src/components/layout/AppSidebar.tsx
 msgid "Search or add"
-msgstr "Rechercher ou ajouter"
+msgstr "Chercher, ajouter"
 
 #: src/components/settings/ProviderOrderSettings.tsx
 msgid "Search order"
