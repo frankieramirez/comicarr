@@ -95,7 +95,7 @@ def stage_rank(stage):
 
 
 def _issued_highcount():
-    """The last synthetic IssueID ``updater.nzblog`` handed out, or None."""
+    """The last synthetic IssueID ``snatch_record.nzblog`` handed out, or None."""
     try:
         import comicarr
 
@@ -111,7 +111,7 @@ def _issued_highcount():
 def is_synthetic_oneoff(issueid):
     """True when the IssueID cannot key a release across restart.
 
-    That is a missing IssueID, or one ``updater.nzblog`` synthesised for a
+    That is a missing IssueID, or one ``snatch_record.nzblog`` synthesised for a
     one-off. nzblog counts those up from HIGHCOUNT_FLOOR and keeps the last
     one in CONFIG.HIGHCOUNT, so only IDs inside that issued window are
     synthetic. A real ComicVine IssueID above the window (current issues are
@@ -154,7 +154,7 @@ def release_key(issueid, provider, nzbname=None, hash=None, discriminant=None):
     """Derive the stable release identity for a pipeline item.
 
     SINGLE-DERIVATION INVARIANT (P0-1): the key MUST be byte-identical at all
-    four seams — the snatch seam (updater.foundsearch), the downloaded seam
+    four seams — the snatch seam (snatch_record.foundsearch), the downloaded seam
     (cdh_monitor / worker_main / ddl_downloader), the PP-consumer atomic claim,
     and U6 anchor reconstruction. A divergence orphans the snatched row and
     voids exactly-once in the mid-pipeline crash window.
@@ -440,7 +440,7 @@ def _try_reset_terminal_attempt(conn, key, stage, new_rank, upd_values):
     fully intact for every other stage.
 
     SNATCHED is included because the NZB/torrent snatch path
-    (updater.foundsearch) writes SNATCHED directly against
+    (snatch_record.foundsearch) writes SNATCHED directly against
     ``issueid|provider`` without an intervening RESERVED. Without that gate,
     a same-provider operator/auto retry returns ``won=False`` and narrates
     nothing (#483 / #437 amendment).

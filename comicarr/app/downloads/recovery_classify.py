@@ -202,7 +202,7 @@ def has_library_placement(row, payload=None):
     proves the DOWNLOAD finished; successful placement additionally writes
     Location + Status='Downloaded' onto the issues/annuals row (postprocessor
     ~3214/4052/4458) or Status='Downloaded' onto the storyarcs row
-    (updater.foundsearch). Absent that evidence, "download complete" must not
+    (snatch_record.foundsearch). Absent that evidence, "download complete" must not
     be conflated with "import complete".
 
     Arc scoping mirrors has_done_signal: payload["mode"]=="story_arc" means

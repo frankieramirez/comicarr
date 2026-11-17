@@ -1201,7 +1201,7 @@ def test_post_processing_redrive_capped_per_pass_and_rerun_processes_rest(queues
 # Story-arc nzblog "S"+IssueArcID vs plain issueid (P1 #2)
 # ---------------------------------------------------------------------------
 #
-# updater.nzblog() stores story-arc rows with IssueID = "S" + str(IssueArcID),
+# snatch_record.nzblog() stores story-arc rows with IssueID = "S" + str(IssueArcID),
 # while the snatched table / journal use the un-prefixed IssueArcID. Recovery
 # must match EITHER form or it silently drops in-flight story-arc obligations
 # (anchor reconstruction, _nzblog_present presence gate) and orphans story-arc
@@ -1237,7 +1237,7 @@ def test_anchor_reconstruct_story_arc_nzblog_S_prefixed(queues):
             )
         )
         conn.execute(issues.insert().values(IssueID=arcid, Status="Snatched"))
-        # Durable story-arc discriminator: updater.foundsearch ALWAYS upserts
+        # Durable story-arc discriminator: snatch_record.foundsearch ALWAYS upserts
         # a storyarcs row keyed IssueArcID for a story-arc snatch, and the
         # snatched IssueID IS that IssueArcID — this is what makes the row a
         # *real* story-arc obligation (so the "S"+id nzblog arm is scoped to

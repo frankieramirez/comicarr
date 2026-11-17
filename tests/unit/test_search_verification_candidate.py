@@ -84,8 +84,8 @@ def test_fallback_candidate_can_still_be_taken(monkeypatch):
 
     monkeypatch.setattr(search, "searcher", fake_searcher)
     monkeypatch.setattr(search, "nzbname_create", lambda *a, **kw: "nzbname")
-    monkeypatch.setattr(search.updater, "nzblog", lambda *a, **kw: None)
-    monkeypatch.setattr(search.updater, "foundsearch", lambda *a, **kw: None)
+    monkeypatch.setattr(search.snatch_record, "nzblog", lambda *a, **kw: None)
+    monkeypatch.setattr(search.snatch_record, "foundsearch", lambda *a, **kw: None)
     monkeypatch.setattr(search, "notify_snatch", lambda *a, **kw: None)
 
     matches = [_candidate("empire-id", "Invincible 085 (digital-Empire)"),
@@ -125,8 +125,8 @@ def test_skipped_candidate_does_not_misname_the_snatch(monkeypatch):
 
     monkeypatch.setattr(search, "searcher", fake_searcher)
     monkeypatch.setattr(search, "nzbname_create", lambda *a, **kw: "nzbname")
-    monkeypatch.setattr(search.updater, "nzblog", lambda *a, **kw: logged.update(kw))
-    monkeypatch.setattr(search.updater, "foundsearch", lambda *a, **kw: None)
+    monkeypatch.setattr(search.snatch_record, "nzblog", lambda *a, **kw: logged.update(kw))
+    monkeypatch.setattr(search.snatch_record, "foundsearch", lambda *a, **kw: None)
     monkeypatch.setattr(
         search, "notify_snatch", lambda sent_to, name, year, *a: snatched.update(year=year)
     )

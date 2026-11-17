@@ -165,7 +165,7 @@ def _drive_process_next(library, monkeypatch, *, config=None, place=None, ml=Non
     with (
         patch.object(comicarr, "CONFIG", config or Config()),
         patch("comicarr.app.series.folder_rescan.totals"),
-        patch("comicarr.updater.foundsearch"),
+        patch("comicarr.app.downloads.snatch_record.foundsearch"),
         patch("comicarr.app.notifications.service", MagicMock()),
     ):
         deps = postprocessor.pipeline_deps()
@@ -394,7 +394,7 @@ def _drive_nzb_or_oneoff(library, monkeypatch, *, config=None, place=None, tinfo
     with (
         patch.object(comicarr, "CONFIG", config),
         patch("comicarr.app.series.folder_rescan.totals"),
-        patch("comicarr.updater.foundsearch"),
+        patch("comicarr.app.downloads.snatch_record.foundsearch"),
         patch.object(postprocess_pipeline.db, "upsert"),
         patch("comicarr.app.notifications.service", MagicMock()),
     ):
@@ -425,7 +425,6 @@ class TestOneOffAndGrabBagPlacement:
         assert result.queued is True
         assert len(pp.messages) == 1
         assert pp.messages[0]["mode"] == "stop"
-
 
     def test_a_one_off_story_arc_grab_reads_the_arc_volume(self, library, monkeypatch, tmp_path):
         """storyarcs has no ComicVersion column; the arc's Volume labels the tag (#1296)."""
