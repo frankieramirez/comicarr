@@ -31,6 +31,7 @@ import requests
 
 import comicarr
 from comicarr.app.common import series_kind
+from comicarr.app.common.user_agent import app_user_agent
 from comicarr.app.core import logger
 from comicarr.app.series.service import listLibrary
 
@@ -86,7 +87,7 @@ def _make_request(endpoint, params=None):
     url = "%s%s" % (MAL_API_BASE, endpoint)
     headers = {
         "X-MAL-CLIENT-ID": client_id,
-        "User-Agent": comicarr.CONFIG.CV_USER_AGENT if comicarr.CONFIG else "Comicarr/1.0",
+        "User-Agent": app_user_agent(),
     }
 
     try:

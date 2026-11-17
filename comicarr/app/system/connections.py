@@ -32,6 +32,7 @@ import requests
 
 import comicarr
 from comicarr.app.common.redaction import redact_sensitive_text
+from comicarr.app.common.user_agent import app_user_agent
 from comicarr.app.core import logger
 
 JOB_ID = "connection_check"
@@ -415,7 +416,7 @@ def _probe_metron(config) -> Probe:
 
 def _probe_mangadex(config) -> Probe:
     try:
-        response, latency = _timed_get("https://api.mangadex.org/ping", headers={"User-Agent": "Comicarr"})
+        response, latency = _timed_get("https://api.mangadex.org/ping", headers={"User-Agent": app_user_agent()})
     except requests.exceptions.RequestException as e:
         return _request_failure("MangaDex", e)
     if response.status_code == 429:
