@@ -1220,13 +1220,13 @@ msgstr "3. المشاركة"
 msgid "A different maintenance operation owns the write fence."
 msgstr "عملية صيانة أخرى تملك قفل الكتابة."
 
+#: src/components/settings/MediaManagementTab.tsx
+msgid "A drop folder. Files you put here are matched and filed into your library. It cannot be inside, or contain, a library or download folder."
+msgstr "مجلد إسقاط. تُطابَق الملفات التي تضعها هنا وتُحفظ في مكتبتك. لا يمكن أن يكون داخل مجلد مكتبة أو تنزيلات، ولا أن يحتوي على أحدهما."
+
 #: src/components/activity/timeline/sentences.ts
 msgid "a file already exists at the destination"
 msgstr "يوجد ملف بالفعل في الوجهة"
-
-#: src/components/settings/GeneralTab.tsx
-msgid "A folder that already exists on the server. In Docker, use the path inside the container, such as /comics."
-msgstr "مجلد موجود بالفعل على الخادم. في Docker، استخدم المسار داخل الحاوية، مثل /comics."
 
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "A ready route has a configured provider, client, path, and restart-safe handoff correlation."
@@ -1658,6 +1658,14 @@ msgstr "اقتربنا من الانتهاء"
 #: src/components/search/SearchAddButton.tsx
 msgid "An error occurred while adding the series."
 msgstr "حدث خطأ أثناء إضافة السلسلة."
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "An existing comic collection somewhere else. Imported series stay where they are. Blank scans the library folder."
+msgstr "مجموعة قصص مصورة موجودة في مكان آخر. تبقى السلاسل المستوردة في مكانها. إذا تُرك فارغًا يُفحص مجلد المكتبة."
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "An existing manga collection somewhere else. Blank scans the manga library folder. Manga scans never use the comic library folder."
+msgstr "مجموعة مانغا موجودة في مكان آخر. إذا تُرك فارغًا يُفحص مجلد مكتبة المانغا. لا يستخدم فحص المانغا مجلد مكتبة القصص المصورة أبدًا."
 
 #: src/lib/api.ts
 msgid "An unexpected error occurred ({status}). Please try again."
@@ -2381,6 +2389,18 @@ msgstr "اختر مجلدًا على الخادم داخل أحد جذور مك�
 msgid "Choose a library folder"
 msgstr "اختر مجلد مكتبة"
 
+#: src/components/import/LibraryScanSection.tsx
+msgid "Choose a library folder in Settings"
+msgstr "اختر مجلد مكتبة في الإعدادات"
+
+#: src/components/import/ImportSourcesStrip.tsx
+msgid "Choose a library folder to scan"
+msgstr "اختر مجلد مكتبة لفحصه"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Choose a manga library folder in Settings"
+msgstr "اختر مجلد مكتبة المانغا في الإعدادات"
+
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Choose a release for this series. A pack can cover several missing issues at once. Nothing downloads until you confirm."
 msgstr "اختر إصدارًا لهذه السلسلة. قد تغطي الحزمة عدة أعداد ناقصة دفعة واحدة. لن يُنزَّل شيء حتى تؤكد."
@@ -2388,6 +2408,14 @@ msgstr "اختر إصدارًا لهذه السلسلة. قد تغطي الحز�
 #: src/pages/LoginPage.tsx
 msgid "Choose a username"
 msgstr "اختر اسم مستخدم"
+
+#: src/components/import/ImportInboxSection.tsx
+msgid "Choose an import folder in Settings to import new files automatically."
+msgstr "اختر مجلد استيراد في الإعدادات لاستيراد الملفات الجديدة تلقائيًا."
+
+#: src/components/import/ImportSourcesStrip.tsx
+msgid "Choose an import folder to watch for new files"
+msgstr "اختر مجلد استيراد لمراقبة الملفات الجديدة"
 
 #: src/components/ai/ChatComposer.tsx
 msgid "Choose JPEG, PNG, or WebP images."
@@ -2499,9 +2527,9 @@ msgstr "قصة مصورة"
 msgid "Comic and manga library scans"
 msgstr "فحص مكتبتي الكوميكس والمانغا"
 
-#: src/components/settings/GeneralTab.tsx
-msgid "Comic Directory"
-msgstr "مجلد القصص المصورة"
+#: src/components/settings/MediaManagementTab.tsx
+msgid "Comic folder to scan"
+msgstr "مجلد القصص المصورة للفحص"
 
 #: src/components/import/LibraryScanSection.tsx
 msgid "Comic library"
@@ -3424,10 +3452,6 @@ msgstr "مسودة · لم تُحفظ بعد"
 msgid "draining active work"
 msgstr "جارٍ تصريف العمل النشط"
 
-#: src/components/settings/GeneralTab.tsx
-msgid "Drop folder for new comic/manga files to auto-import"
-msgstr "مجلد إسقاط لملفات القصص المصورة والمانغا الجديدة لاستيرادها تلقائيًا"
-
 #: src/lib/healthRows.ts
 msgid "due now"
 msgstr "مستحق الآن"
@@ -3733,14 +3757,6 @@ msgstr "كل شيء، بما في ذلك التشخيص"
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Evidence-driven repair"
 msgstr "إصلاح قائم على الأدلة"
-
-#: src/components/settings/GeneralTab.tsx
-msgid "Existing comic folder scanned by library import; imported series stay in place here"
-msgstr "مجلد قصص مصورة موجود فحصه استيراد المكتبة؛ تبقى السلاسل المستوردة في مكانها هنا"
-
-#: src/components/settings/GeneralTab.tsx
-msgid "Existing manga folder scanned by library import; imported series stay in place here"
-msgstr "مجلد مانغا موجود فحصه استيراد المكتبة؛ تبقى السلاسل المستوردة في مكانها هنا"
 
 #: src/pages/ShelfPage.tsx
 msgid "Export CSV"
@@ -4521,10 +4537,6 @@ msgstr "سلوك الاستيراد"
 msgid "Import directory"
 msgstr "مجلد الاستيراد"
 
-#: src/components/settings/GeneralTab.tsx
-msgid "Import Directory"
-msgstr "مجلد الاستيراد"
-
 #: src/pages/ImportPage.tsx
 msgid "Import directory not configured"
 msgstr "مجلد الاستيراد غير مُعد"
@@ -4544,6 +4556,14 @@ msgstr "فشل الاستيراد: {error}"
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Import file operation"
 msgstr "عملية ملفات الاستيراد"
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "Import folder"
+msgstr "مجلد الاستيراد"
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "Import folders"
+msgstr "مجلدات الاستيراد"
 
 #: src/lib/healthRows.ts
 msgid "Import inbox"
@@ -4999,7 +5019,7 @@ msgid "library assistant"
 msgstr "مساعد المكتبة"
 
 #: src/components/series/SeriesFolder.tsx
-#: src/components/settings/GeneralTab.tsx
+#: src/components/settings/MediaManagementTab.tsx
 #: src/lib/setupSteps.ts
 msgid "Library folder"
 msgstr "مجلد المكتبة"
@@ -5009,6 +5029,7 @@ msgid "Library folder {number}"
 msgstr "مجلد المكتبة {number}"
 
 #: src/components/import/ImportSourcesStrip.tsx
+#: src/components/settings/MediaManagementTab.tsx
 msgid "Library folders"
 msgstr "مجلدات المكتبة"
 
@@ -5251,17 +5272,17 @@ msgstr "مانغا"
 msgid "Manga (MangaDex)"
 msgstr "مانغا (MangaDex)"
 
-#: src/components/settings/GeneralTab.tsx
-msgid "Manga Destination Directory"
-msgstr "مجلد وجهة المانغا"
-
-#: src/components/settings/GeneralTab.tsx
-msgid "Manga Directory"
-msgstr "مجلد المانغا"
+#: src/components/settings/MediaManagementTab.tsx
+msgid "Manga folder to scan"
+msgstr "مجلد المانغا للفحص"
 
 #: src/components/import/LibraryScanSection.tsx
 msgid "Manga library"
 msgstr "مكتبة المانغا"
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "Manga library folder"
+msgstr "مجلد مكتبة المانغا"
 
 #: src/components/import/LibraryScanSection.tsx
 msgid "Manga library scan failed: {detail}"
@@ -5753,6 +5774,10 @@ msgstr "دردشة جديدة"
 msgid "New comic day"
 msgstr "يوم الكوميكس الجديد"
 
+#: src/components/settings/MediaManagementTab.tsx
+msgid "New comic series folders are created here. A folder that already exists on the server. In Docker, use the path inside the container, such as /comics."
+msgstr "تُنشأ هنا مجلدات سلاسل القصص المصورة الجديدة. مجلد موجود بالفعل على الخادم. في Docker استخدم المسار داخل الحاوية، مثل /comics."
+
 #: src/components/series/SeriesFolder.tsx
 msgid "New downloads and imports go to {location}."
 msgstr "تذهب التنزيلات والاستيرادات الجديدة إلى {location}."
@@ -5764,6 +5789,10 @@ msgstr "أعداد وفصول جديدة من السلاسل التي تتابع
 #: src/components/settings/LogsTab.tsx
 msgid "New log"
 msgstr "سجل جديد"
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "New manga series folders are created here. Leave blank to use the library folder."
+msgstr "تُنشأ هنا مجلدات سلاسل المانغا الجديدة. اتركه فارغًا لاستخدام مجلد المكتبة."
 
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "Newznab category IDs, comma-separated. 7030 is Books/Comics."
@@ -6533,12 +6562,12 @@ msgid "Optional: target specific device"
 msgstr "اختياري: استهداف جهاز محدد"
 
 #: src/components/settings/MediaManagementTab.tsx
+msgid "Optional. Leave these blank and Import scans the library folders above."
+msgstr "اختياري. اتركها فارغة وسيفحص الاستيراد مجلدات المكتبة أعلاه."
+
+#: src/components/settings/MediaManagementTab.tsx
 msgid "Organize downloads into weekly subfolders"
 msgstr "تنظيم التنزيلات في مجلدات فرعية أسبوعية"
-
-#: src/components/settings/GeneralTab.tsx
-msgid "Other folders"
-msgstr "مجلدات أخرى"
 
 #: src/lib/releaseState.ts
 msgid "Out {day}"
@@ -7512,10 +7541,6 @@ msgstr "تم التراجع"
 msgid "Room ID"
 msgstr "معرّف الغرفة"
 
-#: src/components/settings/GeneralTab.tsx
-msgid "Root of your organized manga library (falls back to Manga Directory, then Destination Directory)"
-msgstr "جذر مكتبة المانغا المنظمة (يرجع إلى مجلد المانغا، ثم مجلد الوجهة)"
-
 #: src/pages/SeriesDetailPage.tsx
 msgid "Route health could not be read. Check the server logs, then refresh this preview."
 msgstr "تعذّرت قراءة سلامة المسارات. تحقق من سجلات الخادم، ثم حدّث هذه المعاينة."
@@ -8313,6 +8338,10 @@ msgstr "series:{comicId} · issue:{issueId}"
 msgid "Serve the MCP endpoint below. While this is off, the endpoint does not exist."
 msgstr "تقديم نقطة نهاية MCP أدناه. عندما يكون هذا معطّلًا، لا توجد نقطة النهاية."
 
+#: src/components/settings/GeneralTab.tsx
+msgid "Server folders"
+msgstr "مجلدات الخادم"
+
 #: src/pages/LoginPage.tsx
 msgid "Server restart timed out. Refresh the page to try logging in."
 msgstr "انتهت مهلة إعادة تشغيل الخادم. حدّث الصفحة لمحاولة تسجيل الدخول."
@@ -8345,33 +8374,17 @@ msgstr "عنوان الخادم"
 msgid "Set {label} to {status}"
 msgstr "ضبط {label} على {status}"
 
-#: src/components/import/ImportSourcesStrip.tsx
-msgid "Set a comic or manga directory to scan"
-msgstr "اضبط مجلد قصص مصورة أو مانغا للفحص"
-
 #: src/pages/ImportPage.tsx
 msgid "Set an import directory first"
 msgstr "اضبط مجلد استيراد أولًا"
-
-#: src/components/import/ImportInboxSection.tsx
-msgid "Set an Import Directory in your config.ini to enable auto-importing."
-msgstr "اضبط مجلد استيراد في config.ini لتفعيل الاستيراد التلقائي."
-
-#: src/components/import/ImportSourcesStrip.tsx
-msgid "Set an import directory to watch for new files"
-msgstr "اضبط مجلد استيراد لمراقبة الملفات الجديدة"
 
 #: src/components/series/MangaVolumes.tsx
 msgid "set by you"
 msgstr "حددته أنت"
 
-#: src/components/import/LibraryScanSection.tsx
-msgid "Set Comic Directory in Settings → Media"
-msgstr "اضبط مجلد القصص المصورة في الإعدادات ← الوسائط"
-
-#: src/components/import/LibraryScanSection.tsx
-msgid "Set Manga Directory in Settings → Media"
-msgstr "اضبط مجلد المانغا في الإعدادات ← الوسائط"
+#: src/components/settings/GeneralTab.tsx
+msgid "Set in config.ini and read-only here. Library and import folders are under Folders and naming."
+msgstr "تُضبط في config.ini وهي للقراءة فقط هنا. مجلدات المكتبة والاستيراد موجودة في المجلدات والتسمية."
 
 #: src/components/settings/SearchTab.tsx
 msgid "Set minimum and maximum file size limits for downloads"
@@ -9034,10 +9047,6 @@ msgstr "هذه غير محددة افتراضيًا. حدد فقط الصفوف 
 msgid "these issues stopped at different stages — pick the ones you mean"
 msgstr "توقفت هذه الأعداد في مراحل مختلفة — اختر ما تقصده"
 
-#: src/components/settings/GeneralTab.tsx
-msgid "These paths are set in config.ini and are read-only here."
-msgstr "تُضبط هذه المسارات في config.ini وهي للقراءة فقط هنا."
-
 #: src/pages/AttentionPage.tsx
 msgid "these rows are at different stages — no action fits all of them"
 msgstr "هذه الصفوف في مراحل مختلفة — لا يوجد إجراء يناسبها كلها"
@@ -9626,8 +9635,8 @@ msgstr "استخدام Comic Vine فقط للبيانات الوصفية (تجا
 
 #: src/components/search/SearchAddButton.tsx
 #: src/components/series/SeriesFolder.tsx
-msgid "Use the path Comicarr sees. In Docker, that is the path inside the container. Extra roots are listed under Settings → Media."
-msgstr "استخدم المسار الذي يراه Comicarr. في Docker، هو المسار داخل الحاوية. تُدرج الجذور الإضافية تحت الإعدادات ← الوسائط."
+msgid "Use the path Comicarr sees. In Docker, that is the path inside the container. Extra roots are listed under Settings, Folders and naming."
+msgstr "استخدم المسار الذي يراه Comicarr. في Docker هو المسار داخل الحاوية. الجذور الإضافية مدرجة في الإعدادات، المجلدات والتسمية."
 
 #: src/lib/updateGuidance.ts
 msgid "Use the Release link for the exact tag notes and assets."
@@ -9932,10 +9941,6 @@ msgstr "عند التفعيل، يتحقق Comicarr تلقائيًا من الإ
 msgid "When enabled, send a message through enabled notifiers when a new release is available. Uses enabled notifiers only; does not reuse snatch or grab flags."
 msgstr "عند التفعيل، تُرسَل رسالة عبر المُبلِّغات المفعّلة عند توفر إصدار جديد. يستخدم المُبلِّغات المفعّلة فقط؛ ولا يعيد استخدام خيارات الخطف أو الالتقاط."
 
-#: src/components/settings/GeneralTab.tsx
-msgid "Where Comicarr keeps your comics. New series folders are created here and downloads are filed into them."
-msgstr "المكان الذي يحفظ فيه Comicarr قصصك المصورة. تُنشأ مجلدات السلاسل الجديدة هنا وتُحفظ التنزيلات فيها."
-
 #: src/lib/setupSteps.ts
 msgid "Where Comicarr keeps your comics. New series folders go here."
 msgstr "المكان الذي يحفظ فيه Comicarr قصصك المصورة. تذهب مجلدات السلاسل الجديدة إلى هنا."
@@ -9947,6 +9952,10 @@ msgstr "المكان الذي يرسل إليه Comicarr الإصدارات ال
 #: src/components/releases/MyReleasesView.tsx
 msgid "Where it stands"
 msgstr "الوضع الحالي"
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "Where your comics and manga live. Downloads are filed here, and Import scans these folders for what you already have."
+msgstr "مكان قصصك المصورة والمانغا. تُحفظ التنزيلات هنا، ويفحص الاستيراد هذه المجلدات بحثًا عما لديك بالفعل."
 
 #: src/components/queue/WantedBySeries.tsx
 msgid "Which"

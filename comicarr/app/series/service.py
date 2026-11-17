@@ -34,7 +34,7 @@ from comicarr.app.acquisition.policy import (
 )
 from comicarr.app.common import series_kind
 from comicarr.app.common.filesystem import is_path_within_allowed_dirs
-from comicarr.app.common.library_roots import is_strict_library_descendant
+from comicarr.app.common.library_roots import is_strict_library_descendant, library_scan_dir
 from comicarr.app.common.strings import filesafe
 from comicarr.app.core import db, logger
 from comicarr.app.core.tables import annuals, comics, issues, storyarcs, weekly
@@ -1431,11 +1431,11 @@ def manga_library_scan(ctx):
     """Trigger a manga library scan in the background."""
     from comicarr.app.manga import mangasync
 
-    manga_dir = getattr(comicarr.CONFIG, "MANGA_DIR", None) if comicarr.CONFIG else None
+    manga_dir = library_scan_dir(comicarr.CONFIG, "manga")
     if not manga_dir:
-        return {"success": False, "error": "Manga directory not configured"}
+        return {"success": False, "error": "Set a manga folder in Settings, General first"}
     if not os.path.isdir(manga_dir):
-        return {"success": False, "error": "Manga directory not found: %s" % manga_dir}
+        return {"success": False, "error": "Manga folder not found: %s" % manga_dir}
 
     return _start_library_scan(
         mangasync,
@@ -1480,11 +1480,11 @@ def comic_library_scan(ctx):
     """Trigger a comic library scan in the background."""
     from comicarr.app.series import comicsync
 
-    comic_dir = getattr(comicarr.CONFIG, "COMIC_DIR", None) if comicarr.CONFIG else None
+    comic_dir = library_scan_dir(comicarr.CONFIG, "comic")
     if not comic_dir:
-        return {"success": False, "error": "Comic directory not configured"}
+        return {"success": False, "error": "Set a library folder in Settings, General first"}
     if not os.path.isdir(comic_dir):
-        return {"success": False, "error": "Comic directory not found: %s" % comic_dir}
+        return {"success": False, "error": "Comic folder not found: %s" % comic_dir}
 
     return _start_library_scan(
         comicsync,

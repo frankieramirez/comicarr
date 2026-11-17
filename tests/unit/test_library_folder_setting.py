@@ -61,3 +61,56 @@ def test_saving_the_unchanged_folder_never_trips_over_it():
     result = system_service.update_config(ctx, {"destination_dir": "/was/here/once"})
 
     assert result["success"] is True
+
+
+@pytest.mark.parametrize("key", ["comic_dir", "manga_dir", "manga_destination_dir", "import_dir"])
+def test_other_folders_can_be_set_and_cleared(tmp_path, key):
+    ctx = _ctx(destination=str(tmp_path / "library"))
+    folder = tmp_path / "elsewhere"
+    folder.mkdir()
+
+    assert system_service.update_config(ctx, {key: " %s " % folder})["success"] is True
+    assert ctx.config.apply_transaction.call_args.args[0][key.upper()] == str(folder)
+
+    assert system_service.update_config(ctx, {key: ""})["success"] is True
+    assert ctx.config.apply_transaction.call_args.args[0][key.upper()] == ""
+
+
+@pytest.mark.parametrize(
+    ("value", "error"),
+    [
+        ("imports", "Import folder must be a full path, such as /comics"),
+        ("/no/such/folder/anywhere", "Import folder /no/such/folder/anywhere does not exist on the server"),
+    ],
+)
+def test_an_unusable_import_folder_is_refused(value, error):
+    ctx = _ctx()
+
+    result = system_service.update_config(ctx, {"import_dir": value})
+
+    assert result == {"success": False, "error": error}
+    ctx.config.apply_transaction.assert_not_called()
+
+
+def test_an_import_folder_inside_the_library_is_refused(tmp_path):
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    ctx = _ctx(destination=str(tmp_path))
+    ctx.config.IMPORT_DIR = None
+
+    result = system_service.update_config(ctx, {"import_dir": str(inbox)})
+
+    assert result == {"success": False, "error": "Import folder cannot be inside, or contain, %s" % tmp_path}
+    ctx.config.apply_transaction.assert_not_called()
+
+
+def test_moving_the_library_onto_the_import_folder_is_refused(tmp_path):
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    ctx = _ctx(destination="/old/library")
+    ctx.config.IMPORT_DIR = str(inbox)
+
+    result = system_service.update_config(ctx, {"destination_dir": str(inbox)})
+
+    assert result["success"] is False
+    assert "Import folder cannot be inside" in result["error"]

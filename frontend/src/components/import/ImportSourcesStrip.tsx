@@ -3,6 +3,7 @@ import { Trans } from "@lingui/react/macro";
 import { Link } from "react-router-dom";
 import { Inbox, Library } from "lucide-react";
 import { useConfig } from "@/hooks/useConfig";
+import { libraryScanFolders, SETTINGS_FOLDERS } from "@/lib/libraryFolders";
 
 /**
  * Where Import looks, in one line: the watched inbox and the library folders.
@@ -11,8 +12,9 @@ import { useConfig } from "@/hooks/useConfig";
 export default function ImportSourcesStrip() {
   const { data: config } = useConfig();
   const inbox = config?.import_dir as string | undefined;
-  const folders = [config?.comic_dir, config?.manga_dir].filter(
-    (dir): dir is string => typeof dir === "string" && dir.length > 0,
+  const scan = libraryScanFolders(config);
+  const folders = [scan.comic, scan.manga].filter((dir): dir is string =>
+    Boolean(dir),
   );
 
   return (
@@ -26,7 +28,7 @@ export default function ImportSourcesStrip() {
         state={inbox ? t`Watching` : t`Not set`}
         live={Boolean(inbox)}
         paths={inbox ? [inbox] : []}
-        empty={t`Set an import directory to watch for new files`}
+        empty={t`Choose an import folder to watch for new files`}
       />
       <Source
         icon={<Library className="size-4" />}
@@ -38,7 +40,7 @@ export default function ImportSourcesStrip() {
         }
         live={false}
         paths={folders}
-        empty={t`Set a comic or manga directory to scan`}
+        empty={t`Choose a library folder to scan`}
         divided
       />
     </div>
@@ -84,7 +86,7 @@ function Source({
         </div>
       </div>
       <Link
-        to="/settings?section=media"
+        to={SETTINGS_FOLDERS}
         className="shrink-0 text-[13px] text-foreground-2 hover:text-foreground"
       >
         <Trans>Change</Trans>

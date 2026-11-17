@@ -660,7 +660,7 @@ class TestConfigService:
     def test_update_config_accepts_lowercase_keys(self):
         """update_config normalizes lowercase keys to uppercase."""
         ctx = _make_test_ctx()
-        result = system_service.update_config(ctx, {"comic_dir": "/new/path"})
+        result = system_service.update_config(ctx, {"comic_dir": "/tmp"})
         assert result["success"] is True
         ctx.config.apply_transaction.assert_called_once()
         args = ctx.config.apply_transaction.call_args[0][0]
@@ -669,7 +669,7 @@ class TestConfigService:
     def test_update_config_accepts_uppercase_keys(self):
         """update_config still accepts uppercase keys (backward compat)."""
         ctx = _make_test_ctx()
-        result = system_service.update_config(ctx, {"COMIC_DIR": "/new/path"})
+        result = system_service.update_config(ctx, {"COMIC_DIR": "/tmp"})
         assert result["success"] is True
 
     @pytest.mark.parametrize("value", (-1, 4, "1", True, None))
@@ -723,7 +723,7 @@ class TestConfigService:
         result = system_service.update_config(
             ctx,
             {
-                "comic_dir": "/new/path",
+                "comic_dir": "/tmp",
                 "api_key": "hacked",
             },
         )
@@ -1789,7 +1789,7 @@ class TestConfigRouter:
         failure = {"success": False, "error": "Failed to persist configuration"}
 
         with patch.object(system_router.system_service, "update_config", return_value=failure):
-            response = await system_router.update_config(_JsonRequest({"comic_dir": "/new/path"}), ctx)
+            response = await system_router.update_config(_JsonRequest({"comic_dir": "/tmp"}), ctx)
 
         assert response.status_code == 500
         assert json.loads(response.body) == failure

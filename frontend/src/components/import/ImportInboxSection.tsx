@@ -4,7 +4,9 @@ import { Trans } from "@lingui/react/macro";
 import { Inbox, RefreshCw, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRefreshImport } from "@/hooks/useImport";
+import { Link } from "react-router-dom";
 import { useConfig } from "@/hooks/useConfig";
+import { SETTINGS_FOLDERS } from "@/lib/libraryFolders";
 import { useToast } from "@/components/ui/toast";
 
 export default function ImportInboxSection() {
@@ -51,12 +53,15 @@ export default function ImportInboxSection() {
               <span className="truncate">{importDir}</span>
             </div>
           ) : (
-            <div className="text-[11px] text-muted-foreground mt-0.5">
+            <Link
+              to={SETTINGS_FOLDERS}
+              className="block text-[11px] text-muted-foreground mt-0.5 underline-offset-2 hover:text-foreground hover:underline"
+            >
               <Trans>
-                Set an Import Directory in your config.ini to enable
-                auto-importing.
+                Choose an import folder in Settings to import new files
+                automatically.
               </Trans>
-            </div>
+            </Link>
           )}
         </div>
 

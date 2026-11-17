@@ -15,7 +15,7 @@ describe("setupSteps", () => {
       ["client", false],
     ]);
     expect(steps.map((s) => s.fix.to)).toEqual([
-      "/settings?section=general",
+      "/settings?section=media",
       "/settings?section=api",
       "/settings?section=search",
       "/settings?section=clients",

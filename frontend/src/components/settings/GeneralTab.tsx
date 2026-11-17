@@ -47,50 +47,9 @@ export function GeneralTab({ config, formData, onChange }: GeneralTabProps) {
       </SettingGroup>
 
       <SettingGroup
-        title={t`Library folder`}
-        description={t`Where Comicarr keeps your comics. New series folders are created here and downloads are filed into them.`}
+        title={t`Server folders`}
+        description={t`Set in config.ini and read-only here. Library and import folders are under Folders and naming.`}
       >
-        <SettingField
-          label={t`Library folder`}
-          value={formData.destination_dir || ""}
-          onChange={(v) => onChange("destination_dir", v as string)}
-          helpText={t`A folder that already exists on the server. In Docker, use the path inside the container, such as /comics.`}
-          placeholder="/comics"
-        />
-      </SettingGroup>
-
-      <SettingGroup
-        title={t`Other folders`}
-        description={t`These paths are set in config.ini and are read-only here.`}
-      >
-        <SettingField
-          label={t`Comic Directory`}
-          value={config.comic_dir}
-          type="text"
-          readOnly
-          helpText={t`Existing comic folder scanned by library import; imported series stay in place here`}
-        />
-        <SettingField
-          label={t`Manga Directory`}
-          value={config.manga_dir}
-          type="text"
-          readOnly
-          helpText={t`Existing manga folder scanned by library import; imported series stay in place here`}
-        />
-        <SettingField
-          label={t`Manga Destination Directory`}
-          value={config.manga_destination_dir}
-          type="text"
-          readOnly
-          helpText={t`Root of your organized manga library (falls back to Manga Directory, then Destination Directory)`}
-        />
-        <SettingField
-          label={t`Import Directory`}
-          value={config.import_dir}
-          type="text"
-          readOnly
-          helpText={t`Drop folder for new comic/manga files to auto-import`}
-        />
         <SettingField
           label={t`Cache Directory`}
           value={config.cache_dir}

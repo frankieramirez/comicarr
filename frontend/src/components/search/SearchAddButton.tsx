@@ -236,7 +236,8 @@ export default function SearchAddButton({
               <p className="text-xs text-muted-foreground">
                 <Trans>
                   Use the path Comicarr sees. In Docker, that is the path inside
-                  the container. Extra roots are listed under Settings → Media.
+                  the container. Extra roots are listed under Settings, Folders
+                  and naming.
                 </Trans>
               </p>
             </div>

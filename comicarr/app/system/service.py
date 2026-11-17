@@ -557,6 +557,62 @@ def _validate_library_folder(ctx, value):
     return None
 
 
+# Folders Settings can change besides the library folder. Each may be left
+# blank; a new value must be a full path to a folder that already exists.
+_OPTIONAL_FOLDER_LABELS = {
+    "COMIC_DIR": "Comic folder to scan",
+    "MANGA_DIR": "Manga folder to scan",
+    "MANGA_DESTINATION_DIR": "Manga library folder",
+    "IMPORT_DIR": "Import folder",
+}
+_IMPORT_OVERLAP_KEYS = ("DESTINATION_DIR", "MANGA_DESTINATION_DIR", "COMIC_DIR", "MANGA_DIR", "CHECK_FOLDER")
+
+
+def _validate_optional_folder(ctx, key, value):
+    """Return (normalized value, error) for an optional folder setting."""
+    label = _OPTIONAL_FOLDER_LABELS[key]
+    if value is None:
+        return "", None
+    if not isinstance(value, str):
+        return None, "%s must be a path" % label
+    path = value.strip()
+    if path == "" or path == (getattr(ctx.config, key, None) or ""):
+        return path, None
+    if not os.path.isabs(path):
+        return None, "%s must be a full path, such as /comics" % label
+    if not os.path.isdir(path):
+        return None, "%s %s does not exist on the server" % (label, path)
+    return path, None
+
+
+def _import_folder_overlap(ctx, filtered):
+    """Name the folder a new import folder overlaps, or None.
+
+    The inbox moves what it finds, so it must never sit inside, or contain, a
+    library or download folder. Startup disables an overlapping one; a save
+    refuses it so the user sees why.
+    """
+    if "IMPORT_DIR" not in filtered and not any(key in filtered for key in _IMPORT_OVERLAP_KEYS):
+        return None
+    import_dir = filtered["IMPORT_DIR"] if "IMPORT_DIR" in filtered else getattr(ctx.config, "IMPORT_DIR", None)
+    if not isinstance(import_dir, str) or not import_dir.strip():
+        return None
+    import_dir = import_dir.strip()
+    real_import = os.path.realpath(import_dir)
+    for key in _IMPORT_OVERLAP_KEYS:
+        other = filtered[key] if key in filtered else getattr(ctx.config, key, None)
+        if not isinstance(other, str) or not other.strip():
+            continue
+        real_other = os.path.realpath(other.strip())
+        if (
+            real_import == real_other
+            or real_import.startswith(real_other + os.sep)
+            or real_other.startswith(real_import + os.sep)
+        ):
+            return other.strip()
+    return None
+
+
 def update_config(ctx, key_values):
     """Update configuration key-values and trigger scheduler reconfiguration."""
     import comicarr
@@ -625,6 +681,21 @@ def update_config(ctx, key_values):
         library_error = _validate_library_folder(ctx, filtered["DESTINATION_DIR"])
         if library_error:
             return {"success": False, "error": library_error}
+
+    for folder_key in _OPTIONAL_FOLDER_LABELS:
+        if folder_key not in filtered:
+            continue
+        folder, folder_error = _validate_optional_folder(ctx, folder_key, filtered[folder_key])
+        if folder_error:
+            return {"success": False, "error": folder_error}
+        filtered[folder_key] = folder
+
+    overlap = _import_folder_overlap(ctx, filtered)
+    if overlap:
+        return {
+            "success": False,
+            "error": "Import folder cannot be inside, or contain, %s" % overlap,
+        }
 
     if "SAB_HOST" in filtered:
         new_origin = _http_origin(filtered["SAB_HOST"])
