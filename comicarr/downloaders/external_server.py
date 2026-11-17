@@ -29,7 +29,7 @@ add-on cannot raise ``AttributeError``.
 Mega.nz links (GetComics GC-Mega) and is not a search client.
 """
 
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.search import progress
 
 EXT_SERVER = False

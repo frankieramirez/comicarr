@@ -22,7 +22,8 @@ import time
 
 from sqlalchemy import select
 
-from comicarr import db, logger
+from comicarr import db
+from comicarr.app.core import logger
 from comicarr.tables import import_folder_choices, importresults
 
 FOLDER_PREFIX = "folder:"

@@ -81,7 +81,7 @@ def cancel_in_flight(kind, item_id=None, release_key=None, actor=None):
                 actor=actor,
             )
         except Exception as e:
-            from comicarr import logger
+            from comicarr.app.core import logger
 
             logger.fdebug("[ACTIVITY] search.cancelled emit skipped: %s" % e)
         updated = ledger.get_item_by_id(item["item_id"])

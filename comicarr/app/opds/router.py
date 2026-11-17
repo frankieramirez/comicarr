@@ -25,9 +25,10 @@ from fastapi.responses import Response
 from starlette.responses import FileResponse
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common.library_roots import is_servable_library_file
+from comicarr.app.core import logger
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_opds_auth
 from comicarr.app.metadata import service as metadata_service

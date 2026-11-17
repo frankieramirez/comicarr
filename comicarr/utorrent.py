@@ -22,8 +22,8 @@ import re
 import requests
 
 import comicarr
-from comicarr import logger
 from comicarr.app.common.torrent_hash import info_hash, info_hash_of_file
+from comicarr.app.core import logger
 
 
 class utorrentclient(object):

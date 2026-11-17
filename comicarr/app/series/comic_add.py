@@ -28,11 +28,12 @@ import sqlalchemy.exc
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, filechecker, logger, search
+from comicarr import db, filechecker, search
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common import strings as common_strings
+from comicarr.app.core import logger
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.downloads import snatch_record
 from comicarr.app.library import directories, filers, moveit

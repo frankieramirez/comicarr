@@ -25,8 +25,9 @@ import re
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
 from comicarr.app.common import dates as common_dates
+from comicarr.app.core import logger
 from comicarr.app.library.directories import validateAndCreateDirectory
 from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.tables import comics

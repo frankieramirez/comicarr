@@ -24,8 +24,8 @@ from __future__ import annotations
 
 from sqlalchemy import func, not_, or_, select, text
 
-from comicarr import logger
 from comicarr.app.attention._policy import base_reason, is_actionable, reconciliation_for
+from comicarr.app.core import logger
 
 RECONCILE_AUDIT_IDENTITY = "system:band-actionability"
 PHANTOM_BACKUP_TABLE = "issues_phantom_backup_969"

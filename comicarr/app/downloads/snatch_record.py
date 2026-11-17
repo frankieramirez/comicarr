@@ -25,8 +25,9 @@ from typing import Any
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
 from comicarr.app.common import dates as common_dates
+from comicarr.app.core import logger
 from comicarr.app.manga import volumes as manga_volumes
 from comicarr.app.manga.ledger import volume_number_from_id
 from comicarr.tables import annuals, comics, issues, storyarcs, weekly

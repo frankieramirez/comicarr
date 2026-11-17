@@ -22,7 +22,7 @@ import re
 import threading
 import time
 
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.storyarcs import service as storyarcs_service
 from comicarr.app.weekly import queries as weekly_queries
 

@@ -14,10 +14,10 @@ from collections.abc import Mapping
 
 from sqlalchemy.exc import OperationalError
 
-from comicarr import logger
 from comicarr.app.attention._policy import base_reason, is_actionable
 from comicarr.app.attention._reconciliation import reconcile_excluded
 from comicarr.app.attention.contracts import Failure, ManualReview, RecordOutcome
+from comicarr.app.core import logger
 
 
 def _record_on_connection(entry, conn, *, activity_sink=None):

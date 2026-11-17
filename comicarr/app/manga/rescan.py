@@ -17,7 +17,8 @@ import os
 
 from sqlalchemy import select
 
-from comicarr import db, logger
+from comicarr import db
+from comicarr.app.core import logger
 from comicarr.app.imports.scanutil import COMIC_EXTENSIONS
 from comicarr.app.manga.parse import parse_in_series_context
 from comicarr.tables import comics as t_comics

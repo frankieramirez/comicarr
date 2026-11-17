@@ -22,7 +22,8 @@ import os
 import shutil
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
+from comicarr.app.core import logger
 from comicarr.app.downloads import service as downloads_service
 from comicarr.app.library.directories import validateAndCreateDirectory
 from comicarr.app.series.rescan import rescan_series

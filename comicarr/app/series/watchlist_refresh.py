@@ -28,9 +28,10 @@ from collections.abc import Mapping
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
+from comicarr.app.core import logger
 from comicarr.app.metadata import cv, series_metadata
 from comicarr.app.series import add, rescan
 from comicarr.app.series import service as series_service

@@ -29,10 +29,11 @@ import time
 from sqlalchemy import or_, select
 
 import comicarr
-from comicarr import db, filechecker, logger
+from comicarr import db, filechecker
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import strings as common_strings
+from comicarr.app.core import logger
 from comicarr.tables import annuals, comics, issues, storyarcs, weekly
 
 

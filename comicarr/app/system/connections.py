@@ -31,8 +31,8 @@ from typing import Callable
 import requests
 
 import comicarr
-from comicarr import logger
 from comicarr.app.common.redaction import redact_sensitive_text
+from comicarr.app.core import logger
 
 JOB_ID = "connection_check"
 JOB_NAME = "Connection Check"

@@ -37,7 +37,7 @@ def get_weekly(
     ctx: AppContext = Depends(get_context),
 ):
     """Return one Sunday-based week of industry releases, the current week by default."""
-    from comicarr import logger
+    from comicarr.app.core import logger
 
     if (week is None) != (year is None):
         return JSONResponse(status_code=400, content={"detail": "Pass both week and year, or neither."})
@@ -69,7 +69,7 @@ def refresh_weekly(ctx: AppContext = Depends(get_context)):
     try:
         weekly_service.refresh_manga()
     except Exception as e:
-        from comicarr import logger
+        from comicarr.app.core import logger
 
         logger.warn("[WEEKLY] Manga release refresh did not start: %s" % e)
     status_code = 503 if result["state"] == "unavailable" else 202 if result["accepted"] else 200

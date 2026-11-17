@@ -24,7 +24,6 @@ import asyncio
 import json
 import time
 
-from comicarr import logger
 from comicarr.app.ai import actions as chat_actions
 from comicarr.app.ai import service as ai_service
 from comicarr.app.ai.query_patterns import (
@@ -33,6 +32,7 @@ from comicarr.app.ai.query_patterns import (
     get_pattern_descriptions,
 )
 from comicarr.app.ai.sanitize import sanitize_input
+from comicarr.app.core import logger
 
 _SYSTEM_PROMPT = """You are a helpful comic book library assistant for Comicarr.
 You answer questions about the user's comic collection by selecting the appropriate

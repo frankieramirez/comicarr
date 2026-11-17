@@ -595,7 +595,7 @@ class TestBoundedDrainExceeded:
         ctx.sn_pool = stopped
         ctx.nzb_pool = stuck
 
-        with patch.object(comicarr.logger, "warn") as warn:
+        with patch.object(comicarr.app.core.logger, "warn") as warn:
             result = _drain_worker_pools(0.01, ctx)
 
         assert stopped.join_calls
@@ -687,7 +687,7 @@ class TestBoundedDrainExceeded:
         assert worker in ctx.background_workers.snapshot()
         try:
             with (
-                patch.object(comicarr.logger, "warn") as warn,
+                patch.object(comicarr.app.core.logger, "warn") as warn,
                 patch.object(engine, "dispose") as dispose,
             ):
                 await _run_shutdown(ctx)
@@ -726,7 +726,7 @@ class TestBoundedDrainExceeded:
         assert started.wait(timeout=1)
         try:
             with (
-                patch.object(comicarr.logger, "warn") as warn,
+                patch.object(comicarr.app.core.logger, "warn") as warn,
                 patch.object(engine, "dispose") as dispose,
             ):
                 await _run_shutdown(ctx)
@@ -766,7 +766,7 @@ class TestBoundedDrainExceeded:
         def _fail():
             raise ValueError("worker failed")
 
-        with patch.object(comicarr.logger, "error") as log_error:
+        with patch.object(comicarr.app.core.logger, "error") as log_error:
             worker = registry.start(_fail, name="FailingWorker")
             worker.join(timeout=1)
 

@@ -21,7 +21,7 @@ import logging
 import pytest
 
 import comicarr
-from comicarr import logger as comicarr_logger
+from comicarr.app.core import logger as comicarr_logger
 
 
 @pytest.fixture

@@ -16,7 +16,7 @@ Low cross-domain dependency, well-bounded. Validates the domain pattern.
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.exceptions import NotFoundError
 from comicarr.app.core.security import require_session

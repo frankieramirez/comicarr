@@ -28,8 +28,8 @@ from collections.abc import Mapping, Sequence
 
 from sqlalchemy import delete, exists, insert, select, update
 
-from comicarr import logger
 from comicarr.app.common.redaction import redact_sensitive_text
+from comicarr.app.core import logger
 from comicarr.db import get_engine
 from comicarr.tables import interactive_search_candidates, interactive_search_sessions
 

@@ -44,11 +44,12 @@ from dataclasses import dataclass
 from sqlalchemy import Integer, and_, func, inspect, or_, select
 
 import comicarr
-from comicarr import db, filechecker, logger, weeklypull
+from comicarr import db, filechecker, weeklypull
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common.placement import place
+from comicarr.app.core import logger
 from comicarr.app.downloads import service as downloads_service
 from comicarr.app.downloads import snatch_record
 from comicarr.app.downloads.postprocess_pipeline import PostProcessItemDeps

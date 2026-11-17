@@ -16,8 +16,9 @@ from contextlib import nullcontext
 
 from sqlalchemy import select
 
-from comicarr import db, logger, search
+from comicarr import db, search
 from comicarr.app.common.redaction import redact_sensitive_text
+from comicarr.app.core import logger
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.search import progress
 from comicarr.app.search import routes as search_routes

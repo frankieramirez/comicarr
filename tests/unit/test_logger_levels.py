@@ -19,7 +19,7 @@ import logging
 import pytest
 
 import comicarr
-from comicarr import logger as comicarr_logger
+from comicarr.app.core import logger as comicarr_logger
 
 LEVEL_THRESHOLDS = {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG}
 

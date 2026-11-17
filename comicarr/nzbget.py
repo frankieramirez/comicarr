@@ -26,7 +26,8 @@ import xmlrpc.client
 from base64 import standard_b64encode
 
 import comicarr
-from comicarr import cdh_mapping, logger
+from comicarr import cdh_mapping
+from comicarr.app.core import logger
 
 
 def failure_cause(status):

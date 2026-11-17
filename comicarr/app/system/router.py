@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import (
     COOKIE_NAME,

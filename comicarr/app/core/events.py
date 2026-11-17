@@ -20,7 +20,7 @@ import threading
 import time
 from dataclasses import dataclass
 
-from comicarr import logger
+from comicarr.app.core import logger
 
 _OVERFLOW_LOG_INTERVAL_SEC = 5.0
 _last_overflow_log = 0.0

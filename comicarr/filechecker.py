@@ -25,11 +25,11 @@ import re
 import unicodedata
 
 import comicarr
-from comicarr import logger
 from comicarr.app.common import configured as configured
 from comicarr.app.common.series_names import DYNAMIC_HANDLERS, DYNAMIC_REPLACEMENTS, dynamic_series_name
 from comicarr.app.common.series_names import dynamic_series_key as dynamic_series_key
 from comicarr.app.common.text_dates import parse_text_date
+from comicarr.app.core import logger
 from comicarr.app.library.directories import check_valid_perms as check_valid_perms
 from comicarr.app.library.directories import setperms as setperms
 from comicarr.app.library.directories import validateAndCreateDirectory as validateAndCreateDirectory

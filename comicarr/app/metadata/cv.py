@@ -26,9 +26,9 @@ import pytz
 from bs4 import BeautifulSoup as Soup
 
 import comicarr
-from comicarr import logger
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common.text_dates import parse_text_date
+from comicarr.app.core import logger
 from comicarr.app.metadata.series_type import resolve_series_edition
 
 # Request types whose responses are JSON rather than XML.

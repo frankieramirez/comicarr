@@ -170,10 +170,10 @@ def _initialize_ai_clients(ctx):
     if not ai_config or not getattr(ai_config, "AI_BASE_URL", None) or not getattr(ai_config, "AI_API_KEY", None):
         return
 
-    from comicarr import logger
     from comicarr.app.ai.circuit_breaker import CircuitBreaker
     from comicarr.app.ai.client import create_ai_clients
     from comicarr.app.ai.rate_limiter import AIRateLimiter
+    from comicarr.app.core import logger
 
     sync_client, async_client = create_ai_clients(ai_config)
     if not sync_client:

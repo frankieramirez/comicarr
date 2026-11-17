@@ -22,10 +22,11 @@ import time
 import requests
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
 from comicarr.app.common import configured as configured
 from comicarr.app.common import placement
 from comicarr.app.common import strings as common_strings
+from comicarr.app.core import logger
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.library import filers
 from comicarr.app.metadata import cv

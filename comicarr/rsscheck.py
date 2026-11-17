@@ -33,11 +33,12 @@ from sqlalchemy import Column, Integer, MetaData, Table, Text, func, or_, select
 from sqlalchemy.exc import OperationalError
 
 import comicarr
-from comicarr import db, filechecker, logger, utorrent
+from comicarr import db, filechecker, utorrent
 from comicarr.app.common import configured as configured
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.common import strings as common_strings
 from comicarr.app.common import utilities as common_utilities
+from comicarr.app.core import logger
 from comicarr.app.search import service as search_service
 from comicarr.app.search.backlog import (
     get_rss_provider_lookup,

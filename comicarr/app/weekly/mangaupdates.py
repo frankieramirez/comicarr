@@ -42,7 +42,7 @@ from urllib.parse import quote
 import requests
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 
 API_BASE = "https://api.mangaupdates.com/v1"
 SOURCE = "mangaupdates"

@@ -24,7 +24,7 @@ import requests
 from packaging.version import parse as parse_version
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 
 
 class CDH_MAP(object):

@@ -20,8 +20,9 @@ import re
 from sqlalchemy import func, select, text
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
 from comicarr.app.common import configured as configured
+from comicarr.app.core import logger
 from comicarr.app.series import add, refresh
 from comicarr.app.weekly import locg
 from comicarr.tables import annuals, comics, issues, upcoming, weekly

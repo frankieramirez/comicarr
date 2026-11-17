@@ -25,8 +25,9 @@ from pathlib import Path
 import requests
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome, RunState
+from comicarr.app.core import logger
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.library import filers
 from comicarr.app.search import rss

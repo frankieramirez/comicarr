@@ -31,8 +31,8 @@ free text through ``redact_sensitive_text``; no line carries a URL.
 
 from urllib.parse import unquote
 
-from comicarr import logger
 from comicarr.app.common.redaction import redact_sensitive_text
+from comicarr.app.core import logger
 
 _URL_MARKERS = ("://", "@", "?", "apikey=", "token=")
 _GENERIC_PROVIDER = {

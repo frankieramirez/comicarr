@@ -19,12 +19,12 @@ import json
 import time
 from datetime import datetime, timedelta
 
-from comicarr import logger
 from comicarr.app.ai import queries as ai_queries
 from comicarr.app.ai import service as ai_service
 from comicarr.app.ai.runtime import get_ai_runtime
 from comicarr.app.ai.schemas import PullSuggestions
 from comicarr.app.ai.structured import request_structured
+from comicarr.app.core import logger
 
 CACHE_KEY = "pull_suggestions"
 CACHE_TYPE = "suggestions"

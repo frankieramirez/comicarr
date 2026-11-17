@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from sqlalchemy.sql.expression import BinaryExpression
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.tables import TABLE_MAP, UPSERT_KEYS
 
 _engine = None

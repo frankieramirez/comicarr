@@ -40,7 +40,7 @@ from urllib.parse import urlencode
 import requests
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 
 
 class PROWL:

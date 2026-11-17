@@ -17,7 +17,7 @@ from base64 import b16encode, b32decode
 import qbittorrentapi
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.torrent.contracts import connection_failure
 
 # Seconds to wait on any single WebUI call. The monitor polls this client from

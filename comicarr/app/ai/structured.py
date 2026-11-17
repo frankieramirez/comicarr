@@ -15,7 +15,7 @@ schema embedded in the user message and validates the response.
 import json
 import re
 
-from comicarr import logger
+from comicarr.app.core import logger
 
 
 def request_structured(

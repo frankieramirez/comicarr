@@ -28,7 +28,7 @@ import os
 import time
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 
 SEND_ATTEMPTS = 3
 SETTLE_SECONDS = 5

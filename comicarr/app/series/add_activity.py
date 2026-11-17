@@ -13,7 +13,7 @@ Moved from ``comicarr/importer.py`` (#1463) so the comic add and the manga add
 share it.
 """
 
-from comicarr import logger
+from comicarr.app.core import logger
 
 
 def emit_add_activity(status, comicid, comicname=None, reason_detail=None):

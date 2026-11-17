@@ -24,7 +24,8 @@ from collections import Counter
 
 from sqlalchemy import delete, insert, select
 
-from comicarr import db, logger
+from comicarr import db
+from comicarr.app.core import logger
 from comicarr.tables import issue_search_history
 
 ACCEPTED_LIMIT = 20

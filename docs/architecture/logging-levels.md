@@ -228,7 +228,7 @@ Three defects came out of it, all fixed alongside the retirement:
 
 ## One logger, every locale
 
-The contract above now covers every install. It did not always: `logger.py` used
+The contract above now covers every install. It did not always: `logger.py` (now `app/core/logger.py`) used
 to branch at import on `LOG_LANG` and build an entirely separate
 `RotatingLogger` when the locale did not start with `en`. That branch was
 retired in #619, and the history is worth keeping because the shape of the bug

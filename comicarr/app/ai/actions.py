@@ -23,7 +23,8 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 from sqlalchemy import select, update
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
+from comicarr.app.core import logger
 from comicarr.tables import annuals, comics, issues
 
 ACTION_PATTERNS = {

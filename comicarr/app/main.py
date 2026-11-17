@@ -74,7 +74,7 @@ def _drain_worker_pools(timeout, ctx=None):
     import threading
 
     import comicarr
-    from comicarr import logger
+    from comicarr.app.core import logger
 
     deadline = time.monotonic() + timeout
     live_owners = []
@@ -164,7 +164,7 @@ def _shutdown_scheduler(scheduler):
 async def _drain_scheduler(loop, drain_executor, scheduler):
     """Bound scheduler drain and report whether it can still own resources."""
 
-    from comicarr import logger
+    from comicarr.app.core import logger
 
     if not scheduler:
         return DrainResult()
@@ -189,7 +189,7 @@ async def _drain_scheduler(loop, drain_executor, scheduler):
 def _shutdown_executors(drain_executor, executor):
     """Release shutdown executors exactly once on either terminal path."""
 
-    from comicarr import logger
+    from comicarr.app.core import logger
 
     try:
         drain_executor.shutdown(wait=False)
@@ -236,7 +236,7 @@ async def lifespan(app: FastAPI):
             "schema_ready": bool(getattr(comicarr, "ACQUISITION_SCHEMA_READY", False)),
         }
 
-    from comicarr import logger
+    from comicarr.app.core import logger
 
     try:
         from comicarr.app.system.deprecations import warn_deprecations_in_use
@@ -250,7 +250,7 @@ async def lifespan(app: FastAPI):
         yield
 
     import comicarr
-    from comicarr import logger
+    from comicarr.app.core import logger
 
     logger.info("[SHUTDOWN] FastAPI lifespan shutdown starting...")
 

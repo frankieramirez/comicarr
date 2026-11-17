@@ -19,9 +19,9 @@ import json
 
 from sqlalchemy import select
 
-from comicarr import logger
 from comicarr.app.activity.events import publish_activity, record_activity
 from comicarr.app.common.redaction import redact_sensitive_text
+from comicarr.app.core import logger
 from comicarr.db import get_engine
 from comicarr.tables import annuals, comics, issues
 

@@ -26,7 +26,7 @@ import os
 import platform
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 
 if "windows" not in platform.system().lower():
     from grp import getgrnam

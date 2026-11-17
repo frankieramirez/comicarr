@@ -20,8 +20,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 import comicarr
-from comicarr import logger
 from comicarr.app.common import placement
+from comicarr.app.core import logger
 from comicarr.app.core.context import AppContext
 from comicarr.app.imports import queries as import_queries
 from comicarr.app.series import queries as series_queries
