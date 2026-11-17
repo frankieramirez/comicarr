@@ -1201,9 +1201,16 @@ def _manga_series_folder(manga_dest, manga_name, manga_year):
     """
     folder_format = comicarr.CONFIG.FOLDER_FORMAT or "$Series ($Year)"
     formatted = helpers.filesafe(folder_format.replace("$Series", manga_name).replace("$Year", str(manga_year)))
+    root = os.path.normpath(os.path.abspath(manga_dest))
     formatted_path = os.path.join(manga_dest, formatted)
-    plain_path = os.path.join(manga_dest, helpers.filesafe(manga_name))
-    if plain_path != formatted_path and not os.path.isdir(formatted_path) and os.path.isdir(plain_path):
+    plain_path = os.path.normpath(os.path.join(root, helpers.filesafe(manga_name)))
+    if not plain_path.startswith(root + os.sep):
+        return formatted_path
+    if (
+        plain_path != os.path.normpath(os.path.join(root, formatted))
+        and not os.path.isdir(formatted_path)
+        and os.path.isdir(plain_path)
+    ):
         logger.info("[MANGA] Using the existing folder %s for %s" % (plain_path, manga_name))
         return plain_path
     return formatted_path

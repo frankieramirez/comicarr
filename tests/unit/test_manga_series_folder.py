@@ -37,3 +37,11 @@ def test_an_existing_formatted_folder_wins_over_a_plain_one(tmp_path):
     (tmp_path / "Moon Garden (2019)").mkdir()
 
     assert importer._manga_series_folder(str(tmp_path), "Moon Garden", "2019") == str(tmp_path / "Moon Garden (2019)")
+
+
+def test_a_title_that_climbs_out_of_the_destination_is_not_reused(tmp_path):
+    dest = tmp_path / "manga"
+    dest.mkdir()
+    (tmp_path / "outside").mkdir()
+
+    assert importer._manga_series_folder(str(dest), "../outside", "2019").startswith(str(dest))
