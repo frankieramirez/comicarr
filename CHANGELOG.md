@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.62.0
+
+### Minor Changes
+
+- 2165179: Library and import folders are now set in one place: Settings, Folders and naming. The library folder, manga library folder, comic and manga folders to scan, and the import folder can all be changed there; each must be a full path to a folder that exists, and the import folder cannot sit inside, or contain, a library or download folder. Import now scans the library folder when no separate comic folder is set, so the dashboard and Import agree on where your comics are. Manga scans fall back to the manga library folder only, never the comic one.
+- 039cbc6: The dashboard now says a download client or indexer is ready only after it has answered a connection check. Before, "Ready to download" and "indexers responding" only meant the settings were filled in, so an unreachable SABnzbd could show as ready. A failed check now shows its reason with a link to fix it, and Comicarr checks again right after you save client or indexer settings. Each Newznab and Torznab indexer has its own Test button in Settings, and adding an indexer switches its group on, so a new indexer is never saved unused.
+
+### Patch Changes
+
+- 042edb0: Running Comicarr in maintenance mode with `--update` now updates it. Before, the update step failed every time and Comicarr restarted on the same version, logging "Comicarr failed to update".
+- f0b5a05: Manga chapter searches for chapters 1 to 99 are much faster. Each "c002" and "chapter 002" query now runs once per indexer as written, instead of being repeated with extra issue numbers tacked on (such as "c002 02") that never match anything.
+- 6c2596b: MangaDex lookups work again when the ComicVine User-Agent in Settings is set to a browser string. MangaDex, MyAnimeList and MangaUpdates now always identify as Comicarr, so MangaDex no longer answers with a bot check page and the error "Expecting value: line 1 column 1".
+- 0b8e41c: Releases fills the week from Metron when Walksoftly is down and a Metron login is set in Settings. ComicVine stays the last fallback, since it often lists almost nothing for the current week. When no source has the week, Releases now says why for each source (unreachable, not set up, or nothing listed yet) instead of only saying the list is empty.
+- 36bdc8a: Torrent searches are no longer blocked with "the download directory is not reachable" when your torrent client's save folder only exists on the client's side, as it often does in Docker. Comicarr now checks the folder it actually reads, the Folder Monitor folder when that is on. When it can't tell, Settings shows the path as unknown instead of not ready.
+
 ## 0.61.0
 
 ### Minor Changes
