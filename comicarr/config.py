@@ -33,10 +33,11 @@ from operator import itemgetter
 from pathlib import Path
 
 import comicarr
-from comicarr import db, encrypted, filechecker, helpers, logger, maintenance
+from comicarr import db, encrypted, filechecker, helpers, logger
 from comicarr.app.config.log_level import record_startup_argument, resolve_startup_log_level
 from comicarr.app.config.registry import as_legacy_definitions
 from comicarr.app.search import provider_config, prowlarr
+from comicarr.app.system import maintenance
 
 config = configparser.ConfigParser()
 _CONFIG_TRANSACTION_LOCK = threading.RLock()

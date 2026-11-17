@@ -26,7 +26,8 @@ import threading
 import sqlalchemy as sa
 
 import comicarr
-from comicarr import db, encrypted, logger, maintenance
+from comicarr import db, encrypted, logger
+from comicarr.app.system import maintenance
 
 _migration_lock = threading.Lock()
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")

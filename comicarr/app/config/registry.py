@@ -597,7 +597,7 @@ REGISTRY: OrderedDict[str, ConfigKey] = _build(_KEYS)
 def as_legacy_definitions() -> OrderedDict[str, tuple[type, str, Any]]:
     """`_CONFIG_DEFINITIONS` rebuilt from the registry.
 
-    `Config.check_setting`, `Config._define` and `comicarr/migration.py:426`
+    `Config.check_setting`, `Config._define` and `comicarr/app/system/migration.py`
     index these tuples positionally, so the shape is fixed at 3 elements.
     """
     return OrderedDict((k.name, k.as_definition) for k in REGISTRY.values())

@@ -256,7 +256,7 @@ def test_migration_start_refuses_to_mutate_while_an_acquisition_lease_is_active(
             self.execute_called = True
             return True
 
-    monkeypatch.setattr("comicarr.migration.Mylar3Migration", FakeMigration)
+    monkeypatch.setattr("comicarr.app.system.migration.Mylar3Migration", FakeMigration)
     controller = MaintenanceController(db.get_engine())
     lease = controller.acquire_lease("worker", "postprocess", "issue", "issue-1")
 

@@ -27,7 +27,8 @@ import sqlite3
 import time
 
 import comicarr
-from comicarr import filechecker, helpers, importer, logger
+from comicarr import filechecker, helpers, logger
+from comicarr.app.series.add import add_series
 
 
 def auto_backup_db(source_path, dest_dir, retention=4):
@@ -345,14 +346,14 @@ class Maintenance(object):
                                 logger.info(
                                     "[MAINTENANCE-MODE][STATUS] Last Successful Import: %s [%s]" % (cm[7], cm[6])
                                 )
-                        except:
+                        except Exception:
                             pass
                     elif cm[2] == "completed":
                         logger.info("[MAINTENANCE-MODE][STATUS] Last Successful Import: %s [%s]" % (cm[7], cm[6]))
                 else:
                     logger.info("[MAINTENANCE-MODE][STATUS] Current Progress: %s [mode: %s]" % (cm[2].upper(), cm[1]))
             if found is False:
-                raise Error
+                raise LookupError
         except Exception:
             logger.info("[MAINTENANCE-MODE][STATUS] Nothing is currently running")
 
@@ -390,9 +391,7 @@ class Maintenance(object):
                     self.sql_close()
                 except Exception as e:
                     logger.warn("[ERROR] %s" % e)
-                maintenance_info = importer.addComictoDB(
-                    re.sub("4050-", "", x["ComicID"]).strip(), calledfrom="maintenance"
-                )
+                maintenance_info = add_series(re.sub("4050-", "", x["ComicID"]).strip(), calledfrom="maintenance")
                 try:
                     logger.info("MAINTENANCE: %s" % maintenance_info)
                     if maintenance_info["status"] == "complete":

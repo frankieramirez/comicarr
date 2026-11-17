@@ -4,8 +4,8 @@
 # New user-facing CarePackage language must not be added; only historical
 # implementation identifiers and tests belong here.
 
-comicarr/carepackage.py|carePackage
-comicarr/carepackage.py|CarePackage
+comicarr/app/system/carepackage.py|carePackage
+comicarr/app/system/carepackage.py|CarePackage
 tests/unit/test_carepackage_security.py|carePackage
 tests/unit/test_carepackage_security.py|CarePackage
 tests/unit/test_carepackage_security.py|carepackage

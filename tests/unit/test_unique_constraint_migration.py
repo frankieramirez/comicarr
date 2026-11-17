@@ -344,7 +344,7 @@ def test_sqlite_migration_backs_up_before_delete_and_only_once(legacy_engine):
         backup_calls.append((source, dest_dir, retention))
         return True
 
-    with patch.object(comicarr.maintenance, "auto_backup_db", side_effect=backup_before_delete) as backup:
+    with patch.object(comicarr.app.system.maintenance, "auto_backup_db", side_effect=backup_before_delete) as backup:
         comicarr._migrate_unique_constraints(legacy_engine)
         comicarr._migrate_unique_constraints(legacy_engine)
 
@@ -368,9 +368,9 @@ def test_migration_backup_survives_same_second_normal_backup(legacy_engine):
     normal_backup_dir = Path(comicarr.DATA_DIR) / "backups"
     migration_backup_dir = Path(os.path.dirname(source_path)) / "backups" / "migrations"
     pin_backup = migration_backup_dir / comicarr._PRE_UNIQUE_MIGRATION_BACKUP
-    with patch.object(comicarr.maintenance.time, "strftime", return_value=fixed_timestamp):
-        _run_migration(legacy_engine, comicarr.maintenance.auto_backup_db)
-        assert comicarr.maintenance.auto_backup_db(source_path, str(normal_backup_dir), 7)
+    with patch.object(comicarr.app.system.maintenance.time, "strftime", return_value=fixed_timestamp):
+        _run_migration(legacy_engine, comicarr.app.system.maintenance.auto_backup_db)
+        assert comicarr.app.system.maintenance.auto_backup_db(source_path, str(normal_backup_dir), 7)
 
     migration_backup = migration_backup_dir / f"comicarr.db.{fixed_timestamp}.bak"
     normal_backup = normal_backup_dir / f"comicarr.db.{fixed_timestamp}.bak"
@@ -403,16 +403,16 @@ def test_pre_unique_migration_pin_is_reused_and_not_rotated(legacy_engine, tmp_p
     migration_backup_dir = Path(os.path.dirname(source_path)) / "backups" / "migrations"
     pin_path = migration_backup_dir / comicarr._PRE_UNIQUE_MIGRATION_BACKUP
 
-    with patch.object(comicarr.maintenance.time, "strftime", return_value="20260710_010203"):
-        _run_migration(legacy_engine, comicarr.maintenance.auto_backup_db)
+    with patch.object(comicarr.app.system.maintenance.time, "strftime", return_value="20260710_010203"):
+        _run_migration(legacy_engine, comicarr.app.system.maintenance.auto_backup_db)
 
     assert pin_path.is_file()
     pin_stat = pin_path.stat()
 
     # Simulate many subsequent rotating backups in the same dir; pin must remain.
     for index in range(8):
-        with patch.object(comicarr.maintenance.time, "strftime", return_value=f"20260710_02020{index}"):
-            assert comicarr.maintenance.auto_backup_db(source_path, str(migration_backup_dir), 2)
+        with patch.object(comicarr.app.system.maintenance.time, "strftime", return_value=f"20260710_02020{index}"):
+            assert comicarr.app.system.maintenance.auto_backup_db(source_path, str(migration_backup_dir), 2)
 
     assert pin_path.is_file()
     assert pin_path.stat().st_mtime == pin_stat.st_mtime
@@ -476,7 +476,7 @@ def test_sqlite_named_memory_uri_migration_does_not_attempt_filesystem_backup(mo
             ],
         )
 
-    with patch.object(comicarr.maintenance, "auto_backup_db", return_value=True) as backup:
+    with patch.object(comicarr.app.system.maintenance, "auto_backup_db", return_value=True) as backup:
         comicarr._migrate_unique_constraints(engine)
 
     backup.assert_not_called()

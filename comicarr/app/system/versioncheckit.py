@@ -19,7 +19,8 @@
 
 
 import comicarr
-from comicarr import helpers, logger, versioncheck
+from comicarr import helpers, logger
+from comicarr.app.system import versioncheck
 
 
 class CheckVersion:

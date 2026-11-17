@@ -19,7 +19,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
-from comicarr import versioncheck
+from comicarr.app.system import versioncheck
 from comicarr.app.config.registry import REGISTRY
 from comicarr.app.core.context import AppContext
 from comicarr.app.system import service as system_service
