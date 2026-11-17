@@ -22,13 +22,13 @@ if comicarr.LOG_LEVEL is None:
     comicarr.LOG_LEVEL = 0
 
 from comicarr.app.config import log_level
-from comicarr.app.search.provider_config import split_newznab_category_field
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.security import (
     create_session_token,
     load_or_create_jwt_key,
     validate_jwt_token,
 )
+from comicarr.app.search.provider_config import split_newznab_category_field
 from comicarr.app.system import router as system_router
 from comicarr.app.system import service as system_service
 
@@ -111,7 +111,7 @@ def _make_test_ctx(**overrides):
 
 
 class TestVerifyLogin:
-    @patch("comicarr.encrypted")
+    @patch("comicarr.app.core.encrypted")
     def test_successful_bcrypt_login(self, mock_encrypted):
         """Login with correct bcrypt password succeeds."""
         ctx = _make_test_ctx()
@@ -121,7 +121,7 @@ class TestVerifyLogin:
         assert result["success"] is True
         assert result["username"] == "admin"
 
-    @patch("comicarr.encrypted")
+    @patch("comicarr.app.core.encrypted")
     def test_wrong_password_fails(self, mock_encrypted):
         """Login with wrong password fails."""
         ctx = _make_test_ctx()
@@ -160,7 +160,7 @@ class TestVerifyLogin:
         result = system_service.verify_login(ctx, "admin", "pass", "127.0.0.1")
         assert result["success"] is False
 
-    @patch("comicarr.encrypted")
+    @patch("comicarr.app.core.encrypted")
     def test_password_migration_uses_shared_transaction_without_configure(self, mock_encrypted):
         """Login hash migration does not mutate the parser outside the transaction lock."""
         ctx = _make_test_ctx()
@@ -171,7 +171,7 @@ class TestVerifyLogin:
         ctx.config.apply_transaction.assert_called_once_with({"http_password": "$2b$12$migrated"}, configure=False)
         ctx.config.writeconfig.assert_not_called()
 
-    @patch("comicarr.encrypted")
+    @patch("comicarr.app.core.encrypted")
     def test_password_migration_failure_is_logged_and_non_raising(self, mock_encrypted):
         """Failed bcrypt migration must not raise out of the migration helper."""
         ctx = _make_test_ctx()
@@ -183,7 +183,7 @@ class TestVerifyLogin:
 
         ctx.config.apply_transaction.assert_called_once_with({"http_password": "$2b$12$migrated"}, configure=False)
 
-    @patch("comicarr.encrypted")
+    @patch("comicarr.app.core.encrypted")
     def test_plaintext_login_succeeds_when_password_migration_fails(self, mock_encrypted):
         """Login still succeeds if hash migration cannot be persisted."""
         ctx = _make_test_ctx()
@@ -367,7 +367,7 @@ class TestAnnounceSetupToken:
 
 
 class TestInitialSetup:
-    @patch("comicarr.encrypted")
+    @patch("comicarr.app.core.encrypted")
     def test_setup_succeeds(self, mock_encrypted, monkeypatch):
         """Initial setup with valid credentials succeeds without asking for a restart."""
         ctx = _make_test_ctx()
@@ -389,7 +389,7 @@ class TestInitialSetup:
             }
         )
 
-    @patch("comicarr.encrypted")
+    @patch("comicarr.app.core.encrypted")
     def test_setup_persistence_failure_preserves_setup_state(self, mock_encrypted, monkeypatch):
         """Failed setup writes must leave credentials, tokens, and signals unchanged."""
         ctx = _make_test_ctx(setup_token="setup-token")
@@ -411,7 +411,7 @@ class TestInitialSetup:
         assert ctx.signal is None
         assert comicarr.SIGNAL is None
 
-    @patch("comicarr.encrypted")
+    @patch("comicarr.app.core.encrypted")
     def test_setup_hash_failure_preserves_setup_state(self, mock_encrypted, monkeypatch):
         """Password hashing failures use the controlled setup persistence contract."""
         ctx = _make_test_ctx(setup_token="setup-token")
@@ -1768,7 +1768,7 @@ class TestConfigRouter:
 def _make_real_config(tmp_path, monkeypatch):
     """Build a real Config with an isolated parser and no configure side effects."""
     from comicarr import config as config_module
-    from comicarr import encrypted as encrypted_module
+    from comicarr.app.core import encrypted as encrypted_module
 
     config_path = tmp_path / "config.ini"
     config_path.write_text("")
@@ -1871,7 +1871,7 @@ class TestConfigTransactions:
 
     def test_config_read_encrypts_plaintext_provider_before_projection(self, tmp_path, monkeypatch):
         from comicarr import config as config_module
-        from comicarr import encrypted as encrypted_module
+        from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
         secure_dir.mkdir()
@@ -1910,7 +1910,7 @@ class TestConfigTransactions:
     def test_config_read_fails_closed_when_plaintext_provider_migration_cannot_replace(self, tmp_path, monkeypatch):
         """Startup never continues while a plaintext provider key remains on disk."""
         from comicarr import config as config_module
-        from comicarr import encrypted as encrypted_module
+        from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
         secure_dir.mkdir()
@@ -1936,7 +1936,7 @@ class TestConfigTransactions:
 
     def test_preupgrade_backup_never_copies_plaintext_provider_key(self, tmp_path, monkeypatch):
         from comicarr import config as config_module
-        from comicarr import encrypted as encrypted_module
+        from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
         backup_dir = tmp_path / "backup"
@@ -1976,7 +1976,7 @@ class TestConfigTransactions:
 
     def test_startup_rejects_malformed_legacy_provider_token_without_rewrite(self, tmp_path, monkeypatch):
         from comicarr import config as config_module
-        from comicarr import encrypted as encrypted_module
+        from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
         secure_dir.mkdir()
@@ -2004,7 +2004,7 @@ class TestConfigTransactions:
         from cryptography.fernet import Fernet
 
         from comicarr import config as config_module
-        from comicarr import encrypted as encrypted_module
+        from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
         backup_dir = tmp_path / "backup"
@@ -2044,7 +2044,7 @@ class TestConfigTransactions:
         from cryptography.fernet import Fernet
 
         from comicarr import config as config_module
-        from comicarr import encrypted as encrypted_module
+        from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
         backup_dir = tmp_path / "backup"
@@ -2089,7 +2089,7 @@ class TestConfigTransactions:
         self, tmp_path, monkeypatch, torznab_name, torznab_id, error
     ):
         from comicarr import config as config_module
-        from comicarr import encrypted as encrypted_module
+        from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
         secure_dir.mkdir()

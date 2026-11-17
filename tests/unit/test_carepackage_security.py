@@ -14,7 +14,7 @@ import zipfile
 
 import comicarr
 from comicarr import config as config_module
-from comicarr import encrypted as encrypted_module
+from comicarr.app.core import encrypted as encrypted_module
 from comicarr.app.system.carepackage import carePackage
 
 

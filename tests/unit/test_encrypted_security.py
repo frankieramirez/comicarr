@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from cryptography.fernet import Fernet, InvalidToken
 
-from comicarr import encrypted
+from comicarr.app.core import encrypted
 
 
 @pytest.fixture(autouse=True)

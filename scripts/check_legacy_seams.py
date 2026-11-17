@@ -66,7 +66,7 @@ SKIP_DIR_NAMES = {"__pycache__"}
 # The MCP tool layer follows the router rule, with no allowlist (ADR-0005).
 MCP_DIR = "comicarr/app/mcp/"
 
-INFRASTRUCTURE = frozenset({"logger", "db", "tables", "config", "encrypted", "helpers"})
+INFRASTRUCTURE = frozenset({"logger", "db", "tables", "config", "helpers"})
 
 # Foundations legacy module -> the seam modules allowed to import it under
 # comicarr/app/. Most seams do not exist yet; each seam ticket creates its file.

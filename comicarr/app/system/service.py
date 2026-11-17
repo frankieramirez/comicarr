@@ -162,7 +162,7 @@ def verify_login(ctx, username, password, ip):
 
     Returns dict with 'success' key and optional 'error' or 'username'.
     """
-    from comicarr import encrypted
+    from comicarr.app.core import encrypted
 
     if _rate_limiter.is_locked_out(ip):
         logger.info("[AUTH] Login attempt blocked (rate limited) from IP: %s" % ip)
@@ -212,7 +212,7 @@ def verify_login(ctx, username, password, ip):
 
 def _migrate_password(ctx, plaintext_password):
     """Auto-migrate password to bcrypt hash."""
-    from comicarr import encrypted
+    from comicarr.app.core import encrypted
 
     new_hash = encrypted.hash_password(plaintext_password)
     if ctx.config and ctx.config.apply_transaction({"http_password": new_hash}, configure=False):
@@ -239,7 +239,7 @@ def announce_setup_token(setup_token):
 
 def initial_setup(ctx, username, password, setup_token):
     """Handle first-run credential setup."""
-    from comicarr import encrypted
+    from comicarr.app.core import encrypted
     from comicarr.app.core.runtime import set_runtime_field
 
     if getattr(ctx.config, "HTTP_USERNAME", None) and getattr(ctx.config, "HTTP_PASSWORD", None):

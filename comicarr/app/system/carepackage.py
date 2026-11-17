@@ -30,8 +30,9 @@ from glob import glob
 
 import comicarr
 from comicarr import config as config_module
-from comicarr import encrypted, logger
+from comicarr import logger
 from comicarr.app.common.redaction import redact_sensitive_text
+from comicarr.app.core import encrypted
 from comicarr.app.system import versioncheck
 
 _LEGACY_32P_CREDENTIAL_LINE_PATTERN = re.compile(
