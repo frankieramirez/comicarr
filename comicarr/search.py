@@ -823,6 +823,9 @@ def _search_init(
                         # A volume or chapter query is the same on every
                         # padding pass; it already ran on this provider's first.
                         continue
+                    if content_type == "manga" and _skip_on_usenet(xx["ComicName"], ComicName, current_prov):
+                        logger.fdebug("[SEARCH-MANGA] Not searching usenet for non-Latin title %s" % xx["ComicName"])
+                        continue
                     logger.fdebug("comicname searched for: %s" % xx["ComicName"])
                     if all([findit["status"] is False, not provider_blocked]):
                         if xx["ComicName"] not in names_tried:
@@ -4298,6 +4301,24 @@ def _build_manga_search_terms(series_name, chapter_num, volume_num):
     if is_volume_target(chapter_num, volume_num):
         return search_terms_for_target(series_name, {"kind": "volume", "number": volume_num})
     return search_terms_for_target(series_name, {"kind": "chapter", "number": chapter_num})
+
+
+_LATIN_LETTER = re.compile(r"[A-Za-z]")
+
+
+def _skip_on_usenet(name, series_name, current_prov):
+    """Whether a manga alternate title is skipped on a usenet indexer.
+
+    Usenet posts name manga in Latin script, so a Japanese, Chinese or Persian
+    alternate title only adds padded queries that find nothing. The series'
+    own name is always searched, and torrent indexers keep every title.
+    """
+    if name == series_name or _LATIN_LETTER.search(name or ""):
+        return False
+    return any(
+        isinstance(prov, dict) and prov.get("type") in ("newznab", "experimental")
+        for prov in (current_prov or {}).values()
+    )
 
 
 def _numbered_manga_term(name, manga_volume_terms, manga_chapter_terms):

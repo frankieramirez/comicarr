@@ -62,6 +62,87 @@ def passes(monkeypatch):
     return calls
 
 
+def _use_provider(monkeypatch, kind):
+    info = {"provider": kind, "info": ("indexer", "https://indexer.test", "0", "key", "8020")}
+    monkeypatch.setattr(
+        search,
+        "provider_order",
+        lambda initial_run=False, comic_id=None: {
+            "prov_order": [kind],
+            "torznab_info": [info] if kind == "torznab" else [],
+            "newznab_info": [info] if kind == "newznab" else [],
+            "totalproviders": 1,
+        },
+    )
+
+
+def _search_chapter_two(alternate_search=None):
+    search.search_init(
+        SERIES,
+        "2",
+        "2024",
+        "2024",
+        None,
+        "2024-01-01",
+        "2024-01-01",
+        "issue-2",
+        AlternateSearch=alternate_search,
+        ComicID="comic-1",
+        allow_packs=1,
+        content_type="manga",
+        chapter_number="2",
+        evaluator=EvaluationSession(),
+    )
+
+
+NON_LATIN_ALTS = "Exemple Manga##\u30c0\u30f3\u30c0\u30c0\u30f3##\u65b0\u7248##\u062f\u0627\u0646"
+
+
+def test_usenet_skips_alternate_titles_without_latin_letters(monkeypatch, passes):
+    _use_provider(monkeypatch, "newznab")
+
+    _search_chapter_two(NON_LATIN_ALTS)
+
+    api = [(name, loop) for name, loop, rss in passes if rss == "no"]
+    assert sorted({name for name, _ in api}) == sorted([SERIES, "Exemple Manga", *CHAPTER_TERMS])
+    # Two names x three paddings, plus each chapter term once. The bare pack
+    # pass (loop 0) sends no query to a usenet indexer.
+    assert len([name for name, loop in api if loop != 0]) == 2 * 3 + 2
+    assert search._bare_pack_pass_allowed({"type": "newznab"}) is False
+
+
+def test_torrents_keep_every_alternate_title(monkeypatch, passes):
+    _use_provider(monkeypatch, "torznab")
+
+    _search_chapter_two(NON_LATIN_ALTS)
+
+    names = {name for name, loop, rss in passes if rss == "no"}
+    assert len(names) == 2 + 3 + 2
+
+
+def test_a_non_latin_series_name_is_still_searched_on_usenet(monkeypatch, passes):
+    _use_provider(monkeypatch, "newznab")
+    name = "\u30c0\u30f3\u30c0\u30c0\u30f3"
+
+    search.search_init(
+        name,
+        "2",
+        "2024",
+        "2024",
+        None,
+        "2024-01-01",
+        "2024-01-01",
+        "issue-2",
+        ComicID="comic-1",
+        allow_packs=1,
+        content_type="manga",
+        chapter_number="2",
+        evaluator=EvaluationSession(),
+    )
+
+    assert name in {n for n, loop, rss in passes if rss == "no"}
+
+
 def test_chapter_terms_run_once_per_provider_and_the_plain_name_keeps_its_passes(passes):
     search.search_init(
         SERIES,
