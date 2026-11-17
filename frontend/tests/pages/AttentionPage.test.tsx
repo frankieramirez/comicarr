@@ -377,7 +377,7 @@ describe("AttentionPage", () => {
   });
 
   it("says so plainly when nothing needs attention", async () => {
-    server.use(bandHandler([]));
+    server.use(bandHandler([]), keyedConfig);
 
     render(<AttentionPage />, {
       route: "/activity/attention",
@@ -388,4 +388,96 @@ describe("AttentionPage", () => {
       await screen.findByText("Nothing needs your attention"),
     ).toBeTruthy();
   });
+
+  it("lists a failing job and a search blocker instead of saying all clear (#1493)", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    server.use(
+      bandHandler([]),
+      keyedConfig,
+      http.get("/api/system/jobs", () =>
+        HttpResponse.json({
+          jobs: [
+            {
+              id: "rss",
+              name: "RSS Feeds",
+              next_run_time: new Date((now + 600) * 1000).toISOString(),
+              state: "error",
+              status: "Error",
+              dispatch: {
+                state: "error",
+                last_attempt: now - 60,
+                last_success: now - 86400,
+                last_failure: now - 60,
+                last_error: "Feed returned HTTP 503",
+              },
+            },
+          ],
+        }),
+      ),
+      http.get("/api/search/health", () =>
+        HttpResponse.json({
+          viable_route: false,
+          routes: {
+            nzb: { ready: false, reason: "provider_not_configured" },
+            torrent: { ready: false, reason: "provider_not_configured" },
+            ddl: { ready: false, reason: "provider_not_configured" },
+          },
+          workers: { search: { state: "idle", alive: true, healthy: true } },
+          maintenance: { blocked: false },
+          blocked_producer_count: 0,
+          providers: [],
+        }),
+      ),
+    );
+
+    render(<AttentionPage />, {
+      route: "/activity/attention",
+      useMemoryRouter: true,
+    });
+
+    expect(await screen.findByText("RSS check is failing")).toBeTruthy();
+    expect(screen.getByText("Feed returned HTTP 503")).toBeTruthy();
+    expect(
+      await screen.findByText("No indexer, so nothing can be searched"),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Open Health" }).getAttribute("href"),
+    ).toBe("/activity?view=health");
+    expect(
+      screen.getByRole("button", { name: "Run RSS check now" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Nothing needs your attention")).toBeNull();
+  });
+
+  it("flags a missing Comic Vine key with a link to Sources and keys", async () => {
+    server.use(
+      bandHandler([]),
+      http.get("/api/config", () =>
+        HttpResponse.json({
+          comicvine_enabled: true,
+          comicvine_api_set: false,
+        }),
+      ),
+    );
+
+    render(<AttentionPage />, {
+      route: "/activity/attention",
+      useMemoryRouter: true,
+    });
+
+    expect(
+      await screen.findByText(
+        "No Comic Vine API key, so comics can't be searched or refreshed",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: "Open Sources and keys" })
+        .getAttribute("href"),
+    ).toBe("/settings?section=api");
+  });
 });
+
+const keyedConfig = http.get("/api/config", () =>
+  HttpResponse.json({ comicvine_enabled: true, comicvine_api_set: true }),
+);

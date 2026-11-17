@@ -935,3 +935,74 @@ describe("SettingsPage", () => {
     ).toBeTruthy();
   });
 });
+
+describe("settings values the server would change (#1492)", () => {
+  it("refuses a search interval below the minimum on the field, without saving", async () => {
+    let saved: unknown = null;
+    server.use(
+      http.get("/api/config", () =>
+        HttpResponse.json({ search_interval: 1440, comicvine_enabled: true }),
+      ),
+      http.put("/api/config", async ({ request }) => {
+        saved = await request.json();
+        return HttpResponse.json({ success: true });
+      }),
+    );
+    const user = userEvent.setup();
+    render(createElement(SettingsPage), {
+      route: "/settings?section=media",
+      useMemoryRouter: true,
+    });
+
+    const field = await screen.findByLabelText("Search Interval");
+    await user.clear(field);
+    await user.type(field, "-5");
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    const message = "Search interval must be 360 minutes or more.";
+    expect(
+      await screen.findAllByText(message, { exact: false }),
+    ).not.toHaveLength(0);
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect((field as HTMLInputElement).value).toBe("-5");
+    expect(saved).toBeNull();
+  });
+
+  it("shows the server's refusal on the field it names", async () => {
+    server.use(
+      http.get("/api/config", () =>
+        HttpResponse.json({
+          comicvine_enabled: true,
+          mangadex_enabled: true,
+          mangadex_languages: "en",
+        }),
+      ),
+      http.put("/api/config", () =>
+        HttpResponse.json(
+          {
+            success: false,
+            error: "Unknown MangaDex language code: zz-top",
+            code: "mangadex_language_unknown",
+            field: "mangadex_languages",
+            params: { codes: "zz-top" },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    render(createElement(SettingsPage), {
+      route: "/settings?section=api",
+      useMemoryRouter: true,
+    });
+
+    const field = await screen.findByLabelText("Languages");
+    await user.type(field, ",ja");
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    const message =
+      "Unknown MangaDex language code: zz-top. Use codes like en, ja or pt-br.";
+    expect(await screen.findAllByText(message)).not.toHaveLength(0);
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+  });
+});

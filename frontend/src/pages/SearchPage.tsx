@@ -303,7 +303,7 @@ export default function SearchPage() {
             </span>
           )}
           <div className="ms-auto flex items-center gap-3">
-            {urlQuery && (
+            {urlQuery && pagination && !error && !isLoading && (
               <span className="hidden text-[13px] text-foreground-2 md:inline">
                 {providerNote}
               </span>
@@ -380,8 +380,11 @@ export default function SearchPage() {
                 icon={Settings}
                 eyebrow={t`PROVIDER · NOT CONFIGURED`}
                 title={t`Comic Vine API key required`}
-                description={t`Add a Comic Vine API key in Settings → API to search comics.`}
-                action={{ label: t`Open settings`, to: "/settings" }}
+                description={t`Add a Comic Vine API key in Settings → Sources and keys to search comics.`}
+                action={{
+                  label: t`Open Sources and keys`,
+                  to: "/settings?section=api",
+                }}
               />
             ) : (
               <EmptyState

@@ -1,4 +1,3 @@
-import { t } from "@lingui/core/macro";
 import {
   useQuery,
   useMutation,
@@ -7,7 +6,6 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
-import { useToast } from "@/components/ui/toast";
 import type {
   Config,
   ConfigUpdate,
@@ -39,7 +37,6 @@ export function useUpdateConfig(): UseMutationResult<
   ConfigUpdate
 > {
   const queryClient = useQueryClient();
-  const { addToast } = useToast();
 
   return useMutation({
     mutationFn: (configData: ConfigUpdate) =>
@@ -50,12 +47,8 @@ export function useUpdateConfig(): UseMutationResult<
       // without this it stayed disabled until a reload (#1502).
       queryClient.invalidateQueries({ queryKey: ["system", "connections"] });
     },
-    onError: (error: Error) => {
-      addToast({
-        type: "error",
-        message: error.message || t`Failed to update configuration`,
-      });
-    },
+    // No toast here: the Settings page explains a failed save itself
+    // (including which field was refused), and two toasts doubled it (#1502).
   });
 }
 

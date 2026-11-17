@@ -6,6 +6,8 @@ import type {
   SettingsFormData,
   WritableConfig,
 } from "../../types/config.generated";
+import { CONFIG_MINIMUMS } from "../../types/config.generated";
+import { minimumHint, typedInteger } from "@/lib/settingValues";
 
 const IMPORT_FILE_OPTS_INHERIT = "file_opts";
 const IMPORT_FILE_OPTS_OPTIONS = () => [
@@ -31,12 +33,15 @@ interface MediaManagementTabProps {
     key: K,
     value: NonNullable<WritableConfig[K]>,
   ) => void;
+  /** Refusals keyed by field, shown under the field. */
+  errors?: Record<string, string>;
 }
 
 export function MediaManagementTab({
   config: _config,
   formData,
   onChange,
+  errors,
 }: MediaManagementTabProps) {
   return (
     <div className="space-y-6">
@@ -217,32 +222,29 @@ export function MediaManagementTab({
         <SettingField
           label={t`Search Interval`}
           type="number"
-          min={1}
+          min={CONFIG_MINIMUMS.search_interval}
           value={formData.search_interval}
-          onChange={(v) =>
-            onChange("search_interval", parseInt(v as string) || 360)
-          }
-          helpText={t`How often to search for wanted issues (default: 360 min)`}
+          onChange={(v) => onChange("search_interval", typedInteger(v))}
+          helpText={`${t`How often to search for wanted issues (default: 360 min)`} ${minimumHint("search_interval")}`}
+          error={errors?.search_interval}
         />
         <SettingField
           label={t`RSS Check Interval`}
           type="number"
-          min={1}
+          min={CONFIG_MINIMUMS.rss_checkinterval}
           value={formData.rss_checkinterval}
-          onChange={(v) =>
-            onChange("rss_checkinterval", parseInt(v as string) || 20)
-          }
-          helpText={t`How often to check RSS feeds (default: 20 min)`}
+          onChange={(v) => onChange("rss_checkinterval", typedInteger(v))}
+          helpText={`${t`How often to check RSS feeds (default: 20 min)`} ${minimumHint("rss_checkinterval")}`}
+          error={errors?.rss_checkinterval}
         />
         <SettingField
           label={t`Database Update Interval`}
           type="number"
-          min={1}
+          min={CONFIG_MINIMUMS.dbupdate_interval}
           value={formData.dbupdate_interval}
-          onChange={(v) =>
-            onChange("dbupdate_interval", parseInt(v as string) || 1440)
-          }
-          helpText={t`How often to update series metadata from providers, in minutes (default: 1440 = 24 hours)`}
+          onChange={(v) => onChange("dbupdate_interval", typedInteger(v))}
+          helpText={`${t`How often to update series metadata from providers, in minutes (default: 1440 = 24 hours)`} ${minimumHint("dbupdate_interval")}`}
+          error={errors?.dbupdate_interval}
         />
       </SettingGroup>
 

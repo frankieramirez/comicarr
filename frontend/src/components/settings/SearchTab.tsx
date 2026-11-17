@@ -14,6 +14,8 @@ import type {
   SettingsFormData,
   WritableConfig,
 } from "../../types/config.generated";
+import { CONFIG_MINIMUMS } from "../../types/config.generated";
+import { minimumHint, typedInteger } from "@/lib/settingValues";
 
 interface SearchTabProps {
   config: ReadableConfig;
@@ -22,6 +24,8 @@ interface SearchTabProps {
     key: K,
     value: NonNullable<WritableConfig[K]>,
   ) => void;
+  /** Refusals keyed by field, shown under the field. */
+  errors?: Record<string, string>;
   onProviderDirtyChange?: (dirty: boolean) => void;
 }
 
@@ -132,6 +136,7 @@ export function SearchTab({
   config,
   formData,
   onChange,
+  errors,
   onProviderDirtyChange,
 }: SearchTabProps) {
   const qualityOptions = [
@@ -149,12 +154,11 @@ export function SearchTab({
         <SettingField
           label={t`Search delay (seconds)`}
           type="number"
-          min={5}
+          min={CONFIG_MINIMUMS.search_delay}
           value={formData.search_delay}
-          onChange={(value) =>
-            onChange("search_delay", parseInt(value as string) || 5)
-          }
-          helpText={t`Pause between provider searches during a backlog run. Default 60. Minimum 5.`}
+          onChange={(value) => onChange("search_delay", typedInteger(value))}
+          helpText={`${t`Pause between provider searches during a backlog run. Default 60.`} ${minimumHint("search_delay")}`}
+          error={errors?.search_delay}
         />
       </SettingGroup>
 
