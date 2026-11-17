@@ -118,6 +118,7 @@ export interface ReadableConfig {
   nzbget_port?: string;
   nzbget_username?: string;
   nzbget_category?: string;
+  blackhole_dir?: string;
   enable_prowlarr?: boolean;
   prowlarr_host?: string;
   prowlarr_categories?: string;
@@ -128,6 +129,7 @@ export interface ReadableConfig {
   enable_torrents?: boolean;
   enable_torrent_search?: boolean;
   enable_ddl?: boolean;
+  local_watchdir?: string;
   transmission_host?: string;
   transmission_username?: string;
   transmission_directory?: string;
@@ -298,6 +300,7 @@ export interface WritableConfig {
   nzbget_username?: string;
   nzbget_password?: string;
   nzbget_category?: string;
+  blackhole_dir?: string;
   enable_prowlarr?: boolean;
   prowlarr_host?: string;
   prowlarr_apikey?: string;
@@ -308,6 +311,7 @@ export interface WritableConfig {
   enable_meta?: boolean;
   enable_torrents?: boolean;
   enable_ddl?: boolean;
+  local_watchdir?: string;
   transmission_host?: string;
   transmission_username?: string;
   transmission_password?: string;

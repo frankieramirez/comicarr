@@ -402,7 +402,7 @@ describe("ReleasesPage", () => {
     );
     renderIndustry();
 
-    const reason = await screen.findByText(/Walksoftly, the main pull-list/);
+    const reason = await screen.findByText(/built-in release calendar could not be reached/);
     expect(reason.textContent).toContain("Add your Metron login in Settings");
     expect(reason.textContent).toContain(
       "ComicVine lists no comics for this week yet.",

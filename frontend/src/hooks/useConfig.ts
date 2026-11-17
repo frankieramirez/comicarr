@@ -46,6 +46,9 @@ export function useUpdateConfig(): UseMutationResult<
       apiRequest("PUT", "/api/config", configData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["config"] });
+      // A saved client host adds a connection the Test button waits for;
+      // without this it stayed disabled until a reload (#1502).
+      queryClient.invalidateQueries({ queryKey: ["system", "connections"] });
     },
     onError: (error: Error) => {
       addToast({

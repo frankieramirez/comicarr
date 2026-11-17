@@ -284,7 +284,14 @@ export function LogsTab({ config, formData, onChange }: LogsTabProps) {
                 className="h-8 w-[13rem] text-[12.5px]"
                 aria-label={t`Log level`}
               >
-                <SelectValue />
+                <SelectValue>
+                  {(() => {
+                    const current = LEVEL_OPTIONS.find(
+                      (option) => option.value === level,
+                    );
+                    return current ? i18n._(current.name) : String(level);
+                  })()}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {LEVEL_OPTIONS.map((option) => (

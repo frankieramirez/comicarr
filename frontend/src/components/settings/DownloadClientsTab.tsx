@@ -76,6 +76,8 @@ const CLIENT_FIELDS: Partial<Record<string, Array<keyof WritableConfig>>> = {
     "qbittorrent_folder",
     "qbittorrent_root_routes",
   ],
+  blackhole: ["blackhole_dir"],
+  watchdir: ["local_watchdir"],
   deluge: ["deluge_host", "deluge_username", "deluge_password", "deluge_label"],
   transmission: [
     "transmission_host",
@@ -540,6 +542,40 @@ function ClientFields({
             Pixeldrain links itself, so there is nothing to connect.
           </Trans>
         </p>
+      );
+    case "blackhole":
+      return (
+        <div className="grid gap-3">
+          <Field
+            label={t`Folder`}
+            value={str("blackhole_dir")}
+            placeholder="/downloads/blackhole"
+            onChange={(v) => onChange("blackhole_dir", v)}
+          />
+          <p className="text-[13px] text-foreground-2">
+            <Trans>
+              Comicarr drops each .nzb file here. Point your usenet client's
+              watch folder at the same place, as Comicarr sees it.
+            </Trans>
+          </p>
+        </div>
+      );
+    case "watchdir":
+      return (
+        <div className="grid gap-3">
+          <Field
+            label={t`Folder`}
+            value={str("local_watchdir")}
+            placeholder="/downloads/watch"
+            onChange={(v) => onChange("local_watchdir", v)}
+          />
+          <p className="text-[13px] text-foreground-2">
+            <Trans>
+              Comicarr drops each .torrent file here. Point your torrent
+              client's watch folder at the same place, as Comicarr sees it.
+            </Trans>
+          </p>
+        </div>
       );
     default:
       return (

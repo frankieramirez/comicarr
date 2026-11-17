@@ -92,7 +92,8 @@ const mangaSortMapping: Record<string, string> = {
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { comicsEnabled, comicsConfigured, mangaEnabled } = useContentSources();
+  const { comicsEnabled, comicsConfigured, mangaEnabled, isLoaded } =
+    useContentSources();
 
   const urlQuery = searchParams.get("q") || "";
   const urlPage = parseInt(searchParams.get("page") || "1") || 1;
@@ -105,12 +106,16 @@ export default function SearchPage() {
   const rawType = searchParams.get("type");
   const urlType: ContentType | null =
     rawType === "manga" ? "manga" : rawType === "comic" ? "comic" : null;
+  // Until settings load, every source reads as off, so trust the URL then.
+  // Falling back early flipped a reloaded ?type=manga page to Comics (#1497).
   const searchMode: ContentType = urlType
-    ? urlType === "manga" && !mangaEnabled
-      ? "comic"
-      : urlType === "comic" && !comicsEnabled
-        ? "manga"
-        : urlType
+    ? !isLoaded
+      ? urlType
+      : urlType === "manga" && !mangaEnabled
+        ? "comic"
+        : urlType === "comic" && !comicsEnabled
+          ? "manga"
+          : urlType
     : comicsEnabled
       ? "comic"
       : "manga";

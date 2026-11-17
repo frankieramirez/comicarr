@@ -45,7 +45,7 @@ export const CLIENTS: ClientInfo[] = [
       return t`Blackhole folder`;
     },
     code: 2,
-    editable: false,
+    editable: true,
   },
   {
     id: "qbittorrent",
@@ -83,7 +83,7 @@ export const CLIENTS: ClientInfo[] = [
       return t`Watch folder`;
     },
     code: 0,
-    editable: false,
+    editable: true,
   },
   {
     id: "ddl",
@@ -140,6 +140,10 @@ export function clientHost(id: ClientId, values: Values): string | null {
       return text(values.deluge_host) || null;
     case "transmission":
       return text(values.transmission_host) || null;
+    case "blackhole":
+      return text(values.blackhole_dir) || null;
+    case "watchdir":
+      return text(values.local_watchdir) || null;
     case "ddl":
       return DDL_HOSTS;
     default:

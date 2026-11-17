@@ -562,6 +562,12 @@ export function useTestConnection() {
             "POST",
             "/api/system/connections/test",
           ),
+    // A row can outlive its connection (MangaDex switched off, say). The
+    // server then answers 404, so drop the stale list instead of leaving a
+    // Test button that can only fail (#1502).
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: CONNECTIONS_KEY });
+    },
     onSuccess: (data) => {
       queryClient.setQueryData<{ connections: ConnectionCheck[] }>(
         CONNECTIONS_KEY,

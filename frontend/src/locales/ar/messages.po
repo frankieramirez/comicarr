@@ -2625,6 +2625,14 @@ msgstr "تعذّر على Comicarr إكمال هذا."
 msgid "Comicarr doesn't know where this download went. Enter the folder and name yourself."
 msgstr "لا يعرف Comicarr أين ذهب هذا التنزيل. أدخل المجلد والاسم بنفسك."
 
+#: src/components/settings/DownloadClientsTab.tsx
+msgid "Comicarr drops each .nzb file here. Point your usenet client's watch folder at the same place, as Comicarr sees it."
+msgstr "يضع Comicarr كل ملف ‎.nzb هنا. وجّه مجلد المراقبة في عميل يوزنت إلى المكان نفسه، كما يراه Comicarr."
+
+#: src/components/settings/DownloadClientsTab.tsx
+msgid "Comicarr drops each .torrent file here. Point your torrent client's watch folder at the same place, as Comicarr sees it."
+msgstr "يضع Comicarr كل ملف ‎.torrent هنا. وجّه مجلد المراقبة في عميل التورنت إلى المكان نفسه، كما يراه Comicarr."
+
 #: src/components/layout/AppSidebar.tsx
 msgid "Comicarr home"
 msgstr "الصفحة الرئيسية لـ Comicarr"
@@ -3898,10 +3906,6 @@ msgstr "فشل حفظ المفهرسات"
 msgid "Failed to save search order"
 msgstr "فشل حفظ ترتيب البحث"
 
-#: src/pages/SettingsPage.tsx
-msgid "Failed to save settings"
-msgstr "فشل حفظ الإعدادات"
-
 #: src/pages/ImportPage.tsx
 msgid "Failed to scan inbox: {error}"
 msgstr "فشل فحص صندوق الوارد: {error}"
@@ -4172,6 +4176,7 @@ msgstr "التشغيل الأول · إنشاء مسؤول"
 #: src/components/activity/attention/ImportManuallyDialog.tsx
 #: src/components/search/SearchAddButton.tsx
 #: src/components/series/SeriesFolder.tsx
+#: src/components/settings/DownloadClientsTab.tsx
 msgid "Folder"
 msgstr "المجلد"
 
@@ -4274,6 +4279,10 @@ msgstr "الترتيب العام"
 
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "Go to dashboard"
+msgstr "الانتقال إلى لوحة التحكم"
+
+#: src/pages/NotFoundPage.tsx
+msgid "Go to the dashboard"
 msgstr "الانتقال إلى لوحة التحكم"
 
 #: src/components/whats-new/WhatsNewModal.tsx
@@ -4864,6 +4873,10 @@ msgstr "لا يتضمن قاعدة بياناتك أو قيم الإعدادات
 #: src/components/settings/LogsTab.tsx
 msgid "It is an operator diagnostic and can contain series names and library paths. Copy results copies only the records shown above."
 msgstr "هذا تشخيص للمشغّل وقد يحتوي على أسماء سلاسل ومسارات مكتبة. «نسخ النتائج» ينسخ السجلات المعروضة أعلاه فقط."
+
+#: src/pages/SeriesDetailPage.tsx
+msgid "It may have been deleted, or the link points to a series this library never had."
+msgstr "ربما حُذفت، أو أن الرابط يشير إلى سلسلة لم تكن في هذه المكتبة قط."
 
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Items that need you stay above until you act on them."
@@ -6204,6 +6217,10 @@ msgstr "لم تجده؟ ابحث بمعرّف ComicVine أو MangaDex، أو ا�
 msgid "Not found"
 msgstr "غير موجود"
 
+#: src/pages/NotFoundPage.tsx
+msgid "NOT FOUND"
+msgstr "غير موجود"
+
 #: src/lib/wantedAnnotation.ts
 msgid "Not found {max_attempts}×"
 msgstr "غير موجود {max_attempts}×"
@@ -6309,6 +6326,10 @@ msgstr "لا شيء في {fileName} بعد."
 #: src/components/settings/LogsTab.tsx
 msgid "Nothing in {fileName} yet. Comicarr is logging at {levelNumber} ({levelName}) — raise the level above to capture more."
 msgstr "لا شيء في {fileName} بعد. يسجّل Comicarr على المستوى {levelNumber} ({levelName}) — ارفع المستوى أعلاه لالتقاط المزيد."
+
+#: src/pages/NotFoundPage.tsx
+msgid "Nothing in Comicarr lives at {path}. The link may be old or mistyped."
+msgstr "لا يوجد شيء في Comicarr على {path}. ربما يكون الرابط قديمًا أو مكتوبًا بخطأ."
 
 #: src/lib/inFlight.ts
 msgid "nothing in flight"
@@ -8323,10 +8344,6 @@ msgid "Series not found"
 msgstr "لم يُعثر على السلسلة"
 
 #: src/pages/SeriesDetailPage.tsx
-msgid "Series not found."
-msgstr "لم يُعثر على السلسلة."
-
-#: src/pages/SeriesDetailPage.tsx
 msgid "Series sections"
 msgstr "أقسام السلسلة"
 
@@ -8910,6 +8927,10 @@ msgstr "تعذّر فتح الأرشيف"
 msgid "The best guess scored {best}%, under your {confidence_bar}% auto-import bar."
 msgstr "حصل أفضل تخمين على {best}%، وهو أقل من حد الاستيراد التلقائي لديك البالغ {confidence_bar}%."
 
+#: src/components/releases/pullAttempts.ts
+msgid "The built-in release calendar could not be reached. It needs no setup, and Comicarr tries it again on the next refresh."
+msgstr "تعذّر الوصول إلى تقويم الإصدارات المدمج. لا يحتاج إلى إعداد، وسيعيد Comicarr المحاولة عند التحديث التالي."
+
 #: src/components/releases/MyReleasesView.tsx
 msgid "The comics pull list for this week isn’t available yet, so this shows your series’ own release dates. Some comics may be missing until it is."
 msgstr "قائمة سحب القصص المصورة لهذا الأسبوع غير متاحة بعد، لذا تظهر تواريخ إصدار سلاسلك. قد تغيب بعض القصص المصورة حتى تتوفر."
@@ -9082,6 +9103,10 @@ msgstr "هذا التطابق يتجاوز حد الاستيراد التلقا�
 #: src/pages/ChatPage.tsx
 msgid "This model cannot read images"
 msgstr "لا يستطيع هذا النموذج قراءة الصور"
+
+#: src/pages/NotFoundPage.tsx
+msgid "This page doesn't exist"
+msgstr "هذه الصفحة غير موجودة"
 
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "This preview is already frozen into the manifest below."
@@ -9814,10 +9839,6 @@ msgstr "بانتظار تصريف عمل الاقتناء"
 #: src/components/activity/timeline/attentionStage.ts
 msgid "Waiting on your decision."
 msgstr "بانتظار قرارك."
-
-#: src/components/releases/pullAttempts.ts
-msgid "Walksoftly, the main pull-list source, could not be reached."
-msgstr "تعذّر الوصول إلى Walksoftly، المصدر الرئيسي لقائمة السحب."
 
 #: src/components/queue/upcomingColumns.tsx
 #: src/components/releases/IndustryReleasesView.tsx
