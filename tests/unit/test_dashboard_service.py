@@ -159,3 +159,12 @@ class TestScanTargets:
         service.comicarr.CONFIG.COMIC_DIR = "   "
 
         assert service.get_scan_targets()["comic"] is False
+
+    def test_the_library_folder_is_a_comic_scan_target_but_never_a_manga_one(self):
+        service.comicarr.CONFIG.DESTINATION_DIR = "/comics"
+
+        assert service.get_scan_targets() == {"comic": True, "manga": False}
+
+        service.comicarr.CONFIG.MANGA_DESTINATION_DIR = "/manga"
+
+        assert service.get_scan_targets() == {"comic": True, "manga": True}

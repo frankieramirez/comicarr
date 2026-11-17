@@ -18,7 +18,9 @@ import {
   useMangaScanProgress,
   useMangaScanConfirm,
 } from "@/hooks/useImport";
+import { Link } from "react-router-dom";
 import { useConfig } from "@/hooks/useConfig";
+import { libraryScanFolders, SETTINGS_FOLDERS } from "@/lib/libraryFolders";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { useToast } from "@/components/ui/toast";
@@ -36,8 +38,7 @@ function ScanCounts({ found, matched }: { found: number; matched: number }) {
 
 export default function LibraryScanSection() {
   const { data: appConfig } = useConfig();
-  const comicDir = appConfig?.comic_dir as string | undefined;
-  const mangaDir = appConfig?.manga_dir as string | undefined;
+  const { comic: comicDir, manga: mangaDir } = libraryScanFolders(appConfig);
   const { addToast } = useToast();
 
   const comicScanMutation = useComicScan();
@@ -128,7 +129,7 @@ export default function LibraryScanSection() {
           icon={Library}
           label={t`Comic library`}
           path={comicDir}
-          notConfiguredHint={t`Set Comic Directory in Settings → Media`}
+          notConfiguredHint={t`Choose a library folder in Settings`}
           busy={comicScanMutation.isPending || comicScanning}
           onScan={handleComicScan}
           progress={
@@ -145,7 +146,7 @@ export default function LibraryScanSection() {
           icon={BookOpen}
           label={t`Manga library`}
           path={mangaDir}
-          notConfiguredHint={t`Set Manga Directory in Settings → Media`}
+          notConfiguredHint={t`Choose a manga library folder in Settings`}
           busy={mangaScanMutation.isPending || mangaScanning}
           onScan={handleMangaScan}
           progress={
@@ -287,9 +288,12 @@ function ScanTile({
               <span className="truncate">{path}</span>
             </div>
           ) : (
-            <div className="text-[11px] text-muted-foreground mt-0.5">
+            <Link
+              to={SETTINGS_FOLDERS}
+              className="block text-[11px] text-muted-foreground mt-0.5 underline-offset-2 hover:text-foreground hover:underline"
+            >
               {notConfiguredHint}
-            </div>
+            </Link>
           )}
         </div>
 

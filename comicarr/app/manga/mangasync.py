@@ -32,6 +32,7 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr.app.common import series_kind
+from comicarr.app.common.library_roots import library_scan_dir
 from comicarr.app.core import db, logger
 from comicarr.app.core.tables import comics, issues
 from comicarr.app.imports.scanutil import COMIC_EXTENSIONS, find_best_match
@@ -82,7 +83,7 @@ def mangaScan(scan_dir=None, queue=None):
         logger.warning("[MANGA-SCAN] Scan already in progress, skipping")
         return {"status": "already_running"}
 
-    manga_dir = scan_dir or comicarr.CONFIG.MANGA_DIR
+    manga_dir = scan_dir or library_scan_dir(comicarr.CONFIG, "manga")
     if not manga_dir:
         _SCAN_LOCK.release()
         logger.warning("[MANGA-SCAN] No MANGA_DIR configured, skipping manga scan")

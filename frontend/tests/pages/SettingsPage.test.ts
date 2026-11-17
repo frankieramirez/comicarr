@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 describe("settings configuration", () => {
-  it("chooses the library folder from General", async () => {
+  it("chooses the library and import folders from Folders and naming", async () => {
     let saved: unknown = null;
     server.use(
       http.get("/api/config", () =>
@@ -27,14 +27,23 @@ describe("settings configuration", () => {
     );
     const user = userEvent.setup();
 
-    render(createElement(SettingsPage));
+    render(createElement(SettingsPage), {
+      route: "/settings?section=media",
+      useMemoryRouter: true,
+    });
     const folder = await screen.findByLabelText("Library folder");
     expect(folder.hasAttribute("readonly")).toBe(false);
     await user.type(folder, "/data/comics");
+    const inbox = screen.getByLabelText("Import folder");
+    expect(inbox.hasAttribute("readonly")).toBe(false);
+    await user.type(inbox, "/data/imports");
     await user.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() => expect(saved).not.toBeNull());
-    expect(saved).toMatchObject({ destination_dir: "/data/comics" });
+    expect(saved).toMatchObject({
+      destination_dir: "/data/comics",
+      import_dir: "/data/imports",
+    });
   });
 
   it("widens the Logs panel and keeps other tabs in a readable column", () => {

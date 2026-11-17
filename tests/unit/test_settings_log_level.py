@@ -314,6 +314,6 @@ class TestTheRunningLevelOnlyFollowsADurableSave:
         assert observed == [False], "the level was applied outside the config write lock"
 
     def test_saving_an_unrelated_key_does_not_touch_the_logger(self, stubbed_save):
-        assert stubbed_save(comic_dir="/new/comics") == {"success": True}
+        assert stubbed_save(check_github=False) == {"success": True}
 
         assert stubbed_save.applied == []

@@ -96,7 +96,7 @@ export function setupSteps({
         ? library
         : t`Where Comicarr keeps your comics. New series folders go here.`,
       done: isSet(library),
-      fix: { label: t`Choose a folder`, to: "/settings?section=general" },
+      fix: { label: t`Choose a folder`, to: "/settings?section=media" },
     },
     {
       key: "comicvine",

@@ -32,6 +32,27 @@ def _root_text(value):
     return value
 
 
+_SCAN_DIR_KEYS = {
+    # A comic scan falls back to the library folder, so an install that only
+    # set the library folder can still import what is already in it.
+    "comic": ("COMIC_DIR", "DESTINATION_DIR"),
+    # A manga scan never falls back to the comic library folder: it would
+    # offer every comic series as manga.
+    "manga": ("MANGA_DIR", "MANGA_DESTINATION_DIR"),
+}
+
+
+def library_scan_dir(config, kind):
+    """Return the folder a comic or manga library scan walks, or None."""
+    if config is None:
+        return None
+    for key in _SCAN_DIR_KEYS[kind]:
+        root = _root_text(getattr(config, key, None))
+        if root:
+            return root
+    return None
+
+
 def additional_library_roots(config):
     """Return the absolute paths listed one per line in ADDITIONAL_LIBRARY_ROOTS."""
     raw = _root_text(getattr(config, "ADDITIONAL_LIBRARY_ROOTS", None)) if config is not None else None

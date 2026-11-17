@@ -21,8 +21,8 @@ from comicarr.app.series import service
 @pytest.mark.parametrize(
     ("scan", "config_key", "path", "error"),
     [
-        (service.comic_library_scan, "COMIC_DIR", "/missing/comics", "Comic directory not found"),
-        (service.manga_library_scan, "MANGA_DIR", "/missing/manga", "Manga directory not found"),
+        (service.comic_library_scan, "COMIC_DIR", "/missing/comics", "Comic folder not found"),
+        (service.manga_library_scan, "MANGA_DIR", "/missing/manga", "Manga folder not found"),
     ],
 )
 def test_library_scan_rejects_missing_mount(monkeypatch, scan, config_key, path, error):

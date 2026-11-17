@@ -40,6 +40,53 @@ export function MediaManagementTab({
 }: MediaManagementTabProps) {
   return (
     <div className="space-y-6">
+      <SettingGroup
+        title={t`Library folders`}
+        description={t`Where your comics and manga live. Downloads are filed here, and Import scans these folders for what you already have.`}
+      >
+        <SettingField
+          label={t`Library folder`}
+          value={formData.destination_dir || ""}
+          onChange={(v) => onChange("destination_dir", v as string)}
+          helpText={t`New comic series folders are created here. A folder that already exists on the server. In Docker, use the path inside the container, such as /comics.`}
+          placeholder="/comics"
+        />
+        <SettingField
+          label={t`Manga library folder`}
+          value={formData.manga_destination_dir || ""}
+          onChange={(v) => onChange("manga_destination_dir", v as string)}
+          helpText={t`New manga series folders are created here. Leave blank to use the library folder.`}
+          placeholder="/manga"
+        />
+      </SettingGroup>
+
+      <SettingGroup
+        title={t`Import folders`}
+        description={t`Optional. Leave these blank and Import scans the library folders above.`}
+      >
+        <SettingField
+          label={t`Comic folder to scan`}
+          value={formData.comic_dir || ""}
+          onChange={(v) => onChange("comic_dir", v as string)}
+          helpText={t`An existing comic collection somewhere else. Imported series stay where they are. Blank scans the library folder.`}
+          placeholder={formData.destination_dir || "/comics"}
+        />
+        <SettingField
+          label={t`Manga folder to scan`}
+          value={formData.manga_dir || ""}
+          onChange={(v) => onChange("manga_dir", v as string)}
+          helpText={t`An existing manga collection somewhere else. Blank scans the manga library folder. Manga scans never use the comic library folder.`}
+          placeholder={formData.manga_destination_dir || "/manga"}
+        />
+        <SettingField
+          label={t`Import folder`}
+          value={formData.import_dir || ""}
+          onChange={(v) => onChange("import_dir", v as string)}
+          helpText={t`A drop folder. Files you put here are matched and filed into your library. It cannot be inside, or contain, a library or download folder.`}
+          placeholder="/imports"
+        />
+      </SettingGroup>
+
       {/* File Naming */}
       <SettingGroup
         title={t`File Naming`}

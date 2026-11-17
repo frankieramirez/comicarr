@@ -1220,13 +1220,13 @@ msgstr "3. 分享"
 msgid "A different maintenance operation owns the write fence."
 msgstr "另一个维护操作持有写入锁。"
 
+#: src/components/settings/MediaManagementTab.tsx
+msgid "A drop folder. Files you put here are matched and filed into your library. It cannot be inside, or contain, a library or download folder."
+msgstr "投放文件夹。放到这里的文件会被匹配并归档到你的库中。它不能位于库文件夹或下载文件夹之内，也不能包含它们。"
+
 #: src/components/activity/timeline/sentences.ts
 msgid "a file already exists at the destination"
 msgstr "目标位置已存在文件"
-
-#: src/components/settings/GeneralTab.tsx
-msgid "A folder that already exists on the server. In Docker, use the path inside the container, such as /comics."
-msgstr "服务器上已存在的文件夹。在 Docker 中，请使用容器内的路径，例如 /comics。"
 
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "A ready route has a configured provider, client, path, and restart-safe handoff correlation."
@@ -1658,6 +1658,14 @@ msgstr "即将完成"
 #: src/components/search/SearchAddButton.tsx
 msgid "An error occurred while adding the series."
 msgstr "添加系列时出错。"
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "An existing comic collection somewhere else. Imported series stay where they are. Blank scans the library folder."
+msgstr "位于其他位置的现有漫画收藏。导入的系列保持原位。留空则扫描库文件夹。"
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "An existing manga collection somewhere else. Blank scans the manga library folder. Manga scans never use the comic library folder."
+msgstr "位于其他位置的现有漫画（日漫）收藏。留空则扫描日漫库文件夹。日漫扫描从不使用漫画库文件夹。"
 
 #: src/lib/api.ts
 msgid "An unexpected error occurred ({status}). Please try again."
@@ -2381,6 +2389,18 @@ msgstr "在服务器上选择一个位于书库根目录内的文件夹。此系
 msgid "Choose a library folder"
 msgstr "选择书库文件夹"
 
+#: src/components/import/LibraryScanSection.tsx
+msgid "Choose a library folder in Settings"
+msgstr "在设置中选择库文件夹"
+
+#: src/components/import/ImportSourcesStrip.tsx
+msgid "Choose a library folder to scan"
+msgstr "选择要扫描的库文件夹"
+
+#: src/components/import/LibraryScanSection.tsx
+msgid "Choose a manga library folder in Settings"
+msgstr "在设置中选择日漫库文件夹"
+
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Choose a release for this series. A pack can cover several missing issues at once. Nothing downloads until you confirm."
 msgstr "为此系列选择一个发布。合集可以一次覆盖多个缺少的期刊。确认之前不会下载任何东西。"
@@ -2388,6 +2408,14 @@ msgstr "为此系列选择一个发布。合集可以一次覆盖多个缺少的
 #: src/pages/LoginPage.tsx
 msgid "Choose a username"
 msgstr "选择用户名"
+
+#: src/components/import/ImportInboxSection.tsx
+msgid "Choose an import folder in Settings to import new files automatically."
+msgstr "在设置中选择导入文件夹，即可自动导入新文件。"
+
+#: src/components/import/ImportSourcesStrip.tsx
+msgid "Choose an import folder to watch for new files"
+msgstr "选择要监视新文件的导入文件夹"
 
 #: src/components/ai/ChatComposer.tsx
 msgid "Choose JPEG, PNG, or WebP images."
@@ -2499,9 +2527,9 @@ msgstr "漫画"
 msgid "Comic and manga library scans"
 msgstr "漫画和日漫书库扫描"
 
-#: src/components/settings/GeneralTab.tsx
-msgid "Comic Directory"
-msgstr "漫画目录"
+#: src/components/settings/MediaManagementTab.tsx
+msgid "Comic folder to scan"
+msgstr "要扫描的漫画文件夹"
 
 #: src/components/import/LibraryScanSection.tsx
 msgid "Comic library"
@@ -3424,10 +3452,6 @@ msgstr "草稿 · 尚未保存"
 msgid "draining active work"
 msgstr "正在排空进行中的工作"
 
-#: src/components/settings/GeneralTab.tsx
-msgid "Drop folder for new comic/manga files to auto-import"
-msgstr "新漫画/日漫文件的投放文件夹，会自动导入"
-
 #: src/lib/healthRows.ts
 msgid "due now"
 msgstr "现在到期"
@@ -3733,14 +3757,6 @@ msgstr "全部，包括诊断信息"
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Evidence-driven repair"
 msgstr "基于证据的修复"
-
-#: src/components/settings/GeneralTab.tsx
-msgid "Existing comic folder scanned by library import; imported series stay in place here"
-msgstr "由书库导入扫描的现有漫画文件夹；导入的系列保留在原处"
-
-#: src/components/settings/GeneralTab.tsx
-msgid "Existing manga folder scanned by library import; imported series stay in place here"
-msgstr "由书库导入扫描的现有日漫文件夹；导入的系列保留在原处"
 
 #: src/pages/ShelfPage.tsx
 msgid "Export CSV"
@@ -4521,10 +4537,6 @@ msgstr "导入行为"
 msgid "Import directory"
 msgstr "导入目录"
 
-#: src/components/settings/GeneralTab.tsx
-msgid "Import Directory"
-msgstr "导入目录"
-
 #: src/pages/ImportPage.tsx
 msgid "Import directory not configured"
 msgstr "未配置导入目录"
@@ -4544,6 +4556,14 @@ msgstr "导入失败：{error}"
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Import file operation"
 msgstr "导入文件操作"
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "Import folder"
+msgstr "导入文件夹"
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "Import folders"
+msgstr "导入文件夹"
 
 #: src/lib/healthRows.ts
 msgid "Import inbox"
@@ -4999,7 +5019,7 @@ msgid "library assistant"
 msgstr "书库助手"
 
 #: src/components/series/SeriesFolder.tsx
-#: src/components/settings/GeneralTab.tsx
+#: src/components/settings/MediaManagementTab.tsx
 #: src/lib/setupSteps.ts
 msgid "Library folder"
 msgstr "书库文件夹"
@@ -5009,6 +5029,7 @@ msgid "Library folder {number}"
 msgstr "书库文件夹 {number}"
 
 #: src/components/import/ImportSourcesStrip.tsx
+#: src/components/settings/MediaManagementTab.tsx
 msgid "Library folders"
 msgstr "书库文件夹"
 
@@ -5251,17 +5272,17 @@ msgstr "日漫"
 msgid "Manga (MangaDex)"
 msgstr "日漫（MangaDex）"
 
-#: src/components/settings/GeneralTab.tsx
-msgid "Manga Destination Directory"
-msgstr "日漫目标目录"
-
-#: src/components/settings/GeneralTab.tsx
-msgid "Manga Directory"
-msgstr "日漫目录"
+#: src/components/settings/MediaManagementTab.tsx
+msgid "Manga folder to scan"
+msgstr "要扫描的日漫文件夹"
 
 #: src/components/import/LibraryScanSection.tsx
 msgid "Manga library"
 msgstr "日漫书库"
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "Manga library folder"
+msgstr "日漫库文件夹"
 
 #: src/components/import/LibraryScanSection.tsx
 msgid "Manga library scan failed: {detail}"
@@ -5753,6 +5774,10 @@ msgstr "新聊天"
 msgid "New comic day"
 msgstr "新漫画日"
 
+#: src/components/settings/MediaManagementTab.tsx
+msgid "New comic series folders are created here. A folder that already exists on the server. In Docker, use the path inside the container, such as /comics."
+msgstr "新漫画系列的文件夹在这里创建。必须是服务器上已存在的文件夹。使用 Docker 时，请填写容器内的路径，例如 /comics。"
+
 #: src/components/series/SeriesFolder.tsx
 msgid "New downloads and imports go to {location}."
 msgstr "新的下载和导入会放到 {location}。"
@@ -5764,6 +5789,10 @@ msgstr "你关注的系列每周的新期刊和新章节"
 #: src/components/settings/LogsTab.tsx
 msgid "New log"
 msgstr "新日志"
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "New manga series folders are created here. Leave blank to use the library folder."
+msgstr "新日漫系列的文件夹在这里创建。留空则使用库文件夹。"
 
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "Newznab category IDs, comma-separated. 7030 is Books/Comics."
@@ -6533,12 +6562,12 @@ msgid "Optional: target specific device"
 msgstr "可选：指定设备"
 
 #: src/components/settings/MediaManagementTab.tsx
+msgid "Optional. Leave these blank and Import scans the library folders above."
+msgstr "可选。留空时，导入会扫描上方的库文件夹。"
+
+#: src/components/settings/MediaManagementTab.tsx
 msgid "Organize downloads into weekly subfolders"
 msgstr "将下载整理到每周子文件夹"
-
-#: src/components/settings/GeneralTab.tsx
-msgid "Other folders"
-msgstr "其他文件夹"
 
 #: src/lib/releaseState.ts
 msgid "Out {day}"
@@ -7512,10 +7541,6 @@ msgstr "已回滚"
 msgid "Room ID"
 msgstr "房间 ID"
 
-#: src/components/settings/GeneralTab.tsx
-msgid "Root of your organized manga library (falls back to Manga Directory, then Destination Directory)"
-msgstr "已整理日漫书库的根目录（依次回退到日漫目录、目标目录）"
-
 #: src/pages/SeriesDetailPage.tsx
 msgid "Route health could not be read. Check the server logs, then refresh this preview."
 msgstr "无法读取路由健康状况。请检查服务器日志，然后刷新此预览。"
@@ -8313,6 +8338,10 @@ msgstr "series:{comicId} · issue:{issueId}"
 msgid "Serve the MCP endpoint below. While this is off, the endpoint does not exist."
 msgstr "提供下方的 MCP 端点。关闭时，该端点不存在。"
 
+#: src/components/settings/GeneralTab.tsx
+msgid "Server folders"
+msgstr "服务器文件夹"
+
 #: src/pages/LoginPage.tsx
 msgid "Server restart timed out. Refresh the page to try logging in."
 msgstr "服务器重启超时。请刷新页面后尝试登录。"
@@ -8345,33 +8374,17 @@ msgstr "服务器 URL"
 msgid "Set {label} to {status}"
 msgstr "将 {label} 设为 {status}"
 
-#: src/components/import/ImportSourcesStrip.tsx
-msgid "Set a comic or manga directory to scan"
-msgstr "设置要扫描的漫画或日漫目录"
-
 #: src/pages/ImportPage.tsx
 msgid "Set an import directory first"
 msgstr "请先设置导入目录"
-
-#: src/components/import/ImportInboxSection.tsx
-msgid "Set an Import Directory in your config.ini to enable auto-importing."
-msgstr "在 config.ini 中设置导入目录即可启用自动导入。"
-
-#: src/components/import/ImportSourcesStrip.tsx
-msgid "Set an import directory to watch for new files"
-msgstr "设置一个导入目录以监控新文件"
 
 #: src/components/series/MangaVolumes.tsx
 msgid "set by you"
 msgstr "由你设置"
 
-#: src/components/import/LibraryScanSection.tsx
-msgid "Set Comic Directory in Settings → Media"
-msgstr "在设置 → 媒体中设置漫画目录"
-
-#: src/components/import/LibraryScanSection.tsx
-msgid "Set Manga Directory in Settings → Media"
-msgstr "在设置 → 媒体中设置日漫目录"
+#: src/components/settings/GeneralTab.tsx
+msgid "Set in config.ini and read-only here. Library and import folders are under Folders and naming."
+msgstr "在 config.ini 中设置，此处只读。库文件夹和导入文件夹位于“文件夹与命名”。"
 
 #: src/components/settings/SearchTab.tsx
 msgid "Set minimum and maximum file size limits for downloads"
@@ -9034,10 +9047,6 @@ msgstr "这些默认不选中。只选择已发布、缺少且你明确想标记
 msgid "these issues stopped at different stages — pick the ones you mean"
 msgstr "这些期刊停在不同阶段 — 请选择你要处理的"
 
-#: src/components/settings/GeneralTab.tsx
-msgid "These paths are set in config.ini and are read-only here."
-msgstr "这些路径在 config.ini 中设置，此处只读。"
-
 #: src/pages/AttentionPage.tsx
 msgid "these rows are at different stages — no action fits all of them"
 msgstr "这些行处于不同阶段 — 没有适用于所有行的操作"
@@ -9626,8 +9635,8 @@ msgstr "仅使用 Comic Vine 获取元数据（忽略本地缓存）"
 
 #: src/components/search/SearchAddButton.tsx
 #: src/components/series/SeriesFolder.tsx
-msgid "Use the path Comicarr sees. In Docker, that is the path inside the container. Extra roots are listed under Settings → Media."
-msgstr "使用 Comicarr 看到的路径。在 Docker 中，就是容器内的路径。其他根目录列在设置 → 媒体中。"
+msgid "Use the path Comicarr sees. In Docker, that is the path inside the container. Extra roots are listed under Settings, Folders and naming."
+msgstr "请使用 Comicarr 看到的路径。使用 Docker 时，即容器内的路径。其他根目录列在“设置 > 文件夹与命名”中。"
 
 #: src/lib/updateGuidance.ts
 msgid "Use the Release link for the exact tag notes and assets."
@@ -9932,10 +9941,6 @@ msgstr "开启后，Comicarr 会按计划自动检查新版本。关闭即可停
 msgid "When enabled, send a message through enabled notifiers when a new release is available. Uses enabled notifiers only; does not reuse snatch or grab flags."
 msgstr "开启后，有新版本可用时会通过已启用的通知器发送消息。仅使用已启用的通知器；不复用抓取相关的开关。"
 
-#: src/components/settings/GeneralTab.tsx
-msgid "Where Comicarr keeps your comics. New series folders are created here and downloads are filed into them."
-msgstr "Comicarr 存放你漫画的位置。新系列文件夹在这里创建，下载内容会归档到其中。"
-
 #: src/lib/setupSteps.ts
 msgid "Where Comicarr keeps your comics. New series folders go here."
 msgstr "Comicarr 存放你漫画的位置。新系列文件夹放在这里。"
@@ -9947,6 +9952,10 @@ msgstr "Comicarr 发送所选发布的位置：每种发布类型对应一个客
 #: src/components/releases/MyReleasesView.tsx
 msgid "Where it stands"
 msgstr "当前状况"
+
+#: src/components/settings/MediaManagementTab.tsx
+msgid "Where your comics and manga live. Downloads are filed here, and Import scans these folders for what you already have."
+msgstr "你的漫画和日漫存放的位置。下载内容会归档到这里，导入也会扫描这些文件夹以找到你已有的内容。"
 
 #: src/components/queue/WantedBySeries.tsx
 msgid "Which"
