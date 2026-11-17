@@ -88,7 +88,8 @@ def _blocklist_release(
     payload=None,
     conn=None,
 ):
-    from comicarr import db, helpers
+    from comicarr import db
+    from comicarr.app.common import dates as common_dates
 
     data = _payload_dict(payload)
     comicid = comicid if comicid not in (None, "") else data.get("comicid")
@@ -103,7 +104,7 @@ def _blocklist_release(
         "Issue_Number": issue_number,
         "IssueID": issueid,
         "ComicID": comicid,
-        "DateFailed": helpers.now(),
+        "DateFailed": common_dates.now(),
     }
     ctrl = {"ID": release_id, "Provider": provider, "NZBName": nzbname}
     if conn is not None:

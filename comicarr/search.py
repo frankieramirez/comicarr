@@ -44,20 +44,25 @@ from sqlalchemy import or_, select
 from urllib3.util.retry import Retry
 
 import comicarr
-from comicarr import db, failed, filechecker, getcomics, helpers, logger, nzbget, rsscheck, sabnzbd
+from comicarr import db, failed, filechecker, getcomics, logger, nzbget, rsscheck, sabnzbd
+from comicarr.app.common import configured as configured
 from comicarr.app.common import series_kind
+from comicarr.app.common import strings as common_strings
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.common.remote_artifacts import (
     resolve_remote_artifact_path,
     safe_remote_filename,
     write_chunks_atomically,
 )
+from comicarr.app.core import security as core_security
 from comicarr.app.core.workers import submit_background_future
 from comicarr.app.downloads import handoff, snatch_record
+from comicarr.app.downloads import service as downloads_service
 from comicarr.app.notifications import service as notifiers
 from comicarr.app.search import diagnostics as search_diagnostics
 from comicarr.app.search import failures as search_failures
 from comicarr.app.search import progress, prowlarr
+from comicarr.app.search import service as search_service
 from comicarr.app.search.backlog import (
     PASS_RSS_WANTED,
     PassBudget,
@@ -69,6 +74,8 @@ from comicarr.app.search.evaluation import EvaluationSession
 from comicarr.app.search.evaluation_handoff import handoff_matches
 from comicarr.app.search.health import search_providers_available
 from comicarr.app.search.provider_config import provider_enabled, split_newznab_category_field
+from comicarr.app.series import service as series_service
+from comicarr.app.system import service as system_service
 from comicarr.downloaders import external_server as exs
 from comicarr.tables import (
     annuals,
@@ -403,9 +410,9 @@ def _search_init(
         logger.fdebug("Publisher is : %s" % Publisher)
 
     if IssueArcID and not IssueID:
-        issuetitle = helpers.get_issue_title(IssueArcID)
+        issuetitle = series_service.get_issue_title(IssueArcID)
     else:
-        issuetitle = helpers.get_issue_title(IssueID)
+        issuetitle = series_service.get_issue_title(IssueID)
 
     if issuetitle:
         logger.fdebug("Issue Title given as : %s" % issuetitle)
@@ -542,7 +549,7 @@ def _search_init(
                 cmloopit = 4
                 if "annual" in ComicName.lower():
                     if IssueNumber is not None:
-                        if helpers.issuedigits(IssueNumber) != 1000:
+                        if configured.issuedigits(IssueNumber) != 1000:
                             cmloopit = None
             if cmloopit is None:
                 if len(c_number) == 1:
@@ -619,7 +626,7 @@ def _search_init(
                 if checked_once:
                     if prov_order[prov_count] in checked_once:
                         break
-                provider_blocked = helpers.block_provider_check(prov_order[prov_count])
+                provider_blocked = search_service.block_provider_check(prov_order[prov_count])
                 if provider_blocked:
                     logger.warn("provider blocked. Ignoring search on this provider.")
                     break
@@ -917,7 +924,7 @@ def _search_init(
     if findit["status"] is True:
         if comicarr.CONFIG.SNATCHED_HAVETOTAL and any([oneoff is False, IssueID is not None]):
             logger.fdebug("Adding this to the HAVE total for the series.")
-            helpers.incr_snatched(ComicID)
+            series_service.incr_snatched(ComicID)
         found_prov = list(current_prov.keys())[0]
         if manualsearch is None:
             logger.info(
@@ -1027,7 +1034,7 @@ def provider_order(initial_run=False, comic_id=None):
     from comicarr.app.series.queries import get_comic_provider_override
 
     override = parse_provider_override(get_comic_provider_override(comic_id))
-    plan = effective_provider_plan(comicarr.CONFIG, is_blocked=helpers.block_provider_check, override=override)
+    plan = effective_provider_plan(comicarr.CONFIG, is_blocked=search_service.block_provider_check, override=override)
     tor_candidates = [
         candidate for candidate in plan if candidate.kind in {"torznab", "torrent"} and not candidate.blocked
     ]
@@ -1209,7 +1216,7 @@ def NZB_SEARCH(
     cm = re.sub("'", "%27", str(cm))
 
     if IssueNumber is not None:
-        intIss = helpers.issuedigits(IssueNumber)
+        intIss = configured.issuedigits(IssueNumber)
         iss = IssueNumber
         if "\xbd" in IssueNumber:
             findcomiciss = "0.5"
@@ -1461,7 +1468,7 @@ def NZB_SEARCH(
 
                 if findurl:
                     findurl = findurl + "&apikey=" + str(apikey)
-                    logsearch = helpers.apiremove(str(findurl), "nzb")
+                    logsearch = core_security.apiremove(str(findurl), "nzb")
 
                     prowlarr_protocol = None
                     if provider_stat["type"] == "torznab" and prowlarr.is_search_endpoint(host_torznab):
@@ -1546,9 +1553,9 @@ def NZB_SEARCH(
                             "[NZB-SEARCH] Connection error trying to retrieve data from %s: %s"
                             % (nzbprov, redact_sensitive_text(e, secrets=(apikey,)))
                         )
-                        unreachable = helpers.provider_unreachable(e)
+                        unreachable = search_service.provider_unreachable(e)
                         if unreachable:
-                            helpers.disable_provider(tmpprov, "Connection Refused.")
+                            search_service.disable_provider(tmpprov, "Connection Refused.")
                         is_info["foundc"]["status"] = False
                         is_info["foundc"]["provider_failed"] = True
                         message = search_failures.describe(e, findurl)
@@ -1560,8 +1567,8 @@ def NZB_SEARCH(
                             "[NZB-SEARCH] General Error fetching data from %s: %s"
                             % (nzbprov, redact_sensitive_text(e, secrets=(apikey,)))
                         )
-                        if helpers.provider_unreachable(e):
-                            helpers.disable_provider(tmpprov, "Connection Refused.")
+                        if search_service.provider_unreachable(e):
+                            search_service.disable_provider(tmpprov, "Connection Refused.")
                             logger.warn("Aborting search due to Provider unavailability")
                         else:
                             logger.warn(
@@ -1607,7 +1614,7 @@ def NZB_SEARCH(
                                 logger.warn(
                                     "Unavailable indexer detected. Disabling for a short duration and will try again."
                                 )
-                                helpers.disable_provider(tmpprov, "Unavailable Indexer")
+                                search_service.disable_provider(tmpprov, "Unavailable Indexer")
                             data = False
                         else:
                             data = r.content
@@ -1649,7 +1656,7 @@ def NZB_SEARCH(
                             )
                             if verified_matches["feed"]["error"]["code"] == "910":
                                 logger.warn("DAILY API limit reached. Disabling %s" % tmpprov)
-                                helpers.disable_provider(tmpprov, "API Limit reached")
+                                search_service.disable_provider(tmpprov, "API Limit reached")
                                 verified_matches = "no results"
                                 is_info["foundc"]["status"] = False
                                 done = True
@@ -1714,7 +1721,7 @@ def verification(verified_matches, is_info):
             if verified["downloadit"]:
                 try:
                     if verified["chkit"]:
-                        helpers.checkthe_id(ComicID, verified["chkit"])
+                        search_service.checkthe_id(ComicID, verified["chkit"])
                 except Exception:
                     pass
                 # nzbname_create() reads ComicName, IssueNumber and comyear off
@@ -2280,7 +2287,7 @@ def searchforissue(
                         else:
                             comicname = comic["ComicName"]
                         if all([result["mode"] == "story_arc", storyarc_watchlist is False]):
-                            Comicname_filesafe = helpers.filesafe(comicname)
+                            Comicname_filesafe = common_strings.filesafe(comicname)
                             SeriesYear = comic["SeriesYear"]
                             Publisher = comic["Publisher"]
                             AlternateSearch = None
@@ -2444,7 +2451,7 @@ def searchforissue(
                             "booktype": booktype,
                         }
 
-                        helpers.log_that_exception(except_line)
+                        configured.log_that_exception(except_line)
 
                         logger.exception(tracebackline)
                         continue
@@ -2565,7 +2572,7 @@ def searchforissue(
 
                             logger.fdebug("provider order: %s" % provider_list["prov_order"])
 
-                            intIss = helpers.issuedigits(xr["Issue_Number"])
+                            intIss = configured.issuedigits(xr["Issue_Number"])
 
                             findcomiciss, c_number = get_findcomiciss(xr["Issue_Number"])
 
@@ -2577,7 +2584,7 @@ def searchforissue(
                                     cmloopit = 4
                                     if "annual" in comicname.lower():
                                         if xr["Issue_Number"] is not None:
-                                            if helpers.issuedigits(xr["Issue_Number"]) != 1000:
+                                            if configured.issuedigits(xr["Issue_Number"]) != 1000:
                                                 cmloopit = None
                                 if cmloopit is None:
                                     if len(c_number) == 1:
@@ -2676,7 +2683,7 @@ def searchforissue(
                                 "booktype": booktype,
                             }
 
-                            helpers.log_that_exception(except_line)
+                            configured.log_that_exception(except_line)
 
                             logger.exception(tracebackline)
                             continue
@@ -2738,7 +2745,7 @@ def searchforissue(
                 manga_volume_number = None
                 if smode == "story_arc":
                     ComicName = result["ComicName"]
-                    Comicname_filesafe = helpers.filesafe(ComicName)
+                    Comicname_filesafe = common_strings.filesafe(ComicName)
                     SeriesYear = result["SeriesYear"]
                     IssueNumber = result["IssueNumber"]
                     Publisher = result["Publisher"]
@@ -2756,7 +2763,7 @@ def searchforissue(
                     ignore_booktype = False
                 elif smode == "pullwant":
                     ComicName = result["COMIC"]
-                    Comicname_filesafe = helpers.filesafe(ComicName)
+                    Comicname_filesafe = common_strings.filesafe(ComicName)
                     SeriesYear = result["seriesyear"]
                     IssueNumber = result["ISSUE"]
                     Publisher = result["PUBLISHER"]
@@ -2890,7 +2897,7 @@ def searchforissue(
                     "booktype": booktype,
                 }
 
-                helpers.log_that_exception(except_line)
+                configured.log_that_exception(except_line)
 
                 logger.exception(tracebackline)
 
@@ -3517,7 +3524,7 @@ def searcher(
                     "clientmode": "blackhole",
                 }
 
-                snatchitup = helpers.script_env("on-snatch", snatch_vars)
+                snatchitup = system_service.script_env("on-snatch", snatch_vars)
                 if snatchitup is True:
                     logger.info("Successfully submitted on-grab script as requested.")
                 else:
@@ -3621,7 +3628,7 @@ def searcher(
                             plist = None
                         else:
                             if "0-Day Comics Pack" in ComicName:
-                                helpers.lookupthebitches(
+                                downloads_service.lookupthebitches(
                                     rcheck["files"],
                                     rcheck["folder"],
                                     nzbname,
@@ -3657,7 +3664,7 @@ def searcher(
                             "torrentinfo": rcheck,
                         }
 
-                        snatchitup = helpers.script_env("on-snatch", snatch_vars)
+                        snatchitup = system_service.script_env("on-snatch", snatch_vars)
                         if snatchitup is True:
                             logger.info("Successfully submitted on-grab script as requested.")
                         else:
@@ -3832,7 +3839,7 @@ def searcher(
                 "clientmode": clientmode,
             }
 
-            snatchitup = helpers.script_env("on-snatch", snatch_vars)
+            snatchitup = system_service.script_env("on-snatch", snatch_vars)
             if snatchitup is True:
                 logger.info("Successfully submitted on-grab script as requested.")
             else:
@@ -4194,7 +4201,7 @@ def gen_altnames(ComicName, AlternateSearch, filesafe, smode):
             else:
                 Altname = AlternateSearch[altpriority + 2 : altsplit]
             logger.fdebug("Altname: %s" % Altname)
-            if helpers.filesafe(Altname).lower() == helpers.filesafe(ComicName).lower():
+            if common_strings.filesafe(Altname).lower() == common_strings.filesafe(ComicName).lower():
                 logger.fdebug("Alternate search pattern is an exact match to previous query. Not recreating")
                 ignore_previous = True
             else:
@@ -4209,7 +4216,7 @@ def gen_altnames(ComicName, AlternateSearch, filesafe, smode):
     if AlternateSearch is not None and AlternateSearch != "None":
         chkthealt = list(filter(None, re.split(r"[\!\!]+|[\#\#]+", AlternateSearch)))
         for AS_Alternate in chkthealt:
-            if helpers.filesafe(AS_Alternate).lower() == helpers.filesafe(ComicName).lower():
+            if common_strings.filesafe(AS_Alternate).lower() == common_strings.filesafe(ComicName).lower():
                 logger.fdebug("Alternate search pattern is an exact match to previous query. Not recreating")
                 continue
             if Altname != AS_Alternate:
@@ -4237,7 +4244,7 @@ def searchforissue_checker(issueid, storedate, issuedate, digitaldate, info):
                 issue_date=issuedate,
             )
 
-        isscheck = helpers.issue_status(issueid)
+        isscheck = series_service.issue_status(issueid)
         if isscheck is True:
             return {"status": False, "reason": "already downloaded/snatched"}
 

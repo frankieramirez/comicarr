@@ -32,9 +32,13 @@ import sqlalchemy
 from sqlalchemy import and_, delete, select, text, update
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import configured as configured
+from comicarr.app.common import dates as common_dates
 from comicarr.app.search import mb
+from comicarr.app.search import service as search_service
 from comicarr.app.series import add_workers, comic_add
+from comicarr.app.series import service as series_service
 from comicarr.app.storyarcs import readinglist
 from comicarr.app.weekly import locg, watchlist_match
 from comicarr.tables import annuals, comics, futureupcoming, issues, weekly
@@ -61,7 +65,7 @@ def _pull_from_comicvine(weeknumber, year):
         logger.info("[PULL-LIST] No ComicVine API key is configured, so there is no fallback pull-list source.")
         return {"status": "failure"}
     try:
-        midweek = helpers.weekly_info(weeknumber, year)["midweek"]
+        midweek = configured.weekly_info(weeknumber, year)["midweek"]
         result = cv_source.pull_week(weeknumber, year, midweek)
     except Exception as e:
         logger.warn("[PULL-LIST] ComicVine fallback for week %s, %s failed: %s" % (weeknumber, year, e))
@@ -102,7 +106,7 @@ def _published_now(published):
     so no series on the watchlist got its new issues added.
     """
     published = published or ""
-    return "Present" in published or helpers.now()[:4] in published
+    return "Present" in published or common_dates.now()[:4] in published
 
 
 def _latest_issue_date(latestdate):
@@ -170,7 +174,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
     # scraper behind ALT_PULL 1 was removed (ADR-0007, #1404).
     if comicarr.CONFIG.ALT_PULL == 2:
         logger.info("[PULL-LIST] Populating & Loading pull-list data directly from alternate website")
-        weekly_info = helpers.weekly_info()
+        weekly_info = configured.weekly_info()
         current_weeknumber = weekly_info["weeknumber"]
         weekly_info["year"]
         retry_hint = None
@@ -681,7 +685,7 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                     logger.fdebug("c_date : " + str(c_date) + " ... n_date : " + str(n_date))
                     recentchk = (n_date - c_date).days if c_date is not None else 0
                     logger.fdebug("recentchk: " + str(recentchk) + " days")
-                    chklimit = helpers.checkthepub(week["ComicID"])
+                    chklimit = series_service.checkthepub(week["ComicID"])
                     logger.fdebug("Check date limit set to : " + str(chklimit))
                     logger.fdebug(" ----- ")
                     if recentchk < int(chklimit) or week["ForceContinuing"] == 1:
@@ -696,7 +700,7 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                         unlines.append(a_list[w].strip())
                         w += 1
 
-                        Altload = helpers.LoadAlternateSearchNames(week["AlternateSearch"], week["ComicID"])
+                        Altload = search_service.LoadAlternateSearchNames(week["AlternateSearch"], week["ComicID"])
                         if Altload == "no results":
                             pass
                         else:
@@ -853,8 +857,8 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                                         if date_downloaded is None:
                                             continue
                                 if chktype == "series":
-                                    latest_int = helpers.issuedigits(latestiss)
-                                    weekiss_int = helpers.issuedigits(week["ISSUE"])
+                                    latest_int = configured.issuedigits(latestiss)
+                                    weekiss_int = configured.issuedigits(week["ISSUE"])
                                     logger.fdebug("comparing " + str(latest_int) + " to " + str(weekiss_int))
                                     if (latest_int > weekiss_int) and (latest_int != 0 or weekiss_int != 0):
                                         logger.fdebug(
@@ -976,7 +980,7 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                             "booktype": None,
                         }
 
-                        helpers.log_that_exception(except_line)
+                        configured.log_that_exception(except_line)
 
                         logger.exception(tracebackline)
                 cnt -= 1
@@ -989,7 +993,7 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
 def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, forcecheck=None, issue=None):
     watchlist = []
     weeklylist = []
-    pullist = helpers.listPull(weeknumber, pullyear)
+    pullist = series_service.listPull(weeknumber, pullyear)
     if comic1off_name:
         stmt = select(comics).where((comics.c.Status == "Active") & (comics.c.ComicID == comic1off_id))
     else:
@@ -1031,14 +1035,14 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                     recentchk = None
                 else:
                     recentchk = (datetime.date.today() - c_date).days
-                chklimit = helpers.checkthepub(watch["ComicID"])
+                chklimit = series_service.checkthepub(watch["ComicID"])
                 is_recent = recentchk is not None and recentchk < int(chklimit)
                 if is_recent or watch["ForceContinuing"] == 1 or len(listit) > 0:
                     if watch["ForceContinuing"] == 1:
                         logger.fdebug(
                             "Forcing Continuing Series enabled for %s [%s]" % (watch["ComicName"], watch["ComicID"])
                         )
-                    Altload = helpers.LoadAlternateSearchNames(watch["AlternateSearch"], watch["ComicID"])
+                    Altload = search_service.LoadAlternateSearchNames(watch["AlternateSearch"], watch["ComicID"])
                     if Altload == "no results" or Altload is None:
                         altnames = None
                     else:
@@ -1251,8 +1255,8 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                     if date_downloaded is None:
                                         continue
                             if chktype == "series":
-                                latest_int = helpers.issuedigits(latestiss)
-                                weekiss_int = helpers.issuedigits(week["issue"])
+                                latest_int = configured.issuedigits(latestiss)
+                                weekiss_int = configured.issuedigits(week["issue"])
                                 logger.fdebug("comparing " + str(latest_int) + " to " + str(weekiss_int))
                                 if (latest_int > weekiss_int) and (latest_int != 0 or weekiss_int != 0):
                                     logger.fdebug(
@@ -1524,7 +1528,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                     "booktype": None,
                 }
 
-                helpers.log_that_exception(except_line)
+                configured.log_that_exception(except_line)
 
                 logger.exception(tracebackline)
 
@@ -1537,7 +1541,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
 
 def mass_publishers(publishers, weeknumber, year):
 
-    watchlibrary = helpers.listLibrary()
+    watchlibrary = series_service.listLibrary()
     watch = []
 
     pub_listing = []
@@ -1609,7 +1613,7 @@ def check(fname, txt):
 
 
 def loaditup(comicname, comicid, issue, chktype):
-    issue_number = helpers.issuedigits(issue)
+    issue_number = configured.issuedigits(issue)
     if chktype == "annual":
         typedisplay = "annual issue"
         logger.fdebug(
@@ -1752,7 +1756,7 @@ def weekly_check(comicid, issuenum, file=None, path=None, module=None, issueid=N
 
     logger.info(module + " Issue found on weekly pull-list.")
 
-    weekinfo = helpers.weekly_info(chkit["weeknumber"], chkit["year"])
+    weekinfo = configured.weekly_info(chkit["weeknumber"], chkit["year"])
 
     if comicarr.CONFIG.WEEKFOLDER:
         weekly_singlecopy(comicid, issuenum, file, path, weekinfo)
@@ -1798,13 +1802,13 @@ def send2read(comicid, issueid, issuenum):
         if issueid is None:
             chkthis = db.select_one(
                 select(issues).where(
-                    (issues.c.ComicID == comicid) & (issues.c.Int_IssueNumber == helpers.issuedigits(issuenum))
+                    (issues.c.ComicID == comicid) & (issues.c.Int_IssueNumber == configured.issuedigits(issuenum))
                 )
             )
             annchk = db.select_one(
                 select(annuals).where(
                     (annuals.c.ComicID == comicid)
-                    & (annuals.c.Int_IssueNumber == helpers.issuedigits(issuenum))
+                    & (annuals.c.Int_IssueNumber == configured.issuedigits(issuenum))
                     & (annuals.c.Deleted != 1)
                 )
             )

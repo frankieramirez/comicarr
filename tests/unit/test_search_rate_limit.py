@@ -16,7 +16,9 @@ import requests
 
 import comicarr
 from comicarr import search
+from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import EvaluationSession
+from comicarr.app.series import service as series_service
 
 
 @pytest.fixture
@@ -123,8 +125,8 @@ def test_cooldown_is_scoped_to_indexer_endpoint(indexer_env):
 def test_search_continues_to_next_provider(indexer_env, monkeypatch, review):
     calls, _, get = indexer_env
     monkeypatch.setattr(comicarr.CONFIG, "ENABLE_RSS", False, raising=False)
-    monkeypatch.setattr(search.helpers, "get_issue_title", lambda *args, **kwargs: None)
-    monkeypatch.setattr(search.helpers, "block_provider_check", lambda *args, **kwargs: False)
+    monkeypatch.setattr(series_service, "get_issue_title", lambda *args, **kwargs: None)
+    monkeypatch.setattr(search_service, "block_provider_check", lambda *args, **kwargs: False)
     monkeypatch.setattr(
         search,
         "provider_order",

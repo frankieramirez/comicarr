@@ -17,6 +17,7 @@ from sqlalchemy import insert
 
 import comicarr
 from comicarr import db, weeklypull
+from comicarr.app.common import configured
 from comicarr.tables import metadata, weekly
 
 
@@ -61,7 +62,7 @@ def test_pullit_uses_cached_week_when_upstream_fails(monkeypatch):
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
-        weeklypull.helpers,
+        configured,
         "weekly_info",
         lambda: {"weeknumber": 33, "year": 2026, "prev_weeknumber": 32, "prev_year": 2026},
     )
@@ -85,7 +86,7 @@ def test_pullit_still_fails_without_cached_week(monkeypatch):
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
-        weeklypull.helpers,
+        configured,
         "weekly_info",
         lambda: {"weeknumber": 33, "year": 2026, "prev_weeknumber": 32, "prev_year": 2026},
     )
@@ -107,7 +108,7 @@ def test_pullit_forwards_origin_outage_on_cached_week(monkeypatch):
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
-        weeklypull.helpers,
+        configured,
         "weekly_info",
         lambda: {"weeknumber": 33, "year": 2026, "prev_weeknumber": 32, "prev_year": 2026},
     )
@@ -141,7 +142,7 @@ def test_pullit_surfaces_retry_hint_when_serving_cached_week(monkeypatch):
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
-        weeklypull.helpers,
+        configured,
         "weekly_info",
         lambda: {"weeknumber": 33, "year": 2026, "prev_weeknumber": 32, "prev_year": 2026},
     )
@@ -167,7 +168,7 @@ def test_pullit_forwards_origin_outage_cause_on_failure(monkeypatch):
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
-        weeklypull.helpers,
+        configured,
         "weekly_info",
         lambda: {"weeknumber": 33, "year": 2026, "prev_weeknumber": 32, "prev_year": 2026},
     )
@@ -202,7 +203,7 @@ def test_pullit_surfaces_retry_hint_on_failure(monkeypatch):
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
-        weeklypull.helpers,
+        configured,
         "weekly_info",
         lambda: {"weeknumber": 33, "year": 2026, "prev_weeknumber": 32, "prev_year": 2026},
     )
@@ -228,7 +229,7 @@ def test_pullit_drops_origin_metadata_when_later_week_fails_without_origin(monke
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
-        weeklypull.helpers,
+        configured,
         "weekly_info",
         lambda: {"weeknumber": 33, "year": 2026, "prev_weeknumber": 32, "prev_year": 2026},
     )

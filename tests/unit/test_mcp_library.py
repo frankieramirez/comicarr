@@ -16,6 +16,7 @@ from sqlalchemy import func, select
 from comicarr.app.series import add as series_add
 from comicarr.app.series import add_workers, comic_add
 from comicarr.app.series import location as series_location
+from comicarr.app.series import service as series_service
 from comicarr.db import get_engine
 from comicarr.tables import activity_events, annuals, comics, issues
 from tests.mcp_harness import KEY, make_app, mcp_client, seed_library, teardown_library
@@ -220,7 +221,7 @@ def test_a_retry_that_fails_again_keeps_the_failed_fetch_marker(monkeypatch):
 
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(IMP_PATHS=False), raising=False)
     monkeypatch.setattr(comic_add.cv, "getComic", lambda *_a, **_k: None)
-    monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda *_a, **_k: None)
+    monkeypatch.setattr(series_service, "ComicSort", lambda *_a, **_k: None)
     for _attempt in range(2):
         assert comic_add.add_comic("4321")["status"] == "incomplete"
         assert series_queries.is_failed_add_placeholder("4321")

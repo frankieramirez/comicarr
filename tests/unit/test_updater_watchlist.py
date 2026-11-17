@@ -18,7 +18,9 @@ from sqlalchemy import create_engine, select
 import comicarr
 from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.common import dates as common_dates
 from comicarr.app.series import add, add_workers, folder_rescan, watchlist_refresh
+from comicarr.app.system import service as system_service
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import issues, metadata
 
@@ -289,8 +291,8 @@ def _configure_updater(monkeypatch, *, annuals_on, rows, cv_results):
     monkeypatch.setattr(watchlist_refresh.db, "select_one", MagicMock(return_value=None))
     monkeypatch.setattr(watchlist_refresh.db, "select_all", MagicMock(return_value=rows))
     monkeypatch.setattr(watchlist_refresh.db, "upsert", MagicMock())
-    monkeypatch.setattr(watchlist_refresh.helpers, "job_management", MagicMock())
-    monkeypatch.setattr(watchlist_refresh.helpers, "utctimestamp", MagicMock(return_value="now"))
+    monkeypatch.setattr(system_service, "job_management", MagicMock())
+    monkeypatch.setattr(common_dates, "utctimestamp", MagicMock(return_value="now"))
     return refresh_thread
 
 

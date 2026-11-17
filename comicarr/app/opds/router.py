@@ -25,11 +25,15 @@ from fastapi.responses import Response
 from starlette.responses import FileResponse
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import dates as common_dates
 from comicarr.app.common.library_roots import is_servable_library_file
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_opds_auth
+from comicarr.app.metadata import service as metadata_service
 from comicarr.app.opds.service import comic_pages, mark_issue_read, open_archive, page_count, scale_image
+from comicarr.app.series import service as series_service
+from comicarr.app.storyarcs import service as storyarcs_service
 from comicarr.tables import annuals, comics, issues, readlist, snatched, storyarcs
 
 router = APIRouter(prefix="/opds", tags=["opds"])
@@ -253,7 +257,7 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
     feed = {}
     feed["title"] = "Comicarr OPDS"
     feed["id"] = str(request.url).replace("/", ":")
-    feed["updated"] = helpers.now()
+    feed["updated"] = common_dates.now()
     links = []
     entries = []
 
@@ -270,7 +274,7 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
         {
             "title": "Recent Additions",
             "id": "Recent",
-            "updated": helpers.now(),
+            "updated": common_dates.now(),
             "content": "Recently Added Issues",
             "href": _opds_url("recent"),
             "kind": "acquisition",
@@ -283,7 +287,7 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
             {
                 "title": "Publishers (%s)" % len(publishers),
                 "id": "Publishers",
-                "updated": helpers.now(),
+                "updated": common_dates.now(),
                 "content": "List of Comic Publishers",
                 "href": _opds_url("publishers"),
                 "kind": "navigation",
@@ -291,14 +295,14 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
             }
         )
 
-    comics_list = helpers.havetotals()
+    comics_list = series_service.havetotals()
     count = sum(1 for c in comics_list if c["haveissues"] is not None and c["haveissues"] > 0)
     if count > -1:
         entries.append(
             {
                 "title": "All Titles (%s)" % count,
                 "id": "AllTitles",
-                "updated": helpers.now(),
+                "updated": common_dates.now(),
                 "content": "List of All Comics",
                 "href": _opds_url("titles"),
                 "kind": "navigation",
@@ -306,13 +310,13 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
             }
         )
 
-    story_arcs = helpers.listStoryArcs()
+    story_arcs = storyarcs_service.listStoryArcs()
     if len(story_arcs) > 0:
         entries.append(
             {
                 "title": "Story Arcs (%s)" % len(story_arcs),
                 "id": "StoryArcs",
-                "updated": helpers.now(),
+                "updated": common_dates.now(),
                 "content": "List of Story Arcs",
                 "href": _opds_url("storyarcs"),
                 "kind": "navigation",
@@ -330,7 +334,7 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
             {
                 "title": "Read List (%s)" % len(read_list),
                 "id": "ReadList",
-                "updated": helpers.now(),
+                "updated": common_dates.now(),
                 "content": "Current Read List",
                 "href": _opds_url("readlist"),
                 "kind": "navigation",
@@ -345,7 +349,7 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
             {
                 "title": "One-Offs (%s)" % len(oneofflist),
                 "id": "OneOffs",
-                "updated": helpers.now(),
+                "updated": common_dates.now(),
                 "content": "OneOffs",
                 "href": _opds_url("oneoffs"),
                 "kind": "navigation",
@@ -372,7 +376,7 @@ def opds_publishers(
     feed = {}
     feed["title"] = "Comicarr OPDS - Publishers"
     feed["id"] = "Publishers"
-    feed["updated"] = helpers.now()
+    feed["updated"] = common_dates.now()
     links = [_start_link(opdsroot), _self_link(_opds_url("publishers", index=index or None))]
     entries = []
 
@@ -382,7 +386,7 @@ def opds_publishers(
         stmt = select(comics.c.ComicPublisher).group_by(comics.c.ComicPublisher)
         publishers = [dict(row._mapping) for row in conn.execute(stmt)]
 
-    comics_list = helpers.havetotals()
+    comics_list = series_service.havetotals()
     for publisher in publishers:
         lastupdated = "0000-00-00"
         totaltitles = 0
@@ -425,11 +429,11 @@ def opds_all_titles(
     feed = {}
     feed["title"] = "Comicarr OPDS - All Titles"
     feed["id"] = "AllTitles"
-    feed["updated"] = helpers.now()
+    feed["updated"] = common_dates.now()
     links = [_start_link(opdsroot), _self_link(_opds_url("titles", index=index or None))]
     entries = []
 
-    comics_list = helpers.havetotals()
+    comics_list = series_service.havetotals()
     for comic in comics_list:
         if comic["haveissues"] > 0:
             entries.append(
@@ -466,7 +470,7 @@ def opds_publisher(
     links = [_start_link(opdsroot), _self_link(_opds_url("publishers", publisher, index=index or None))]
     entries = []
 
-    allcomics = helpers.havetotals()
+    allcomics = series_service.havetotals()
     for comic in allcomics:
         if comic["ComicPublisher"] == publisher and comic["haveissues"] > 0:
             entries.append(
@@ -485,7 +489,7 @@ def opds_publisher(
     pubname = "%s (%s)" % (publisher, len(entries))
     feed["title"] = "Comicarr OPDS - %s" % pubname
     feed["id"] = "publisher:%s" % publisher
-    feed["updated"] = helpers.now()
+    feed["updated"] = common_dates.now()
 
     links.extend(_page_links(["publishers", publisher], index, page_size, len(entries)))
 
@@ -566,7 +570,7 @@ def opds_comic(
 
             metainfo = None
             if comicarr.CONFIG.OPDS_METAINFO:
-                issuedetails = helpers.IssueDetails(fileloc).get("metadata", None)
+                issuedetails = metadata_service.IssueDetails(fileloc).get("metadata", None)
                 if issuedetails is not None:
                     metainfo = issuedetails.get("metadata", None)
             if not metainfo:
@@ -723,7 +727,7 @@ def opds_recent(
 
                 metainfo = None
                 if comicarr.CONFIG.OPDS_METAINFO:
-                    issuedetails = helpers.IssueDetails(fileloc).get("metadata", None)
+                    issuedetails = metadata_service.IssueDetails(fileloc).get("metadata", None)
                     if issuedetails is not None:
                         metainfo = issuedetails.get("metadata", None)
                 if not metainfo:
@@ -754,7 +758,7 @@ def opds_recent(
     feed = {}
     feed["title"] = "Comicarr OPDS - New Arrivals"
     feed["id"] = "New Arrivals"
-    feed["updated"] = helpers.now()
+    feed["updated"] = common_dates.now()
     links.append(_start_link(opdsroot))
     links.append(_self_link(_opds_url("recent", index=index or None)))
     links.extend(_page_links(["recent"], index, page_size, len(recents)))
@@ -866,7 +870,7 @@ def opds_storyarcs(
     entries = []
     arcs = []
 
-    storyArcIds = helpers.listStoryArcs()
+    storyArcIds = storyarcs_service.listStoryArcs()
     for arc in storyArcIds:
         issuecount = 0
         arcname = ""
@@ -910,7 +914,7 @@ def opds_storyarcs(
     feed = {}
     feed["title"] = "Comicarr OPDS - Story Arcs"
     feed["id"] = "StoryArcs"
-    feed["updated"] = helpers.now()
+    feed["updated"] = common_dates.now()
     links.append(_start_link(opdsroot))
     links.append(_self_link(_opds_url("storyarcs", index=index or None)))
     links.extend(_page_links(["storyarcs"], index, page_size, len(arcs)))
@@ -1044,7 +1048,7 @@ def opds_storyarc(
             for issue in subset:
                 metainfo = None
                 if comicarr.CONFIG.OPDS_METAINFO:
-                    issuedetails = helpers.IssueDetails(issue["fileloc"]).get("metadata", None)
+                    issuedetails = metadata_service.IssueDetails(issue["fileloc"]).get("metadata", None)
                     if issuedetails is not None:
                         metainfo = issuedetails.get("metadata", None)
                 if not metainfo:
@@ -1072,7 +1076,7 @@ def opds_storyarc(
     feed = {}
     feed["title"] = "Comicarr OPDS - %s" % arcname
     feed["id"] = "storyarc:%s" % arc_id
-    feed["updated"] = helpers.now()
+    feed["updated"] = common_dates.now()
     links.append(_start_link(opdsroot))
     links.append(_self_link(_opds_url("storyarcs", arc_id, index=index or None)))
     links.extend(_page_links(["storyarcs", arc_id], index, page_size, len(newarclist)))
@@ -1174,7 +1178,7 @@ def opds_readlist(
             for issue in subset:
                 metainfo = None
                 if comicarr.CONFIG.OPDS_METAINFO:
-                    issuedetails = helpers.IssueDetails(issue["fileloc"]).get("metadata", None)
+                    issuedetails = metadata_service.IssueDetails(issue["fileloc"]).get("metadata", None)
                     if issuedetails is not None:
                         metainfo = issuedetails.get("metadata", None)
                 if not metainfo:
@@ -1205,7 +1209,7 @@ def opds_readlist(
     feed = {}
     feed["title"] = "Comicarr OPDS - ReadList"
     feed["id"] = "ReadList"
-    feed["updated"] = helpers.now()
+    feed["updated"] = common_dates.now()
     links.append(_start_link(opdsroot))
     links.append(_self_link(_opds_url("readlist", index=index or None)))
     links.extend(_page_links(["readlist"], index, page_size, len(readlist_items)))
@@ -1240,7 +1244,7 @@ def opds_oneoffs(
         issue["filename"] = book
         issue["image"] = None
         issue["thumbnail"] = None
-        issue["updated"] = helpers.now()
+        issue["updated"] = common_dates.now()
         if os.path.isfile(issue["fileloc"]):
             readlist_items.append(issue)
 
@@ -1267,7 +1271,7 @@ def opds_oneoffs(
     feed = {}
     feed["title"] = "Comicarr OPDS - One-Offs"
     feed["id"] = "OneOffs"
-    feed["updated"] = helpers.now()
+    feed["updated"] = common_dates.now()
     links.append(_start_link(opdsroot))
     links.append(_self_link(_opds_url("oneoffs", index=index or None)))
     links.extend(_page_links(["oneoffs"], index, page_size, len(readlist_items)))

@@ -22,8 +22,10 @@ import datetime
 import threading
 
 import comicarr
-from comicarr import helpers, logger, weeklypull
+from comicarr import logger, weeklypull
+from comicarr.app.common import dates as common_dates
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.system import service as system_service
 
 
 def _weekly_runtime_context():
@@ -174,8 +176,8 @@ class Weekly:
 
         with get_weekly_refresh_lock():
             logger.info("[WEEKLY] Checking Weekly Pull-list for new releases/updates")
-            helpers.job_management(
-                write=True, job="Weekly Pullist", current_run=helpers.utctimestamp(), status="Running"
+            system_service.job_management(
+                write=True, job="Weekly Pullist", current_run=common_dates.utctimestamp(), status="Running"
             )
             _set_weekly_runtime_value("weekly_status", "WEEKLY_STATUS", "Running")
             retry_hint = None
@@ -192,10 +194,10 @@ class Weekly:
                 _restore_manual_next_run()
                 if _should_honor_origin_retry(pull_result):
                     _honor_upstream_retry(retry_hint)
-                helpers.job_management(
+                system_service.job_management(
                     write=True,
                     job="Weekly Pullist",
-                    last_run_completed=helpers.utctimestamp(),
+                    last_run_completed=common_dates.utctimestamp(),
                     status="Error",
                     failure=True,
                     failure_message=e,
@@ -206,8 +208,8 @@ class Weekly:
             _restore_manual_next_run()
             if _should_honor_origin_retry(pull_result):
                 _honor_upstream_retry(retry_hint)
-            helpers.job_management(
-                write=True, job="Weekly Pullist", last_run_completed=helpers.utctimestamp(), status="Waiting"
+            system_service.job_management(
+                write=True, job="Weekly Pullist", last_run_completed=common_dates.utctimestamp(), status="Waiting"
             )
             _set_weekly_runtime_value("weekly_status", "WEEKLY_STATUS", "Waiting")
 

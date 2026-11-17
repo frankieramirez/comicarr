@@ -176,7 +176,7 @@ def weekly_info(
     """Calculate week start/end dates and navigation info.
 
     Takes config values as parameters to stay free of global state.
-    The wrapper in helpers.py passes in the comicarr globals.
+    The wrapper in app/common/configured.py passes in the comicarr globals.
     """
     todaydate = datetime.datetime.today()
     if todaydate.year == 2025:

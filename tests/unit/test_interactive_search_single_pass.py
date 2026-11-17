@@ -24,7 +24,9 @@ import pytest
 import comicarr
 from comicarr import search
 from comicarr.app.search import progress
+from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import EvaluationSession
+from comicarr.app.series import service as series_service
 
 
 def _noop_collection():
@@ -75,8 +77,8 @@ def search_env(monkeypatch):
             "totalproviders": 1,
         },
     )
-    monkeypatch.setattr(search.helpers, "get_issue_title", lambda *args, **kwargs: None)
-    monkeypatch.setattr(search.helpers, "block_provider_check", lambda *args, **kwargs: False)
+    monkeypatch.setattr(series_service, "get_issue_title", lambda *args, **kwargs: None)
+    monkeypatch.setattr(search_service, "block_provider_check", lambda *args, **kwargs: False)
     return calls
 
 

@@ -25,7 +25,8 @@ import re
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import dates as common_dates
 from comicarr.app.library.directories import validateAndCreateDirectory
 from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.tables import comics
@@ -174,7 +175,7 @@ class metadata_Series(object):
                     series_type=comic["Type"],
                     issue_count=comic["Total"],
                     series_year=SeriesYear,
-                    current_year=helpers.today()[:4],
+                    current_year=common_dates.today()[:4],
                     # A configured default volume is an output convenience, not
                     # evidence that the series is a collected edition.
                     volume=comic.get("ComicVersion"),

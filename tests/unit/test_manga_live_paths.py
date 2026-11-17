@@ -155,7 +155,7 @@ def test_manga_check_searches_blended_targets_not_every_wanted_chapter():
     ]
     with (
         patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False)),
-        patch("comicarr.rsscheck.helpers") as mock_helpers,
+        patch("comicarr.rsscheck.series_service") as mock_helpers,
         patch("comicarr.rsscheck.db") as mock_db,
         patch("comicarr.search.search_init") as mock_search,
     ):

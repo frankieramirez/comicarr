@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
+from comicarr.app.series import service as series_service
 
 
 # Patch the logger so _build_manga_search_terms can be imported without
@@ -260,7 +261,7 @@ def _search_init_logged_provider_order(monkeypatch, mock_log, *, content_type):
             raise RuntimeError("captured-provider-order")
 
     mock_log.fdebug = capture
-    monkeypatch.setattr(search.helpers, "get_issue_title", lambda *a, **k: None)
+    monkeypatch.setattr(series_service, "get_issue_title", lambda *a, **k: None)
     monkeypatch.setattr(
         search,
         "provider_order",

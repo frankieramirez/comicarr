@@ -180,10 +180,10 @@ def _destination_path(row: dict, series_id: str, series_name: str, target_direct
         issue_number = _issue_number(row)
         issue_id = row.get("_ResolvedIssueID")
         if issue_number or issue_id:
-            from comicarr import helpers
+            from comicarr.app.downloads import service as downloads_service
 
             try:
-                renamed = helpers.rename_param(
+                renamed = downloads_service.rename_param(
                     series_id,
                     series_name,
                     issue_number,

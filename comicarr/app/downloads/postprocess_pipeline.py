@@ -24,14 +24,21 @@ from typing import Any
 
 from sqlalchemy import and_, or_, select, update
 
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import configured as configured
+from comicarr.app.common import dates as common_dates
+from comicarr.app.common import numbers as common_numbers
 from comicarr.app.common import series_kind
+from comicarr.app.common import strings as common_strings
 from comicarr.app.common.numbers import zero_suppression_prefix
 from comicarr.app.common.placement import OnExisting, Outcome, Purpose
 from comicarr.app.common.redaction import redacted_traceback
 from comicarr.app.downloads import journal
+from comicarr.app.downloads import service as downloads_service
 from comicarr.app.downloads.pp_commands import safe_walk
 from comicarr.app.manga.ledger import is_volume_target, normalize_volume_number
+from comicarr.app.storyarcs import service as storyarcs_service
+from comicarr.app.system import service as system_service
 from comicarr.tables import annuals, comics, issues, snatched, storyarcs, weekly
 
 
@@ -1255,7 +1262,7 @@ def process_comic_issue(match: PostProcessComicMatch, run: PostProcessRun, deps:
     run.narrate("Issue Year: %s" % issueyear)
     logger.fdebug("%s Issue Year : %s" % (module, issueyear))
     month = issuenzb["IssueDate"][5:7].replace("-", "").strip()
-    month_name = helpers.fullmonth(month)
+    month_name = common_dates.fullmonth(month)
     if month_name is None:
         month_name = "None"
     publisher = comicnzb["ComicPublisher"]
@@ -1354,10 +1361,10 @@ def process_comic_issue(match: PostProcessComicMatch, run: PostProcessRun, deps:
     if ml is None:
         subpath = odir
         orig_filename = ofilename
-        crcvalue = helpers.crc(os.path.join(odir, ofilename))
+        crcvalue = configured.crc(os.path.join(odir, ofilename))
     else:
         subpath, orig_filename = os.path.split(ml["ComicLocation"])
-        crcvalue = helpers.crc(ml["ComicLocation"])
+        crcvalue = configured.crc(ml["ComicLocation"])
 
     if config.ENABLE_PRE_SCRIPTS:
         seriesmetadata = {
@@ -1537,7 +1544,7 @@ def process_comic_issue(match: PostProcessComicMatch, run: PostProcessRun, deps:
         else:
             nfilename = ofilename
     else:
-        nfilename = helpers.replace_all(chunk_file_format, file_values)
+        nfilename = common_strings.replace_all(chunk_file_format, file_values)
         if config.REPLACE_SPACES:
             nfilename = nfilename.replace(" ", config.REPLACE_CHAR)
     nfilename = re.sub("[\\,\\:\\?\"']", "", nfilename)
@@ -1574,7 +1581,7 @@ def process_comic_issue(match: PostProcessComicMatch, run: PostProcessRun, deps:
         _log_rename(module, config, odir, ofilename, nfilename + ext, os.path.join(odir, nfilename + ext))
         try:
             run.narrate("[%s] %s - to - %s" % (config.FILE_OPTS, src, dst))
-            if helpers.get_free_space(comlocation) is False:
+            if system_service.get_free_space(comlocation) is False:
                 if all([pcheck is not None, pcheck != "fail"]):
                     run.tidy(odir, True, cacheonly=True)
                 raise OSError
@@ -1603,7 +1610,7 @@ def process_comic_issue(match: PostProcessComicMatch, run: PostProcessRun, deps:
         logger.fdebug("%s odir src : %s" % (module, src))
         logger.fdebug("%s[%s] %s ... to ... %s" % (module, config.FILE_OPTS, src, dst))
         try:
-            if helpers.get_free_space(comlocation) is False:
+            if system_service.get_free_space(comlocation) is False:
                 if all([pcheck != "fail", pcheck is not None]):
                     run.tidy(odir, True, cacheonly=True)
                 raise OSError
@@ -1938,7 +1945,7 @@ def process_manga_download(run: PostProcessRun, deps: PostProcessItemDeps):
 
     series_folder, _repointed = persist_manga_location_if_needed(comicnzb, manga_dest)
     if not series_folder:
-        series_folder = comicnzb.get("ComicLocation") or os.path.join(manga_dest, helpers.filesafe(series_name))
+        series_folder = comicnzb.get("ComicLocation") or os.path.join(manga_dest, common_strings.filesafe(series_name))
     if comicnzb.get("ComicLocation") != series_folder:
         comicnzb = dict(comicnzb)
         comicnzb["ComicLocation"] = series_folder
@@ -2377,13 +2384,15 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
             # and so the legacy unconditional notification.
             completion = None
             if all([comicarr.CONFIG.STORYARCDIR is True, comicarr.CONFIG.COPY2ARCDIR is True]):
-                grdst = helpers.arcformat(ml["StoryArc"], helpers.spantheyears(ml["StoryArcID"]), ml["Publisher"])
+                grdst = storyarcs_service.arcformat(
+                    ml["StoryArc"], storyarcs_service.spantheyears(ml["StoryArcID"]), ml["Publisher"]
+                )
                 logger.info("grdst: %s" % grdst)
 
                 metaresponse = None
                 tagged = False
 
-                helpers.crc(ofilename)
+                configured.crc(ofilename)
 
                 if comicarr.CONFIG.CMTAG_START_YEAR_AS_VOLUME:
                     vol_label = ml["SeriesYear"]
@@ -2508,7 +2517,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                     return run.finish("stop")
 
                 if comicarr.CONFIG.RENAME_FILES:
-                    renamed_file = helpers.rename_param(
+                    renamed_file = downloads_service.rename_param(
                         ml["ComicID"],
                         ml["ComicName"],
                         ml["IssueNumber"],
@@ -2554,7 +2563,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                 )
 
                 try:
-                    checkspace = helpers.get_free_space(grdst)
+                    checkspace = system_service.get_free_space(grdst)
                     if checkspace is False:
                         if all([metaresponse is not None, metaresponse != "fail"]):
                             run.tidy(src_location, True, cacheonly=True)
@@ -2688,7 +2697,7 @@ def dispatch_library_matches(run: PostProcessRun, deps: PostProcessItemDeps, man
             dspcyear = ml["SeriesYear"]
             deps.settle(ml["ComicLocation"])
 
-            dupthis = helpers.duplicate_filecheck(ml["ComicLocation"], ComicID=comicid, IssueID=issueid)
+            dupthis = downloads_service.duplicate_filecheck(ml["ComicLocation"], ComicID=comicid, IssueID=issueid)
             if dupthis["action"] == "dupe_src" or dupthis["action"] == "dupe_file":
                 if comicarr.CONFIG.DDUMP and not all(
                     [comicarr.CONFIG.DUPLICATE_DUMP is None, comicarr.CONFIG.DUPLICATE_DUMP == ""]
@@ -2870,9 +2879,9 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
 
         if issuenzb is not None:
             logger.info("%s issuenzb found." % module)
-            if helpers.is_number(issueid):
+            if common_numbers.is_number(issueid):
                 sandwich = int(issuenzb["IssueID"])
-        if all([sandwich is not None, helpers.is_number(sandwich), sarc is None]):
+        if all([sandwich is not None, common_numbers.is_number(sandwich), sarc is None]):
             if sandwich < 900000:
                 pass
         else:
@@ -2951,7 +2960,9 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
                     else:
                         arcpub = arcdata["Publisher"]
 
-                    grdst = helpers.arcformat(arcdata["StoryArc"], helpers.spantheyears(arcdata["StoryArcID"]), arcpub)
+                    grdst = storyarcs_service.arcformat(
+                        arcdata["StoryArc"], storyarcs_service.spantheyears(arcdata["StoryArcID"]), arcpub
+                    )
 
                     if comicid is None:
                         comicid = arcdata["ComicID"]
@@ -2991,7 +3002,7 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
                 logger.fdebug("readingorder: %s" % (readingorder))
 
                 metaresponse = None
-                helpers.crc(os.path.join(location, ofilename))
+                configured.crc(os.path.join(location, ofilename))
 
                 if all([comicarr.CONFIG.ENABLE_META, issueid is not None]) or comicarr.CONFIG.CBR2CBZ_ONLY:
                     run.narrate("Metatagging enabled - proceeding...")
@@ -3096,7 +3107,7 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
                     return run.finish("stop")
 
                 if comicarr.CONFIG.RENAME_FILES:
-                    renamed_file = helpers.rename_param(
+                    renamed_file = downloads_service.rename_param(
                         comicid, comicname, issuenumber, dfilename, issueid=issueid, arc=sarc
                     )
                     if renamed_file:
@@ -3130,7 +3141,7 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
                 run.journal("post_processing", issue_id=issueid, issue_arc_id=issuearcid)
 
                 try:
-                    checkspace = helpers.get_free_space(grdst)
+                    checkspace = system_service.get_free_space(grdst)
                     if checkspace is False:
                         if all([metaresponse != "fail", metaresponse is not None]):
                             run.tidy(src_location, True, cacheonly=True)
@@ -3251,7 +3262,7 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
             issuenumOG = ml["IssueNumber"]
             deps.settle(ml["ComicLocation"])
 
-            dupthis = helpers.duplicate_filecheck(ml["ComicLocation"], ComicID=comicid, IssueID=issueid)
+            dupthis = downloads_service.duplicate_filecheck(ml["ComicLocation"], ComicID=comicid, IssueID=issueid)
             if dupthis["action"] == "dupe_src" or dupthis["action"] == "dupe_file":
                 if comicarr.CONFIG.DDUMP and not all(
                     [comicarr.CONFIG.DUPLICATE_DUMP is None, comicarr.CONFIG.DUPLICATE_DUMP == ""]
@@ -3277,7 +3288,7 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
     else:
         comicid = issuenzb["ComicID"]
         issuenumOG = issuenzb["Issue_Number"]
-        dupthis = helpers.duplicate_filecheck(run.nzb_folder, ComicID=comicid, IssueID=issueid)
+        dupthis = downloads_service.duplicate_filecheck(run.nzb_folder, ComicID=comicid, IssueID=issueid)
         if dupthis["action"] == "dupe_src" or dupthis["action"] == "dupe_file":
             if comicarr.CONFIG.DUPLICATE_DUMP:
                 if comicarr.CONFIG.DDUMP and not all(

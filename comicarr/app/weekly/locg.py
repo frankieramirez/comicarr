@@ -27,7 +27,7 @@ from sqlalchemy import and_, delete
 import comicarr
 from comicarr import db, logger
 from comicarr.app.common.series_names import dynamic_series_key
-from comicarr.helpers import ignored_publisher_check
+from comicarr.app.search.service import ignored_publisher_check
 from comicarr.tables import weekly
 
 CLOUDFLARE_ORIGIN_ERRORS = {

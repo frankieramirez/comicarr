@@ -42,6 +42,7 @@ from sqlalchemy import select
 import comicarr
 from comicarr import db, logger
 from comicarr.app.acquisition.models import DispatchState
+from comicarr.app.common import dates as common_dates
 from comicarr.app.common.dates import normalize_utc_datetime
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.config.log_level import (
@@ -2059,7 +2060,7 @@ def job_management(
     failure_message=None,
     startup=False,
 ):
-    from comicarr.helpers import utctimestamp
+    from comicarr.app.common.dates import utctimestamp
 
     jobresults = []
 
@@ -2437,7 +2438,7 @@ def job_management(
                         comicarr.SCHED_RSS_LAST = last_run_completed
 
                 if nextrun_date is not None:
-                    logger.fdebug("ReScheduled job: %s to %s" % (job, comicarr.helpers.utc_date_to_local(nextrun_date)))
+                    logger.fdebug("ReScheduled job: %s to %s" % (job, common_dates.utc_date_to_local(nextrun_date)))
                 lastrun_comp = datetime.datetime.fromtimestamp(last_run_completed, tz=datetime.timezone.utc)
                 lastrun_comp = lastrun_comp.replace(microsecond=0)
                 updateVals = {
@@ -2468,7 +2469,7 @@ def job_management(
 
 
 def get_free_space(folder):
-    from comicarr.helpers import sizeof_fmt
+    from comicarr.app.common.numbers import sizeof_fmt
 
     min_threshold = 100000000
     if platform.system() == "Windows":

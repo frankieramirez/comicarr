@@ -22,7 +22,9 @@ import datetime
 import threading
 
 import comicarr
-from comicarr import helpers, logger, rsscheck
+from comicarr import logger, rsscheck
+from comicarr.app.common import dates as common_dates
+from comicarr.app.system import service as system_service
 
 rss_lock = threading.Lock()
 
@@ -45,14 +47,16 @@ class tehMain:
                 duration_diff = 0
             else:
                 tstamp = float(comicarr.SCHED_RSS_LAST)
-                duration_diff = abs(helpers.utctimestamp() - tstamp) / 60
+                duration_diff = abs(common_dates.utctimestamp() - tstamp) / 60
             if firstrun == "no" and duration_diff < int(comicarr.CONFIG.RSS_CHECKINTERVAL):
                 logger.fdebug(
                     "[RSS-FEEDS] RSS Check has taken place less than the threshold - not initiating at this time."
                 )
                 return
 
-            helpers.job_management(write=True, job="RSS Feeds", current_run=helpers.utctimestamp(), status="Running")
+            system_service.job_management(
+                write=True, job="RSS Feeds", current_run=common_dates.utctimestamp(), status="Running"
+            )
             comicarr.RSS_STATUS = "Running"
 
             if comicarr.CONFIG.ENABLE_TORRENT_SEARCH:
@@ -77,8 +81,8 @@ class tehMain:
             logger.info("[RSS-FEEDS] Watchlist Check complete.")
             if forcerss:
                 logger.info("[RSS-FEEDS] Successfully ran a forced RSS Check.")
-            helpers.job_management(
-                write=True, job="RSS Feeds", last_run_completed=helpers.utctimestamp(), status="Waiting"
+            system_service.job_management(
+                write=True, job="RSS Feeds", last_run_completed=common_dates.utctimestamp(), status="Waiting"
             )
             comicarr.RSS_STATUS = "Waiting"
             return True

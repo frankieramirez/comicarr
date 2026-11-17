@@ -16,8 +16,11 @@ import requests
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, helpers
+from comicarr import db
+from comicarr.app.common import configured as configured
+from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
+from comicarr.app.common import strings as common_strings
 from comicarr.app.common.library_roots import is_strict_library_descendant
 from comicarr.app.library import filers
 from comicarr.app.metadata import metron
@@ -216,7 +219,7 @@ def _manga_metadata(series_id, deadline):
     if not destination:
         raise ValueError("Manga library destination must be configured")
     folder_format = comicarr.CONFIG.FOLDER_FORMAT or "$Series ($Year)"
-    folder = helpers.filesafe(folder_format.replace("$Series", name).replace("$Year", year))
+    folder = common_strings.filesafe(folder_format.replace("$Series", name).replace("$Year", year))
     values = {
         "ComicName": name,
         "ComicYear": year,
@@ -266,20 +269,20 @@ def add_series_metadata(series_id):
                 os.path.realpath(values["ComicLocation"]),
             ):
                 raise ValueError("Series folder overlaps an existing series; add it with a distinct folder first")
-        latest = max(records, key=lambda row: helpers.issuedigits(row["Issue_Number"]))
+        latest = max(records, key=lambda row: configured.issuedigits(row["Issue_Number"]))
         values.update(
             {
                 "ComicSortName": values["ComicName"].removeprefix("The "),
-                "ComicName_Filesafe": helpers.filesafe(values["ComicName"]),
-                "DynamicComicName": helpers.filesafe(values["ComicName"].lower()),
+                "ComicName_Filesafe": common_strings.filesafe(values["ComicName"]),
+                "DynamicComicName": common_strings.filesafe(values["ComicName"].lower()),
                 "Status": "Paused",
                 "Total": len(records),
                 "Have": 0,
-                "LastUpdated": helpers.now(),
-                "DateAdded": (existing or {}).get("DateAdded") or helpers.today(),
+                "LastUpdated": common_dates.now(),
+                "DateAdded": (existing or {}).get("DateAdded") or common_dates.today(),
                 "ComicPublished": values["ComicYear"],
                 "LatestIssue": latest["Issue_Number"],
-                "intLatestIssue": helpers.issuedigits(latest["Issue_Number"]),
+                "intLatestIssue": configured.issuedigits(latest["Issue_Number"]),
                 "LatestIssueID": latest["IssueID"],
                 "LatestDate": latest.get("ReleaseDate") or latest.get("IssueDate") or "%s-01-01" % values["ComicYear"],
             }
@@ -296,10 +299,10 @@ def add_series_metadata(series_id):
                     **record,
                     "ComicID": series_id,
                     "ComicName": values["ComicName"],
-                    "Int_IssueNumber": helpers.issuedigits(record["Issue_Number"]),
+                    "Int_IssueNumber": configured.issuedigits(record["Issue_Number"]),
                 }
                 if not old:
-                    row.update({"Status": "Skipped", "DateAdded": helpers.today()})
+                    row.update({"Status": "Skipped", "DateAdded": common_dates.today()})
                 db.upsert_conn(conn, "issues", row, {"IssueID": record["IssueID"]})
             db.upsert_conn(conn, "comics", values, {"ComicID": series_id})
         return {"status": "complete", "comicid": series_id, "comicname": values["ComicName"], "added": True}

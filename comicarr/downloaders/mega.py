@@ -21,7 +21,8 @@ import os
 import sys
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import numbers as common_numbers
 from comicarr.downloaders import mega_public
 
 
@@ -50,7 +51,7 @@ class MegaNZ(object):
                 {
                     "filename": str(info.name),
                     "remote_filesize": str(info.size),
-                    "size": helpers.human_size(str(info.size)),
+                    "size": common_numbers.human_size(str(info.size)),
                 },
                 {"ID": self.id},
             )

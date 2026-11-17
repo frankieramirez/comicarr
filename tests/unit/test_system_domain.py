@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
+from comicarr.app.common import dates as common_dates
 
 # Ensure LOG_LEVEL is set for tests (logger.info checks LOG_LEVEL > 0)
 if comicarr.LOG_LEVEL is None:
@@ -1516,7 +1517,7 @@ class TestConfigService:
         monkeypatch.setattr(comicarr, "SCHED_WEEKLY_LAST", None)
         monkeypatch.setattr(comicarr, "FORCE_STATUS", {})
         monkeypatch.setattr(
-            comicarr.helpers,
+            common_dates,
             "utc_date_to_local",
             MagicMock(side_effect=RuntimeError("presentation failed")),
         )

@@ -25,7 +25,9 @@ import feedparser as feedparser
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import dates as common_dates
+from comicarr.app.common import numbers as common_numbers
 from comicarr.tables import annuals, comics, failed, issues, nzblog
 
 FAIL_REASON_RESEARCHING = "download_failed_researching"
@@ -274,7 +276,7 @@ class FailedProcessor(object):
 
         if issuenzb is not None:
             logger.info(module + " issuenzb found.")
-            if helpers.is_number(issueid):
+            if common_numbers.is_number(issueid):
                 sandwich = int(issuenzb["IssueID"])
         else:
             logger.info(module + " issuenzb not found.")
@@ -283,7 +285,7 @@ class FailedProcessor(object):
             elif "G" in issueid or "-" in issueid:
                 sandwich = 1
         try:
-            if helpers.is_number(sandwich):
+            if common_numbers.is_number(sandwich):
                 if sandwich < 900000:
                     pass
             else:
@@ -331,7 +333,7 @@ class FailedProcessor(object):
             "Issue_Number": issuenzb["Issue_Number"],
             "IssueID": issueid,
             "ComicID": comicid,
-            "DateFailed": helpers.now(),
+            "DateFailed": common_dates.now(),
         }
         db.upsert("failed", Vals, ctrlVal)
 
@@ -504,7 +506,7 @@ class FailedProcessor(object):
             "Issue_Number": IssueNumber,
             "IssueID": self.issueid,
             "ComicID": self.comicid,
-            "DateFailed": helpers.now(),
+            "DateFailed": common_dates.now(),
         }
         db.upsert("failed", Vals, ctrlVal)
 

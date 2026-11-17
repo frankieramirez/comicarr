@@ -21,8 +21,11 @@ import shlex
 from sqlalchemy import bindparam, func, select, update
 
 import comicarr
-from comicarr import db, filechecker, helpers, logger
+from comicarr import db, filechecker, logger
+from comicarr.app.common import configured as configured
+from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
+from comicarr.app.common import utilities as common_utilities
 from comicarr.app.library import directories, filers
 from comicarr.tables import annuals, comics, issues
 
@@ -375,7 +378,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
                     int_iss = None
                 except IndexError:
                     break
-                int_iss = helpers.issuedigits(reiss["Issue_Number"])
+                int_iss = configured.issuedigits(reiss["Issue_Number"])
                 issyear = (reiss["IssueDate"] or "")[:4]
                 old_status = reiss["Status"]
                 reiss["IssueName"]
@@ -408,12 +411,12 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
                     break
 
                 if temploc is not None:
-                    fcdigit = helpers.issuedigits(temploc)
+                    fcdigit = configured.issuedigits(temploc)
                 elif (
                     any([booktype == "TPB", booktype == "GN", booktype == "HC", booktype == "One-Shot"])
                     and temploc is None
                 ):
-                    fcdigit = helpers.issuedigits("1")
+                    fcdigit = configured.issuedigits("1")
 
                 if int(fcdigit) == int_iss:
                     logger.fdebug(
@@ -631,7 +634,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
                     reann = reannuals[n]
                 except IndexError:
                     break
-                int_iss = helpers.issuedigits(reann["Issue_Number"])
+                int_iss = configured.issuedigits(reann["Issue_Number"])
                 issyear = (reann["IssueDate"] or "")[:4]
                 old_status = reann["Status"]
 
@@ -639,11 +642,11 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
                 if year_check:
                     ann_line = "%s annual" % year_check[0]
                     logger.fdebug("ann_line: %s" % ann_line)
-                    fcdigit = helpers.issuedigits("1")
+                    fcdigit = configured.issuedigits("1")
                 else:
-                    fcdigit = helpers.issuedigits(re.sub("annual", "", temploc.lower()).strip())
+                    fcdigit = configured.issuedigits(re.sub("annual", "", temploc.lower()).strip())
                 if fcdigit == 999999999999999:
-                    fcdigit = helpers.issuedigits(re.sub("special", "", temploc.lower()).strip())
+                    fcdigit = configured.issuedigits(re.sub("special", "", temploc.lower()).strip())
 
                 if int(fcdigit) == int_iss and ANNComicID is not None:
                     logger.fdebug(module + " [" + str(ANNComicID) + "] Annual match - issue : " + str(int_iss))
@@ -912,7 +915,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
     retainedfiles = 0
     cnt = 0
     u_start = datetime.datetime.now()
-    for genlist in helpers.chunker(issID_to_ignore, 200):
+    for genlist in common_utilities.chunker(issID_to_ignore, 200):
         stmt = select(issues).where((issues.c.ComicID == genlist[0]) & (issues.c.IssueID.notin_(genlist[1:])))
         chkthis = db.select_all(stmt)
         if chkthis is None:
@@ -940,7 +943,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
                         continue
                 update_iss.append({"Status": issStatus, "IssueID": chk["IssueID"]})
 
-    for genlist in helpers.chunker(annID_to_ignore, 200):
+    for genlist in common_utilities.chunker(annID_to_ignore, 200):
         stmt = select(annuals).where(
             (annuals.c.ComicID == genlist[0]) & (annuals.c.Deleted != 1) & (annuals.c.IssueID.notin_(genlist[1:]))
         )
@@ -1056,7 +1059,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
 
     cnt = 0
     downchk = None
-    for genlist in helpers.chunker(issID_to_ignore, 200):
+    for genlist in common_utilities.chunker(issID_to_ignore, 200):
         stmt = select(issues).where(
             (issues.c.Status == "Downloaded")
             & (issues.c.ComicID == genlist[0])
@@ -1071,7 +1074,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
             downchk += rows
         cnt += 1
     cnt = 0
-    for genlist in helpers.chunker(annID_to_ignore, 200):
+    for genlist in common_utilities.chunker(annID_to_ignore, 200):
         stmt = select(annuals).where(
             (annuals.c.Status == "Downloaded")
             & (annuals.c.ComicID == genlist[0])
@@ -1232,7 +1235,7 @@ def totals(ComicID, havefiles=None, totalfiles=None, module=None, issueid=None, 
                 havefiles = int(hf["Have"])
                 logger.fdebug("untouched havefiles: %s" % havefiles)
     controlValueStat = {"ComicID": ComicID}
-    newValueStat = {"Have": havefiles, "Total": totalfiles, "FilesUpdated": helpers.now()}
+    newValueStat = {"Have": havefiles, "Total": totalfiles, "FilesUpdated": common_dates.now()}
 
     db.upsert("comics", newValueStat, controlValueStat)
     if file is not None:

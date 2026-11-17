@@ -24,6 +24,9 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr import db, weeklypull
+from comicarr.app.common import configured as configured
+from comicarr.app.search import service as search_service
+from comicarr.app.series import service as series_service
 from comicarr.tables import comics, issues, metadata, weekly
 
 
@@ -90,14 +93,14 @@ def _patch_pull_job(monkeypatch, upcoming):
     config.ANNUALS_ON = False
     config.AUTOWANT_UPCOMING = False
     monkeypatch.setattr(comicarr, "CONFIG", config)
-    monkeypatch.setattr(weeklypull.helpers, "listPull", lambda week, year: ["160294"])
-    monkeypatch.setattr(weeklypull.helpers, "checkthepub", lambda comicid: 60)
-    monkeypatch.setattr(weeklypull.helpers, "LoadAlternateSearchNames", lambda *_args: None)
+    monkeypatch.setattr(series_service, "listPull", lambda week, year: ["160294"])
+    monkeypatch.setattr(series_service, "checkthepub", lambda comicid: 60)
+    monkeypatch.setattr(search_service, "LoadAlternateSearchNames", lambda *_args: None)
     monkeypatch.setattr(weeklypull.watchlist_match, "upcoming_update", MagicMock(return_value=upcoming), raising=False)
     monkeypatch.setattr(weeklypull.watchlist_match, "latest_update", MagicMock(), raising=False)
     # new_pullcheck logs and swallows per-row errors; surface them instead.
     swallowed = MagicMock()
-    monkeypatch.setattr(weeklypull.helpers, "log_that_exception", swallowed)
+    monkeypatch.setattr(configured, "log_that_exception", swallowed)
     return swallowed
 
 

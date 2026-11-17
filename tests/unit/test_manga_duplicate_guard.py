@@ -19,8 +19,10 @@ import comicarr
 from comicarr import db
 from comicarr.app.manga import add as manga_add
 from comicarr.app.manga.duplicates import find_existing_manga_series
+from comicarr.app.metadata import service as metadata_service
 from comicarr.app.search.service import add_manga
 from comicarr.app.series import comic_add
+from comicarr.app.series import service as series_service
 from comicarr.app.series.service import listLibrary
 from comicarr.tables import comics, metadata
 
@@ -103,8 +105,8 @@ def _patch_add_side_effects(monkeypatch, tmp_path, *, md_details=None, mal_detai
     monkeypatch.setattr(myanimelist, "get_manga_details", lambda *a, **k: mal_details or _mal_details())
     monkeypatch.setattr(mangadex, "find_by_mal_id", lambda *a, **k: mal_to_md)
     monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: 0)
-    monkeypatch.setattr(comic_add.helpers, "getImage", lambda *a, **k: None)
-    monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
+    monkeypatch.setattr(metadata_service, "getImage", lambda *a, **k: None)
+    monkeypatch.setattr(series_service, "ComicSort", lambda **k: None)
     monkeypatch.setattr(comicarr_config, "get_manga_destination", lambda: str(tmp_path))
 
 

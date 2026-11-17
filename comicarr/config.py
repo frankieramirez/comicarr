@@ -33,7 +33,8 @@ from operator import itemgetter
 from pathlib import Path
 
 import comicarr
-from comicarr import db, filechecker, helpers, logger
+from comicarr import db, filechecker, logger
+from comicarr.app.common import numbers as common_numbers
 from comicarr.app.config.log_level import record_startup_argument, resolve_startup_log_level
 from comicarr.app.config.registry import as_legacy_definitions
 from comicarr.app.core import encrypted
@@ -1916,11 +1917,11 @@ class Config(object):
         if self.MAXSIZE is not None:
             self.MAXSIZE = re.sub(r"[^0-9]", "", self.MAXSIZE).strip()
 
-        if not helpers.is_number(self.CHMOD_DIR):
+        if not common_numbers.is_number(self.CHMOD_DIR):
             logger.fdebug("CHMOD Directory value is not a valid numeric - please correct. Defaulting to 0777")
             self.CHMOD_DIR = "0777"
 
-        if not helpers.is_number(self.CHMOD_FILE):
+        if not common_numbers.is_number(self.CHMOD_FILE):
             logger.fdebug("CHMOD File value is not a valid numeric - please correct. Defaulting to 0660")
             self.CHMOD_FILE = "0660"
 

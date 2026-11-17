@@ -16,7 +16,10 @@ from base64 import b16encode, b32decode
 from urllib.parse import urlparse
 
 import comicarr
-from comicarr import helpers, logger
+from comicarr import logger
+from comicarr.app.common import dates as common_dates
+from comicarr.app.common import numbers as common_numbers
+from comicarr.app.common import strings as common_strings
 from comicarr.app.common.torrent_hash import info_hash_of_file
 from comicarr.app.downloads.rtorrent_rpc import RTorrentError, Session
 
@@ -24,7 +27,7 @@ from comicarr.app.downloads.rtorrent_rpc import RTorrentError, Session
 def rpc_url(host, rpc_path=None):
     """Build the rTorrent URL from ``RTORRENT_HOST`` and ``RTORRENT_RPC_URL``."""
     ssl = host.startswith("https:")
-    url = helpers.cleanHost(host, protocol=True, ssl=ssl)
+    url = common_strings.cleanHost(host, protocol=True, ssl=ssl)
     if ssl and url.startswith("httprpc://"):
         url = url.replace("httprpc://", "httprpc+https://")
     if not ssl and "://" not in url:
@@ -217,12 +220,12 @@ def send_or_check(torrent_hash=None, filepath=None, check=False):
     if torrent_info["completed"]:
         logger.fdebug("Directory: %s" % torrent_info["folder"])
         logger.fdebug("Name: %s" % torrent_info["name"])
-        logger.fdebug("FileSize: %s" % helpers.human_size(torrent_info["total_filesize"]))
+        logger.fdebug("FileSize: %s" % common_numbers.human_size(torrent_info["total_filesize"]))
         logger.fdebug("Completed: %s" % torrent_info["completed"])
-        logger.fdebug("Downloaded: %s" % helpers.human_size(torrent_info["download_total"]))
-        logger.fdebug("Uploaded: %s" % helpers.human_size(torrent_info["upload_total"]))
+        logger.fdebug("Downloaded: %s" % common_numbers.human_size(torrent_info["download_total"]))
+        logger.fdebug("Uploaded: %s" % common_numbers.human_size(torrent_info["upload_total"]))
         logger.fdebug("Ratio: %s" % torrent_info["ratio"])
-        logger.fdebug("Seeding Time: %s" % helpers.humanize_time(int(time.time()) - torrent_info["time_started"]))
+        logger.fdebug("Seeding Time: %s" % common_dates.humanize_time(int(time.time()) - torrent_info["time_started"]))
         if torrent_info["label"]:
             logger.fdebug("Torrent Label: %s" % torrent_info["label"])
     return torrent_info

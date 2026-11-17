@@ -31,6 +31,8 @@ from sqlalchemy import create_engine, select
 import comicarr
 from comicarr import rsscheck
 from comicarr.app.manga import add as manga_add
+from comicarr.app.metadata import service as metadata_service
+from comicarr.app.series import service as series_service
 from comicarr.tables import comics, metadata
 from tests.fakes import folder_request
 
@@ -202,8 +204,8 @@ class TestMangaDexAddRecordsItsId:
             },
         )
         monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: 0)
-        monkeypatch.setattr(comic_add.helpers, "getImage", lambda *a, **k: None)
-        monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
+        monkeypatch.setattr(metadata_service, "getImage", lambda *a, **k: None)
+        monkeypatch.setattr(series_service, "ComicSort", lambda **k: None)
         monkeypatch.setattr(comicarr_config, "get_manga_destination", lambda: str(tmp_path))
 
         manga_add.add_mangadex("md-uuid-42")

@@ -19,7 +19,9 @@
 
 
 import comicarr
-from comicarr import helpers, logger
+from comicarr import logger
+from comicarr.app.common import dates as common_dates
+from comicarr.app.system import service as system_service
 from comicarr.app.system import versioncheck
 
 
@@ -29,11 +31,13 @@ class CheckVersion:
 
     def run(self, scheduled_job=True):
         logger.info("[VersionCheck] Checking for new release on Github.")
-        helpers.job_management(write=True, job="Check Version", current_run=helpers.utctimestamp(), status="Running")
+        system_service.job_management(
+            write=True, job="Check Version", current_run=common_dates.utctimestamp(), status="Running"
+        )
         comicarr.VERSION_STATUS = "Running"
         cc = versioncheck.checkGithub()
-        helpers.job_management(
-            write=True, job="Check Version", last_run_completed=helpers.utctimestamp(), status="Waiting"
+        system_service.job_management(
+            write=True, job="Check Version", last_run_completed=common_dates.utctimestamp(), status="Waiting"
         )
         if not scheduled_job:
             return cc

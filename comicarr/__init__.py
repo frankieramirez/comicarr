@@ -49,15 +49,19 @@ from sqlalchemy.exc import SQLAlchemyError
 
 import comicarr.config
 from comicarr import (
-    helpers,
     logger,
     rsscheckit,
     sabnzbd,
     weeklypullit,
 )
+from comicarr.app.common import dates as common_dates
+from comicarr.app.downloads import service as downloads_service
+from comicarr.app.search import service as search_service
 from comicarr.app.search.queue import FairSearchQueue
+from comicarr.app.series import service as series_service
 from comicarr.app.series import watchlist_refresh
 from comicarr.app.system import maintenance, versioncheck, versioncheckit
+from comicarr.app.system import service as system_service
 
 
 class ThreadSafeLock:
@@ -723,10 +727,10 @@ def initialize(config_file):
                 )
 
             logger.info("Remapping the sorting to allow for new additions.")
-            COMICSORT = helpers.ComicSort(sequence="startup")
+            COMICSORT = series_service.ComicSort(sequence="startup")
 
         if CONFIG.LOCMOVE:
-            helpers.updateComicLocation()
+            series_service.updateComicLocation()
 
         if all([comicarr.USE_SABNZBD is True, comicarr.CONFIG.SAB_HOST is not None]):
             s_to_the_ab = sabnzbd.SABnzbd(params=None)
@@ -1117,7 +1121,7 @@ def start(ctx):
                 set_runtime_field(ctx, "started", True)
                 return
 
-            monitors = helpers.job_management(startup=True)
+            monitors = system_service.job_management(startup=True)
 
             SCHED_WEEKLY_LAST = monitors["weekly"]["last"]
             SCHED_SEARCH_LAST = monitors["search"]["last"]
@@ -1132,22 +1136,22 @@ def start(ctx):
                     updater_timestamp = float(SCHED_UPDATER_LAST)
                     logger.fdebug(
                         "[DB UPDATER] Updater last run @ %s"
-                        % helpers.utc_date_to_local(datetime.datetime.utcfromtimestamp(updater_timestamp))
+                        % common_dates.utc_date_to_local(datetime.datetime.utcfromtimestamp(updater_timestamp))
                     )
                 else:
-                    updater_timestamp = helpers.utctimestamp() + (int(CONFIG.DBUPDATE_INTERVAL) * 60)
+                    updater_timestamp = common_dates.utctimestamp() + (int(CONFIG.DBUPDATE_INTERVAL) * 60)
 
-                updater_diff = (helpers.utctimestamp() - updater_timestamp) / 60
+                updater_diff = (common_dates.utctimestamp() - updater_timestamp) / 60
                 if updater_diff >= int(CONFIG.DBUPDATE_INTERVAL):
                     logger.fdebug("[DB UPDATER] DB Updater scheduled to run immediately.")
                     UPDATER_SCHEDULER.modify(next_run_time=(datetime.datetime.utcnow()))
                 else:
                     updater_diff = datetime.datetime.utcfromtimestamp(
-                        helpers.utctimestamp() + ((int(CONFIG.DBUPDATE_INTERVAL) * 60) - (updater_diff * 60))
+                        common_dates.utctimestamp() + ((int(CONFIG.DBUPDATE_INTERVAL) * 60) - (updater_diff * 60))
                     )
                     logger.fdebug(
                         "[DB UPDATER] Scheduling next run @ %s (every %s minutes)"
-                        % (helpers.utc_date_to_local(updater_diff), CONFIG.DBUPDATE_INTERVAL)
+                        % (common_dates.utc_date_to_local(updater_diff), CONFIG.DBUPDATE_INTERVAL)
                     )
                     UPDATER_SCHEDULER.modify(next_run_time=updater_diff)
 
@@ -1169,12 +1173,12 @@ def start(ctx):
                         search_timestamp = float(SCHED_SEARCH_LAST)
                         logger.fdebug(
                             "[AUTO-SEARCH] Search last run @ %s"
-                            % helpers.utc_date_to_local(datetime.datetime.utcfromtimestamp(search_timestamp))
+                            % common_dates.utc_date_to_local(datetime.datetime.utcfromtimestamp(search_timestamp))
                         )
                     else:
-                        search_timestamp = helpers.utctimestamp() + (int(CONFIG.SEARCH_INTERVAL) * 60)
+                        search_timestamp = common_dates.utctimestamp() + (int(CONFIG.SEARCH_INTERVAL) * 60)
 
-                    duration_diff = (helpers.utctimestamp() - search_timestamp) / 60
+                    duration_diff = (common_dates.utctimestamp() - search_timestamp) / 60
                     if duration_diff >= int(CONFIG.SEARCH_INTERVAL):
                         logger.fdebug(
                             "[AUTO-SEARCH]Auto-Search set to an initial delay of 2 minutes before initialization as it has been %s minutes since the last run"
@@ -1183,11 +1187,11 @@ def start(ctx):
                         SEARCH_SCHEDULER.modify(next_run_time=(datetime.datetime.utcnow() + timedelta(minutes=2)))
                     else:
                         search_diff = datetime.datetime.utcfromtimestamp(
-                            helpers.utctimestamp() + ((int(CONFIG.SEARCH_INTERVAL) * 60) - (duration_diff * 60))
+                            common_dates.utctimestamp() + ((int(CONFIG.SEARCH_INTERVAL) * 60) - (duration_diff * 60))
                         )
                         logger.fdebug(
                             "[AUTO-SEARCH] Scheduling next run @ %s (every %s minutes)"
-                            % (helpers.utc_date_to_local(search_diff), CONFIG.SEARCH_INTERVAL)
+                            % (common_dates.utc_date_to_local(search_diff), CONFIG.SEARCH_INTERVAL)
                         )
                         SEARCH_SCHEDULER.modify(next_run_time=search_diff)
 
@@ -1215,7 +1219,7 @@ def start(ctx):
             if CONFIG.ENABLE_DDL is True:
                 queue_schedule("ddl_queue", "start", ctx=ctx)
                 _add_recurring_job(
-                    func=helpers.ddl_health_check,
+                    func=downloads_service.ddl_health_check,
                     id="ddl_health",
                     name="DDL Health Check",
                     trigger=IntervalTrigger(hours=0, minutes=int(CONFIG.DDL_STUCK_CHECK_INTERVAL), timezone="UTC"),
@@ -1224,7 +1228,7 @@ def start(ctx):
                     "[DDL-HEALTH] DDL health check enabled, running every %s minutes" % CONFIG.DDL_STUCK_CHECK_INTERVAL
                 )
 
-            helpers.latestdate_fix()
+            series_service.latestdate_fix()
 
             if CONFIG.ALT_PULL == 2:
                 weektimer = 4
@@ -1240,7 +1244,7 @@ def start(ctx):
             except:
                 SCHED_WEEKLY_LAST = None
 
-            weektimestamp = helpers.utctimestamp()
+            weektimestamp = common_dates.utctimestamp()
             if SCHED_WEEKLY_LAST is not None:
                 weekly_timestamp = float(SCHED_WEEKLY_LAST)
             else:
@@ -1261,7 +1265,7 @@ def start(ctx):
                     )
                     logger.fdebug(
                         "[WEEKLY] Scheduling next run for @ %s every %s hours"
-                        % (helpers.utc_date_to_local(weekly_diff), weektimer)
+                        % (common_dates.utc_date_to_local(weekly_diff), weektimer)
                     )
                     WEEKLY_SCHEDULER.modify(next_run_time=weekly_diff)
 
@@ -1271,20 +1275,20 @@ def start(ctx):
                     rss_timestamp = float(SCHED_RSS_LAST)
                     logger.info(
                         "[RSS-FEEDS] RSS last run @ %s"
-                        % helpers.utc_date_to_local(datetime.datetime.utcfromtimestamp(rss_timestamp))
+                        % common_dates.utc_date_to_local(datetime.datetime.utcfromtimestamp(rss_timestamp))
                     )
                 else:
-                    rss_timestamp = helpers.utctimestamp() + (int(CONFIG.RSS_CHECKINTERVAL) * 60)
-                duration_diff = (helpers.utctimestamp() - rss_timestamp) / 60
+                    rss_timestamp = common_dates.utctimestamp() + (int(CONFIG.RSS_CHECKINTERVAL) * 60)
+                duration_diff = (common_dates.utctimestamp() - rss_timestamp) / 60
                 if duration_diff >= int(CONFIG.RSS_CHECKINTERVAL):
                     RSS_SCHEDULER.modify(next_run_time=datetime.datetime.utcnow())
                 else:
                     rss_diff = datetime.datetime.utcfromtimestamp(
-                        helpers.utctimestamp() + (int(CONFIG.RSS_CHECKINTERVAL) * 60) - (duration_diff * 60)
+                        common_dates.utctimestamp() + (int(CONFIG.RSS_CHECKINTERVAL) * 60) - (duration_diff * 60)
                     )
                     logger.fdebug(
                         "[RSS-FEEDS] Scheduling next run for @ %s every %s minutes"
-                        % (helpers.utc_date_to_local(rss_diff), CONFIG.RSS_CHECKINTERVAL)
+                        % (common_dates.utc_date_to_local(rss_diff), CONFIG.RSS_CHECKINTERVAL)
                     )
                     RSS_SCHEDULER.modify(next_run_time=rss_diff)
 
@@ -1336,7 +1340,7 @@ def start(ctx):
             try:
                 SCHED.start()
                 logger.info("Background Schedulers successfully started...")
-                helpers.job_management(write=True)
+                system_service.job_management(write=True)
             except Exception as e:
                 logger.info(e)
                 SCHED.print_jobs()
@@ -1398,7 +1402,7 @@ def queue_schedule(queuetype, mode, ctx=None):
         if queuetype == "snatched_queue":
             start(
                 "SNPOOL",
-                helpers.worker_main,
+                downloads_service.worker_main,
                 SNATCHED_QUEUE,
                 "AUTO-SNATCHER",
                 "Auto-Snatch of completed torrents enabled & attempting to background load....",
@@ -1419,7 +1423,7 @@ def queue_schedule(queuetype, mode, ctx=None):
                 logger.info(
                     "[NZBGET-MONITOR] Completed post-processing handling enabled for NZBGet. Attempting to background load...."
                 )
-            pool = threading.Thread(target=helpers.nzb_monitor, args=(NZB_QUEUE,), name="AUTO-COMPLETE-NZB")
+            pool = threading.Thread(target=downloads_service.nzb_monitor, args=(NZB_QUEUE,), name="AUTO-COMPLETE-NZB")
             set_pool("NZBPOOL", pool)
             pool.start()
             if CONFIG.NZB_DOWNLOADER == 0:
@@ -1434,7 +1438,7 @@ def queue_schedule(queuetype, mode, ctx=None):
         elif queuetype == "search_queue":
             start(
                 "SEARCHPOOL",
-                helpers.search_queue,
+                search_service.search_queue,
                 SEARCH_QUEUE,
                 "SEARCH-QUEUE",
                 "Attempting to background load the search queue....",
@@ -1443,7 +1447,7 @@ def queue_schedule(queuetype, mode, ctx=None):
         elif queuetype == "pp_queue":
             start(
                 "PPPOOL",
-                helpers.postprocess_main,
+                downloads_service.postprocess_main,
                 PP_QUEUE,
                 "POST-PROCESS-QUEUE",
                 "Post Process queue enabled & monitoring for api requests....",
@@ -1455,10 +1459,10 @@ def queue_schedule(queuetype, mode, ctx=None):
                     return
             except Exception:
                 pass
-            helpers.recover_queued_ddl_commands(DDL_QUEUE)
+            downloads_service.recover_queued_ddl_commands(DDL_QUEUE)
             start(
                 "DDLPOOL",
-                helpers.ddl_downloader,
+                downloads_service.ddl_downloader,
                 DDL_QUEUE,
                 "DDL-QUEUE",
                 "DDL Download queue enabled & monitoring for requests....",

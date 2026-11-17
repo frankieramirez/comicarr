@@ -518,7 +518,9 @@ def get_issue_file_path(issue_id):
 def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=None, annualize=None, arc=False):
     from sqlalchemy import select
 
-    from comicarr.helpers import filesafe, fullmonth, issuedigits, replace_all
+    from comicarr.app.common.configured import issuedigits
+    from comicarr.app.common.dates import fullmonth
+    from comicarr.app.common.strings import filesafe, replace_all
 
     comicid = str(comicid)
 
@@ -972,7 +974,7 @@ def _finalize_ddl_download(item, ddzstat, release_key):
     one owned side-effect window. It never re-runs the external download.
     """
     from comicarr.app.downloads import journal
-    from comicarr.helpers import check_file_condition
+    from comicarr.app.downloads.service import check_file_condition
 
     if ddzstat.get("success") and ddzstat.get("filename") is not None:
         filecondition = check_file_condition(ddzstat.get("path"))
@@ -1169,7 +1171,7 @@ def ddl_downloader(queue):
 def _ddl_downloader_loop(queue, link_type_failure, active_item):
     from sqlalchemy import delete
 
-    from comicarr.helpers import check_file_condition
+    from comicarr.app.downloads.service import check_file_condition
 
     while True:
         # Every path out of the previous item comes back here.
@@ -1233,7 +1235,7 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                         remote_filesize = item["remote_filesize"]
                     except Exception:
                         try:
-                            from comicarr.helpers import human2bytes
+                            from comicarr.app.common.numbers import human2bytes
 
                             remote_filesize = human2bytes(re.sub("/s", "", item["size"][:-1]).strip())
                         except Exception:
@@ -2336,7 +2338,7 @@ def _cdh_record_terminal_outcome(item, nzstat, readd=False):
 
 
 def _cdh_monitor_owned(queue, item, nzstat, readd=False):
-    from comicarr.helpers import check_file_condition
+    from comicarr.app.downloads.service import check_file_condition
 
     known_nzb_id = item.get("nzo_id") or item.get("NZBID")
     if _cdh_record_terminal_outcome(item, nzstat, readd=readd):

@@ -14,7 +14,9 @@
 import os
 
 import comicarr
-from comicarr import helpers, logger
+from comicarr import logger
+from comicarr.app.common import dates as common_dates
+from comicarr.app.system import service as system_service
 
 
 class FolderCheck:
@@ -36,10 +38,10 @@ class FolderCheck:
             )
             comicarr.SCHED.pause_job("monitor")
             comicarr.MONITOR_STATUS = "Paused"
-            helpers.job_management(write=True)
+            system_service.job_management(write=True)
         else:
-            helpers.job_management(
-                write=True, job="Folder Monitor", current_run=helpers.utctimestamp(), status="Running"
+            system_service.job_management(
+                write=True, job="Folder Monitor", current_run=common_dates.utctimestamp(), status="Running"
             )
             comicarr.MONITOR_STATUS = "Running"
             from comicarr.app.downloads import postprocessing
@@ -53,9 +55,9 @@ class FolderCheck:
                 outcome = postprocessing.run({"nzb_name": "Manual Run", "nzb_folder": folder, "source": "monitor"})
                 if outcome.status == "busy":
                     comicarr.MONITOR_STATUS = "Waiting"
-                    helpers.job_management(write=True, job="Folder Monitor", status="Waiting")
+                    system_service.job_management(write=True, job="Folder Monitor", status="Waiting")
                     return {"status": "IN PROGRESS"}
             logger.info("%s Finished checking for newly snatched downloads" % self.module)
-            helpers.job_management(
-                write=True, job="Folder Monitor", last_run_completed=helpers.utctimestamp(), status="Waiting"
+            system_service.job_management(
+                write=True, job="Folder Monitor", last_run_completed=common_dates.utctimestamp(), status="Waiting"
             )

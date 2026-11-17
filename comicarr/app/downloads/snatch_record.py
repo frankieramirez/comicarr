@@ -25,7 +25,8 @@ from typing import Any
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import dates as common_dates
 from comicarr.app.manga import volumes as manga_volumes
 from comicarr.app.manga.ledger import volume_number_from_id
 from comicarr.tables import annuals, comics, issues, storyarcs, weekly
@@ -216,7 +217,7 @@ def foundsearch(
                 "ComicName": ComicName,
                 "ComicID": ComicID,
                 "Issue_Number": IssueNum,
-                "DateAdded": helpers.now(),
+                "DateAdded": common_dates.now(),
                 "Status": "Snatched",
                 "Hash": hash,
             }
@@ -228,7 +229,7 @@ def foundsearch(
                 "ComicName": ComicName,
                 "ComicID": ComicID,
                 "Issue_Number": IssueNum,
-                "DateAdded": helpers.now(),
+                "DateAdded": common_dates.now(),
                 "Status": "Snatched",
                 "Hash": hash,
             }
@@ -248,7 +249,7 @@ def foundsearch(
                 "ComicName": ComicName,
                 "ComicID": ComicID,
                 "Issue_Number": IssueNum,
-                "DateAdded": helpers.now(),
+                "DateAdded": common_dates.now(),
                 "Status": "Snatched",
                 "Hash": hash,
             }
@@ -261,7 +262,7 @@ def foundsearch(
                 "ComicID": ComicID,
                 "IssueID": IssueID,
                 "Issue_Number": IssueNum,
-                "DateAdded": helpers.now(),
+                "DateAdded": common_dates.now(),
                 "Status": "Snatched",
                 "Hash": hash,
             }
@@ -354,7 +355,7 @@ def foundsearch(
             "ComicName": ComicName,
             "ComicID": ComicID,
             "Issue_Number": IssueNum,
-            "DateAdded": helpers.now(),
+            "DateAdded": common_dates.now(),
             "Status": downstatus,
             "crc": crc,
         }
