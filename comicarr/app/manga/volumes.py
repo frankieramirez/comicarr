@@ -7,14 +7,14 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""Owned, grabbed and operator-edited manga volumes (ADR-0004: volumes are not issues).
+"""Owned and grabbed manga volumes (ADR-0004: volumes are not issues).
 
 A volume grab is recorded Snatched; the volume file landing records it
 Downloaded with its Location. The chapters a Downloaded volume contains then
 read as Covered (``ledger.apply_volume_coverage``), and the volume leaves the
-blended search frontier (#1278). An operator can also mark a volume Wanted
-or Skipped, or state which chapters it holds (``edit_volume``); which
-chapters each volume holds is worked out in ``coverage``.
+blended search frontier (#1278). Which chapters each volume holds is worked
+out in ``coverage``; an operator can correct it by saying which chapter a
+volume ends at (``set_volume_end``).
 """
 
 import datetime
@@ -98,7 +98,7 @@ def covering_volumes(states):
 
 
 def volume_rows(comic_id):
-    """Every recorded volume row of a series, with any operator chapter range."""
+    """Every recorded volume row of a series, with any operator-set end chapter."""
     if not comic_id:
         return []
     rows = db.select_all(
@@ -106,134 +106,102 @@ def volume_rows(comic_id):
             manga_volumes.c.VolumeNumber,
             manga_volumes.c.Status,
             manga_volumes.c.Location,
-            manga_volumes.c.FirstChapter,
             manga_volumes.c.LastChapter,
         ).where(manga_volumes.c.ComicID == str(comic_id))
     )
     return [dict(row) for row in rows or ()]
 
 
-# Want decisions an operator can set on a volume. An empty Status is a row
-# that only carries a chapter range: no decision, the monitor mode decides.
-WANTED = "Wanted"
-SKIPPED = "Skipped"
-NO_DECISION = ""
-_DECISIONS = frozenset({WANTED, SKIPPED, NO_DECISION})
+# The Status of a row that only carries an operator's end chapter for a
+# volume the library neither owns nor has grabbed.
+NOT_OWNED = ""
 
 
-class VolumeEditError(ValueError):
-    """An operator edit to a volume that cannot be applied."""
+def set_volume_end(comic_id, volume_number, last_chapter):
+    """Record the chapter an operator says a volume ends at; None clears it.
 
-
-def _chapter_text(value):
-    if value in (None, ""):
-        return None
-    text = str(value).strip()
-    try:
-        number = float(text)
-    except ValueError as e:
-        raise VolumeEditError("chapter numbers must be numbers") from e
-    if number < 0:
-        raise VolumeEditError("chapter numbers must not be negative")
-    return format(number, "g") if not number.is_integer() else str(int(number))
-
-
-def edit_volume(comic_id, volume_number, *, status=None, first_chapter=None, last_chapter=None, clear_range=False):
-    """Apply an operator's want decision and/or chapter range to one volume.
-
-    A decision never un-owns a volume: a grabbed or placed volume keeps its
-    Status, and only its range changes. Returns the stored row.
+    Ownership is untouched. Raises ValueError for a value that is not a
+    volume or a chapter number.
     """
     number = normalize_volume_number(volume_number)
     identity = volume_id(comic_id, number)
     if identity is None:
-        raise VolumeEditError("not a volume number")
-    if status is not None and status not in _DECISIONS:
-        raise VolumeEditError("status must be Wanted, Skipped or empty")
-    values = {}
-    if clear_range:
-        values["FirstChapter"] = None
-        values["LastChapter"] = None
-    elif first_chapter is not None or last_chapter is not None:
-        first = _chapter_text(first_chapter)
-        last = _chapter_text(last_chapter)
-        if first is None or last is None:
-            raise VolumeEditError("give both the first and the last chapter")
-        if float(first) > float(last):
-            raise VolumeEditError("the first chapter comes after the last")
-        values["FirstChapter"] = first
-        values["LastChapter"] = last
-    if status is None and not values:
-        raise VolumeEditError("nothing to change")
-
+        raise ValueError("not a volume number")
+    if last_chapter in (None, ""):
+        end = None
+    else:
+        try:
+            value = float(str(last_chapter).strip())
+        except ValueError as e:
+            raise ValueError("the last chapter must be a number") from e
+        if value <= 0:
+            raise ValueError("the last chapter must be above zero")
+        end = format(value, "g")
     with db.get_engine().begin() as conn:
         conn.execute(
             _insert_if_absent(conn.dialect.name).values(
                 VolumeID=identity,
                 ComicID=str(comic_id),
                 VolumeNumber=number,
-                Status=status if status is not None else NO_DECISION,
+                Status=NOT_OWNED,
                 updated_at=_now(),
             )
         )
-        predicate = manga_volumes.c.VolumeID == identity
-        if values:
-            conn.execute(update(manga_volumes).where(predicate).values(updated_at=_now(), **values))
-        if status is not None:
-            # The guard runs in the database: a decision never overwrites a
-            # grab or a file that is already here.
-            conn.execute(
-                update(manga_volumes)
-                .where(and_(predicate, manga_volumes.c.Status.notin_(sorted(_PLACED | {SNATCHED}))))
-                .values(Status=status, updated_at=_now())
-            )
-        row = conn.execute(select(manga_volumes).where(predicate)).mappings().one()
-    return dict(row)
+        conn.execute(
+            update(manga_volumes).where(manga_volumes.c.VolumeID == identity).values(LastChapter=end, updated_at=_now())
+        )
+    return end
 
 
-def series_view(comic_id, projected_issues, *, monitor_mode="blended"):
+def series_view(comic_id, projected_issues):
     """Volumes, chapter coverage and progress for a manga series page.
 
     Returns ``(issues, volumes, progress)``. Each chapter row gains
-    ``holdingVolume`` (the volume it belongs to, MangaDex's or estimated)
-    and ``holdingEstimated``; a chapter inside a placed volume reads Covered
-    with ``coveredByVolume`` set, the same coverage search skips.
+    ``holdingVolume`` (the volume it falls in) and ``holdingEstimated``; a
+    chapter inside a placed volume reads Covered, the same coverage search
+    skips.
     """
     from comicarr.app.manga import coverage
     from comicarr.app.manga.ledger import apply_volume_coverage
 
-    rows = volume_rows(comic_id)
-    chapters = [row for row in projected_issues if row.get("chapterNumber") not in (None, "")]
-    ranges = coverage.volume_ranges(chapters, rows)
-    covered = coverage.covered_chapters(chapters, rows, ranges)
+    rows = {row["VolumeNumber"]: row for row in volume_rows(comic_id)}
+    ranges = coverage.volume_ranges(projected_issues, rows.values())
+    owned = covering_volumes({number: row["Status"] for number, row in rows.items()})
 
-    holding = {}
-    for volume, entry in ranges.items():
-        for identity in entry["chapters"]:
-            holding[identity] = (volume, entry["source"] == coverage.ESTIMATED)
-
-    containment = {}
-    for identity, (volume, _estimated) in covered.items():
-        containment.setdefault(volume, set()).add(identity)
-    issues = apply_volume_coverage(projected_issues, set(containment), containment) if containment else projected_issues
+    holding = {identity: volume for volume, entry in ranges.items() for identity in entry["chapters"]}
+    containment = {volume: set(ranges[volume]["chapters"]) for volume in owned if volume in ranges}
+    issues = apply_volume_coverage(projected_issues, owned, containment)
     for row in issues:
-        identity = row.get("id")
-        volume, estimated = holding.get(identity, (None, False))
+        volume = holding.get(row.get("id"))
         row["holdingVolume"] = volume
-        row["holdingEstimated"] = bool(volume) and estimated
-        row["coveredByVolume"] = covered[identity][0] if row.get("covered") and identity in covered else None
+        row["holdingEstimated"] = volume is not None and ranges[volume]["source"] == coverage.ESTIMATED
 
-    volumes = coverage.volume_entries(chapters, rows, monitor_mode=monitor_mode, ranges=ranges)
+    volumes = []
+    # Newest first, like the chapter list. A recorded volume outside the
+    # numbered run (a "1.5") is still listed, with unknown contents.
+    for number in [*reversed(ranges), *(number for number in rows if number not in ranges)]:
+        entry = ranges.get(number) or {"first": None, "last": None, "source": None}
+        row = rows.get(number) or {}
+        volumes.append(
+            {
+                "number": number,
+                "firstChapter": None if entry["first"] is None else format(entry["first"], "f"),
+                "lastChapter": None if entry["last"] is None else format(entry["last"], "f"),
+                "rangeSource": entry["source"],
+                "owned": number in owned,
+                "inFlight": row.get("Status") == SNATCHED,
+                "location": row.get("Location") if number in owned else None,
+            }
+        )
     return issues, volumes, _progress(issues, volumes)
 
 
 def _progress(issues, volumes):
+    """Counts for the series header, and the chapter run as coloured segments."""
     chapters = []
     for row in issues:
-        if row.get("chapterNumber") in (None, "") or row.get("annual"):
-            continue
         try:
-            number = float(row["chapterNumber"])
+            number = float(row.get("chapterNumber"))
         except (TypeError, ValueError):
             continue
         if row.get("covered"):
@@ -248,29 +216,22 @@ def _progress(issues, volumes):
             kind = "notWanted"
         chapters.append((number, kind))
     chapters.sort()
-    readable = [number for number, kind in chapters if kind in ("volume", "chapter")]
-    run_end = max(readable) if readable else None
+    latest_held = max((number for number, kind in chapters if kind in ("volume", "chapter")), default=None)
     segments = []
     for number, kind in chapters:
-        if kind in ("wanted", "notWanted") and run_end is not None and number < run_end:
+        # A hole below the highest chapter you have, wanted or not.
+        if kind in ("wanted", "notWanted") and latest_held is not None and number < latest_held:
             kind = "gap"
         if segments and segments[-1]["kind"] == kind:
-            segments[-1]["to"] = number
+            segments[-1]["to"] = format(number, "g")
             segments[-1]["count"] += 1
         else:
-            segments.append({"kind": kind, "from": number, "to": number, "count": 1})
-    for segment in segments:
-        segment["from"] = format(segment["from"], "g")
-        segment["to"] = format(segment["to"], "g")
+            segments.append({"kind": kind, "from": format(number, "g"), "to": format(number, "g"), "count": 1})
     return {
         "volumesTotal": len(volumes),
         "volumesOwned": sum(1 for volume in volumes if volume["owned"]),
         "volumesEstimated": sum(1 for volume in volumes if volume["rangeSource"] == "estimated"),
-        "volumesUnknown": sum(1 for volume in volumes if volume["rangeSource"] is None),
-        "chaptersTotal": len(chapters),
-        "chaptersOwned": sum(1 for _number, kind in chapters if kind == "chapter"),
-        "chaptersCovered": sum(1 for _number, kind in chapters if kind == "volume"),
-        "chaptersReadable": len(readable),
+        "chaptersOwned": sum(segment["count"] for segment in segments if segment["kind"] == "chapter"),
         "chaptersGap": sum(segment["count"] for segment in segments if segment["kind"] == "gap"),
         "segments": segments,
     }

@@ -609,6 +609,10 @@ msgstr "{emptyEyebrow} · VACÍO"
 msgid "{emptyEyebrow} · FILTERED"
 msgstr "{emptyEyebrow} · FILTRADO"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "{estimated, plural, one {MangaDex doesn't list the chapters for # volume, so its range is estimated from the volumes around it. A volume you have covers the chapters in its range. If a range is off, set the chapter that volume ends at.} other {MangaDex doesn't list the chapters for # volumes, so their ranges are estimated from the volumes around them. A volume you have covers the chapters in its range. If a range is off, set the chapter that volume ends at.}}"
+msgstr "{estimated, plural, one {MangaDex no indica los capítulos de # volumen, así que su rango se estima a partir de los volúmenes cercanos. Un volumen que tienes cubre los capítulos de su rango. Si un rango no es correcto, indica el capítulo en el que termina ese volumen.} other {MangaDex no indica los capítulos de # volúmenes, así que sus rangos se estiman a partir de los volúmenes cercanos. Un volumen que tienes cubre los capítulos de su rango. Si un rango no es correcto, indica el capítulo en el que termina ese volumen.}}"
+
 #: src/components/activity/health/HealthView.tsx
 msgid "{failing} of {length} failing"
 msgstr "{failing} de {length} con fallos"
@@ -690,10 +694,6 @@ msgstr "{head} {skipped_for_cap} quedan para otra ronda (máximo {cap} a la vez)
 #: src/components/dashboard/NeedsAttentionBand.tsx
 msgid "{hiddenIssues, plural, one {{hiddenSeries} more series with # issue, in other causes} other {{hiddenSeries} more series with # issues, in other causes}}"
 msgstr "{hiddenIssues, plural, one {{hiddenSeries} series más con # número, en otras causas} other {{hiddenSeries} series más con # números, en otras causas}}"
-
-#: src/components/series/MangaVolumes.tsx
-msgid "{holes, plural, one {MangaDex doesn't list the chapters for # volume. Comicarr estimated its range from the volumes around it, and an owned volume covers the chapters in its range. Edit a range if it's off.} other {MangaDex doesn't list the chapters for # volumes. Comicarr estimated their ranges from the volumes around them, and an owned volume covers the chapters in its range. Edit a range if it's off.}}"
-msgstr "{holes, plural, one {MangaDex no indica los capítulos de # volumen. Comicarr estimó su rango a partir de los volúmenes cercanos, y un volumen que tienes cubre los capítulos de su rango. Edita un rango si no es correcto.} other {MangaDex no indica los capítulos de # volúmenes. Comicarr estimó sus rangos a partir de los volúmenes cercanos, y un volumen que tienes cubre los capítulos de su rango. Edita un rango si no es correcto.}}"
 
 #: src/components/queue/WantedPacingBanner.tsx
 msgid "{hours, plural, one {every hour} other {every # hours}}"
@@ -932,10 +932,6 @@ msgstr "{queued, plural, one {# número marcado como Buscado.} other {# números
 msgid "{reachable} of {length} reachable"
 msgstr "{reachable} de {length} accesibles"
 
-#: src/components/series/MangaVolumes.tsx
-msgid "{readable} of {chapterTotal} chapters readable"
-msgstr "{readable} de {chapterTotal} capítulos legibles"
-
 #: src/pages/ImportPage.tsx
 msgid "{records, plural, one {# import record deleted} other {# import records deleted}}"
 msgstr "{records, plural, one {# registro de importación eliminado} other {# registros de importación eliminados}}"
@@ -1062,6 +1058,10 @@ msgstr "{totalIssues, plural, one {Estas series se añadirán a tu biblioteca y 
 #: src/components/ai/ActivityFeedEntry.tsx
 msgid "{totalTokens, plural, one {# token} other {# tokens}}"
 msgstr "{totalTokens, plural, one {# token} other {# tokens}}"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "{volumesOwned} of {volumesTotal} volumes, {chapterFiles} chapter files"
+msgstr "{volumesOwned} de {volumesTotal} volúmenes, {chapterFiles} archivos de capítulo"
 
 #: src/components/dashboard/LibraryHighlights.tsx
 #: src/pages/SeriesDetailPage.tsx
@@ -2229,10 +2229,6 @@ msgstr "Capítulos {first}-{last}"
 msgid "Chapters only"
 msgstr "Solo capítulos"
 
-#: src/components/series/MangaVolumes.tsx
-msgid "chapters you can read"
-msgstr "capítulos que puedes leer"
-
 #: src/pages/SeriesDetailPage.tsx
 msgid "chapters: {chapterCount}"
 msgstr "capítulos: {chapterCount}"
@@ -3252,10 +3248,6 @@ msgstr "Las instalaciones con Docker muestran <0>[SETUP] Setup token:</0> en los
 msgid "Docs"
 msgstr "Documentación"
 
-#: src/components/series/MangaVolumes.tsx
-msgid "Don't want volume {number}"
-msgstr "No quiero el volumen {number}"
-
 #: src/components/import/ImportPickPanel.tsx
 #: src/components/series/IssueStory.tsx
 #: src/lib/statusTone.ts
@@ -3519,6 +3511,10 @@ msgstr "Finalizada"
 #: src/components/settings/AgentsTab.tsx
 msgid "Endpoint"
 msgstr "Endpoint"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Ends at chapter"
+msgstr "Termina en el capítulo"
 
 #: src/components/ai/ChatComposer.tsx
 msgid "enter sends · shift+enter new line"
@@ -4047,10 +4043,6 @@ msgstr "Termina la configuración"
 msgid "Finished without errors"
 msgstr "Terminó sin errores"
 
-#: src/components/series/MangaVolumes.tsx
-msgid "First chapter"
-msgstr "Primer capítulo"
-
 #: src/pages/LoginPage.tsx
 msgid "first-run · create admin"
 msgstr "primer inicio · crear administrador"
@@ -4549,12 +4541,8 @@ msgid "In progress"
 msgstr "En progreso"
 
 #: src/pages/SeriesDetailPage.tsx
-msgid "in vol {coveredVolume}"
-msgstr "en vol. {coveredVolume}"
-
-#: src/pages/SeriesDetailPage.tsx
-msgid "in vol {coveredVolume} (estimated)"
-msgstr "en vol. {coveredVolume} (estimado)"
+msgid "in vol {holdingVolume}"
+msgstr "en vol. {holdingVolume}"
 
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "in your library"
@@ -4796,10 +4784,6 @@ msgstr "últimos 30 días"
 #: src/pages/AttentionPage.tsx
 msgid "last 7 days"
 msgstr "últimos 7 días"
-
-#: src/components/series/MangaVolumes.tsx
-msgid "Last chapter"
-msgstr "Último capítulo"
 
 #: src/components/activity/health/HealthView.tsx
 msgid "Last checked"
@@ -5438,6 +5422,7 @@ msgid "Minimum size must be less than maximum size"
 msgstr "El tamaño mínimo debe ser menor que el máximo"
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/components/series/MangaVolumes.tsx
 msgid "Missing"
 msgstr "Faltan"
 
@@ -8381,7 +8366,6 @@ msgstr "Puerto SMTP"
 msgid "SMTP Server"
 msgstr "Servidor SMTP"
 
-#: src/components/series/MangaVolumes.tsx
 #: src/lib/statusTone.ts
 #: src/pages/ActivityPage.tsx
 msgid "Snatched"
@@ -9562,7 +9546,6 @@ msgstr "Esperando tu decisión."
 
 #: src/components/queue/upcomingColumns.tsx
 #: src/components/releases/IndustryReleasesView.tsx
-#: src/components/series/MangaVolumes.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Want"
 msgstr "Buscar"
@@ -9578,10 +9561,6 @@ msgstr "Buscar {rowLabel}"
 #: src/components/storyarcs/ArcHeader.tsx
 msgid "Want all"
 msgstr "Buscar todo"
-
-#: src/components/series/MangaVolumes.tsx
-msgid "Want volume {number}"
-msgstr "Quiero el volumen {number}"
 
 #: src/lib/releaseState.ts
 msgid "wanted"

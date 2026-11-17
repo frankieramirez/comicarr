@@ -148,30 +148,9 @@ def update_series_content_kind(
 
 
 @router.patch("/series/{comic_id}/volumes/{volume_number}", dependencies=[Depends(require_session)])
-def update_manga_volume(
-    comic_id: str,
-    volume_number: str,
-    request_body: dict = None,
-):
-    """Mark a manga volume Wanted / Skipped, or set which chapters it holds.
-
-    Body: ``status`` ("Wanted", "Skipped", or "" for no decision),
-    ``first_chapter`` + ``last_chapter``, or ``clear_range: true``.
-    """
-    body = request_body or {}
-    status = body.get("status")
-    if status is not None and not isinstance(status, str):
-        return JSONResponse(
-            status_code=400, content={"detail": "status must be a string", "code": "invalid_volume_edit"}
-        )
-    result = series_service.update_manga_volume(
-        comic_id,
-        volume_number,
-        status=status,
-        first_chapter=body.get("first_chapter"),
-        last_chapter=body.get("last_chapter"),
-        clear_range=body.get("clear_range") is True,
-    )
+def set_manga_volume_end(comic_id: str, volume_number: str, request_body: dict = None):
+    """Set the chapter a manga volume ends at (``last_chapter``); null clears it."""
+    result = series_service.set_manga_volume_end(comic_id, volume_number, (request_body or {}).get("last_chapter"))
     if not result["success"]:
         code = 404 if result.get("code") == "series_not_found" else 400
         return JSONResponse(status_code=code, content={"detail": result["error"], "code": result["code"]})

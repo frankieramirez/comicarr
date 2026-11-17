@@ -289,42 +289,20 @@ export function useUpdateSeriesProviderOverride(): UseMutationResult<
 /**
  * Update per-series search flags (pack matching / booktype override)
  */
-export interface MangaVolumeEdit {
-  comicId: string;
-  volume: string;
-  /** "Wanted", "Skipped", or "" for no decision. */
-  status?: "Wanted" | "Skipped" | "";
-  firstChapter?: string;
-  lastChapter?: string;
-  clearRange?: boolean;
-}
-
-/** Mark a manga volume wanted / not wanted, or set the chapters it holds. */
-export function useEditMangaVolume(): UseMutationResult<
+/** Set the chapter a manga volume ends at; null goes back to MangaDex or the estimate. */
+export function useSetMangaVolumeEnd(): UseMutationResult<
   unknown,
   Error,
-  MangaVolumeEdit
+  { comicId: string; volume: string; lastChapter: string | null }
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      comicId,
-      volume,
-      status,
-      firstChapter,
-      lastChapter,
-      clearRange,
-    }) =>
+    mutationFn: ({ comicId, volume, lastChapter }) =>
       apiRequest(
         "PATCH",
         `/api/series/${comicId}/volumes/${encodeURIComponent(volume)}`,
-        {
-          ...(status !== undefined && { status }),
-          ...(firstChapter !== undefined && { first_chapter: firstChapter }),
-          ...(lastChapter !== undefined && { last_chapter: lastChapter }),
-          ...(clearRange && { clear_range: true }),
-        },
+        { last_chapter: lastChapter },
       ),
     onSuccess: (_, { comicId }) => {
       queryClient.invalidateQueries({ queryKey: ["series", comicId] });

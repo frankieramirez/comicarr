@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { useEditMangaVolume } from "@/hooks/useSeries";
+import { useSetMangaVolumeEnd } from "@/hooks/useSeries";
 import { formatNumber } from "@/lib/intl";
 import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
 import type { MangaCoverageKind, MangaProgress, MangaVolume } from "@/types";
@@ -66,9 +66,10 @@ export function MangaCoverageBar({ progress }: { progress: MangaProgress }) {
     "notWanted",
   ];
   const lastChapter = segments.length ? segments[segments.length - 1].to : null;
-  const readable = progress.chaptersReadable;
-  const chapterTotal = progress.chaptersTotal;
-  const summary = t`${readable} of ${chapterTotal} chapters readable`;
+  const volumesOwned = progress.volumesOwned;
+  const volumesTotal = progress.volumesTotal;
+  const chapterFiles = progress.chaptersOwned;
+  const summary = t`${volumesOwned} of ${volumesTotal} volumes, ${chapterFiles} chapter files`;
   return (
     <div className="mt-5" data-testid="manga-coverage">
       <dl className="flex flex-wrap gap-x-7 gap-y-2">
@@ -79,10 +80,6 @@ export function MangaCoverageBar({ progress }: { progress: MangaProgress }) {
         <Stat
           value={formatNumber(progress.chaptersOwned)}
           label={t`chapter files`}
-        />
-        <Stat
-          value={`${formatNumber(progress.chaptersReadable)} / ${formatNumber(progress.chaptersTotal)}`}
-          label={t`chapters you can read`}
         />
         {progress.chaptersGap > 0 && (
           <Stat
@@ -160,30 +157,10 @@ function Stat({
   );
 }
 
-type VolumeFilter = "all" | "have" | "wanted" | "not_wanted";
-
-const DISPLAY_STATUS: Record<MangaVolume["displayState"], string> = {
-  Have: "downloaded",
-  Snatched: "snatched",
-  Wanted: "wanted",
-  "Not wanted": "skipped",
-};
-
-function stateLabel(state: MangaVolume["displayState"]): string {
-  switch (state) {
-    case "Have":
-      return t`Have`;
-    case "Snatched":
-      return t`Snatched`;
-    case "Wanted":
-      return t`Wanted`;
-    case "Not wanted":
-      return t`Not wanted`;
-  }
-}
+type VolumeFilter = "all" | "have" | "missing";
 
 export const VOLUME_GRID_COLS =
-  "grid-cols-[56px_minmax(0,1fr)_auto] md:grid-cols-[56px_200px_minmax(160px,1fr)_120px_180px]";
+  "grid-cols-[56px_minmax(0,1fr)_auto] md:grid-cols-[56px_200px_minmax(160px,1fr)_120px_100px]";
 
 export function MangaVolumeList({
   comicId,
@@ -196,20 +173,16 @@ export function MangaVolumeList({
 }) {
   const [filter, setFilter] = useState<VolumeFilter>("all");
   const [editing, setEditing] = useState<string | null>(null);
+  const have = volumes.filter((volume) => volume.owned).length;
   const counts = {
     all: volumes.length,
-    have: volumes.filter((volume) => volume.owned).length,
-    wanted: volumes.filter((volume) => volume.displayState === "Wanted").length,
-    not_wanted: volumes.filter((volume) => volume.displayState === "Not wanted")
-      .length,
+    have,
+    missing: volumes.length - have,
   };
-  const shown = volumes.filter((volume) => {
-    if (filter === "have") return volume.owned;
-    if (filter === "wanted") return volume.displayState === "Wanted";
-    if (filter === "not_wanted") return volume.displayState === "Not wanted";
-    return true;
-  });
-  const holes = progress.volumesEstimated + progress.volumesUnknown;
+  const shown = volumes.filter(
+    (volume) => filter === "all" || volume.owned === (filter === "have"),
+  );
+  const estimated = progress.volumesEstimated;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="manga-volumes">
@@ -223,8 +196,7 @@ export function MangaVolumeList({
             [
               ["all", t`All`],
               ["have", t`Have`],
-              ["wanted", t`Wanted`],
-              ["not_wanted", t`Not wanted`],
+              ["missing", t`Missing`],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -242,13 +214,13 @@ export function MangaVolumeList({
         </div>
       </div>
 
-      {holes > 0 && (
+      {estimated > 0 && (
         <div className="mx-8 mb-3">
           <Callout tone="warning" data-testid="manga-volume-estimates">
-            {plural(holes, {
-              one: "MangaDex doesn't list the chapters for # volume. Comicarr estimated its range from the volumes around it, and an owned volume covers the chapters in its range. Edit a range if it's off.",
+            {plural(estimated, {
+              one: "MangaDex doesn't list the chapters for # volume, so its range is estimated from the volumes around it. A volume you have covers the chapters in its range. If a range is off, set the chapter that volume ends at.",
               other:
-                "MangaDex doesn't list the chapters for # volumes. Comicarr estimated their ranges from the volumes around them, and an owned volume covers the chapters in its range. Edit a range if it's off.",
+                "MangaDex doesn't list the chapters for # volumes, so their ranges are estimated from the volumes around them. A volume you have covers the chapters in its range. If a range is off, set the chapter that volume ends at.",
             })}
           </Callout>
         </div>
@@ -341,19 +313,15 @@ function VolumeRow({
   editing: boolean;
   onEdit: (open: boolean) => void;
 }) {
-  const edit = useEditMangaVolume();
+  const setEnd = useSetMangaVolumeEnd();
   const { addToast } = useToast();
-  const [first, setFirst] = useState(volume.firstChapter ?? "");
   const [last, setLast] = useState(volume.lastChapter ?? "");
   const number = volume.number;
 
-  const run = async (
-    change: Parameters<typeof edit.mutateAsync>[0],
-    done?: () => void,
-  ) => {
+  const save = async (lastChapter: string | null) => {
     try {
-      await edit.mutateAsync(change);
-      done?.();
+      await setEnd.mutateAsync({ comicId, volume: number, lastChapter });
+      onEdit(false);
     } catch {
       addToast({
         type: "error",
@@ -363,15 +331,6 @@ function VolumeRow({
     }
   };
 
-  const save = (event: FormEvent) => {
-    event.preventDefault();
-    void run(
-      { comicId, volume: number, firstChapter: first, lastChapter: last },
-      () => onEdit(false),
-    );
-  };
-
-  const canDecide = !volume.owned && volume.displayState !== "Snatched";
   return (
     <div
       className="mx-8 border-b border-border-subtle px-2 py-1 text-[13px] hover:bg-surface-1"
@@ -386,40 +345,15 @@ function VolumeRow({
           {volume.location ?? "—"}
         </div>
         <div className="max-md:hidden">
-          <StatusBadge
-            status={DISPLAY_STATUS[volume.displayState]}
-            label={stateLabel(volume.displayState)}
-            variant="dot"
-          />
-        </div>
-        <div className="flex items-center justify-end gap-1">
-          {canDecide && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="toolbar"
-              disabled={edit.isPending}
-              onClick={() =>
-                void run({
-                  comicId,
-                  volume: number,
-                  status:
-                    volume.displayState === "Wanted" ? "Skipped" : "Wanted",
-                })
-              }
-              aria-label={
-                volume.displayState === "Wanted"
-                  ? t`Don't want volume ${number}`
-                  : t`Want volume ${number}`
-              }
-            >
-              {volume.displayState === "Wanted" ? (
-                <Trans>Not wanted</Trans>
-              ) : (
-                <Trans>Want</Trans>
-              )}
-            </Button>
+          {volume.owned ? (
+            <StatusBadge status="downloaded" label={t`Have`} variant="dot" />
+          ) : volume.inFlight ? (
+            <StatusBadge status="snatched" variant="dot" />
+          ) : (
+            <span className="text-muted-foreground">—</span>
           )}
+        </div>
+        <div className="flex justify-end">
           <Button
             type="button"
             variant="ghost"
@@ -434,20 +368,14 @@ function VolumeRow({
       </div>
       {editing && (
         <form
-          onSubmit={save}
+          onSubmit={(event: FormEvent) => {
+            event.preventDefault();
+            void save(last);
+          }}
           className="flex flex-wrap items-center gap-2 pb-2 ps-[68px]"
         >
           <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <Trans>First chapter</Trans>
-            <Input
-              inputMode="decimal"
-              className="h-7 w-20"
-              value={first}
-              onChange={(event) => setFirst(event.target.value)}
-            />
-          </label>
-          <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <Trans>Last chapter</Trans>
+            <Trans>Ends at chapter</Trans>
             <Input
               inputMode="decimal"
               className="h-7 w-20"
@@ -458,7 +386,7 @@ function VolumeRow({
           <Button
             type="submit"
             size="toolbar"
-            disabled={edit.isPending || !first || !last}
+            disabled={setEnd.isPending || !last}
           >
             <Trans>Save</Trans>
           </Button>
@@ -467,12 +395,8 @@ function VolumeRow({
               type="button"
               variant="ghost"
               size="toolbar"
-              disabled={edit.isPending}
-              onClick={() =>
-                void run({ comicId, volume: number, clearRange: true }, () =>
-                  onEdit(false),
-                )
-              }
+              disabled={setEnd.isPending}
+              onClick={() => void save(null)}
             >
               <Trans>Use MangaDex or estimate</Trans>
             </Button>
