@@ -32,7 +32,10 @@ import sqlalchemy
 from sqlalchemy import and_, delete, select, text, update
 
 import comicarr
-from comicarr import db, helpers, importer, locg, logger, mb, updater
+from comicarr import db, helpers, importer, logger, updater
+from comicarr.app.search import mb
+from comicarr.app.storyarcs import readinglist
+from comicarr.app.weekly import locg
 from comicarr.tables import annuals, comics, futureupcoming, issues, weekly
 
 
@@ -1835,7 +1838,7 @@ def send2read(comicid, issueid, issuenum):
                             + " Unsure as to the exact issue this is. Not adding to the Reading list at this time."
                         )
                         return
-        read = comicarr.readinglist.Readinglist(IssueID=issueid)
+        read = readinglist.Readinglist(IssueID=issueid)
         read.addtoreadlist()
     return
 

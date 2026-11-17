@@ -16,7 +16,7 @@ from requests import Response
 from requests.exceptions import HTTPError
 
 import comicarr
-from comicarr import mb
+from comicarr.app.search import mb
 from comicarr.app.search.service import find_comic
 
 

@@ -17,9 +17,9 @@ import types
 import pytest
 from sqlalchemy import insert
 
-from comicarr import mb
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.search import mb
 from comicarr.app.weekly import service as weekly_service
 from comicarr.db import get_engine
 from comicarr.tables import jobhistory, weekly

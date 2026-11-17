@@ -158,8 +158,7 @@ def test_a_fetched_week_returns_the_rows_the_source_stored(monkeypatch, weekly_d
 
 
 def test_fetch_week_falls_back_to_comicvine_on_the_week_midpoint(monkeypatch):
-    from comicarr import locg
-    from comicarr.app.weekly import cv_source
+    from comicarr.app.weekly import cv_source, locg
 
     pulled = []
     monkeypatch.setattr(locg, "locg", lambda **_kwargs: {"status": "failure"})

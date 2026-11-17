@@ -44,7 +44,7 @@ def find_comic(
     Delegates to MangaDex for manga, or mb.findComic for comics/story arcs.
     Returns results with in_library boolean added.
     """
-    from comicarr import mb
+    from comicarr.app.search import mb
 
     if not name:
         return {"error": "Missing a Comic name"}

@@ -20,7 +20,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import comicarr
-from comicarr import locg
+from comicarr.app.weekly import locg
 
 
 @pytest.fixture

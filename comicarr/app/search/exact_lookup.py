@@ -14,7 +14,8 @@ from mokkari.exceptions import ApiError
 from requests.exceptions import HTTPError
 
 import comicarr
-from comicarr import logger, mb
+from comicarr import logger
+from comicarr.app.search import mb
 
 
 def parse_identifier(query):

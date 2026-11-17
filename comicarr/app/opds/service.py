@@ -18,7 +18,7 @@ __all__ = ["comic_pages", "mark_issue_read", "open_archive", "page_count", "scal
 def mark_issue_read(issue_id: str, filename: str) -> None:
     """Mark a downloaded issue read on the reading list, if it is on one."""
     try:
-        from comicarr import readinglist
+        from comicarr.app.storyarcs import readinglist
 
         logger.fdebug("OPDS is attempting to markasRead filename %s aka issue_id %s" % (filename, issue_id))
         readinglist.Readinglist().markasRead(IssueID=issue_id)

@@ -36,6 +36,7 @@ from comicarr.app.library import filers
 from comicarr.app.manga import volumes as manga_volumes
 from comicarr.app.manga.ledger import volume_number_from_id
 from comicarr.app.metadata import cv, series_metadata
+from comicarr.app.weekly import locg
 from comicarr.tables import (
     annuals,
     comics,
@@ -1047,7 +1048,7 @@ def upcoming_update(
                 if hours > 2 or forcecheck == "yes":
                     logger.fdebug("weekinfo:" + str(weekinfo))
                     comicarr.CONFIG.PULL_REFRESH = datetime.datetime.today().replace(second=0, microsecond=0)
-                    comicarr.locg.locg(weeknumber=str(weekinfo["weeknumber"]), year=str(weekinfo["year"]))
+                    locg.locg(weeknumber=str(weekinfo["weeknumber"]), year=str(weekinfo["year"]))
 
             logger.fdebug("linking ComicID to Pull-list to reflect status.")
             downstats = {"ComicID": ComicID, "IssueID": None, "Status": None}

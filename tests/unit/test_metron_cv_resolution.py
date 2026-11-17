@@ -177,7 +177,7 @@ class TestAnnualSearchRouting:
         description text (Metron results carry description=None and would
         crash it, then feed metron- ids to cv.getComic), so findComic must
         never route it to Metron."""
-        from comicarr import mb
+        from comicarr.app.search import mb
 
         class _StopSearch(Exception):
             pass
@@ -187,7 +187,7 @@ class TestAnnualSearchRouting:
             patch.object(comicarr, "CONFIG", fake_config),
             patch.object(comicarr, "METRON_API", MagicMock()),
             patch("comicarr.app.metadata.metron.search_series") as mock_metron_search,
-            patch("comicarr.mb.listLibrary", side_effect=_StopSearch),
+            patch("comicarr.app.search.mb.listLibrary", side_effect=_StopSearch),
         ):
             with pytest.raises(_StopSearch):
                 mb.findComic("Example Series annual", "series", issue=None, annual_check=True)

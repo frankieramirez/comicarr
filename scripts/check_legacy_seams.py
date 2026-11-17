@@ -121,21 +121,14 @@ DEFERRED_ALLOWLIST = {
         "#1422 moves filechecker under comicarr/app/",
     ),
     ("comicarr/app/metadata/service.py", "cmtag"): ("tags files (cmtag.run)", DEFERRED),
-    ("comicarr/app/opds/service.py", "readinglist"): ("OPDS download marks the issue read", DEFERRED),
     ("comicarr/app/search/evaluation.py", "filechecker"): ("FileChecker parses release names", DEFERRED),
-    ("comicarr/app/search/exact_lookup.py", "mb"): ("haveit_for_comicvine and listLibrary", DEFERRED),
     ("comicarr/app/search/interactive.py", "search"): ("interactive search drives search.py", DEFERRED),
-    ("comicarr/app/search/service.py", "mb"): ("findComic", DEFERRED),
     ("comicarr/app/search/service.py", "search"): ("searchforissue", DEFERRED),
     ("comicarr/app/series/service.py", "comicsync"): ("comicScan and import_selected_series", DEFERRED),
     ("comicarr/app/series/service.py", "filechecker"): ("validateAndCreateDirectory", DEFERRED),
     ("comicarr/app/storyarcs/service.py", "filechecker"): ("FileChecker and validateAndCreateDirectory", DEFERRED),
-    ("comicarr/app/storyarcs/service.py", "mb"): ("findComic and storyarcinfo", DEFERRED),
-    ("comicarr/app/storyarcs/service.py", "readinglist"): ("Readinglist", DEFERRED),
     ("comicarr/app/system/service.py", "migration"): ("Mylar3Migration", DEFERRED),
     ("comicarr/app/system/service.py", "versioncheckit"): ("CheckVersion", DEFERRED),
-    ("comicarr/app/weekly/cv_source.py", "locg"): ("store_week", DEFERRED),
-    ("comicarr/app/weekly/service.py", "locg"): ("League of Comic Geeks pull source", DEFERRED),
 }
 
 ALLOWLISTS = {

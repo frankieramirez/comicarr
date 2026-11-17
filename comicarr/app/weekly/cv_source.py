@@ -14,7 +14,7 @@ pull list for the whole week. ComicVine's ``issues`` resource can be filtered by
 ``store_date``, and every row it returns carries the CV volume and issue ids the
 library is keyed on, so the rows match by id with no title guessing.
 
-The rows are written through :func:`comicarr.locg.store_week` in the same shape
+The rows are written through :func:`comicarr.app.weekly.locg.store_week` in the same shape
 Walksoftly produces, so ``new_pullcheck``, Releases and the AI curation read
 them unchanged.
 """
@@ -22,8 +22,9 @@ them unchanged.
 import datetime
 
 import comicarr
-from comicarr import locg, logger
+from comicarr import logger
 from comicarr.app.metadata import cv
+from comicarr.app.weekly import locg
 from comicarr.helpers import ignored_publisher_check
 
 SOURCE = "comicvine"

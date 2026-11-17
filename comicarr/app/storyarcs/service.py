@@ -171,7 +171,7 @@ def resolve_missing_series(arc_id):
     if groups is None:
         return None
 
-    from comicarr import mb
+    from comicarr.app.search import mb
 
     for group in groups:
         match = None
@@ -634,7 +634,8 @@ def _add_story_arc(
 
     Extracted from WebInterface.addStoryArc — standalone, no CherryPy deps.
     """
-    from comicarr import filechecker, mb
+    from comicarr import filechecker
+    from comicarr.app.search import mb
 
     module = "[STORY ARC]"
     iss_arcids = []
@@ -904,7 +905,7 @@ def get_readlist():
 
 def add_to_readlist(issue_id):
     """Add an issue to the reading list."""
-    from comicarr import readinglist
+    from comicarr.app.storyarcs import readinglist
 
     read = readinglist.Readinglist(IssueID=issue_id)
     result = read.addtoreadlist()

@@ -33,12 +33,13 @@ import sqlalchemy.exc
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, filechecker, helpers, logger, mb, search, updater
+from comicarr import db, filechecker, helpers, logger, search, updater
 from comicarr.app.common import series_kind
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.library import filers, moveit
 from comicarr.app.metadata import cv, series_metadata
 from comicarr.app.metadata.series_type import resolve_series_edition
+from comicarr.app.search import mb
 from comicarr.tables import annuals, comics, issues
 
 

@@ -26,6 +26,7 @@ from sqlalchemy import and_, delete
 
 import comicarr
 from comicarr import db, logger
+from comicarr.app.common.series_names import dynamic_series_key
 from comicarr.helpers import ignored_publisher_check
 from comicarr.tables import weekly
 
@@ -223,9 +224,7 @@ def store_week(pull, weeknumber, year):
         if x["issueid"] is not None:
             issueid = x["issueid"]
 
-        cl_d = comicarr.filechecker.FileChecker()
-        cl_dyninfo = cl_d.dynamic_replace(comicname)
-        dynamic_name = re.sub(r"[\|\s]", "", cl_dyninfo["mod_seriesname"].lower()).strip()
+        dynamic_name = dynamic_series_key(comicname)
 
         controlValueDict = {"DynamicName": dynamic_name, "ISSUE": re.sub("#", "", x["issue"]).strip()}
 

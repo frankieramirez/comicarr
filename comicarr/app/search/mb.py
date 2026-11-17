@@ -307,7 +307,6 @@ def findComic(
         if not comicResults:
             break
         for result in comicResults:
-            arclist = []
             if search_type == "story_arc":
                 try:
                     logger.fdebug("story_arc ascension")
@@ -323,7 +322,7 @@ def findComic(
                                 xmlTag = result.getElementsByTagName("name")[n].firstChild.wholeText
                                 xmlTag = xmlTag.strip()
                                 logger.fdebug("name: " + xmlTag)
-                            except:
+                            except Exception:
                                 logger.error(
                                     "There was a problem retrieving the given data from ComicVine. Ensure that www.comicvine.com is accessible."
                                 )
@@ -334,7 +333,7 @@ def findComic(
                             xmlpub = result.getElementsByTagName("name")[n].firstChild.wholeText
 
                         n += 1
-                except:
+                except Exception:
                     logger.warn("error retrieving story arc search results.")
                     return
 
@@ -347,7 +346,7 @@ def findComic(
                     if result.getElementsByTagName("site_detail_url")[s].parentNode.nodeName == "story_arc":
                         try:
                             xmlurl = result.getElementsByTagName("site_detail_url")[s].firstChild.wholeText
-                        except:
+                        except Exception:
                             logger.error(
                                 "There was a problem retrieving the given data from ComicVine. Ensure that www.comicvine.com is accessible."
                             )
@@ -356,54 +355,34 @@ def findComic(
 
                 xmlid = result.getElementsByTagName("id")[0].firstChild.wholeText
 
-                if xmlid is not None:
-                    arcinfolist = {
-                        "comicyear": None,
-                        "issues": "?",
-                        "arclist": None,
-                        "comicimage": "",
-                        "comicthumb": "",
-                        "description": "Story Arc - Click to load details",
-                        "deck": None,
-                        "haveit": "No",
+                arcinfolist = {
+                    "comicyear": None,
+                    "issues": "?",
+                    "arclist": None,
+                    "comicimage": "",
+                    "comicthumb": "",
+                    "description": "Story Arc - Click to load details",
+                    "deck": None,
+                    "haveit": "No",
+                }
+                logger.info("[LAZY LOAD] Story arc %s - details deferred" % xmlid)
+                comiclist.append(
+                    {
+                        "name": xmlTag,
+                        "comicyear": arcinfolist["comicyear"],
+                        "comicid": xmlid,
+                        "cvarcid": xmlid,
+                        "url": xmlurl,
+                        "issues": arcinfolist["issues"],
+                        "comicimage": arcinfolist["comicimage"],
+                        "comicthumb": arcinfolist["comicthumb"],
+                        "publisher": xmlpub,
+                        "description": arcinfolist["description"],
+                        "deck": arcinfolist["deck"],
+                        "arclist": arcinfolist["arclist"],
+                        "haveit": arcinfolist["haveit"],
                     }
-                    logger.info("[LAZY LOAD] Story arc %s - details deferred" % xmlid)
-                    comiclist.append(
-                        {
-                            "name": xmlTag,
-                            "comicyear": arcinfolist["comicyear"],
-                            "comicid": xmlid,
-                            "cvarcid": xmlid,
-                            "url": xmlurl,
-                            "issues": arcinfolist["issues"],
-                            "comicimage": arcinfolist["comicimage"],
-                            "comicthumb": arcinfolist["comicthumb"],
-                            "publisher": xmlpub,
-                            "description": arcinfolist["description"],
-                            "deck": arcinfolist["deck"],
-                            "arclist": arcinfolist["arclist"],
-                            "haveit": arcinfolist["haveit"],
-                        }
-                    )
-                else:
-                    comiclist.append(
-                        {
-                            "name": xmlTag,
-                            "comicyear": arcyear,
-                            "comicid": xmlid,
-                            "url": xmlurl,
-                            "issues": issuecount,
-                            "comicimage": xmlimage,
-                            "comicthumb": xmlthumb,
-                            "publisher": xmlpub,
-                            "description": xmldesc,
-                            "deck": xmldeck,
-                            "arclist": arclist,
-                            "haveit": haveit,
-                        }
-                    )
-
-                    logger.fdebug("IssueID's that are a part of " + xmlTag + " : " + str(arclist))
+                )
             else:
                 xmlcnt = result.getElementsByTagName("count_of_issues")[0].firstChild.wholeText
                 if issue is not None and str(issue).isdigit():
@@ -426,7 +405,7 @@ def findComic(
                         if all([xmllast is not None, xmlfirst is not None]):
                             break
                         i += 1
-                except:
+                except Exception:
                     xmlfirst = "1"
 
                 if all([xmlfirst == xmllast, xmlfirst.isdigit(), xmlcnt == "0"]):
@@ -534,12 +513,12 @@ def findComic(
 
                         try:
                             xmldesc = result.getElementsByTagName("description")[0].firstChild.wholeText
-                        except:
+                        except Exception:
                             xmldesc = "None"
 
                         try:
                             xmldeck = result.getElementsByTagName("deck")[0].firstChild.wholeText
-                        except:
+                        except Exception:
                             xmldeck = "None"
 
                         IMPRINT_PUBLISHERS = ["Marvel", "DC Comics", "Image Comics"]
@@ -669,7 +648,7 @@ def storyarcinfo(xmlid):
 
     try:
         arcdom = parseString(r.content)
-    except ExpatError:
+    except ExpatError as e:
         if "<title>Abnormal Traffic Detected" in r.content:
             logger.error("ComicVine has banned this server's IP address because it exceeded the API rate limit.")
         else:
@@ -700,7 +679,7 @@ def storyarcinfo(xmlid):
 
             isc += 1
 
-    except:
+    except Exception:
         logger.fdebug("unable to retrive issue count - nullifying value.")
         issuecount = 0
 
@@ -721,40 +700,27 @@ def storyarcinfo(xmlid):
             firstdom = cv.pulldetails(comicid=None, rtype="firstissue", issueid=firstid)
             logger.fdebug("success")
             arcyear = cv.Getissue(firstid, firstdom, "firstissue")
-    except:
+    except Exception:
         logger.fdebug("Unable to retrieve first issue details. Not caclulating at this time.")
 
-    try:
-        xmlimage = arcdom.getElementsByTagName("super_url")[0].firstChild.wholeText
-    except:
-        xmlimage = None
-
-    try:
-        xmlimage = result.getElementsByTagName("super_url")[0].firstChild.wholeText
-    except Exception:
-        try:
-            xmlimage = result.getElementsByTagName("small_url")[0].firstChild.wholeText
-        except Exception:
-            xmlimage = None
-
-    try:
-        xmlthumb = result.getElementsByTagName("thumb_url")[0].firstChild.wholeText
-    except Exception:
-        xmlthumb = None
+    # Inherited behavior, kept while story arcs are frozen: the image lookups
+    # read an undefined name, so an arc never had an image or thumbnail here.
+    xmlimage = None
+    xmlthumb = None
 
     try:
         xmldesc = arcdom.getElementsByTagName("desc")[0].firstChild.wholeText
-    except:
+    except Exception:
         xmldesc = "None"
 
     try:
         xmlpub = arcdom.getElementsByTagName("publisher")[0].firstChild.wholeText
-    except:
+    except Exception:
         xmlpub = "None"
 
     try:
         xmldeck = arcdom.getElementsByTagName("deck")[0].firstChild.wholeText
-    except:
+    except Exception:
         xmldeck = "None"
 
     haveit = haveit_for_comicvine(xmlid, comicLibrary)

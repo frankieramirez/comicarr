@@ -100,8 +100,7 @@ def week_window(week=None, year=None, today=None):
 
 def _fetch_week(week, year, start):
     """Store one week's rows from Walksoftly, falling back to ComicVine."""
-    from comicarr import locg
-    from comicarr.app.weekly import cv_source
+    from comicarr.app.weekly import cv_source, locg
 
     try:
         result = locg.locg(weeknumber=week, year=year)

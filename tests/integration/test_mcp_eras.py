@@ -101,7 +101,7 @@ def _library(tmp_path, monkeypatch):
     )
     monkeypatch.setattr("comicarr.app.weekly.service._fetch_week", lambda *_a: None)
     monkeypatch.setattr(
-        "comicarr.mb.findComic",
+        "comicarr.app.search.mb.findComic",
         lambda *_a, **_k: [{"name": "Saga", "comicyear": "2012", "comicid": "1001", "issues": "66", "haveit": "1001"}],
     )
     assert ensure_acquisition_schema(get_engine()).ready
