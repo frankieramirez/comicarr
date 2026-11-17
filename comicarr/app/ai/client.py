@@ -19,7 +19,7 @@ from urllib.parse import urlparse
 
 from openai import AsyncOpenAI, OpenAI
 
-from comicarr import logger
+from comicarr.app.core import logger
 
 
 def create_ai_clients(config):

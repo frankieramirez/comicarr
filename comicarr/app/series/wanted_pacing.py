@@ -30,7 +30,8 @@ import time
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
+from comicarr.app.core import logger
 from comicarr.app.search.backlog import DEFAULT_ITEM_BUDGET, PASS_RSS_WANTED, _config_int
 from comicarr.tables import rss_search_seen
 

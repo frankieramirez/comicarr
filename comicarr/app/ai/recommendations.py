@@ -22,13 +22,13 @@ import threading
 import time
 from datetime import datetime, timedelta
 
-from comicarr import logger
 from comicarr.app.ai import queries as ai_queries
 from comicarr.app.ai import service as ai_service
 from comicarr.app.ai.pull_list import get_collection_patterns
 from comicarr.app.ai.runtime import get_ai_runtime
 from comicarr.app.ai.schemas import SeriesRecommendations
 from comicarr.app.ai.structured import request_structured
+from comicarr.app.core import logger
 from comicarr.app.search import service as search_service
 
 CACHE_KEY = "library_recommendations"

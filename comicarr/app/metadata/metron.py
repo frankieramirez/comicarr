@@ -30,7 +30,7 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.series.service import listLibrary
 
 _IMAGE_CACHE = OrderedDict()

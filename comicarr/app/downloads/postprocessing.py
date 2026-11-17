@@ -14,9 +14,9 @@ from dataclasses import dataclass, replace
 from functools import wraps
 
 import comicarr
-from comicarr import logger
 from comicarr.app.attention import ManualReview, record
 from comicarr.app.common.redaction import redacted_traceback
+from comicarr.app.core import logger
 from comicarr.app.downloads import journal
 from comicarr.app.downloads.pp_commands import PostProcessCommandError, validate_postprocess_item
 

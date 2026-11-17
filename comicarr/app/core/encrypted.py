@@ -26,7 +26,7 @@ import threading
 import bcrypt
 from cryptography.fernet import Fernet
 
-from comicarr import logger
+from comicarr.app.core import logger
 
 _fernet_instance = None
 _fernet_secure_dir = None

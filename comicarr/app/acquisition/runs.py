@@ -15,9 +15,9 @@ import json
 from sqlalchemy import func, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
-from comicarr import logger
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome, RunState
 from comicarr.app.common.redaction import redact_sensitive_text
+from comicarr.app.core import logger
 from comicarr.db import get_engine
 from comicarr.tables import acquisition_run_items, acquisition_runs
 
@@ -90,7 +90,7 @@ def _emit_run_completion_safe(run):
 
         emit_run_completion(run)
     except Exception as e:
-        from comicarr import logger
+        from comicarr.app.core import logger
 
         logger.fdebug("[ACTIVITY] run completion emit skipped: %s" % e)
 

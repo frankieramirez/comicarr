@@ -19,8 +19,8 @@ import datetime
 
 from sqlalchemy import delete
 
-from comicarr import logger
 from comicarr.app.common.dates import normalize_utc_datetime
+from comicarr.app.core import logger
 from comicarr.db import get_engine
 from comicarr.tables import activity_events
 

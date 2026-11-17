@@ -14,10 +14,11 @@ import pytest
 import requests
 
 import comicarr
-from comicarr import logger, sabnzbd
-from comicarr.app.system import maintenance
+from comicarr import sabnzbd
+from comicarr.app.core import logger
 from comicarr.app.downloads import postprocessing
 from comicarr.app.search import commands
+from comicarr.app.system import maintenance
 
 
 @pytest.mark.parametrize(

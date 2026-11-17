@@ -51,7 +51,7 @@ class BackgroundWorkerRegistry:
             try:
                 target(*args, **(kwargs or {}))
             except Exception:
-                from comicarr import logger
+                from comicarr.app.core import logger
 
                 logger.error(
                     "[BACKGROUND-WORKER] %s failed:\n%s" % (threading.current_thread().name, traceback.format_exc())
@@ -88,7 +88,7 @@ class BackgroundWorkerRegistry:
             try:
                 return target(*args, **(kwargs or {}))
             except Exception:
-                from comicarr import logger
+                from comicarr.app.core import logger
 
                 logger.error("[BACKGROUND-WORKER] %s failed:\n%s" % (worker_name, traceback.format_exc()))
                 raise

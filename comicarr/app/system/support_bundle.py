@@ -35,7 +35,7 @@ from typing import Any, Callable, Mapping, Optional
 from jsonschema import Draft202012Validator
 from sqlalchemy import func, select, text
 
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.system.support_bundle_contract import read_contract_bytes
 
 CONTRACT_VERSION = 1

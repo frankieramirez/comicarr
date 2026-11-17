@@ -20,7 +20,7 @@ import re
 import urllib.parse
 from urllib.parse import unquote, urlparse
 
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.search import prowlarr
 
 

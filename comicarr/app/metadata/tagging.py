@@ -31,7 +31,7 @@ import sys
 import tempfile
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.library import directories
 from comicarr.app.metadata import comicinfo
 from comicarr.app.notifications import service as notifiers

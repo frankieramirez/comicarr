@@ -13,7 +13,7 @@ import sqlite3
 import threading
 import time
 
-from comicarr import logger
+from comicarr.app.core import logger
 
 
 class CVCache:

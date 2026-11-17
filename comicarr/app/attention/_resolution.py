@@ -11,7 +11,6 @@
 
 from collections.abc import Sequence
 
-from comicarr import logger
 from comicarr.app.attention._policy import (
     ACTION_IMPORT,
     ACTION_RETRY,
@@ -29,6 +28,7 @@ from comicarr.app.attention.contracts import (
     ResolutionReport,
     ResolutionRequest,
 )
+from comicarr.app.core import logger
 from comicarr.app.downloads import journal
 
 

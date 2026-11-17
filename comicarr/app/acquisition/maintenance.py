@@ -19,7 +19,7 @@ from sqlalchemy import func, insert, inspect, literal, select, text, update
 from sqlalchemy.exc import IntegrityError
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.db import get_engine
 from comicarr.tables import (
     acquisition_canary_permits,

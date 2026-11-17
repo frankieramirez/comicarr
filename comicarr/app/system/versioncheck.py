@@ -33,7 +33,8 @@ import requests
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
+from comicarr.app.core import logger
 from comicarr.tables import jobhistory
 
 _VERSION_FIELDS = {

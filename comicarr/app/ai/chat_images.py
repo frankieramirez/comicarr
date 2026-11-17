@@ -20,7 +20,7 @@ from pathlib import Path
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 
 MAX_IMAGES = 4
 MAX_IMAGE_BYTES = 10 * 1024 * 1024

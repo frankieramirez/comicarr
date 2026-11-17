@@ -39,7 +39,7 @@ import re
 import threading
 from urllib.parse import urlsplit
 
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.search.provider_config import SearchProvider, normalize_category_list, providers_from_config
 from comicarr.app.system import service as system_service
 

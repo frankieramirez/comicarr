@@ -23,7 +23,7 @@ from typing import Any
 from packaging.version import InvalidVersion, Version
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 
 ARCHIVE_FLOOR = 10
 

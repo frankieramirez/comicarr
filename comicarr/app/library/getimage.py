@@ -29,7 +29,7 @@ import rarfile
 import requests
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 
 try:
     from PIL import Image, ImageFile

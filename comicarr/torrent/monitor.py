@@ -30,7 +30,7 @@ idiom silently treats a dead client as connected. Everything here routes through
 import os
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.torrent.contracts import normalize_connection_result
 
 _TORRENT_FIELDS = (

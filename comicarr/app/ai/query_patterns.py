@@ -17,7 +17,8 @@ uses only positional placeholders (?) to prevent SQL injection.
 
 import re
 
-from comicarr import db, logger
+from comicarr import db
+from comicarr.app.core import logger
 
 QUERY_PATTERNS = {
     "search_series": {

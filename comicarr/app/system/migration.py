@@ -26,8 +26,8 @@ import threading
 import sqlalchemy as sa
 
 import comicarr
-from comicarr import db, logger
-from comicarr.app.core import encrypted
+from comicarr import db
+from comicarr.app.core import encrypted, logger
 from comicarr.app.system import maintenance
 
 _migration_lock = threading.Lock()

@@ -33,11 +33,11 @@ from operator import itemgetter
 from pathlib import Path
 
 import comicarr
-from comicarr import db, filechecker, logger
+from comicarr import db, filechecker
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.config.log_level import record_startup_argument, resolve_startup_log_level
 from comicarr.app.config.registry import as_legacy_definitions
-from comicarr.app.core import encrypted
+from comicarr.app.core import encrypted, logger
 from comicarr.app.search import provider_config, prowlarr
 from comicarr.app.system import maintenance
 

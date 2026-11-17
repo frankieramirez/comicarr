@@ -16,11 +16,11 @@ from base64 import b16encode, b32decode
 from urllib.parse import urlparse
 
 import comicarr
-from comicarr import logger
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.common import strings as common_strings
 from comicarr.app.common.torrent_hash import info_hash_of_file
+from comicarr.app.core import logger
 from comicarr.app.downloads.rtorrent_rpc import RTorrentError, Session
 
 

@@ -32,9 +32,10 @@ import sqlalchemy
 from sqlalchemy import and_, delete, select, text, update
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
+from comicarr.app.core import logger
 from comicarr.app.search import mb
 from comicarr.app.search import service as search_service
 from comicarr.app.series import add_workers, comic_add

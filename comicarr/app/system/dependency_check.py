@@ -23,7 +23,7 @@ import platform
 import shutil
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 
 
 class RuntimeCapabilityDiagnostics:

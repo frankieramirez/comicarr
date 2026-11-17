@@ -22,8 +22,8 @@ import datetime
 
 from sqlalchemy import and_, delete, exists, func, or_, select, true
 
-from comicarr import logger
 from comicarr.app.acquisition.models import ItemOutcome
+from comicarr.app.core import logger
 from comicarr.app.downloads.journal import (
     FAILED,
     MANUAL_REVIEW,

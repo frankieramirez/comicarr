@@ -12,7 +12,7 @@
 import os
 from typing import NamedTuple
 
-from comicarr import logger
+from comicarr.app.core import logger
 
 
 class QbittorrentDestination(NamedTuple):

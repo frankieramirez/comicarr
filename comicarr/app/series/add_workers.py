@@ -23,7 +23,7 @@ import uuid
 from collections.abc import Mapping
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.series import comic_add, watchlist_refresh
 from comicarr.app.series.add_activity import emit_add_activity
 

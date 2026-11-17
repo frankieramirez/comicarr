@@ -11,7 +11,7 @@
 
 from pathlib import Path
 
-from comicarr import logger
+from comicarr.app.core import logger
 
 _COMPLETED_ARCHIVE_SUFFIXES = (".cbr", ".cbz", ".cb7", ".cbt", ".pdf", ".zip", ".rar", ".7z")
 

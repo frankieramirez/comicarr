@@ -21,7 +21,8 @@ import requests
 from PIL import Image
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
+from comicarr.app.core import logger
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.library import filers, getimage
 from comicarr.app.metadata import cv

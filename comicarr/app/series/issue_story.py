@@ -22,7 +22,8 @@ import re
 
 from sqlalchemy import func, select
 
-from comicarr import db, logger
+from comicarr import db
+from comicarr.app.core import logger
 from comicarr.app.search import search_history
 from comicarr.tables import activity_events, annuals, issues, pipeline_journal
 

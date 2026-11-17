@@ -29,7 +29,7 @@ from xml.dom.minidom import parseString
 from xml.parsers.expat import ExpatError
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.metadata import cv
 from comicarr.app.search.service import ignored_publisher_check
 from comicarr.app.series.service import haveit_for_series_id, listLibrary

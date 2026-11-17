@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 
 import requests
 
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.core.image_hosts import ALLOWED_IMAGE_DOMAINS
 
 ALLOWED_IMAGE_CONTENT_TYPES = {

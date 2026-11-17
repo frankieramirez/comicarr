@@ -28,7 +28,7 @@ import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader, HTTPBasic, HTTPBasicCredentials
 
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.core.context import AppContext, get_context
 
 JWT_ALGORITHM = "HS256"

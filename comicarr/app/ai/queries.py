@@ -14,7 +14,8 @@ import time
 from sqlalchemy import Float, cast, delete, func, insert, or_, select, update
 from sqlalchemy.exc import OperationalError
 
-from comicarr import db, logger
+from comicarr import db
+from comicarr.app.core import logger
 from comicarr.tables import ai_activity_log as t_ai_activity_log
 from comicarr.tables import ai_cache as t_ai_cache
 from comicarr.tables import ai_metadata_history as t_ai_metadata_history

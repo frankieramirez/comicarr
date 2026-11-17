@@ -25,8 +25,9 @@ import requests
 from sqlalchemy import and_, delete
 
 import comicarr
-from comicarr import db, logger
+from comicarr import db
 from comicarr.app.common.series_names import dynamic_series_key
+from comicarr.app.core import logger
 from comicarr.app.search.service import ignored_publisher_check
 from comicarr.tables import weekly
 

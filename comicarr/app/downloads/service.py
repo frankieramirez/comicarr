@@ -23,9 +23,10 @@ import zipfile
 import rarfile
 
 import comicarr
-from comicarr import db, getcomics, logger, nzbget, sabnzbd
+from comicarr import db, getcomics, nzbget, sabnzbd
 from comicarr.app.attention import Failure, ManualReview, record
 from comicarr.app.common.redaction import redacted_traceback
+from comicarr.app.core import logger
 from comicarr.app.downloads import postprocessing
 from comicarr.app.downloads import queries as dl_queries
 from comicarr.app.downloads.completed_path import resolve_completed_download_file

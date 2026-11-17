@@ -11,9 +11,9 @@
 
 from dataclasses import dataclass
 
-from comicarr import logger
 from comicarr.app.attention import Failure, ManualReview, record
 from comicarr.app.common.redaction import redact_sensitive_text, redacted_traceback
+from comicarr.app.core import logger
 
 
 class HandoffError(RuntimeError):

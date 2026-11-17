@@ -40,8 +40,9 @@ import uuid
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from comicarr import db, logger
+from comicarr import db
 from comicarr.app.common.dates import now
+from comicarr.app.core import logger
 from comicarr.tables import pipeline_journal
 
 RESERVED = "reserved"

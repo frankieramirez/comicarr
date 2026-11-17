@@ -48,13 +48,9 @@ from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
 import comicarr.config
-from comicarr import (
-    logger,
-    rsscheckit,
-    sabnzbd,
-    weeklypullit,
-)
+from comicarr import rsscheckit, sabnzbd, weeklypullit
 from comicarr.app.common import dates as common_dates
+from comicarr.app.core import logger
 from comicarr.app.downloads import service as downloads_service
 from comicarr.app.search import service as search_service
 from comicarr.app.search.queue import FairSearchQueue

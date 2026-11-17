@@ -10,7 +10,7 @@
 """Alembic environment backed by Comicarr's application-owned engine."""
 
 from alembic import context
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.core.schema import autogenerate_include_object, compare_column_type
 from comicarr.db import get_engine
 from comicarr.tables import metadata

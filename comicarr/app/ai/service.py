@@ -14,9 +14,9 @@ AI service — business logic for activity logging, status, and connection testi
 import datetime
 import time
 
-from comicarr import logger
 from comicarr.app.ai import queries as ai_queries
 from comicarr.app.ai.runtime import get_ai_runtime
+from comicarr.app.core import logger
 
 
 def log_activity(

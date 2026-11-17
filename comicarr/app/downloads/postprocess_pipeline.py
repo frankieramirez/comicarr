@@ -24,7 +24,7 @@ from typing import Any
 
 from sqlalchemy import and_, or_, select, update
 
-from comicarr import db, logger
+from comicarr import db
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import numbers as common_numbers
@@ -33,6 +33,7 @@ from comicarr.app.common import strings as common_strings
 from comicarr.app.common.numbers import zero_suppression_prefix
 from comicarr.app.common.placement import OnExisting, Outcome, Purpose
 from comicarr.app.common.redaction import redacted_traceback
+from comicarr.app.core import logger
 from comicarr.app.downloads import journal
 from comicarr.app.downloads import service as downloads_service
 from comicarr.app.downloads.pp_commands import safe_walk

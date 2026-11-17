@@ -39,7 +39,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import ValidationError
 from starlette.middleware.authentication import AuthenticationMiddleware
 
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.mcp.contracts import ContractError, tool_error
 from comicarr.app.mcp.tools import activity as activity_tools
 from comicarr.app.mcp.tools import downloads as downloads_tools

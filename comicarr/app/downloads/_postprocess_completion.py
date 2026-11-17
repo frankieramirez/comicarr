@@ -15,8 +15,9 @@ This module deliberately owns the terminal write: deleting the legacy
 
 from sqlalchemy import and_, delete, or_, select
 
-from comicarr import db, logger
+from comicarr import db
 from comicarr.app.acquisition.evidence import has_verified_library_file
+from comicarr.app.core import logger
 from comicarr.app.downloads import journal
 from comicarr.app.downloads.postprocess_pipeline import PostProcessContext, PostProcessJournalStage
 from comicarr.tables import comics, issues, nzblog, storyarcs

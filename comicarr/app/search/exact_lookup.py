@@ -14,7 +14,7 @@ from mokkari.exceptions import ApiError
 from requests.exceptions import HTTPError
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.search import mb
 
 

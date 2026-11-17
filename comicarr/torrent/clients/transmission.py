@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 import transmission_rpc
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.torrent.contracts import connection_failure
 
 DEFAULT_PORT = 9091

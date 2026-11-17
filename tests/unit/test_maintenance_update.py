@@ -30,7 +30,7 @@ def test_shutdown_with_update_runs_the_updater(monkeypatch):
     update = MagicMock()
     warn = MagicMock()
     monkeypatch.setattr(versioncheck, "update", update)
-    monkeypatch.setattr(comicarr.logger, "warn", warn)
+    monkeypatch.setattr(comicarr.app.core.logger, "warn", warn)
     monkeypatch.setattr(comicarr, "CREATEPID", False, raising=False)
     monkeypatch.setattr(comicarr.os, "_exit", MagicMock(side_effect=_Exited))
 

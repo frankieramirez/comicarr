@@ -27,8 +27,9 @@ import requests
 from packaging.version import parse as parse_version
 
 import comicarr
-from comicarr import cdh_mapping, logger
+from comicarr import cdh_mapping
 from comicarr.app.common.redaction import redact_sensitive_text
+from comicarr.app.core import logger
 
 
 def _stage_action_text(actions):

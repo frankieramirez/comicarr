@@ -19,12 +19,12 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse, JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
-from comicarr import logger
 from comicarr.app.ai import actions as chat_actions
 from comicarr.app.ai import chat_images, chat_store
 from comicarr.app.ai import service as ai_service
 from comicarr.app.ai.chat import stream_chat_response
 from comicarr.app.ai.chat_service import get_thread_lock, release_thread_lock, stream_turn
+from comicarr.app.core import logger
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_session
 

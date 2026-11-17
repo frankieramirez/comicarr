@@ -22,8 +22,9 @@ import datetime
 import threading
 
 import comicarr
-from comicarr import logger, weeklypull
+from comicarr import weeklypull
 from comicarr.app.common import dates as common_dates
+from comicarr.app.core import logger
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.system import service as system_service
 

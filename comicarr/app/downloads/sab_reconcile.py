@@ -21,7 +21,7 @@ post-processing accepts the row once.
 import os
 
 import comicarr
-from comicarr import logger
+from comicarr.app.core import logger
 from comicarr.app.downloads import handoff, journal
 
 INTERVAL_MINUTES = 2
