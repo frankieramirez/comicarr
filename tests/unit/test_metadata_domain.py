@@ -51,7 +51,7 @@ class TestSearchComics:
         result = metadata_service.search_comics(ctx, name="")
         assert "error" in result
 
-    @patch("comicarr.mb")
+    @patch("comicarr.app.search.mb")
     def test_comic_search_delegates_to_mb(self, mock_mb):
         """Comic search delegates to mb.findComic."""
         ctx = _make_test_ctx()
@@ -64,7 +64,7 @@ class TestSearchComics:
         assert "results" in result
         assert result["results"][0]["in_library"] is False
 
-    @patch("comicarr.mb")
+    @patch("comicarr.app.search.mb")
     def test_search_adds_in_library_flag(self, mock_mb):
         """Search adds in_library boolean based on haveit field."""
         ctx = _make_test_ctx()
@@ -79,7 +79,7 @@ class TestSearchComics:
         assert True in in_lib_flags
         assert False in in_lib_flags
 
-    @patch("comicarr.mb")
+    @patch("comicarr.app.search.mb")
     def test_paginated_results_preserved(self, mock_mb):
         """Paginated results (dict with 'results' key) are preserved."""
         ctx = _make_test_ctx()

@@ -19,9 +19,9 @@ from unittest.mock import Mock
 from xml.dom.minidom import parseString
 
 import comicarr
-from comicarr import mb
+from comicarr.app.search import mb
+from comicarr.app.search.mb import haveit_for_comicvine
 from comicarr.app.search.service import find_comic
-from comicarr.mb import haveit_for_comicvine
 
 
 def _library_with_absolute_superman_monthly():

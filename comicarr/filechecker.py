@@ -26,6 +26,8 @@ import unicodedata
 
 import comicarr
 from comicarr import helpers, logger
+from comicarr.app.common.series_names import DYNAMIC_HANDLERS, DYNAMIC_REPLACEMENTS, dynamic_series_name
+from comicarr.app.common.series_names import dynamic_series_key as dynamic_series_key
 from comicarr.app.common.text_dates import parse_text_date
 from comicarr.app.library.directories import check_valid_perms as check_valid_perms
 from comicarr.app.library.directories import setperms as setperms
@@ -140,26 +142,8 @@ class FileChecker(object):
             self.pp_mode = False
 
         self.failed_files = []
-        self.dynamic_handlers = [
-            "/",
-            "-",
-            ":",
-            ";",
-            "'",
-            '"',
-            ",",
-            "&",
-            "?",
-            "!",
-            "+",
-            "*",
-            "(",
-            ")",
-            "\\u2014",
-            "\\u2013",
-            "\\u2019",
-        ]
-        self.dynamic_replacements = ["and", "the"]
+        self.dynamic_handlers = list(DYNAMIC_HANDLERS)
+        self.dynamic_replacements = list(DYNAMIC_REPLACEMENTS)
         self.rippers = ["-empire", "-empire-hd", "minutemen-", "-dcp", "Glorith-HD"]
 
         AS_Alternates = self.altcheck()
@@ -1959,45 +1943,13 @@ class FileChecker(object):
                                 spacer += "|"
                             mod_watchcomic = mod_watchcomic[:wd] + spacer + mod_watchcomic[wd + len(wdrm) :]
 
-        series_name = re.sub(r"[\u2014|\u2013|\u2e3a|\u2e3b]", " - ", series_name)
-        series_name = re.sub("\u2019", " ' ", series_name)
-        seriesdynamic_handlers_match = [x for x in self.dynamic_handlers if x.lower() in series_name.lower()]
-        seriesdynamic_replacements_match = [x for x in self.dynamic_replacements if x.lower() in series_name.lower()]
-        mod_seriesname = re.sub(r"[\s\s+\_\.]", "%$", series_name)
-        mod_seriesname = re.sub(r"[\#]", "", mod_seriesname)
-        ser_find = []
-        sdrm_find = []
-        if any([seriesdynamic_handlers_match, seriesdynamic_replacements_match]):
-            for sdhm in seriesdynamic_handlers_match:
-                ser_find.extend([m.start() for m in re.finditer("\\" + sdhm, mod_seriesname)])
-                if len(ser_find) > 0:
-                    for sf in ser_find:
-                        spacer = ""
-                        for _i in range(0, len(sdhm)):
-                            spacer += "|"
-                        mod_seriesname = mod_seriesname[:sf] + spacer + mod_seriesname[sf + 1 :]
-
-            for sdrm in seriesdynamic_replacements_match:
-                sdrm_find.extend([m.start() for m in re.finditer(sdrm.lower(), mod_seriesname.lower())])
-                if len(sdrm_find) > 0:
-                    for sd in sdrm_find:
-                        spacer = ""
-                        for _i in range(0, len(sdrm)):
-                            spacer += "|"
-                        mod_seriesname = mod_seriesname[:sd] + spacer + mod_seriesname[sd + len(sdrm) :]
-
         if mod_watchcomic:
             mod_watchcomic = re.sub(r"\|+", "|", mod_watchcomic)
             if mod_watchcomic.endswith("|"):
                 mod_watchcomic = mod_watchcomic[:-1]
             mod_watchcomic = re.sub(r"[\%\$]+", "", mod_watchcomic)
 
-        mod_seriesname = re.sub(r"\|+", "|", mod_seriesname)
-        if mod_seriesname.endswith("|"):
-            mod_seriesname = mod_seriesname[:-1]
-        mod_seriesname = re.sub(r"[\%\$]+", "", mod_seriesname)
-
-        return {"mod_watchcomic": mod_watchcomic, "mod_seriesname": mod_seriesname}
+        return {"mod_watchcomic": mod_watchcomic, "mod_seriesname": dynamic_series_name(series_name)}
 
     def altcheck(self):
         AS_Alt = []
@@ -2036,14 +1988,3 @@ class FileChecker(object):
 
     def checkthedate(self, txt, fulldate=False, cnt=0):
         return parse_text_date(txt, fulldate=fulldate, cnt=cnt)
-
-
-def dynamic_series_key(series_name):
-    """The ``DynamicComicName`` lookup key post-processing matches files against.
-
-    Post-processing runs a filename's series through :meth:`FileChecker.dynamic_replace`
-    and drops spaces and ``|`` before comparing it with this column, so every
-    writer must store it the same way.
-    """
-    mod_name = FileChecker(watchcomic=series_name).dynamic_replace(series_name)["mod_seriesname"]
-    return re.sub(r"[\|\s]", "", mod_name.lower()).strip()

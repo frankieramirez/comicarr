@@ -198,7 +198,7 @@ class TestComicScan:
             ),
             patch.object(comicsync.db, "upsert") as upsert,
             patch.object(comicsync.updater, "forceRescan") as force_rescan,
-            patch("comicarr.mb.findComic") as find_comic,
+            patch("comicarr.app.search.mb.findComic") as find_comic,
         ):
             result = comicsync._match_series(
                 "Absolute Batman (2024)",
@@ -326,7 +326,7 @@ class TestComicScan:
             ]
         }
 
-        with patch("comicarr.mb.findComic", return_value={"results": []}) as find_comic:
+        with patch("comicarr.app.search.mb.findComic", return_value={"results": []}) as find_comic:
             result = comicsync._match_series(
                 "Absolute Batman (2024)",
                 ["/comics/Absolute Batman (2024)/Absolute Batman 1.cbz"],
@@ -368,7 +368,7 @@ class TestComicScan:
                     "Batman": ["/comics/Batman/001.cbz", "/comics/Batman/002.cbz"],
                 },
             ),
-            patch("comicarr.mb.findComic", return_value=cv_results),
+            patch("comicarr.app.search.mb.findComic", return_value=cv_results),
         ):
             result = comicsync.comicScan("/comics")
 
@@ -407,7 +407,7 @@ class TestComicScan:
                     "Batman": ["/comics/Batman/001.cbz"],
                 },
             ),
-            patch("comicarr.mb.findComic", side_effect=Exception("API unreachable")),
+            patch("comicarr.app.search.mb.findComic", side_effect=Exception("API unreachable")),
         ):
             result = comicsync.comicScan("/comics")
 

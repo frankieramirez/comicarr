@@ -186,7 +186,7 @@ def test_resolve_missing_series_matches_comicvine():
             ]
         }
 
-    with patch("comicarr.mb.findComic", side_effect=fake_find) as finder:
+    with patch("comicarr.app.search.mb.findComic", side_effect=fake_find) as finder:
         resolved = service.resolve_missing_series("ARC1")
 
     assert finder.call_count == 1
@@ -199,7 +199,7 @@ def test_resolve_missing_series_matches_comicvine():
 def test_resolve_missing_series_unmatched_has_no_match():
     _insert_arc_rows([_arc_row("A1", "Obscure Thing", "1")])
 
-    with patch("comicarr.mb.findComic", return_value={"results": []}):
+    with patch("comicarr.app.search.mb.findComic", return_value={"results": []}):
         resolved = service.resolve_missing_series("ARC1")
 
     assert resolved[0]["match"] is None

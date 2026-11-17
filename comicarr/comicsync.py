@@ -292,7 +292,7 @@ def _match_series(series_name, files, existing_series):
 
     Does NOT import — just returns match information for user selection.
     """
-    from comicarr import mb
+    from comicarr.app.search import mb
 
     result = {
         "series_name": series_name,

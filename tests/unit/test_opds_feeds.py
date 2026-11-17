@@ -232,7 +232,7 @@ def test_links_keep_http_root_prefix(opds, monkeypatch):
 
 
 def test_issue_download_marks_it_read_on_the_reading_list(opds, monkeypatch):
-    from comicarr import readinglist
+    from comicarr.app.storyarcs import readinglist
 
     marked = []
 

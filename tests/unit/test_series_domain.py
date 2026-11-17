@@ -1271,7 +1271,7 @@ class TestHaveitForSeriesId:
 
     @pytest.mark.parametrize("limit", [None, 5], ids=["all-results", "paginated"])
     def test_comicvine_search_does_not_fallback_to_name_year(self, limit):
-        from comicarr import mb
+        from comicarr.app.search import mb
 
         library = self._library_with_absolute_superman()
         series_ids = ("160860", "168589", "166388", "168339", "169086")

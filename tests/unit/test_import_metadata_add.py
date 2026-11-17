@@ -489,10 +489,10 @@ def test_exact_lookup_add_and_reopened_retry_preserve_readiness(pending_import, 
     ctx.config.COMICVINE_API = comicarr.CONFIG.COMICVINE_API
     ctx.config.CV_VERIFY = True
     monkeypatch.setattr(
-        "comicarr.mb.listLibrary", lambda: {row["ComicID"]: row["Status"] for row in db.select_all(select(comics))}
+        "comicarr.app.search.mb.listLibrary", lambda: {row["ComicID"]: row["Status"] for row in db.select_all(select(comics))}
     )
     monkeypatch.setattr(
-        "comicarr.mb.findComic", MagicMock(side_effect=AssertionError("Exact query must not fuzzy-search"))
+        "comicarr.app.search.mb.findComic", MagicMock(side_effect=AssertionError("Exact query must not fuzzy-search"))
     )
     volume = {
         "id": 123,
