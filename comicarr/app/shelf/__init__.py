@@ -7,7 +7,7 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""The shelf: print copies an operator owns or wants.
+"""The shelf: print copies an operator owns.
 
 Display only. Nothing in search, post-processing or volume coverage reads it.
 """

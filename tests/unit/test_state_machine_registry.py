@@ -34,7 +34,6 @@ from comicarr.app.common.state_machines import REGISTRY, StateMachine, StateSubs
 from comicarr.app.downloads import journal
 from comicarr.app.mcp import contracts
 from comicarr.app.series import service as series_service
-from comicarr.app.shelf import service as shelf_service
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -138,10 +137,6 @@ def test_activity_event_status_matches_the_event_vocabulary():
     status = machine("activity_event_status")
     assert set(status.states) == events.STATUSES
     assert set(status.subset("action_required")) == events.ACTION_REQUIRED_STATUSES
-
-
-def test_shelf_copy_state_matches_the_shelf_service():
-    assert machine("shelf_copy_state").states == shelf_service.STATES
 
 
 def test_every_registered_machine_is_documented():

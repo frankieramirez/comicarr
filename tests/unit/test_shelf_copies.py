@@ -72,80 +72,62 @@ def client():
 
 
 def _issue_copy(**fields):
-    return service.create_copy({"ComicID": "100", "ItemKind": "issue", "ItemID": "i64", **fields})
+    return service.create_copy({"ComicID": "100", "ItemID": "i64", **fields})
 
 
 def test_two_covers_of_one_issue_are_two_copies():
-    standard = _issue_copy(GradeService="raw", Grade="9.4", PaidCents=499, Currency="usd", Storage="Long box 03")
-    virgin = _issue_copy(VariantName="1:25 virgin", GradeService="CGC", Grade=9.8, PaidCents=6000, Currency="USD")
+    standard = _issue_copy(Grade="NM", PaidCents=499, Storage="Long box 03")
+    virgin = _issue_copy(VariantName="1:25 virgin", Grade="CGC 9.8", PaidCents=6000)
 
     assert standard["CopyID"] != virgin["CopyID"]
-    assert standard["State"] == "owned"
-    assert standard["Currency"] == "USD"
-    assert virgin["GradeService"] == "cgc"
-    assert virgin["Grade"] == "9.8"
+    assert virgin["Grade"] == "CGC 9.8"
     assert standard["SeriesName"] == "Starfall Saga"
     assert standard["ItemLabel"] == "#64 · Chapter Sixty-Four"
     assert standard["CoverURL"] == "https://img.example/64.jpg"
-    assert standard["Format"] == "single"
-    assert service.series_shelf("100") == {
-        "comic_id": "100",
-        "items": {"issue:i64": {"owned": 2, "wishlist": 0}},
-        "totals": {"on_shelf": 1, "copies": 2, "wishlist": 0, "paid_cents": {"USD": 6499}},
-    }
+    assert service.series_shelf("100") == {"issues": {"i64": 2}, "volumes": {}}
+    listed = service.list_copies(comic_id="100", item_id="i64")
+    assert listed["total"] == 2
+    assert listed["paid_cents"] == 6499
 
 
 def test_a_copy_never_touches_the_issue_status():
     _issue_copy()
-    service.create_copy({"ComicID": "100", "ItemKind": "issue", "ItemID": "i65"})
+    service.create_copy({"ComicID": "100", "ItemID": "i65"})
     with get_engine().connect() as conn:
         statuses = dict(conn.execute(select(issues.c.IssueID, issues.c.Status)).all())
     assert statuses == {"i64": "Downloaded", "i65": "Wanted", "t1": "Skipped"}
 
 
-def test_format_follows_the_series_type():
-    assert service.create_copy({"ComicID": "200", "ItemKind": "issue", "ItemID": "t1"})["Format"] == "tpb"
-    volume = service.create_copy({"ComicID": "md-1", "ItemKind": "volume", "VolumeNumber": "01"})
-    assert volume["Format"] == "tankobon"
+def test_a_manga_volume_is_addressed_by_its_number():
+    volume = service.create_copy({"ComicID": "md-1", "VolumeNumber": "01"})
     assert volume["VolumeNumber"] == "1"
+    assert volume["ItemID"] is None
     assert volume["ItemLabel"] == "Vol. 1"
-    assert service.series_shelf("md-1")["items"] == {"volume:1": {"owned": 1, "wishlist": 0}}
+    assert service.series_shelf("md-1") == {"issues": {}, "volumes": {"1": 1}}
+    assert service.list_copies(comic_id="md-1", volume_number="1")["total"] == 1
 
 
-def test_annuals_are_their_own_item_kind():
-    copy = service.create_copy({"ComicID": "100", "ItemKind": "annual", "ItemID": "a1"})
-    assert copy["ItemKind"] == "annual"
-    assert set(service.series_shelf("100")["items"]) == {"annual:a1"}
+def test_an_annual_is_addressed_like_an_issue():
+    copy = service.create_copy({"ComicID": "100", "ItemID": "a1"})
+    assert copy["ItemLabel"] == "#1"
+    assert service.series_shelf("100")["issues"] == {"a1": 1}
 
 
 @pytest.mark.parametrize(
     ("body", "code", "field"),
     [
-        ({"ComicID": "nope", "ItemKind": "issue", "ItemID": "i64"}, "series_not_found", None),
-        ({"ComicID": "100", "ItemKind": "issue", "ItemID": "missing"}, "item_not_found", None),
-        ({"ComicID": "100", "ItemKind": "issue", "ItemID": "t1"}, "item_not_found", None),
-        ({"ComicID": "100", "ItemKind": "volume", "VolumeNumber": "1"}, "volume_needs_manga", "ItemKind"),
-        ({"ComicID": "md-1", "ItemKind": "volume", "VolumeNumber": ""}, "invalid_field", "VolumeNumber"),
-        ({"ComicID": "100", "ItemKind": "box", "ItemID": "i64"}, "invalid_field", "ItemKind"),
-        ({"ComicID": "100", "ItemKind": "issue", "ItemID": "i64", "State": "sold"}, "invalid_field", "State"),
-        ({"ComicID": "100", "ItemKind": "issue", "ItemID": "i64", "Grade": "11"}, "invalid_field", "Grade"),
-        ({"ComicID": "100", "ItemKind": "issue", "ItemID": "i64", "Grade": "NaN"}, "invalid_field", "Grade"),
-        ({"ComicID": "100", "ItemKind": "issue", "ItemID": "i64", "PaidCents": -1}, "invalid_field", "PaidCents"),
-        ({"ComicID": "100", "ItemKind": "issue", "ItemID": "i64", "PaidCents": 4.99}, "invalid_field", "PaidCents"),
-        ({"ComicID": "100", "ItemKind": "issue", "ItemID": "i64", "Currency": "dollars"}, "invalid_field", "Currency"),
-        (
-            {"ComicID": "100", "ItemKind": "issue", "ItemID": "i64", "BoughtOn": "17/09/2026"},
-            "invalid_field",
-            "BoughtOn",
-        ),
-        ({"ComicID": "100", "ItemKind": "issue", "ItemID": "i64", "Barcode": "abc"}, "invalid_field", "Barcode"),
-        (
-            {"ComicID": "100", "ItemKind": "issue", "ItemID": "i64", "VariantImageURL": "javascript:alert(1)"},
-            "invalid_field",
-            "VariantImageURL",
-        ),
-        ({"ComicID": "100", "ItemKind": "issue", "ItemID": "i64", "Notes": "x" * 4001}, "field_too_long", "Notes"),
-        ({"ComicID": "100", "ItemKind": "issue", "ItemID": "i64", "Owner": "me"}, "unknown_field", "Owner"),
+        ({"ComicID": "nope", "ItemID": "i64"}, "series_not_found", None),
+        ({"ComicID": "100", "ItemID": "missing"}, "item_not_found", None),
+        ({"ComicID": "100", "ItemID": "t1"}, "item_not_found", None),
+        ({"ComicID": "100"}, "invalid_field", "ItemID"),
+        ({"ComicID": "100", "VolumeNumber": "1"}, "volume_needs_manga", "VolumeNumber"),
+        ({"ComicID": "md-1", "VolumeNumber": "x" * 33}, "invalid_field", "VolumeNumber"),
+        ({"ComicID": "md-1", "ItemID": "i64", "VolumeNumber": "1"}, "invalid_field", "VolumeNumber"),
+        ({"ComicID": "100", "ItemID": "i64", "PaidCents": -1}, "invalid_field", "PaidCents"),
+        ({"ComicID": "100", "ItemID": "i64", "PaidCents": 4.99}, "invalid_field", "PaidCents"),
+        ({"ComicID": "100", "ItemID": "i64", "Grade": 9.8}, "invalid_field", "Grade"),
+        ({"ComicID": "100", "ItemID": "i64", "Notes": "x" * 4001}, "field_too_long", "Notes"),
+        ({"ComicID": "100", "ItemID": "i64", "Owner": "me"}, "unknown_field", "Owner"),
     ],
 )
 def test_bad_input_is_refused_with_a_code(body, code, field):
@@ -157,121 +139,90 @@ def test_bad_input_is_refused_with_a_code(body, code, field):
         assert conn.execute(select(physical_copies)).first() is None
 
 
-def test_a_17_digit_comic_upc_and_an_isbn_10_are_accepted():
-    assert _issue_copy(Barcode="76194134182800111")["Barcode"] == "76194134182800111"
-    assert _issue_copy(Barcode="080442957X")["Barcode"] == "080442957X"
-
-
 def test_the_copy_outlives_its_series_and_relinks_when_it_returns():
-    copy = _issue_copy(VariantName="1:25 virgin")
+    _issue_copy(VariantName="1:25 virgin")
     with get_engine().begin() as conn:
         conn.execute(delete(issues).where(issues.c.ComicID == "100"))
         conn.execute(delete(comics).where(comics.c.ComicID == "100"))
 
-    orphan = service.get_copy(copy["CopyID"])
+    orphan = service.list_copies(query="starfall")["results"][0]
     assert orphan["SeriesPresent"] is False
     assert orphan["SeriesName"] == "Starfall Saga"
     assert orphan["ItemLabel"] == "#64 · Chapter Sixty-Four"
-    assert service.list_copies(query="starfall")["total"] == 1
 
     with get_engine().begin() as conn:
         conn.execute(insert(comics).values(ComicID="100", ComicName="Starfall Saga (2012)"))
-    back = service.get_copy(copy["CopyID"])
+    back = service.list_copies(comic_id="100")["results"][0]
     assert back["SeriesPresent"] is True
     assert back["SeriesName"] == "Starfall Saga (2012)"
 
 
-def test_update_changes_operator_fields_but_not_the_item():
-    copy = _issue_copy()
-    updated = service.update_copy(copy["CopyID"], {"State": "wishlist", "Grade": "", "Storage": "  Slab shelf "})
-    assert updated["State"] == "wishlist"
+def test_update_changes_what_is_recorded_but_not_the_item():
+    copy = _issue_copy(Grade="VF")
+    updated = service.update_copy(copy["CopyID"], {"Grade": "", "Storage": "  Slab shelf "})
+    assert updated["Grade"] is None
     assert updated["Storage"] == "Slab shelf"
+    assert updated["ItemID"] == "i64"
     with pytest.raises(service.CopyError) as caught:
         service.update_copy(copy["CopyID"], {"ItemID": "i65"})
-    assert caught.value.code == "field_not_editable"
+    assert caught.value.code == "unknown_field"
     with pytest.raises(service.CopyError) as caught:
         service.update_copy("missing", {"Notes": "x"})
     assert caught.value.status == 404
 
 
-def test_bulk_mark_promotes_a_wishlist_entry_and_skips_owned_items():
-    items = [{"ItemKind": "issue", "ItemID": "i64"}, {"ItemKind": "issue", "ItemID": "i65"}]
-    assert service.mark_items("100", "wishlist", items) == {"created": 2, "promoted": 0, "skipped": 0}
-    assert service.mark_items("100", "wishlist", items) == {"created": 0, "promoted": 0, "skipped": 2}
-    assert service.mark_items("100", "owned", items[:1]) == {"created": 0, "promoted": 1, "skipped": 0}
-    assert service.mark_items("100", "owned", items) == {"created": 0, "promoted": 1, "skipped": 1}
-    assert service.mark_items("100", "wishlist", items) == {"created": 0, "promoted": 0, "skipped": 2}
-    assert service.series_shelf("100")["items"] == {
-        "issue:i64": {"owned": 1, "wishlist": 0},
-        "issue:i65": {"owned": 1, "wishlist": 0},
-    }
+def test_bulk_mark_adds_one_copy_where_there_is_none():
+    _issue_copy(VariantName="Cover B")
+    assert service.mark_items("100", {"ItemIDs": ["i64", "i65", "a1", "i65"]}) == {"created": 2, "skipped": 2}
+    assert service.series_shelf("100")["issues"] == {"i64": 1, "i65": 1, "a1": 1}
+    assert service.mark_items("md-1", {"VolumeNumbers": ["1", "02"]}) == {"created": 2, "skipped": 0}
+    assert service.series_shelf("md-1")["volumes"] == {"1": 1, "2": 1}
 
 
 def test_bulk_mark_is_all_or_nothing():
-    items = [{"ItemKind": "issue", "ItemID": "i64"}, {"ItemKind": "issue", "ItemID": "missing"}]
     with pytest.raises(service.CopyError):
-        service.mark_items("100", "owned", items)
-    assert service.series_shelf("100")["items"] == {}
+        service.mark_items("100", {"ItemIDs": ["i64", "missing"]})
+    with pytest.raises(service.CopyError):
+        service.mark_items("100", {"ItemIDs": []})
+    assert service.series_shelf("100") == {"issues": {}, "volumes": {}}
 
 
-def test_summary_counts_owned_items_and_keeps_currencies_apart():
-    _issue_copy(PaidCents=499, Currency="USD", GradeService="cgc", Grade="9.8", EstimateCents=14000)
-    _issue_copy(PaidCents=300, Currency="EUR")
-    service.create_copy({"ComicID": "100", "ItemKind": "issue", "ItemID": "i65", "State": "wishlist"})
-    assert service.summary() == {
-        "copies": 2,
-        "items": 1,
-        "wishlist": 1,
-        "graded": 1,
-        "paid_cents": {"USD": 499, "EUR": 300},
-        "estimate_cents": {"USD": 14000},
-        "estimated_copies": 1,
-    }
-
-
-def test_list_filters_and_storage_places():
-    _issue_copy(Storage="Long box 03")
-    _issue_copy(Storage="Slab shelf", State="wishlist")
-    service.create_copy({"ComicID": "md-1", "ItemKind": "volume", "VolumeNumber": "2", "Storage": "Shelf B"})
+def test_search_reaches_the_storage_place_and_pages_keep_the_full_total():
+    _issue_copy(Storage="Long box 03", PaidCents=499)
+    _issue_copy(Storage="Slab shelf", PaidCents=1000)
+    service.create_copy({"ComicID": "md-1", "VolumeNumber": "2", "Storage": "Shelf B"})
 
     assert service.list_copies(comic_id="100")["total"] == 2
-    assert service.list_copies(state="wishlist")["total"] == 1
-    assert service.list_copies(item_kind="volume")["total"] == 1
-    assert service.list_copies(storage="Long box 03")["total"] == 1
-    assert service.list_copies(limit=1)["results"][0]["ComicID"] in {"100", "md-1"}
-    assert set(service.storage_places()) == {"Long box 03", "Slab shelf", "Shelf B"}
-    with pytest.raises(service.CopyError):
-        service.list_copies(state="sold")
+    assert service.list_copies(query="long box")["paid_cents"] == 499
+    assert service.list_copies(query="paper tig")["total"] == 1
+    page = service.list_copies(limit=1)
+    assert len(page["results"]) == 1
+    assert page["total"] == 3
+    assert page["paid_cents"] == 1499
 
 
 def test_routes_round_trip_and_return_codes(client):
-    created = client.post("/api/shelf/copies", json={"ComicID": "100", "ItemKind": "issue", "ItemID": "i64"})
+    created = client.post("/api/shelf/copies", json={"ComicID": "100", "ItemID": "i64"})
     assert created.status_code == 201
     copy_id = created.json()["CopyID"]
 
-    assert client.get("/api/shelf/copies/%s" % copy_id).json()["ItemID"] == "i64"
     patched = client.patch("/api/shelf/copies/%s" % copy_id, json={"Grade": "9.6"})
     assert patched.status_code == 200 and patched.json()["Grade"] == "9.6"
 
-    refused = client.patch("/api/shelf/copies/%s" % copy_id, json={"Grade": "eleven"})
+    refused = client.patch("/api/shelf/copies/%s" % copy_id, json={"PaidCents": "4.99"})
     assert refused.status_code == 400
-    assert refused.json() == {"detail": "invalid_field", "code": "invalid_field", "field": "Grade"}
+    assert refused.json() == {"detail": "invalid_field", "code": "invalid_field", "field": "PaidCents"}
 
-    missing = client.post("/api/shelf/copies", json={"ComicID": "nope", "ItemKind": "issue", "ItemID": "x"})
+    missing = client.post("/api/shelf/copies", json={"ComicID": "nope", "ItemID": "x"})
     assert missing.status_code == 404 and missing.json()["code"] == "series_not_found"
 
-    marked = client.post(
-        "/api/shelf/series/100/mark", json={"State": "owned", "items": [{"ItemKind": "issue", "ItemID": "i65"}]}
-    )
-    assert marked.json() == {"created": 1, "promoted": 0, "skipped": 0}
-    assert client.get("/api/shelf/series/100").json()["totals"]["on_shelf"] == 2
-    assert client.get("/api/shelf/summary").json()["copies"] == 2
-    assert client.get("/api/shelf/copies", params={"state": "owned"}).json()["total"] == 2
-    assert client.get("/api/shelf/copies", params={"state": "sold"}).status_code == 400
+    marked = client.post("/api/shelf/series/100/mark", json={"ItemIDs": ["i64", "i65"]})
+    assert marked.json() == {"created": 1, "skipped": 1}
+    assert client.get("/api/shelf/series/100").json() == {"issues": {"i64": 1, "i65": 1}, "volumes": {}}
+    assert client.get("/api/shelf/copies", params={"item_id": "i65"}).json()["total"] == 1
 
     assert client.delete("/api/shelf/copies/%s" % copy_id).status_code == 204
     assert client.delete("/api/shelf/copies/%s" % copy_id).status_code == 404
-    assert client.get("/api/shelf/copies/%s" % copy_id).status_code == 404
 
 
 def test_every_route_requires_a_session():
