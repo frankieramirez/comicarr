@@ -137,13 +137,14 @@ export function jobRows(jobs: ScheduledJobHealth[]): JobRow[] {
           (lastSuccess == null || lastFailure > lastSuccess));
       const busy = state === "running" || state === "queued";
       const paused = state === "paused" || !job.next_run_time;
+      const partial = Boolean(job.result_partial) && lastRun != null;
       const error = dispatch.last_error || job.last_error;
       return {
         id: job.id,
         label: JOB_LABELS()[job.id] ?? job.name,
         tone: failing
           ? "fail"
-          : busy
+          : busy || partial
             ? "warn"
             : paused
               ? "idle"
@@ -159,7 +160,7 @@ export function jobRows(jobs: ScheduledJobHealth[]): JobRow[] {
               : paused
                 ? t`Paused`
                 : lastRun
-                  ? job.result || t`Finished without errors`
+                  ? job.result || t`Finished, nothing to report`
                   : t`Hasn't run yet`,
         failing,
         busy,

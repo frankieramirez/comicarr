@@ -3784,6 +3784,10 @@ msgid "Everything from Mylar3 has been imported. You may need to refresh metadat
 msgstr "Mylar3 中的所有内容都已导入。你可能需要刷新少数系列的元数据。"
 
 #: src/pages/ReleasesPage.tsx
+msgid "Everything out the week of {date}: comics, manga, manhwa and manhua"
+msgstr "{date} 这一周的全部发行：漫画、日漫、韩漫和国漫"
+
+#: src/pages/ReleasesPage.tsx
 msgid "Everything out this week: comics, manga, manhwa and manhua"
 msgstr "本周发布的全部内容：漫画、日漫、韩漫和国漫"
 
@@ -4195,8 +4199,8 @@ msgid "Finish setting up"
 msgstr "完成设置"
 
 #: src/lib/healthRows.ts
-msgid "Finished without errors"
-msgstr "已完成，没有错误"
+msgid "Finished, nothing to report"
+msgstr "已完成，没有可报告的内容"
 
 #: src/pages/LoginPage.tsx
 msgid "first-run · create admin"
@@ -9129,6 +9133,10 @@ msgstr "正在将该系列添加到你的书库。"
 msgid "The server is shutting down. Please wait..."
 msgstr "服务器正在关闭。请稍候…"
 
+#: src/lib/api.ts
+msgid "The server took more than {seconds} seconds to answer. Try again."
+msgstr "服务器超过 {seconds} 秒未响应。请重试。"
+
 #: src/lib/shelf.ts
 msgid "The shelf could not be updated. Please try again."
 msgstr "无法更新书架，请重试。"
@@ -9493,6 +9501,10 @@ msgstr "无法加载需要关注"
 msgid "Unable to load pending imports"
 msgstr "无法加载待处理的导入"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Unable to load releases"
+msgstr "无法加载发行列表"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Unable to load series"
 msgstr "无法加载系列"
@@ -9516,10 +9528,6 @@ msgstr "无法加载搜索预览。"
 #: src/components/RouteLoader.tsx
 msgid "Unable to load this page"
 msgstr "无法加载此页面"
-
-#: src/components/releases/IndustryReleasesView.tsx
-msgid "Unable to load this week's releases"
-msgstr "无法加载本周新刊"
 
 #: src/pages/WantedPage.tsx
 msgid "Unable to load wanted issues"

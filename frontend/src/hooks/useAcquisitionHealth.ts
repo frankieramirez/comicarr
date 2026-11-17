@@ -130,6 +130,8 @@ export interface ScheduledJobHealth {
   last_error?: string | null;
   /** One-line summary of what the last run did ("1 grabbed of 40 searched"). */
   result?: string | null;
+  /** The last run only partly worked (some grabs or imports failed). */
+  result_partial?: boolean;
 }
 
 /** One configured connection and the answer it gave its last check. */

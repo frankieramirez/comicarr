@@ -6,7 +6,7 @@ import {
   type UseQueryResult,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api";
+import { apiGetWithTimeout, apiRequest } from "@/lib/api";
 import type {
   ForceSearchResult,
   WantedIssue,
@@ -178,10 +178,11 @@ export function useUpcoming(
       week?.year ?? "current",
       week?.week ?? "current",
     ],
-    queryFn: () =>
-      apiRequest<UpcomingIssue[]>(
-        "GET",
+    queryFn: ({ signal }) =>
+      apiGetWithTimeout<UpcomingIssue[]>(
         `/api/upcoming${query ? `?${query}` : ""}`,
+        30_000,
+        signal,
       ),
     staleTime: 2 * 60 * 1000, // 2 minutes (more frequent than series)
   });

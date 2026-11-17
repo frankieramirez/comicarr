@@ -3784,6 +3784,10 @@ msgid "Everything from Mylar3 has been imported. You may need to refresh metadat
 msgstr "تم استيراد كل شيء من Mylar3. قد تحتاج إلى تحديث البيانات الوصفية لبعض السلاسل."
 
 #: src/pages/ReleasesPage.tsx
+msgid "Everything out the week of {date}: comics, manga, manhwa and manhua"
+msgstr "كل ما يصدر في أسبوع {date}: قصص مصورة ومانغا ومانهوا ومانهوا صينية"
+
+#: src/pages/ReleasesPage.tsx
 msgid "Everything out this week: comics, manga, manhwa and manhua"
 msgstr "كل ما صدر هذا الأسبوع: كوميكس ومانغا ومانهوا ومانخوا"
 
@@ -4195,8 +4199,8 @@ msgid "Finish setting up"
 msgstr "أكمل الإعداد"
 
 #: src/lib/healthRows.ts
-msgid "Finished without errors"
-msgstr "انتهى دون أخطاء"
+msgid "Finished, nothing to report"
+msgstr "انتهى، لا شيء للإبلاغ عنه"
 
 #: src/pages/LoginPage.tsx
 msgid "first-run · create admin"
@@ -9129,6 +9133,10 @@ msgstr "جارٍ إضافة السلسلة إلى مكتبتك."
 msgid "The server is shutting down. Please wait..."
 msgstr "الخادم يتوقف. يُرجى الانتظار..."
 
+#: src/lib/api.ts
+msgid "The server took more than {seconds} seconds to answer. Try again."
+msgstr "استغرق الخادم أكثر من {seconds} ثانية للرد. حاول مرة أخرى."
+
 #: src/lib/shelf.ts
 msgid "The shelf could not be updated. Please try again."
 msgstr "تعذّر تحديث الرف. حاول مرة أخرى."
@@ -9493,6 +9501,10 @@ msgstr "تعذّر تحميل ما يحتاج إلى انتباه"
 msgid "Unable to load pending imports"
 msgstr "تعذّر تحميل الاستيرادات المعلّقة"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Unable to load releases"
+msgstr "تعذّر تحميل الإصدارات"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Unable to load series"
 msgstr "تعذّر تحميل السلسلة"
@@ -9516,10 +9528,6 @@ msgstr "تعذّر تحميل معاينة البحث."
 #: src/components/RouteLoader.tsx
 msgid "Unable to load this page"
 msgstr "تعذّر تحميل هذه الصفحة"
-
-#: src/components/releases/IndustryReleasesView.tsx
-msgid "Unable to load this week's releases"
-msgstr "تعذّر تحميل إصدارات هذا الأسبوع"
 
 #: src/pages/WantedPage.tsx
 msgid "Unable to load wanted issues"

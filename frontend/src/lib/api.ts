@@ -1,4 +1,4 @@
-import { t } from "@lingui/core/macro";
+import { ph, t } from "@lingui/core/macro";
 /**
  * Comicarr API Client
  * Handles all API calls to the Comicarr backend
@@ -458,4 +458,35 @@ export async function apiRequest<T = unknown>(
     console.error("API request failed:", { method, path, error });
     throw error;
   }
+}
+
+/**
+ * GET that gives up after `ms`. A hung request otherwise leaves a page on
+ * its loading state forever, with no error and no Retry (#1500). The
+ * query's own signal still cancels it as usual.
+ */
+export async function apiGetWithTimeout<T = unknown>(
+  path: string,
+  ms: number,
+  signal?: AbortSignal,
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort("timeout"), ms);
+  const cancel = () => controller.abort(signal?.reason);
+  signal?.addEventListener("abort", cancel, { once: true });
+  let failure: unknown;
+  try {
+    return await apiRequest<T>("GET", path, null, controller.signal);
+  } catch (error) {
+    failure = error;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", cancel);
+  }
+  if (controller.signal.reason === "timeout") {
+    throw new Error(
+      t`The server took more than ${ph({ seconds: Math.round(ms / 1000) })} seconds to answer. Try again.`,
+    );
+  }
+  throw failure;
 }

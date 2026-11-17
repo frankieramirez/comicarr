@@ -83,6 +83,26 @@ def test_search_counts_only_runs_since_its_last_attempt(health_db):
     assert job_results.summarize("search", T0.timestamp()) == "1 grabbed of 2 searched"
 
 
+def test_partly_failed_runs_are_marked_partial(health_db):
+    """A run that grabbed or imported some but failed others is not a plain success (#1506)."""
+    _run(health_db, "a", "search", "wanted_scan", 1, 3, 1, failed=2)
+    _event(health_db, "grab", "failed", 2)
+    _event(health_db, "import", "failed", 3)
+
+    search = job_results.summarize("search", T0.timestamp())
+    assert search == "1 grabbed of 3 searched, 2 failed"
+    assert search.partial is True
+    rss = job_results.summarize("rss", T0.timestamp())
+    assert rss == "1 grab failed"
+    assert rss.partial is True
+    assert job_results.summarize("monitor", T0.timestamp()).partial is True
+
+
+def test_clean_runs_are_not_partial(health_db):
+    _run(health_db, "a", "search", "wanted_scan", 1, 1, 1)
+    assert getattr(job_results.summarize("search", T0.timestamp()), "partial", False) is False
+
+
 def test_search_with_nothing_wanted_says_so(health_db):
     assert job_results.summarize("search", T0.timestamp()) == "Nothing wanted to search"
 

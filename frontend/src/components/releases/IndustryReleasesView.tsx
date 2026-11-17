@@ -223,7 +223,7 @@ export default function IndustryReleasesView({
     return (
       <ErrorDisplay
         error={error}
-        title={t`Unable to load this week's releases`}
+        title={t`Unable to load releases`}
         onRetry={() => refetch()}
       />
     );
