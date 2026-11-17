@@ -41,7 +41,7 @@ from sqlalchemy.engine import make_url
 
 import comicarr
 from alembic import command
-from comicarr import config as config_module
+from comicarr.app.config import ini as config_module
 from comicarr.app.core import db, runtime
 from comicarr.app.core.schema import (
     DatabaseState,
@@ -496,7 +496,7 @@ def test_6_config_ini_loads_saves_and_reloads_with_no_key_lost(upgraded):
     era = _ini_values(upgraded.source_config) if upgraded.source_config.exists() else {}
     if upgraded.row.mylar:
         # Only settings Comicarr defines, in the section it defines them, are imported.
-        from comicarr.config import _CONFIG_DEFINITIONS
+        from comicarr.app.config.ini import _CONFIG_DEFINITIONS
 
         era = {
             (section, key): value

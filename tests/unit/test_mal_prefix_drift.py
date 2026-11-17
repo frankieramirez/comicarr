@@ -186,7 +186,7 @@ class TestMangaDexAddRecordsItsId:
             raising=False,
         )
         import comicarr.app.manga.mangadex as mangadex
-        from comicarr import config as comicarr_config
+        from comicarr.app.config import ini as comicarr_config
 
         monkeypatch.setattr(
             mangadex,

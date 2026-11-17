@@ -9,7 +9,7 @@
 
 """The config key registry: one entry type, one definition per key.
 
-Today `comicarr/config.py` holds `_CONFIG_DEFINITIONS`, and four more places
+Today `comicarr/app/config/ini.py` holds `_CONFIG_DEFINITIONS`, and four more places
 repeat slices of the same knowledge: `get_safe_config`'s `safe_keys` list and
 `WRITABLE_CONFIG_KEYS` in `comicarr/app/system/service.py`, plus that module's
 `SCHEDULER_JOB_INTERVALS` and `SCHEDULER_JOB_REQUIRED_CONFIG`. A key added in

@@ -347,7 +347,7 @@ class TestMangaCoverCachePath:
 
         monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: _mal_details())
         monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: "uuid-1")
-        monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: None)
+        monkeypatch.setattr("comicarr.app.config.ini.get_manga_destination", lambda: None)
         monkeypatch.setattr(metadata_service, "getImage", lambda *a, **k: {"status": getimage_status})
         monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
         monkeypatch.setattr(series_service, "ComicSort", lambda **k: None)
@@ -447,7 +447,7 @@ class TestMangaRefreshPreservesLibraryState:
         )
         monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: _mal_details())
         monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: None)
-        monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: str(tmp_path / "manga-dest"))
+        monkeypatch.setattr("comicarr.app.config.ini.get_manga_destination", lambda: str(tmp_path / "manga-dest"))
         monkeypatch.setattr(metadata_service, "getImage", lambda *a, **k: {"status": "failed"})
         monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
         monkeypatch.setattr(series_service, "ComicSort", lambda **k: None)
@@ -526,7 +526,7 @@ class TestMangaRefreshPreservesContentKind:
             SimpleNamespace(CREATE_FOLDERS=False, FOLDER_FORMAT="$Series ($Year)"),
             raising=False,
         )
-        monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: None)
+        monkeypatch.setattr("comicarr.app.config.ini.get_manga_destination", lambda: None)
         monkeypatch.setattr(metadata_service, "getImage", lambda *a, **k: {"status": "failed"})
         monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
         monkeypatch.setattr(series_service, "ComicSort", lambda **k: None)

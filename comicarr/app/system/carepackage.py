@@ -29,8 +29,8 @@ import zipfile
 from glob import glob
 
 import comicarr
-from comicarr import config as config_module
 from comicarr.app.common.redaction import redact_sensitive_text
+from comicarr.app.config import ini as config_module
 from comicarr.app.core import encrypted, logger
 from comicarr.app.system import versioncheck
 

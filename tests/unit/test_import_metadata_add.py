@@ -230,7 +230,7 @@ def test_mangadex_metadata_add_is_unmonitored_without_placeholder_issues(metadat
             "pagination": {"total": 1},
         },
     )
-    monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: str(tmp_path / "library"))
+    monkeypatch.setattr("comicarr.app.config.ini.get_manga_destination", lambda: str(tmp_path / "library"))
     comicarr.CONFIG.FOLDER_FORMAT = "$Series ($Year)"
     result = comic_add.add_comic("md-abc", metadata_only=True)
     assert result["comicid"] == "md-abc"

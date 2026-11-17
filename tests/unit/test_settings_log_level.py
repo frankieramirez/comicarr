@@ -34,11 +34,11 @@ import threading
 import pytest
 
 import comicarr
+from comicarr.app.config.ini import config_transaction_lock
 from comicarr.app.config.log_level import ACCEPTED_FORMS
 from comicarr.app.core import logger as comicarr_logger
 from comicarr.app.core.context import AppContext
 from comicarr.app.system import service as system_service
-from comicarr.config import config_transaction_lock
 
 
 class FakeConfig:

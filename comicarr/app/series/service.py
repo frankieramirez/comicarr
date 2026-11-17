@@ -551,8 +551,8 @@ def _location_under_manga_dest(location, manga_dest):
 
 
 def _manga_destination():
-    # Lazy import: comicarr.config imports this module during init.
-    from comicarr.config import get_manga_destination
+    # Lazy import: comicarr.app.config.ini imports this module during init.
+    from comicarr.app.config.ini import get_manga_destination
 
     return get_manga_destination()
 

@@ -11,7 +11,7 @@ import types
 
 import comicarr
 from comicarr import search
-from comicarr.config import clamp_search_delay, minutes_to_search_delay_seconds
+from comicarr.app.config.ini import clamp_search_delay, minutes_to_search_delay_seconds
 
 
 def test_configured_search_delay_is_seconds(monkeypatch):

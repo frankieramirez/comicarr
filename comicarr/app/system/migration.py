@@ -446,7 +446,7 @@ def migrate_mylar3_config(source_path):
     source_config = configparser.RawConfigParser()
     source_config.read(config_path)
 
-    from comicarr.config import _BAD_DEFINITIONS, _CONFIG_DEFINITIONS, minutes_to_search_delay_seconds
+    from comicarr.app.config.ini import _BAD_DEFINITIONS, _CONFIG_DEFINITIONS, minutes_to_search_delay_seconds
 
     values = {}
     for key, definition in _CONFIG_DEFINITIONS.items():

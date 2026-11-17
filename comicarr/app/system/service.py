@@ -530,7 +530,7 @@ def _validate_library_folder(ctx, value):
 def update_config(ctx, key_values):
     """Update configuration key-values and trigger scheduler reconfiguration."""
     import comicarr
-    from comicarr.config import config_transaction_lock
+    from comicarr.app.config.ini import config_transaction_lock
 
     if not ctx.config:
         return {"success": False, "error": "Config not loaded"}

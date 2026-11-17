@@ -73,7 +73,7 @@ def test_additional_roots_survive_an_ini_write_and_reload(tmp_path, monkeypatch)
     from unittest.mock import MagicMock
 
     import comicarr
-    from comicarr import config as config_module
+    from comicarr.app.config import ini as config_module
 
     secure_dir = tmp_path / "secure"
     secure_dir.mkdir()
@@ -88,7 +88,9 @@ def test_additional_roots_survive_an_ini_write_and_reload(tmp_path, monkeypatch)
     monkeypatch.setattr(comicarr, "DATA_DIR", str(data_dir), raising=False)
     monkeypatch.setattr(comicarr, "PROG_DIR", str(tmp_path), raising=False)
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
-    monkeypatch.setattr("comicarr.app.system.maintenance.Maintenance.backup_files", lambda self, **kwargs: True, raising=False)
+    monkeypatch.setattr(
+        "comicarr.app.system.maintenance.Maintenance.backup_files", lambda self, **kwargs: True, raising=False
+    )
 
     def load():
         monkeypatch.setattr(config_module, "config", configparser.ConfigParser())
