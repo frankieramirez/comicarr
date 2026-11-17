@@ -1346,12 +1346,10 @@ export default function SeriesDetailPage() {
                     key={key}
                     type="button"
                     aria-pressed={filter === key}
-                    aria-label={`${label} ${count}`}
                     onClick={() => setFilter(key)}
                     className={SEGMENTED_ITEM}
                   >
-                    {label}
-                    <span className="mono-meta">{count}</span>
+                    {label} <span className="mono-meta">{count}</span>
                   </button>
                 ))}
               </div>

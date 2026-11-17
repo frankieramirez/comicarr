@@ -61,11 +61,10 @@ export default function InFlightLine() {
 
   if (!view.busy) {
     return (
-      <section>
+      <section aria-label={t`In flight`}>
         {header}
         <Link
           to="/activity"
-          aria-label={t`In flight`}
           className="flex items-center gap-2 py-1 text-[13px] text-foreground-2 hover:text-foreground"
         >
           <span

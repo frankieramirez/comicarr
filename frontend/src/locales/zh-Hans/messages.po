@@ -1050,6 +1050,10 @@ msgstr "{seriesIndexed, plural, other {已索引 # 个系列}}"
 msgid "{seriesName} Vol. {number}"
 msgstr "{seriesName} 第 {number} 卷"
 
+#: src/components/series/IssueStatusMenu.tsx
+msgid "{shown}, {action}"
+msgstr "{shown}，{action}"
+
 #: src/lib/importPick.ts
 msgid "{size} B"
 msgstr "{size} B"

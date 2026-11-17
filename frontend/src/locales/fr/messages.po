@@ -1050,6 +1050,10 @@ msgstr "{seriesIndexed, plural, one {# série indexée} other {# séries indexé
 msgid "{seriesName} Vol. {number}"
 msgstr "{seriesName} vol. {number}"
 
+#: src/components/series/IssueStatusMenu.tsx
+msgid "{shown}, {action}"
+msgstr "{shown}, {action}"
+
 #: src/lib/importPick.ts
 msgid "{size} B"
 msgstr "{size} o"

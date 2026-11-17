@@ -233,7 +233,7 @@ describe("IssueDetailPage", () => {
     await screen.findByTestId("issue-detail-title");
     await user.click(
       screen.getByRole("button", {
-        name: "Change status for Absolute Batman #23",
+        name: /Change status for Absolute Batman #23$/,
       }),
     );
     await user.click(await screen.findByRole("menuitem", { name: "Skipped" }));

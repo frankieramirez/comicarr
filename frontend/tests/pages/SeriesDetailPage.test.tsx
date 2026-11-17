@@ -1536,7 +1536,7 @@ describe("SeriesDetailPage", () => {
 
       await user.click(
         screen.getByRole("button", {
-          name: "Change status for Explicitly skipped",
+          name: /Change status for Explicitly skipped$/,
         }),
       );
       await user.click(await screen.findByRole("menuitem", { name: "Wanted" }));
@@ -1555,7 +1555,7 @@ describe("SeriesDetailPage", () => {
       await screen.findByRole("heading", { level: 1, name: "Absolute Batman" });
 
       await user.click(
-        screen.getByRole("button", { name: "Change status for Annual event" }),
+        screen.getByRole("button", { name: /Change status for Annual event$/ }),
       );
       await user.click(
         await screen.findByRole("menuitem", { name: "Archived" }),
@@ -1636,7 +1636,7 @@ describe("SeriesDetailPage", () => {
       expect(
         screen
           .getByRole("button", {
-            name: "Change status for Annual event",
+            name: /Change status for Annual event$/,
           })
           .hasAttribute("disabled"),
       ).toBe(true);

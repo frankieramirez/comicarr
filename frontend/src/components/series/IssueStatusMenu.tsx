@@ -3,6 +3,7 @@ import { Trans } from "@lingui/react/macro";
 import type { ReactElement } from "react";
 import { Check } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
+import { statusTone } from "@/lib/statusTone";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,6 +64,11 @@ export default function IssueStatusMenu({
   trigger,
 }: IssueStatusMenuProps) {
   const normalized = current?.toLowerCase();
+  // The name starts with the status the badge shows, so speech users can say
+  // what they see (WCAG 2.5.3, #1499).
+  const shown = statusTone(current)?.label;
+  const action = label ?? t`Change status`;
+  const name = shown ? t`${shown}, ${action}` : action;
   return (
     <DropdownMenu>
       {trigger ? (
@@ -70,7 +76,7 @@ export default function IssueStatusMenu({
       ) : (
         <DropdownMenuTrigger
           disabled={disabled}
-          aria-label={label ?? t`Change status`}
+          aria-label={name}
           title={t`Change status`}
           className="cursor-pointer rounded-full outline-none transition-shadow focus-visible:ring-1 focus-visible:ring-ring data-disabled:cursor-not-allowed data-disabled:opacity-60"
         >
