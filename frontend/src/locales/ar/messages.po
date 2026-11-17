@@ -609,6 +609,10 @@ msgstr "{emptyEyebrow} · فارغ"
 msgid "{emptyEyebrow} · FILTERED"
 msgstr "{emptyEyebrow} · مُصفّى"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "{estimated, plural, one {MangaDex doesn't list the chapters for # volume, so its range is estimated from the volumes around it. A volume you have covers the chapters in its range. If a range is off, set the chapter that volume ends at.} other {MangaDex doesn't list the chapters for # volumes, so their ranges are estimated from the volumes around them. A volume you have covers the chapters in its range. If a range is off, set the chapter that volume ends at.}}"
+msgstr "{estimated, plural, one {لا يذكر MangaDex فصول مجلد واحد، لذلك يُقدَّر نطاقه من المجلدات المجاورة. المجلد الذي لديك يغطي الفصول ضمن نطاقه. إذا كان النطاق غير صحيح، حدّد الفصل الذي ينتهي عنده ذلك المجلد.} two {لا يذكر MangaDex فصول # من المجلدات، لذلك تُقدَّر نطاقاتها من المجلدات المجاورة. المجلد الذي لديك يغطي الفصول ضمن نطاقه. إذا كان النطاق غير صحيح، حدّد الفصل الذي ينتهي عنده ذلك المجلد.} few {لا يذكر MangaDex فصول # من المجلدات، لذلك تُقدَّر نطاقاتها من المجلدات المجاورة. المجلد الذي لديك يغطي الفصول ضمن نطاقه. إذا كان النطاق غير صحيح، حدّد الفصل الذي ينتهي عنده ذلك المجلد.} many {لا يذكر MangaDex فصول # من المجلدات، لذلك تُقدَّر نطاقاتها من المجلدات المجاورة. المجلد الذي لديك يغطي الفصول ضمن نطاقه. إذا كان النطاق غير صحيح، حدّد الفصل الذي ينتهي عنده ذلك المجلد.} other {لا يذكر MangaDex فصول # من المجلدات، لذلك تُقدَّر نطاقاتها من المجلدات المجاورة. المجلد الذي لديك يغطي الفصول ضمن نطاقه. إذا كان النطاق غير صحيح، حدّد الفصل الذي ينتهي عنده ذلك المجلد.}}"
+
 #: src/components/activity/health/HealthView.tsx
 msgid "{failing} of {length} failing"
 msgstr "{failing} من {length} فاشلة"
@@ -690,10 +694,6 @@ msgstr "{head} {skipped_for_cap} متبقية لجولة أخرى (بحد أقص
 #: src/components/dashboard/NeedsAttentionBand.tsx
 msgid "{hiddenIssues, plural, one {{hiddenSeries} more series with # issue, in other causes} other {{hiddenSeries} more series with # issues, in other causes}}"
 msgstr "{hiddenIssues, plural, one {{hiddenSeries} سلسلة أخرى فيها عدد واحد، ضمن أسباب أخرى} two {{hiddenSeries} سلسلة أخرى فيها عددان، ضمن أسباب أخرى} few {{hiddenSeries} سلسلة أخرى فيها # أعداد، ضمن أسباب أخرى} many {{hiddenSeries} سلسلة أخرى فيها # عددًا، ضمن أسباب أخرى} other {{hiddenSeries} سلسلة أخرى فيها # عدد، ضمن أسباب أخرى}}"
-
-#: src/components/series/MangaVolumes.tsx
-msgid "{holes, plural, one {MangaDex doesn't list the chapters for # volume. Comicarr estimated its range from the volumes around it, and an owned volume covers the chapters in its range. Edit a range if it's off.} other {MangaDex doesn't list the chapters for # volumes. Comicarr estimated their ranges from the volumes around them, and an owned volume covers the chapters in its range. Edit a range if it's off.}}"
-msgstr "{holes, plural, one {لا يذكر MangaDex فصول مجلد واحد. قدّر Comicarr نطاقه من المجلدات المجاورة، والمجلد الذي لديك يغطي الفصول ضمن نطاقه. عدّل النطاق إذا كان غير صحيح.} two {لا يذكر MangaDex فصول # من المجلدات. قدّر Comicarr نطاقاتها من المجلدات المجاورة، والمجلد الذي لديك يغطي الفصول ضمن نطاقه. عدّل النطاق إذا كان غير صحيح.} few {لا يذكر MangaDex فصول # من المجلدات. قدّر Comicarr نطاقاتها من المجلدات المجاورة، والمجلد الذي لديك يغطي الفصول ضمن نطاقه. عدّل النطاق إذا كان غير صحيح.} many {لا يذكر MangaDex فصول # من المجلدات. قدّر Comicarr نطاقاتها من المجلدات المجاورة، والمجلد الذي لديك يغطي الفصول ضمن نطاقه. عدّل النطاق إذا كان غير صحيح.} other {لا يذكر MangaDex فصول # من المجلدات. قدّر Comicarr نطاقاتها من المجلدات المجاورة، والمجلد الذي لديك يغطي الفصول ضمن نطاقه. عدّل النطاق إذا كان غير صحيح.}}"
 
 #: src/components/queue/WantedPacingBanner.tsx
 msgid "{hours, plural, one {every hour} other {every # hours}}"
@@ -932,10 +932,6 @@ msgstr "{queued, plural, one {تم وسم عدد واحد كمطلوب.} two {ت
 msgid "{reachable} of {length} reachable"
 msgstr "{reachable} من {length} يمكن الوصول إليها"
 
-#: src/components/series/MangaVolumes.tsx
-msgid "{readable} of {chapterTotal} chapters readable"
-msgstr "{readable} من {chapterTotal} فصلًا قابلة للقراءة"
-
 #: src/pages/ImportPage.tsx
 msgid "{records, plural, one {# import record deleted} other {# import records deleted}}"
 msgstr "{records, plural, one {تم حذف سجل واحد استيراد} two {تم حذف سجلان استيراد} few {تم حذف # سجلات استيراد} many {تم حذف # سجلًا استيراد} other {تم حذف # سجل استيراد}}"
@@ -1062,6 +1058,10 @@ msgstr "{totalIssues, plural, one {ستُضاف هذه السلاسل إلى م�
 #: src/components/ai/ActivityFeedEntry.tsx
 msgid "{totalTokens, plural, one {# token} other {# tokens}}"
 msgstr "{totalTokens, plural, one {رمز واحد} two {رمزان} few {# رموز} many {# رمزًا} other {# رمز}}"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "{volumesOwned} of {volumesTotal} volumes, {chapterFiles} chapter files"
+msgstr "{volumesOwned} من {volumesTotal} مجلدًا، {chapterFiles} من ملفات الفصول"
 
 #: src/components/dashboard/LibraryHighlights.tsx
 #: src/pages/SeriesDetailPage.tsx
@@ -2229,10 +2229,6 @@ msgstr "الفصول {first}-{last}"
 msgid "Chapters only"
 msgstr "الفصول فقط"
 
-#: src/components/series/MangaVolumes.tsx
-msgid "chapters you can read"
-msgstr "فصول يمكنك قراءتها"
-
 #: src/pages/SeriesDetailPage.tsx
 msgid "chapters: {chapterCount}"
 msgstr "الفصول: {chapterCount}"
@@ -3252,10 +3248,6 @@ msgstr "تطبع تثبيتات Docker <0>[SETUP] Setup token:</0> في سجلا
 msgid "Docs"
 msgstr "التوثيق"
 
-#: src/components/series/MangaVolumes.tsx
-msgid "Don't want volume {number}"
-msgstr "لا أريد المجلد {number}"
-
 #: src/components/import/ImportPickPanel.tsx
 #: src/components/series/IssueStory.tsx
 #: src/lib/statusTone.ts
@@ -3519,6 +3511,10 @@ msgstr "منتهية"
 #: src/components/settings/AgentsTab.tsx
 msgid "Endpoint"
 msgstr "نقطة النهاية"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Ends at chapter"
+msgstr "ينتهي عند الفصل"
 
 #: src/components/ai/ChatComposer.tsx
 msgid "enter sends · shift+enter new line"
@@ -4047,10 +4043,6 @@ msgstr "أكمل الإعداد"
 msgid "Finished without errors"
 msgstr "انتهى دون أخطاء"
 
-#: src/components/series/MangaVolumes.tsx
-msgid "First chapter"
-msgstr "الفصل الأول"
-
 #: src/pages/LoginPage.tsx
 msgid "first-run · create admin"
 msgstr "التشغيل الأول · إنشاء مسؤول"
@@ -4549,12 +4541,8 @@ msgid "In progress"
 msgstr "قيد التقدم"
 
 #: src/pages/SeriesDetailPage.tsx
-msgid "in vol {coveredVolume}"
-msgstr "في المجلد {coveredVolume}"
-
-#: src/pages/SeriesDetailPage.tsx
-msgid "in vol {coveredVolume} (estimated)"
-msgstr "في المجلد {coveredVolume} (تقديري)"
+msgid "in vol {holdingVolume}"
+msgstr "في المجلد {holdingVolume}"
 
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "in your library"
@@ -4796,10 +4784,6 @@ msgstr "آخر 30 يومًا"
 #: src/pages/AttentionPage.tsx
 msgid "last 7 days"
 msgstr "آخر 7 أيام"
-
-#: src/components/series/MangaVolumes.tsx
-msgid "Last chapter"
-msgstr "الفصل الأخير"
 
 #: src/components/activity/health/HealthView.tsx
 msgid "Last checked"
@@ -5438,6 +5422,7 @@ msgid "Minimum size must be less than maximum size"
 msgstr "يجب أن يكون الحد الأدنى للحجم أقل من الحد الأقصى"
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/components/series/MangaVolumes.tsx
 msgid "Missing"
 msgstr "ناقص"
 
@@ -8381,7 +8366,6 @@ msgstr "منفذ SMTP"
 msgid "SMTP Server"
 msgstr "خادم SMTP"
 
-#: src/components/series/MangaVolumes.tsx
 #: src/lib/statusTone.ts
 #: src/pages/ActivityPage.tsx
 msgid "Snatched"
@@ -9562,7 +9546,6 @@ msgstr "بانتظار قرارك."
 
 #: src/components/queue/upcomingColumns.tsx
 #: src/components/releases/IndustryReleasesView.tsx
-#: src/components/series/MangaVolumes.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Want"
 msgstr "طلب"
@@ -9578,10 +9561,6 @@ msgstr "طلب {rowLabel}"
 #: src/components/storyarcs/ArcHeader.tsx
 msgid "Want all"
 msgstr "طلب الكل"
-
-#: src/components/series/MangaVolumes.tsx
-msgid "Want volume {number}"
-msgstr "أريد المجلد {number}"
 
 #: src/lib/releaseState.ts
 msgid "wanted"

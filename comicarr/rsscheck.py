@@ -1600,7 +1600,7 @@ def mangaCheck():
 
     # Volumes are not issues (ADR-0004): a grabbed or downloaded volume is
     # owned from manga_volumes, so it leaves the frontier (#1278).
-    # The rows carry any operator chapter range, so search skips the same
+    # The rows carry any operator-set end chapter, so search skips the same
     # chapters the series page shows inside an owned volume.
     volumes_by_series = {}
     for row in db.select_all(
@@ -1608,7 +1608,6 @@ def mangaCheck():
             t_volumes.c.ComicID,
             t_volumes.c.VolumeNumber,
             t_volumes.c.Status,
-            t_volumes.c.FirstChapter,
             t_volumes.c.LastChapter,
         ).where(t_volumes.c.ComicID.in_([series["ComicID"] for series in manga_series]))
     ):

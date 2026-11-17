@@ -301,12 +301,9 @@ def get_comic_detail(ctx, comic_id):
     if comic_row and series_kind.is_manga(comic_row):
         # Volumes are not issues (ADR-0004): the chapters an owned volume
         # holds read as Covered, and the volume list rides alongside.
-        from comicarr.app.manga.acquisition import normalize_monitor_mode
         from comicarr.app.manga.volumes import series_view
 
-        projected_issues, manga_volumes, manga_progress = series_view(
-            comic_id, projected_issues, monitor_mode=normalize_monitor_mode(comic_row.get("MonitorMode"))
-        )
+        projected_issues, manga_volumes, manga_progress = series_view(comic_id, projected_issues)
         manga = {"volumes": manga_volumes, "progress": manga_progress}
     summary = _issue_summary(projected_issues + projected_annuals)
     override = parse_provider_override(series_queries.get_comic_provider_override(comic_id))
@@ -2155,11 +2152,9 @@ def issue_status(IssueID):
         return False
 
 
-def update_manga_volume(
-    comic_id, volume_number, *, status=None, first_chapter=None, last_chapter=None, clear_range=False
-):
-    """Set an operator's want decision and/or chapter range on one manga volume."""
-    from comicarr.app.manga.volumes import VolumeEditError, edit_volume
+def set_manga_volume_end(comic_id, volume_number, last_chapter):
+    """Record the chapter an operator says a manga volume ends at; None clears it."""
+    from comicarr.app.manga.volumes import set_volume_end
 
     comic = series_queries.get_comic(comic_id)
     if not comic:
@@ -2167,14 +2162,7 @@ def update_manga_volume(
     if not series_kind.is_manga(comic[0]):
         return {"success": False, "error": "Only a manga series has volumes", "code": "not_manga"}
     try:
-        row = edit_volume(
-            comic_id,
-            volume_number,
-            status=status,
-            first_chapter=first_chapter,
-            last_chapter=last_chapter,
-            clear_range=clear_range,
-        )
-    except VolumeEditError as e:
-        return {"success": False, "error": str(e), "code": "invalid_volume_edit"}
-    return {"success": True, "volume": row}
+        end = set_volume_end(comic_id, volume_number, last_chapter)
+    except ValueError as e:
+        return {"success": False, "error": str(e), "code": "invalid_volume_end"}
+    return {"success": True, "last_chapter": end}

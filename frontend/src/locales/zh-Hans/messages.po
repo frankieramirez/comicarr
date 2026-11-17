@@ -609,6 +609,10 @@ msgstr "{emptyEyebrow} · 空"
 msgid "{emptyEyebrow} · FILTERED"
 msgstr "{emptyEyebrow} · 已筛选"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "{estimated, plural, one {MangaDex doesn't list the chapters for # volume, so its range is estimated from the volumes around it. A volume you have covers the chapters in its range. If a range is off, set the chapter that volume ends at.} other {MangaDex doesn't list the chapters for # volumes, so their ranges are estimated from the volumes around them. A volume you have covers the chapters in its range. If a range is off, set the chapter that volume ends at.}}"
+msgstr "{estimated, plural, other {MangaDex 未列出 # 卷包含的话，因此其范围是根据相邻的卷估算的。你已有的卷会覆盖其范围内的话。如果范围不对，请填写该卷结束于第几话。}}"
+
 #: src/components/activity/health/HealthView.tsx
 msgid "{failing} of {length} failing"
 msgstr "{failing}/{length} 失败"
@@ -690,10 +694,6 @@ msgstr "{head} {skipped_for_cap} 留待下一轮（每次最多 {cap} 个）。"
 #: src/components/dashboard/NeedsAttentionBand.tsx
 msgid "{hiddenIssues, plural, one {{hiddenSeries} more series with # issue, in other causes} other {{hiddenSeries} more series with # issues, in other causes}}"
 msgstr "{hiddenIssues, plural, other {另有 {hiddenSeries} 个系列的 # 期，属于其他原因}}"
-
-#: src/components/series/MangaVolumes.tsx
-msgid "{holes, plural, one {MangaDex doesn't list the chapters for # volume. Comicarr estimated its range from the volumes around it, and an owned volume covers the chapters in its range. Edit a range if it's off.} other {MangaDex doesn't list the chapters for # volumes. Comicarr estimated their ranges from the volumes around them, and an owned volume covers the chapters in its range. Edit a range if it's off.}}"
-msgstr "{holes, plural, other {MangaDex 未列出 # 卷包含的话。Comicarr 根据相邻的卷估算了范围，你已有的卷会覆盖其范围内的话。如果范围不对，请编辑。}}"
 
 #: src/components/queue/WantedPacingBanner.tsx
 msgid "{hours, plural, one {every hour} other {every # hours}}"
@@ -932,10 +932,6 @@ msgstr "{queued, plural, other {# 期已标记为待获取。}}"
 msgid "{reachable} of {length} reachable"
 msgstr "{length} 个中 {reachable} 个可访问"
 
-#: src/components/series/MangaVolumes.tsx
-msgid "{readable} of {chapterTotal} chapters readable"
-msgstr "{chapterTotal} 话中可读 {readable} 话"
-
 #: src/pages/ImportPage.tsx
 msgid "{records, plural, one {# import record deleted} other {# import records deleted}}"
 msgstr "{records, plural, other {已删除 # 条导入记录}}"
@@ -1062,6 +1058,10 @@ msgstr "{totalIssues, plural, other {这些系列将添加到你的书库，此�
 #: src/components/ai/ActivityFeedEntry.tsx
 msgid "{totalTokens, plural, one {# token} other {# tokens}}"
 msgstr "{totalTokens, plural, other {# 个令牌}}"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "{volumesOwned} of {volumesTotal} volumes, {chapterFiles} chapter files"
+msgstr "{volumesTotal} 卷中已有 {volumesOwned} 卷，{chapterFiles} 个单话文件"
 
 #: src/components/dashboard/LibraryHighlights.tsx
 #: src/pages/SeriesDetailPage.tsx
@@ -2229,10 +2229,6 @@ msgstr "第 {first}-{last} 章"
 msgid "Chapters only"
 msgstr "仅章节"
 
-#: src/components/series/MangaVolumes.tsx
-msgid "chapters you can read"
-msgstr "可读的话数"
-
 #: src/pages/SeriesDetailPage.tsx
 msgid "chapters: {chapterCount}"
 msgstr "章节：{chapterCount}"
@@ -3252,10 +3248,6 @@ msgstr "需要令牌时，Docker 安装会在容器日志中打印 <0>[SETUP] Se
 msgid "Docs"
 msgstr "文档"
 
-#: src/components/series/MangaVolumes.tsx
-msgid "Don't want volume {number}"
-msgstr "不想要第 {number} 卷"
-
 #: src/components/import/ImportPickPanel.tsx
 #: src/components/series/IssueStory.tsx
 #: src/lib/statusTone.ts
@@ -3519,6 +3511,10 @@ msgstr "已完结"
 #: src/components/settings/AgentsTab.tsx
 msgid "Endpoint"
 msgstr "端点"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Ends at chapter"
+msgstr "结束于第几话"
 
 #: src/components/ai/ChatComposer.tsx
 msgid "enter sends · shift+enter new line"
@@ -4047,10 +4043,6 @@ msgstr "完成设置"
 msgid "Finished without errors"
 msgstr "已完成，没有错误"
 
-#: src/components/series/MangaVolumes.tsx
-msgid "First chapter"
-msgstr "起始话"
-
 #: src/pages/LoginPage.tsx
 msgid "first-run · create admin"
 msgstr "首次运行 · 创建管理员"
@@ -4549,12 +4541,8 @@ msgid "In progress"
 msgstr "进行中"
 
 #: src/pages/SeriesDetailPage.tsx
-msgid "in vol {coveredVolume}"
-msgstr "在第 {coveredVolume} 卷"
-
-#: src/pages/SeriesDetailPage.tsx
-msgid "in vol {coveredVolume} (estimated)"
-msgstr "在第 {coveredVolume} 卷（估算）"
+msgid "in vol {holdingVolume}"
+msgstr "在第 {holdingVolume} 卷"
 
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "in your library"
@@ -4796,10 +4784,6 @@ msgstr "最近 30 天"
 #: src/pages/AttentionPage.tsx
 msgid "last 7 days"
 msgstr "最近 7 天"
-
-#: src/components/series/MangaVolumes.tsx
-msgid "Last chapter"
-msgstr "结束话"
 
 #: src/components/activity/health/HealthView.tsx
 msgid "Last checked"
@@ -5438,6 +5422,7 @@ msgid "Minimum size must be less than maximum size"
 msgstr "最小大小必须小于最大大小"
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/components/series/MangaVolumes.tsx
 msgid "Missing"
 msgstr "缺少"
 
@@ -8381,7 +8366,6 @@ msgstr "SMTP 端口"
 msgid "SMTP Server"
 msgstr "SMTP 服务器"
 
-#: src/components/series/MangaVolumes.tsx
 #: src/lib/statusTone.ts
 #: src/pages/ActivityPage.tsx
 msgid "Snatched"
@@ -9562,7 +9546,6 @@ msgstr "正在等待你的决定。"
 
 #: src/components/queue/upcomingColumns.tsx
 #: src/components/releases/IndustryReleasesView.tsx
-#: src/components/series/MangaVolumes.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Want"
 msgstr "待获取"
@@ -9578,10 +9561,6 @@ msgstr "待获取 {rowLabel}"
 #: src/components/storyarcs/ArcHeader.tsx
 msgid "Want all"
 msgstr "全部待获取"
-
-#: src/components/series/MangaVolumes.tsx
-msgid "Want volume {number}"
-msgstr "想要第 {number} 卷"
 
 #: src/lib/releaseState.ts
 msgid "wanted"

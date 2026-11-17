@@ -833,35 +833,25 @@ describe("SeriesDetailPage", () => {
           firstChapter: "21",
           lastChapter: "30",
           rangeSource: "estimated",
-          chapterCount: 10,
-          status: null,
-          displayState: "Wanted",
           owned: false,
+          inFlight: false,
           location: null,
-          explicitIntent: false,
         },
         {
           number: "2",
           firstChapter: "11",
           lastChapter: "20",
           rangeSource: "mangadex",
-          chapterCount: 10,
-          status: "Downloaded",
-          displayState: "Have",
           owned: true,
+          inFlight: false,
           location: "One-Punch Man v02.cbz",
-          explicitIntent: false,
         },
       ],
       progress: {
         volumesTotal: 3,
         volumesOwned: 1,
         volumesEstimated: 1,
-        volumesUnknown: 0,
-        chaptersTotal: 31,
         chaptersOwned: 1,
-        chaptersCovered: 10,
-        chaptersReadable: 11,
         chaptersGap: 10,
         segments: [
           { kind: "gap", from: "1", to: "10", count: 10 },
@@ -880,7 +870,6 @@ describe("SeriesDetailPage", () => {
         ledgerRow("15", {
           chapterNumber: "15",
           holdingVolume: "2",
-          coveredByVolume: "2",
           covered: true,
           displayState: "Covered",
           missing: false,
@@ -904,7 +893,9 @@ describe("SeriesDetailPage", () => {
     expect(screen.getByText("~3")).toBeTruthy();
     expect(screen.getByRole("button", { name: "In a volume 1" })).toBeTruthy();
     expect(
-      screen.getByRole("img", { name: "11 of 31 chapters readable" }),
+      screen.getByRole("img", {
+        name: "1 of 3 volumes, 1 chapter files",
+      }),
     ).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: /^Volumes/ }));
@@ -916,7 +907,7 @@ describe("SeriesDetailPage", () => {
     expect(screen.getByTestId("manga-volume-estimates")).toBeTruthy();
   });
 
-  it("saves a volume's chapter range and want decision", async () => {
+  it("saves the chapter a volume ends at", async () => {
     serveLedger(
       { ContentType: "manga" },
       [ledgerRow("25", { chapterNumber: "25" })],
@@ -935,22 +926,16 @@ describe("SeriesDetailPage", () => {
     await screen.findByRole("heading", { level: 1, name: "One-Punch Man" });
     await user.click(screen.getByRole("button", { name: /^Volumes/ }));
     await user.click(
-      await screen.findByRole("button", { name: "Don't want volume 3" }),
+      await screen.findByRole("button", {
+        name: "Edit the chapters in volume 3",
+      }),
     );
-    await user.click(
-      screen.getByRole("button", { name: "Edit the chapters in volume 3" }),
-    );
-    const last = screen.getByLabelText("Last chapter");
+    const last = screen.getByLabelText("Ends at chapter");
     await user.clear(last);
     await user.type(last, "28");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() =>
-      expect(bodies).toEqual([
-        { status: "Skipped" },
-        { first_chapter: "21", last_chapter: "28" },
-      ]),
-    );
+    await waitFor(() => expect(bodies).toEqual([{ last_chapter: "28" }]));
   });
 
   function ledgerRow(id: string, extra: Record<string, unknown>) {

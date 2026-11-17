@@ -1414,7 +1414,7 @@ export default function SeriesDetailPage() {
                     const status = issueLabel(issue);
                     const separateIntent = getSeparateIntent(issue);
                     const ledgerKind = getLedgerKind(issue, isManga);
-                    const coveredVolume = issue.coveredByVolume;
+                    const holdingVolume = issue.holdingVolume;
                     const rowKey = issueRowKey(issue);
                     const rowLabel =
                       issueName || issueFallbackLabel(issue, issueNumber);
@@ -1509,19 +1509,13 @@ export default function SeriesDetailPage() {
                               <Trans>Want</Trans>
                             </button>
                           )}
-                          {coveredVolume && (
+                          {issue.covered && holdingVolume && (
                             <span
                               className="text-[11px]"
                               style={{ color: "var(--status-downloaded)" }}
                               data-testid="covered-by-volume"
                             >
-                              {issue.holdingEstimated ? (
-                                <Trans>
-                                  in vol {coveredVolume} (estimated)
-                                </Trans>
-                              ) : (
-                                <Trans>in vol {coveredVolume}</Trans>
-                              )}
+                              <Trans>in vol {holdingVolume}</Trans>
                             </span>
                           )}
                           {separateIntent && (

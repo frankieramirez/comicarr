@@ -125,11 +125,9 @@ export interface Issue {
   digitalDate?: string | null;
   comicId?: string;
   comicName?: string | null;
-  /** Manga: the volume this chapter belongs to (MangaDex's, an edit, or an estimate). */
+  /** Manga: the volume this chapter falls in; Covered when you have that volume. */
   holdingVolume?: string | null;
   holdingEstimated?: boolean;
-  /** Manga: set when the chapter reads Covered through an owned volume file. */
-  coveredByVolume?: string | null;
   covered?: boolean;
 }
 
@@ -525,12 +523,9 @@ export interface MangaVolume {
   firstChapter: string | null;
   lastChapter: string | null;
   rangeSource: MangaRangeSource;
-  chapterCount: number;
-  status: string | null;
-  displayState: "Have" | "Snatched" | "Wanted" | "Not wanted";
   owned: boolean;
+  inFlight: boolean;
   location: string | null;
-  explicitIntent: boolean;
 }
 
 export type MangaCoverageKind =
@@ -547,11 +542,7 @@ export interface MangaProgress {
   volumesTotal: number;
   volumesOwned: number;
   volumesEstimated: number;
-  volumesUnknown: number;
-  chaptersTotal: number;
   chaptersOwned: number;
-  chaptersCovered: number;
-  chaptersReadable: number;
   chaptersGap: number;
   segments: MangaCoverageSegment[];
 }

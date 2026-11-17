@@ -32,7 +32,6 @@ def blended_search_targets(
     covered_chapter_ids=None,
     owned_chapter_ids=None,
     mode="blended",
-    last_volume=None,
 ):
     """Return the missing volumes and/or chapters to search.
 
@@ -46,7 +45,7 @@ def blended_search_targets(
     owned_vols.discard(None)
     covered = set(covered_chapter_ids or ())
     owned_chs = set(owned_chapter_ids or ())
-    last = last_volume if last_volume is not None else last_released_volume(volumes)
+    last = last_released_volume(volumes)
     last_n = _as_float(last)
 
     missing_volumes = []
@@ -165,45 +164,38 @@ def classify_series_issues(issues, volume_states=None):
 def search_plan_for_series(series, issues, volume_states=None):
     """Blended-frontier search targets for one series' issue list.
 
-    ``volume_states`` is the series' recorded ``manga_volumes``: either the
-    rows themselves (with any operator chapter range) or the older
+    ``volume_states`` is the series' recorded ``manga_volumes``: the rows
+    themselves (with any operator-set end chapter), or the older
     ``{volume number: status}`` map. The caller reads it with the issues.
 
-    Chapters inside an owned volume are skipped by the same coverage the
-    series page shows (``coverage.covered_chapters``), estimated ranges
-    included. Every volume up to the highest known one is a target unless
-    owned or marked not wanted.
+    Each chapter is filed under the volume its number falls in
+    (``coverage.volume_ranges``, estimates included) before the frontier is
+    worked out, so search and the series page agree: a chapter inside an
+    owned volume is skipped, a chapter inside any released volume is left to
+    that volume in blended mode, and every volume up to the highest known
+    one is a target.
     """
     from comicarr.app.manga import coverage
 
-    rows = _volume_rows(volume_states)
-    states = {row["VolumeNumber"]: row.get("Status") for row in rows}
-    classified = classify_series_issues(issues, states)
-    ranges = coverage.volume_ranges(issues, rows)
-    covered = set(classified["covered_chapter_ids"]) | set(coverage.covered_chapters(issues, rows, ranges))
-    skipped = coverage.skipped_volumes(rows)
-    volumes = [{"VolumeNumber": number} for number in ranges if number not in skipped]
-    mode = normalize_monitor_mode((series or {}).get("MonitorMode"))
-    return blended_search_targets(
-        volumes,
-        classified["chapters"],
-        owned_volumes=classified["owned_volumes"] | skipped,
-        covered_chapter_ids=covered,
-        owned_chapter_ids=classified["owned_chapter_ids"],
-        mode=mode,
-        last_volume=last_released_volume(ranges),
-    )
-
-
-def _volume_rows(volume_states):
     if isinstance(volume_states, dict):
-        return [{"VolumeNumber": number, "Status": status} for number, status in volume_states.items()]
-    rows = []
-    for row in volume_states or ():
-        number = normalize_volume_number(row.get("VolumeNumber"))
-        if number is not None:
-            rows.append({**row, "VolumeNumber": number})
-    return rows
+        rows = [{"VolumeNumber": number, "Status": status} for number, status in volume_states.items()]
+    else:
+        rows = list(volume_states or ())
+    ranges = coverage.volume_ranges(issues, rows)
+    holding = {identity: volume for volume, entry in ranges.items() for identity in entry["chapters"]}
+    filed = [
+        {**issue, "VolumeNumber": holding.get(issue.get("IssueID") or issue.get("id"), issue.get("VolumeNumber"))}
+        for issue in issues or ()
+    ]
+    classified = classify_series_issues(filed, {row["VolumeNumber"]: row.get("Status") for row in rows})
+    return blended_search_targets(
+        [{"VolumeNumber": number} for number in ranges] or classified["volumes"],
+        classified["chapters"],
+        owned_volumes=classified["owned_volumes"],
+        covered_chapter_ids=classified["covered_chapter_ids"],
+        owned_chapter_ids=classified["owned_chapter_ids"],
+        mode=normalize_monitor_mode((series or {}).get("MonitorMode")),
+    )
 
 
 def _pad_number(number, width):

@@ -21,6 +21,6 @@
   "0020_drop_redundant_pk_uniques.py": "1f7e43c36f1f335d774807d723f7152c0fa064e2909568e8ef5f798d29482775",
   "0021_comics_kind_varchar.py": "0115710383a12f30bf5f396fefb2777bdea7fa9d997139f7b2ac3bf7af9761f6",
   "0022_manga_volumes.py": "65ddb0da127d954591403f74b5b4ba571259ee4da1cbd7e6baa2bee21fc9bf1a",
-  "0023_manga_volume_ranges.py": "6f8a8ca8e85c7aefa58d7949a3304a16f3f77b5beabfc2a81f62fe09c4c8bbe8",
+  "0023_manga_volume_ranges.py": "1b374acc087cf5200732f7e2ac04284d2aa4beaa2f22ed759faf7f8fdae67c54",
   "0024_physical_copies.py": "50c0171de2720dd9e271de1976cf2a5367fa799e1c4c498b56a4e61451016559"
 }
