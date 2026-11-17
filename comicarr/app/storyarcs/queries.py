@@ -24,6 +24,12 @@ from comicarr.app.core.tables import storyarcs as t_storyarcs
 from comicarr.app.core.tables import weekly as t_weekly
 
 
+def _not_deleted():
+    """Rows not removed from their arc. Mylar3 imports and new arcs leave Manual NULL,
+    and a bare ``Manual != 'deleted'`` drops NULL rows in SQL (#1514)."""
+    return func.coalesce(t_storyarcs.c.Manual, "") != "deleted"
+
+
 def _year_expr():
     """Reusable expression: extract 4-digit year from IssueDate, cast to int."""
     return case(
@@ -59,7 +65,7 @@ def list_arcs(custom_only=False):
     stmt = (
         select(*_arc_stats_columns())
         .where(t_storyarcs.c.ComicName.isnot(None))
-        .where(t_storyarcs.c.Manual != "deleted")
+        .where(_not_deleted())
         .group_by(t_storyarcs.c.StoryArcID)
         .order_by(t_storyarcs.c.StoryArc)
     )
@@ -74,7 +80,7 @@ def get_arc_stats(arc_id):
     stmt = (
         select(*_arc_stats_columns())
         .where(t_storyarcs.c.StoryArcID == arc_id)
-        .where(t_storyarcs.c.Manual != "deleted")
+        .where(_not_deleted())
         .group_by(t_storyarcs.c.StoryArcID)
     )
     return db.select_one(stmt)
@@ -97,7 +103,7 @@ def get_arc_issues(arc_id):
             t_storyarcs.c.Location,
         )
         .where(t_storyarcs.c.StoryArcID == arc_id)
-        .where(t_storyarcs.c.Manual != "deleted")
+        .where(_not_deleted())
         .order_by(t_storyarcs.c.ReadingOrder)
     )
     return db.select_all(stmt)
@@ -149,20 +155,20 @@ def delete_arc(arc_id, arc_name=None, delete_type=None):
 def want_all_issues(arc_id):
     """Mark all eligible arc issues as Wanted. Returns (queued, skipped) counts."""
     skipped_rows = db.raw_select_all(
-        "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' "
+        "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND COALESCE(Manual, '') != 'deleted' "
         "AND Status NOT IN ('Downloaded', 'Archived', 'Snatched') AND Status = 'Wanted'",
         [arc_id],
     )
     skipped = skipped_rows[0]["count"] if skipped_rows else 0
 
     db.raw_execute(
-        "UPDATE storyarcs SET Status='Wanted' WHERE StoryArcID=? AND Manual != 'deleted' "
+        "UPDATE storyarcs SET Status='Wanted' WHERE StoryArcID=? AND COALESCE(Manual, '') != 'deleted' "
         "AND Status NOT IN ('Downloaded', 'Archived', 'Snatched', 'Wanted')",
         [arc_id],
     )
 
     queued_rows = db.raw_select_all(
-        "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' AND Status = 'Wanted'",
+        "SELECT COUNT(*) as count FROM storyarcs WHERE StoryArcID=? AND COALESCE(Manual, '') != 'deleted' AND Status = 'Wanted'",
         [arc_id],
     )
     total_wanted = queued_rows[0]["count"] if queued_rows else 0
@@ -185,7 +191,7 @@ def get_missing_series_rows(arc_id):
             t_storyarcs.c.ReadingOrder,
         )
         .where(t_storyarcs.c.StoryArcID == arc_id)
-        .where(t_storyarcs.c.Manual != "deleted")
+        .where(_not_deleted())
         .where(t_storyarcs.c.Status.notin_(["Downloaded", "Archived", "Snatched"]))
         .where(
             or_(
@@ -203,7 +209,7 @@ def get_arc_rows(arc_id):
     stmt = (
         select(t_storyarcs)
         .where(t_storyarcs.c.StoryArcID == arc_id)
-        .where(t_storyarcs.c.Manual != "deleted")
+        .where(_not_deleted())
         .order_by(t_storyarcs.c.ReadingOrder)
     )
     return db.select_all(stmt)

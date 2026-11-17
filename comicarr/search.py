@@ -2369,11 +2369,19 @@ def searchforissue(
                                         DateAdded,
                                     )
                                 )
-                                db.upsert(
-                                    table,
-                                    {"DateAdded": DateAdded},
-                                    {"IssueID": result["IssueID"]},
-                                )
+                                if table == "storyarcs":
+                                    # storyarcs upserts key on IssueArcID, so an IssueID
+                                    # key would insert an empty row on every search (#1514).
+                                    db.raw_execute(
+                                        "UPDATE storyarcs SET DateAdded=? WHERE IssueID=? AND DateAdded IS NULL",
+                                        [DateAdded, result["IssueID"]],
+                                    )
+                                else:
+                                    db.upsert(
+                                        table,
+                                        {"DateAdded": DateAdded},
+                                        {"IssueID": result["IssueID"]},
+                                    )
 
                         else:
                             DateAdded = result["DateAdded"]

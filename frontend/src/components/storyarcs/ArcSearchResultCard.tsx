@@ -16,7 +16,9 @@ export default function ArcSearchResultCard({
 }: ArcSearchResultCardProps) {
   const { addToast } = useToast();
   const addMutation = useAddStoryArc();
-  const [added, setAdded] = useState(!!result.haveit);
+  const [added, setAdded] = useState(
+    result.haveit != null && result.haveit !== "No",
+  );
 
   const handleAdd = () => {
     if (added) return;
