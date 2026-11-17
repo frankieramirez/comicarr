@@ -32,6 +32,8 @@ FETCH_RETRY_SECONDS = 15 * 60
 
 _FETCH_LOCK = threading.Lock()
 _FETCH_ATTEMPTS: dict[tuple[str, str], float] = {}
+# Why each unfilled week is empty: the sources tried and their reason codes.
+_WEEK_ATTEMPTS: dict[tuple[str, str], list[dict]] = {}
 
 
 WEEK_RANGE_MESSAGE = "Pick a week and year from %s weeks back to %s weeks ahead." % (WEEKS_BEHIND, WEEKS_AHEAD)
@@ -99,8 +101,12 @@ def week_window(week=None, year=None, today=None):
 
 
 def _fetch_week(week, year, start):
-    """Store one week's rows from Walksoftly, falling back to ComicVine."""
-    from comicarr.app.weekly import cv_source, locg
+    """Store one week's rows from Walksoftly, falling back to Metron, then ComicVine.
+
+    Every source that did not fill the week is recorded in ``_WEEK_ATTEMPTS``
+    so Releases can say why the week is empty.
+    """
+    from comicarr.app.weekly import fallback, locg
 
     try:
         result = locg.locg(weeknumber=week, year=year)
@@ -108,16 +114,19 @@ def _fetch_week(week, year, start):
         logger.warn("[PULL-LIST] Walksoftly fetch for week %s, %s failed: %s" % (week, year, e))
         result = {"status": "failure"}
     if result.get("status") in ("success", "up2date"):
+        _WEEK_ATTEMPTS.pop((week, year), None)
         return "walksoftly"
-    if not cv_source.is_available():
-        return None
     midweek = (datetime.date.fromisoformat(start) + datetime.timedelta(days=3)).isoformat()
     try:
-        fallback = cv_source.pull_week(week, year, midweek)
+        backup = fallback.pull_week(week, year, midweek)
     except Exception as e:
-        logger.warn("[PULL-LIST] ComicVine fetch for week %s, %s failed: %s" % (week, year, e))
-        return None
-    return cv_source.SOURCE if fallback.get("status") == "success" else None
+        logger.warn("[PULL-LIST] Backup pull-list fetch for week %s, %s failed: %s" % (week, year, e))
+        backup = {"status": "failure", "attempts": []}
+    if backup.get("status") == "success":
+        _WEEK_ATTEMPTS.pop((week, year), None)
+        return backup.get("source")
+    _WEEK_ATTEMPTS[(week, year)] = [{"source": "walksoftly", "reason": "failed"}] + list(backup.get("attempts") or [])
+    return None
 
 
 def _ensure_week(window):
@@ -254,7 +263,10 @@ def get_week(week=None, year=None, today=None):
     window = week_window(week, year, today=today)
     source = _ensure_week(window)
     rows = weekly_queries.get_weekly_releases(window["week"], window["year"]) or []
-    return {**window, "source": source, "rows": _annotate(rows), "manga": _manga_week(window)}
+    week = {**window, "source": source, "rows": _annotate(rows), "manga": _manga_week(window)}
+    if source == "unavailable":
+        week["pull_attempts"] = list(_WEEK_ATTEMPTS.get((window["week"], window["year"]), []))
+    return week
 
 
 def add_from_week(ctx, rowid, want=False, folder=None):

@@ -69,6 +69,7 @@ export default function MyReleasesView({
   refetch,
   start,
   pullUnavailable = false,
+  pullReason = null,
 }: {
   /** The shared format chips and "Only my library" toggle. */
   modeBar: (counts?: Partial<Record<ReleaseFormat, number>>) => ReactNode;
@@ -83,6 +84,8 @@ export default function MyReleasesView({
   start?: string;
   /** No pull list could be read for the week, so only store dates show. */
   pullUnavailable?: boolean;
+  /** Why no source filled the week, when the server said. */
+  pullReason?: string | null;
 }) {
   const today = isoDay(new Date());
   const [tab, setTab] = useState<StateTab>("all");
@@ -388,6 +391,7 @@ export default function MyReleasesView({
               this shows your series&rsquo; own release dates. Some comics may
               be missing until it is.
             </Trans>
+            {pullReason && <> {pullReason}</>}
           </p>
         )}
 
@@ -396,7 +400,14 @@ export default function MyReleasesView({
             variant="custom"
             eyebrow={t`RELEASES · PULL LIST UNAVAILABLE`}
             title={t`This week's pull list isn't available yet`}
-            description={t`The comics pull source hasn't published this week or can't be reached, and none of your series has a release date in it. Try Refresh releases later, or turn off Only my library to see this week's manga.`}
+            description={
+              pullReason
+                ? [
+                    pullReason,
+                    t`None of your series has a release date this week. Try Refresh releases later, or turn off Only my library to see this week's manga.`,
+                  ].join(" ")
+                : t`The comics pull source hasn't published this week or can't be reached, and none of your series has a release date in it. Try Refresh releases later, or turn off Only my library to see this week's manga.`
+            }
           />
         )}
 

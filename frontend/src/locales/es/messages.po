@@ -2632,6 +2632,18 @@ msgstr "Cómics (Comic Vine)"
 msgid "ComicVine API key"
 msgstr "Clave de API de ComicVine"
 
+#: src/components/releases/pullAttempts.ts
+msgid "ComicVine could not be reached."
+msgstr "No se pudo contactar con ComicVine."
+
+#: src/components/releases/pullAttempts.ts
+msgid "ComicVine has no API key in Settings."
+msgstr "ComicVine no tiene clave de API en Ajustes."
+
+#: src/components/releases/pullAttempts.ts
+msgid "ComicVine lists no comics for this week yet."
+msgstr "ComicVine aún no tiene cómics para esta semana."
+
 #: src/components/releases/MyReleasesView.tsx
 msgid "Coming up"
 msgstr "Próximamente"
@@ -3628,6 +3640,10 @@ msgstr "Estimado: MangaDex no indica los capítulos de este volumen"
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Event"
 msgstr "Evento"
+
+#: src/components/releases/pullAttempts.ts
+msgid "Every ComicVine release this week is from a publisher you ignore."
+msgstr "Todos los lanzamientos de ComicVine de esta semana son de editoriales que ignoras."
 
 #: src/lib/healthBand.ts
 msgid "every configured indexer is disabled"
@@ -5444,6 +5460,18 @@ msgstr "Los metadatos siguen viniendo de {provider}."
 msgid "Metron"
 msgstr "Metron"
 
+#: src/components/releases/pullAttempts.ts
+msgid "Metron could not be reached."
+msgstr "No se pudo contactar con Metron."
+
+#: src/components/releases/pullAttempts.ts
+msgid "Metron is not set up as a backup. Add your Metron login in Settings to use it."
+msgstr "Metron no está configurado como respaldo. Añade tu inicio de sesión de Metron en Ajustes para usarlo."
+
+#: src/components/releases/pullAttempts.ts
+msgid "Metron lists no comics for this week yet."
+msgstr "Metron aún no tiene cómics para esta semana."
+
 #: src/components/settings/ApiTab.tsx
 msgid "Metron Password"
 msgstr "Contraseña de Metron"
@@ -5674,10 +5702,6 @@ msgstr "Te necesita"
 #: src/components/layout/AppStatusBar.tsx
 msgid "Needs you: open the list"
 msgstr "Te necesita: abrir la lista"
-
-#: src/components/releases/IndustryReleasesView.tsx
-msgid "Neither Walksoftly nor ComicVine has this week's comics yet. Future weeks fill in as publishers announce them; try again later."
-msgstr "Ni Walksoftly ni ComicVine tienen todavía los cómics de esta semana. Las semanas futuras se completan a medida que las editoriales los anuncian; inténtalo más tarde."
 
 #: src/lib/wantedAnnotation.ts
 msgid "never searched"
@@ -5916,6 +5940,10 @@ msgstr "No hay importaciones pendientes"
 msgid "No providers enabled"
 msgstr "No hay proveedores activados"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "No pull-list source has this week's comics yet. Future weeks fill in as publishers announce them; try again later."
+msgstr "Ninguna fuente de la lista tiene aún los cómics de esta semana. Las semanas futuras se completan a medida que las editoriales los anuncian; inténtalo más tarde."
+
 #: src/pages/DiscoverPage.tsx
 msgid "No recommendations yet"
 msgstr "Aún no hay recomendaciones"
@@ -6066,6 +6094,10 @@ msgstr "Aún no hay ningún latido del proceso de trabajo."
 #: src/components/settings/NotificationsTab.tsx
 msgid "None"
 msgstr "Ninguno"
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "None of your series has a release date this week. Try Refresh releases later, or turn off Only my library to see this week's manga."
+msgstr "Ninguna de tus series tiene fecha de lanzamiento esta semana. Prueba Actualizar lanzamientos más tarde o desactiva Solo mi biblioteca para ver el manga de esta semana."
 
 #: src/pages/IssueDetailPage.tsx
 msgid "none yet"
@@ -9724,6 +9756,10 @@ msgstr "Esperando a que se vacíe el trabajo de adquisición"
 #: src/components/activity/timeline/attentionStage.ts
 msgid "Waiting on your decision."
 msgstr "Esperando tu decisión."
+
+#: src/components/releases/pullAttempts.ts
+msgid "Walksoftly, the main pull-list source, could not be reached."
+msgstr "No se pudo contactar con Walksoftly, la fuente principal de la lista."
 
 #: src/components/queue/upcomingColumns.tsx
 #: src/components/releases/IndustryReleasesView.tsx

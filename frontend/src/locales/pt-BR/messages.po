@@ -2632,6 +2632,18 @@ msgstr "HQs (Comic Vine)"
 msgid "ComicVine API key"
 msgstr "Chave de API do ComicVine"
 
+#: src/components/releases/pullAttempts.ts
+msgid "ComicVine could not be reached."
+msgstr "Não foi possível acessar o ComicVine."
+
+#: src/components/releases/pullAttempts.ts
+msgid "ComicVine has no API key in Settings."
+msgstr "O ComicVine não tem chave de API em Configurações."
+
+#: src/components/releases/pullAttempts.ts
+msgid "ComicVine lists no comics for this week yet."
+msgstr "O ComicVine ainda não lista HQs para esta semana."
+
 #: src/components/releases/MyReleasesView.tsx
 msgid "Coming up"
 msgstr "Em breve"
@@ -3628,6 +3640,10 @@ msgstr "Estimado: o MangaDex não lista os capítulos deste volume"
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Event"
 msgstr "Evento"
+
+#: src/components/releases/pullAttempts.ts
+msgid "Every ComicVine release this week is from a publisher you ignore."
+msgstr "Todos os lançamentos do ComicVine desta semana são de editoras que você ignora."
 
 #: src/lib/healthBand.ts
 msgid "every configured indexer is disabled"
@@ -5444,6 +5460,18 @@ msgstr "Os metadados continuam vindo de {provider}."
 msgid "Metron"
 msgstr "Metron"
 
+#: src/components/releases/pullAttempts.ts
+msgid "Metron could not be reached."
+msgstr "Não foi possível acessar o Metron."
+
+#: src/components/releases/pullAttempts.ts
+msgid "Metron is not set up as a backup. Add your Metron login in Settings to use it."
+msgstr "O Metron não está configurado como reserva. Adicione seu login do Metron em Configurações para usá-lo."
+
+#: src/components/releases/pullAttempts.ts
+msgid "Metron lists no comics for this week yet."
+msgstr "O Metron ainda não lista HQs para esta semana."
+
 #: src/components/settings/ApiTab.tsx
 msgid "Metron Password"
 msgstr "Senha do Metron"
@@ -5674,10 +5702,6 @@ msgstr "Precisa de você"
 #: src/components/layout/AppStatusBar.tsx
 msgid "Needs you: open the list"
 msgstr "Precisa de você: abrir a lista"
-
-#: src/components/releases/IndustryReleasesView.tsx
-msgid "Neither Walksoftly nor ComicVine has this week's comics yet. Future weeks fill in as publishers announce them; try again later."
-msgstr "Nem o Walksoftly nem o ComicVine têm as HQs desta semana ainda. As próximas semanas são preenchidas conforme as editoras anunciam; tente de novo mais tarde."
 
 #: src/lib/wantedAnnotation.ts
 msgid "never searched"
@@ -5916,6 +5940,10 @@ msgstr "Nenhuma importação pendente"
 msgid "No providers enabled"
 msgstr "Nenhum provedor ativado"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "No pull-list source has this week's comics yet. Future weeks fill in as publishers announce them; try again later."
+msgstr "Nenhuma fonte da agenda tem as HQs desta semana ainda. As próximas semanas são preenchidas conforme as editoras anunciam; tente mais tarde."
+
 #: src/pages/DiscoverPage.tsx
 msgid "No recommendations yet"
 msgstr "Ainda não há recomendações"
@@ -6066,6 +6094,10 @@ msgstr "Ainda não há sinal de vida dos workers."
 #: src/components/settings/NotificationsTab.tsx
 msgid "None"
 msgstr "Nenhum"
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "None of your series has a release date this week. Try Refresh releases later, or turn off Only my library to see this week's manga."
+msgstr "Nenhuma das suas séries tem data de lançamento esta semana. Tente Atualizar lançamentos mais tarde ou desative Só minha biblioteca para ver os mangás da semana."
 
 #: src/pages/IssueDetailPage.tsx
 msgid "none yet"
@@ -9724,6 +9756,10 @@ msgstr "Aguardando o trabalho de aquisição terminar"
 #: src/components/activity/timeline/attentionStage.ts
 msgid "Waiting on your decision."
 msgstr "Aguardando sua decisão."
+
+#: src/components/releases/pullAttempts.ts
+msgid "Walksoftly, the main pull-list source, could not be reached."
+msgstr "Não foi possível acessar o Walksoftly, a fonte principal da agenda."
 
 #: src/components/queue/upcomingColumns.tsx
 #: src/components/releases/IndustryReleasesView.tsx

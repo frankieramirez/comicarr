@@ -60,6 +60,12 @@ export interface WeekRef {
   year: string;
 }
 
+/** A pull-list source that did not fill the week, and why. */
+export interface PullAttempt {
+  source: "walksoftly" | "metron" | "comicvine";
+  reason: "failed" | "not_configured" | "no_releases" | "filtered_out";
+}
+
 export interface WeeklyPullWeek extends WeekRef {
   /** Sunday that opens the week, ISO date. */
   start: string;
@@ -71,6 +77,8 @@ export interface WeeklyPullWeek extends WeekRef {
   next: WeekRef | null;
   /** `unavailable` means no source could fill the week yet. */
   source: "stored" | "fetched" | "unavailable";
+  /** With `unavailable`: each source tried and why it had nothing. */
+  pull_attempts?: PullAttempt[];
   rows: WeeklyIssue[];
   /** The week's manga, manhwa and manhua; older servers leave it out. */
   manga?: MangaWeek;

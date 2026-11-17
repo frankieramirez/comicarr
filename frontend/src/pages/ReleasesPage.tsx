@@ -18,6 +18,7 @@ import MyReleasesView from "@/components/releases/MyReleasesView";
 import { withLibraryManga } from "@/components/releases/industryRows";
 import WeekBar from "@/components/releases/WeekBar";
 import ReleasesModeBar from "@/components/releases/ReleasesModeBar";
+import { describePullAttempts } from "@/components/releases/pullAttempts";
 import {
   INDUSTRY_FORMATS,
   LIBRARY_FORMATS,
@@ -239,6 +240,7 @@ export default function ReleasesPage() {
             refetch={mine.refetch}
             start={week?.start}
             pullUnavailable={week?.source === "unavailable"}
+            pullReason={describePullAttempts(week?.pull_attempts)}
           />
         ) : (
           <IndustryReleasesView

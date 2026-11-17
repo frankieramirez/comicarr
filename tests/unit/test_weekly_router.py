@@ -158,17 +158,60 @@ def test_a_fetched_week_returns_the_rows_the_source_stored(monkeypatch, weekly_d
 
 
 def test_fetch_week_falls_back_to_comicvine_on_the_week_midpoint(monkeypatch):
-    from comicarr.app.weekly import cv_source, locg
+    from comicarr.app.weekly import cv_source, locg, metron_source
 
     pulled = []
     monkeypatch.setattr(locg, "locg", lambda **_kwargs: {"status": "failure"})
+    monkeypatch.setattr(metron_source, "is_available", lambda: False)
     monkeypatch.setattr(cv_source, "is_available", lambda: True)
     monkeypatch.setattr(
-        cv_source, "pull_week", lambda week, year, midweek: pulled.append(midweek) or {"status": "success"}
+        cv_source,
+        "pull_week",
+        lambda week, year, midweek: pulled.append(midweek) or {"status": "success", "source": "comicvine"},
     )
 
     assert weekly_service._fetch_week("42", "2026", "2026-10-18") == "comicvine"
     assert pulled == ["2026-10-21"]
+
+
+def test_fetch_week_asks_metron_before_comicvine(monkeypatch):
+    from comicarr.app.weekly import cv_source, locg, metron_source
+
+    monkeypatch.setattr(locg, "locg", lambda **_kwargs: {"status": "failure"})
+    monkeypatch.setattr(metron_source, "is_available", lambda: True)
+    monkeypatch.setattr(
+        metron_source, "pull_week", lambda week, year, midweek: {"status": "success", "source": "metron"}
+    )
+    monkeypatch.setattr(cv_source, "is_available", lambda: True)
+    monkeypatch.setattr(
+        cv_source, "pull_week", lambda *_a: (_ for _ in ()).throw(AssertionError("ComicVine is the last resort"))
+    )
+
+    assert weekly_service._fetch_week("42", "2026", "2026-10-18") == "metron"
+
+
+def test_an_empty_week_says_which_sources_were_tried_and_why(monkeypatch, weekly_db):
+    from comicarr.app.weekly import cv_source, locg, metron_source
+
+    monkeypatch.setattr(weekly_service, "_WEEK_ATTEMPTS", {})
+    monkeypatch.setattr(locg, "locg", lambda **_kwargs: {"status": "failure"})
+    monkeypatch.setattr(metron_source, "is_available", lambda: False)
+    monkeypatch.setattr(cv_source, "is_available", lambda: True)
+    monkeypatch.setattr(
+        cv_source, "pull_week", lambda *_a: {"status": "failure", "source": "comicvine", "reason": "no_releases"}
+    )
+
+    first = weekly_service.get_week("42", "2026", today=TODAY)
+    # A reload inside the retry window does not fetch again but keeps the reasons.
+    second = weekly_service.get_week("42", "2026", today=TODAY)
+
+    expected = [
+        {"source": "walksoftly", "reason": "failed"},
+        {"source": "metron", "reason": "not_configured"},
+        {"source": "comicvine", "reason": "no_releases"},
+    ]
+    assert first["source"] == "unavailable"
+    assert first["pull_attempts"] == second["pull_attempts"] == expected
 
 
 def test_rows_carry_their_library_state(monkeypatch, weekly_db):
@@ -254,3 +297,20 @@ def test_add_from_week_refuses_rows_it_cannot_add(monkeypatch, weekly_db):
     assert weekly_service.add_from_week(None, owned)["status"] == 409
     assert weekly_service.add_from_week(None, unidentified)["status"] == 422
     assert weekly_service.add_from_week(None, 999_999)["status"] == 404
+
+
+def test_library_comics_for_pull_matching_leave_out_manga(weekly_db):
+    from comicarr.app.weekly import queries as weekly_queries
+
+    with weekly_db.begin() as conn:
+        conn.execute(
+            insert(comics),
+            [
+                {"ComicID": "c1", "ComicName": "Night Watch", "ComicYear": "2024", "ContentType": "comic"},
+                {"ComicID": "m1", "ComicName": "Blade Song", "ComicYear": "2019", "ContentType": "manga"},
+            ],
+        )
+
+    rows = weekly_queries.get_library_comics()
+
+    assert [(row["ComicID"], row["ComicYear"]) for row in rows] == [("c1", "2024")]

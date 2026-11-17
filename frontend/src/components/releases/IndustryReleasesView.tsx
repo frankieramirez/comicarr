@@ -22,6 +22,7 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { DESKTOP_COL } from "@/components/data-table/gridColumns";
 import MangaAddDialog from "@/components/releases/MangaAddDialog";
+import { describePullAttempts } from "@/components/releases/pullAttempts";
 import {
   groupKey,
   matchesFormat,
@@ -355,6 +356,7 @@ export default function IndustryReleasesView({
             }
             mangaStatus={manga?.status}
             comicsSource={data?.source}
+            pullReason={describePullAttempts(data?.pull_attempts)}
             future={(data?.offset ?? 0) > 0}
           />
         ) : (
@@ -388,6 +390,7 @@ function EmptyWeek({
   hiddenByPopular,
   mangaStatus,
   comicsSource,
+  pullReason,
   future,
 }: {
   format: ReleaseFormat;
@@ -395,6 +398,8 @@ function EmptyWeek({
   hiddenByPopular: boolean;
   mangaStatus?: string;
   comicsSource?: string;
+  /** Why no source filled the week, when the server said. */
+  pullReason?: string | null;
   future: boolean;
 }) {
   if (filtered) {
@@ -444,7 +449,8 @@ function EmptyWeek({
       title={t`No releases for this week`}
       description={
         comicsSource === "unavailable"
-          ? t`Neither Walksoftly nor ComicVine has this week's comics yet. Future weeks fill in as publishers announce them; try again later.`
+          ? (pullReason ??
+            t`No pull-list source has this week's comics yet. Future weeks fill in as publishers announce them; try again later.`)
           : t`Run a weekly pull list update from Settings to populate this view.`
       }
     />
