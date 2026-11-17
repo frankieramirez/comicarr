@@ -455,7 +455,7 @@ def _read_get_wanted(StoryArcID, audit_identity):
     stupdate = []
     add_to_search_queue = []
     wantedlist = db.raw_select_all(
-        "SELECT * FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' AND Status != 'Downloaded' AND Status !='Archived' AND Status !='Snatched'",
+        "SELECT * FROM storyarcs WHERE StoryArcID=? AND COALESCE(Manual, '') != 'deleted' AND Status != 'Downloaded' AND Status !='Archived' AND Status !='Snatched'",
         [StoryArcID],
     )
     if wantedlist is not None:
@@ -523,7 +523,8 @@ def _read_get_wanted(StoryArcID, audit_identity):
             stupdate.append({"Status": "Wanted", "IssueArcID": IssueArcID, "IssueID": actual_issueid})
 
     watchlistchk = db.raw_select_all(
-        "SELECT * FROM storyarcs WHERE StoryArcID=? AND Manual != 'deleted' AND Status='Wanted'", [StoryArcID]
+        "SELECT * FROM storyarcs WHERE StoryArcID=? AND COALESCE(Manual, '') != 'deleted' AND Status='Wanted'",
+        [StoryArcID],
     )
     if watchlistchk is not None:
         for watchchk in watchlistchk:
@@ -1246,7 +1247,7 @@ def spantheyears(storyarcid):
             func.min(storyarcs.c.SeriesYear).label("fallback_year"),
         )
         .where(storyarcs.c.StoryArcID == storyarcid)
-        .where(storyarcs.c.Manual != "deleted")
+        .where(func.coalesce(storyarcs.c.Manual, "") != "deleted")
     )
     row = db.select_one(stmt)
     if row is None:

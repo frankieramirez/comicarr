@@ -58,6 +58,13 @@ describe("ArcSearch", () => {
     await waitFor(() => {
       expect(screen.getByText("Dark Phoenix Saga")).toBeTruthy();
     });
+
+    // haveit "No" means not in the library: the card offers Add, not a disabled Added (#1514).
+    const add = screen.getByRole("button", {
+      name: /add arc/i,
+    }) as HTMLButtonElement;
+    expect(add.disabled).toBe(false);
+    expect(screen.queryByRole("button", { name: /^added$/i })).toBeNull();
     expect(screen.getByText("Marvel")).toBeTruthy();
   });
 

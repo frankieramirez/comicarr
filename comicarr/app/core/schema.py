@@ -76,6 +76,7 @@ _REVISION_INTRODUCED_TABLES = {
     "0022_manga_volumes": frozenset({"manga_volumes"}),
     "0023_manga_volume_ranges": frozenset(),
     "0024_physical_copies": frozenset({"physical_copies"}),
+    "0025_storyarcs_empty_rows": frozenset(),
 }
 _READINGLIST_TO_STORYARCS_COLUMNS = (
     "StoryArcID",

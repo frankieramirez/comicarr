@@ -40,7 +40,7 @@ from urllib.parse import urljoin
 import feedparser
 import requests
 from requests.adapters import HTTPAdapter
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from urllib3.util.retry import Retry
 
 import comicarr
@@ -2369,11 +2369,22 @@ def searchforissue(
                                         DateAdded,
                                     )
                                 )
-                                db.upsert(
-                                    table,
-                                    {"DateAdded": DateAdded},
-                                    {"IssueID": result["IssueID"]},
-                                )
+                                if table == "storyarcs":
+                                    # storyarcs upserts key on IssueArcID, so an IssueID
+                                    # key would insert an empty row on every search (#1514).
+                                    with db.get_engine().begin() as conn:
+                                        conn.execute(
+                                            update(storyarcs)
+                                            .where(storyarcs.c.IssueID == result["IssueID"])
+                                            .where(storyarcs.c.DateAdded.is_(None))
+                                            .values(DateAdded=DateAdded)
+                                        )
+                                else:
+                                    db.upsert(
+                                        table,
+                                        {"DateAdded": DateAdded},
+                                        {"IssueID": result["IssueID"]},
+                                    )
 
                         else:
                             DateAdded = result["DateAdded"]
