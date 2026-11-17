@@ -33,7 +33,7 @@ import sqlalchemy.exc
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, filechecker, helpers, logger, search, updater
+from comicarr import db, filechecker, helpers, logger, search
 from comicarr.app.common import series_kind
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.downloads import snatch_record
@@ -41,7 +41,7 @@ from comicarr.app.library import filers, moveit
 from comicarr.app.metadata import cv, series_metadata
 from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.app.search import mb
-from comicarr.app.series import rescan
+from comicarr.app.series import rescan, watchlist_refresh
 from comicarr.app.weekly import pull
 from comicarr.tables import annuals, comics, issues
 
@@ -2630,7 +2630,9 @@ def _start_refresh_worker():
             return False
         logger.info("[MASS-REFRESH] MASS_REFRESH thread not started. Started & submitting.")
         refresh_queue = ctx.refresh_queue if ctx is not None else comicarr.REFRESH_QUEUE
-        worker = threading.Thread(target=updater.addvialist, args=(refresh_queue,), name="mass-refresh")
+        worker = threading.Thread(
+            target=watchlist_refresh.run_refresh_queue, args=(refresh_queue,), name="mass-refresh"
+        )
         _set_mass_refresh_pool(ctx, worker)
         worker.start()
         return True

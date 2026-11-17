@@ -171,7 +171,7 @@ def release_key(issueid, provider, nzbname=None, hash=None, discriminant=None):
     every seam.
 
     One-off fallback (synthetic-HIGHCOUNT / missing issueid — not reproducible
-    across restart, see comicarr/updater.py:1214-1220): key on
+    across restart, see snatch_record.nzblog): key on
     f"oneoff|{normalize_provider(provider)}|{nzbname-or-hash}|{discriminant}"
     where `discriminant` is a collision-resistant value (downloader id or a
     hash of the payload) supplied by the caller. This guarantees two distinct

@@ -139,8 +139,8 @@ def _is_story_arc_obligation(issueid):
     table has NO `mode`/SARC column, so the payload-`mode` signal used on
     journal rows is unavailable here). snatch_record.foundsearch ALWAYS upserts a
     `storyarcs` row keyed IssueArcID and writes the snatched row with
-    IssueID == that IssueArcID for a story-arc snatch (updater.py
-    ~1307/1327-1357). So: a `storyarcs` row whose IssueArcID equals this
+    IssueID == that IssueArcID for a story-arc snatch (see
+    snatch_record.foundsearch). So: a `storyarcs` row whose IssueArcID equals this
     snatched IssueID ⇒ this is a story-arc obligation; otherwise it is a
     plain issue. Returns True/False, or None when the lookup is unanswerable
     (caller then uses the minimally-safe prefer-plain fallback)."""

@@ -31,7 +31,7 @@ layer under ``comicarr/app/mcp/``, imports no root module outside
 Infrastructure, seam or not.
 
 The scan is an AST walk, so function-local and relative imports count. It also
-counts attribute access through the package (``comicarr.updater.forceRescan``
+counts attribute access through the package (``comicarr.importer.addComictoDB``
 after a bare ``import comicarr``), which is how several services reach legacy
 code without an import statement naming the module.
 
@@ -75,13 +75,6 @@ SEAMS = {
     "weeklypullit": frozenset({"comicarr/app/weekly/pull.py"}),
     "rsscheck": frozenset({"comicarr/app/search/rss.py"}),
     "rsscheckit": frozenset({"comicarr/app/search/rss.py"}),
-    "updater": frozenset(
-        {
-            "comicarr/app/series/rescan.py",
-            "comicarr/app/downloads/snatch_record.py",
-            "comicarr/app/series/refresh.py",
-        }
-    ),
     "importer": frozenset({"comicarr/app/series/add.py"}),
     "postprocessor": frozenset({"comicarr/app/downloads/postprocessing.py"}),
 }
@@ -191,7 +184,7 @@ def _crossings(path: Path, rel: str, root_modules: frozenset[str]) -> list[tuple
             if module is not None:
                 found.append((node.lineno, module))
             elif dotted == PACKAGE:
-                # ``from comicarr import updater`` and ``from ... import updater``
+                # ``from comicarr import importer`` and ``from ... import importer``
                 found.extend((node.lineno, a.name) for a in node.names if a.name in root_modules)
         elif isinstance(node, ast.Import):
             for alias in node.names:
@@ -204,7 +197,7 @@ def _crossings(path: Path, rel: str, root_modules: frozenset[str]) -> list[tuple
             and node.value.id == PACKAGE
             and node.attr in root_modules
         ):
-            # ``import comicarr`` then ``comicarr.updater.forceRescan(...)``
+            # ``import comicarr`` then ``comicarr.importer.addComictoDB(...)``
             found.append((node.lineno, node.attr))
     return found
 

@@ -120,7 +120,7 @@ def test_refresh_worker_projects_pool_to_canonical_runtime(monkeypatch):
 
     assert ctx.mass_refresh_pool is pool
     assert comicarr.MASS_REFRESH is pool
-    thread.assert_called_once_with(target=importer.updater.addvialist, args=(ctx.refresh_queue,), name="mass-refresh")
+    thread.assert_called_once_with(target=importer.watchlist_refresh.run_refresh_queue, args=(ctx.refresh_queue,), name="mass-refresh")
     pool.start.assert_called_once()
 
     monkeypatch.setattr(importer.threading, "current_thread", lambda: pool)

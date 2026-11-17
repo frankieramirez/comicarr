@@ -631,7 +631,7 @@ def set_issue_status(issue_id, status, audit_identity, *, table, conn=None):
 
     Wanted/Skipped/Ignored are explicit acquisition intent and dual-write both
     columns. Archived is fulfillment evidence, not intent, so it writes Status
-    only — the same shape updater.py uses when it archives a missing file.
+    only — the same shape the folder rescan uses when it archives a missing file.
     """
     if status == "Archived":
         values = {"Status": "Archived"}

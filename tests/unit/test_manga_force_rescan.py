@@ -15,7 +15,6 @@ from unittest.mock import MagicMock
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import updater
 from comicarr.app.manga.rescan import mark_parsed_files_downloaded
 from comicarr.app.series import folder_rescan
 from comicarr.tables import comics, issues, manga_volumes, metadata
@@ -81,7 +80,7 @@ def test_force_rescan_volume_bare_file_records_the_volume(monkeypatch, tmp_path)
     metadata.create_all(engine)
     _seed_manga(engine, tmp_path, bare_mode="volumes")
 
-    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
     monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
     monkeypatch.setattr(
         folder_rescan.filechecker,
@@ -107,7 +106,7 @@ def test_force_rescan_empty_manga_folder_does_not_crash(monkeypatch, tmp_path):
     engine = create_engine("sqlite://")
     metadata.create_all(engine)
     _seed_manga(engine, tmp_path, bare_mode="auto")
-    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
     monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
 
     folder_rescan.force_rescan("md-naruto")
@@ -131,7 +130,7 @@ def test_force_rescan_hands_an_old_volume_location_back_to_the_volume(monkeypatc
         have=1,
     )
 
-    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
     monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
     monkeypatch.setattr(
         folder_rescan.filechecker,
@@ -162,7 +161,7 @@ def test_mark_parsed_files_downloaded_repoints_stale_location_only(monkeypatch, 
         location="Naruto 100.cbr",
         have=1,
     )
-    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
 
     count = mark_parsed_files_downloaded(
         "md-naruto",
@@ -188,7 +187,7 @@ def test_mark_parsed_files_downloaded_skips_matching_downloaded_location(monkeyp
         location="Naruto 100.cbz",
         have=1,
     )
-    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
 
     count = mark_parsed_files_downloaded(
         "md-naruto",
@@ -216,7 +215,7 @@ def test_mark_parsed_files_downloaded_keeps_chapter_location_when_volume_pack_ma
         location="Naruto c100.cbz",
         have=1,
     )
-    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
 
     count = mark_parsed_files_downloaded(
         "md-naruto",
@@ -252,7 +251,7 @@ def test_force_rescan_ignores_nested_leftover_cbr_when_root_is_cbz(monkeypatch, 
         have=1,
     )
 
-    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
     monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
     monkeypatch.setattr(
         folder_rescan.filechecker,
@@ -277,7 +276,7 @@ def test_volume_file_with_no_listed_chapters_is_recorded_not_dropped(monkeypatch
     engine = create_engine("sqlite://")
     metadata.create_all(engine)
     _seed_manga(engine, tmp_path)
-    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
 
     count = mark_parsed_files_downloaded(
         "md-naruto",
@@ -299,7 +298,7 @@ def test_rescanned_volume_leaves_the_search_frontier(monkeypatch, tmp_path):
     engine = create_engine("sqlite://")
     metadata.create_all(engine)
     _seed_manga(engine, tmp_path)
-    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
 
     mark_parsed_files_downloaded(
         "md-naruto",
@@ -318,7 +317,7 @@ def test_rescan_twice_counts_a_volume_once(monkeypatch, tmp_path):
     engine = create_engine("sqlite://")
     metadata.create_all(engine)
     _seed_manga(engine, tmp_path)
-    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
     files = [(str(tmp_path / "Naruto v12.cbz"), {"chapter_number": None, "volume_number": 12})]
 
     assert mark_parsed_files_downloaded("md-naruto", files, directory=str(tmp_path)) == 1

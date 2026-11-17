@@ -55,15 +55,57 @@ def add_manga(comic_id: str) -> Any:
     return importer.addMangaToDB(comic_id)
 
 
-def update_issue_data(comic_id: str, comic_name: str, *, calledfrom: str | None = None) -> Any:
+def update_issue_data(
+    comic_id: str,
+    comic_name: str,
+    *,
+    calledfrom: str | None = None,
+    serieslast_updated: str | None = None,
+) -> Any:
     """Re-read a series' issue list from its source, through ``importer.updateissuedata``.
 
     The pull-list match calls it with ``calledfrom="weeklycheck"`` when a
-    pulled issue is not in the series yet.
+    pulled issue is not in the series yet; the refresh worker passes the
+    series' ``serieslast_updated``.
     """
     from comicarr import importer
 
-    return importer.updateissuedata(comic_id, comic_name, calledfrom=calledfrom)
+    if serieslast_updated is None:
+        return importer.updateissuedata(comic_id, comic_name, calledfrom=calledfrom)
+    return importer.updateissuedata(comic_id, comic_name, calledfrom=calledfrom, serieslast_updated=serieslast_updated)
+
+
+def reload_series(comic_id: str, mismatch: Any = None, **legacy_kwargs: Any) -> Any:
+    """Re-run the add for a series being refreshed, through ``importer.addComictoDB``.
+
+    ``legacy_kwargs`` are the refresh job's ``addComictoDB`` arguments
+    (``calledfrom``, ``annload``, ``csyear``, ``fixed_type``) passed through
+    unchanged until the add moves under ``comicarr/app/`` (#1464).
+    """
+    from comicarr import importer
+
+    return importer.addComictoDB(comic_id, mismatch, **legacy_kwargs)
+
+
+def store_issue_rows(issuedata: Any, *, nostatus: Any, serieslast_updated: str | None = None) -> Any:
+    """Write a refreshed series' issue rows, through ``importer.issue_collection``."""
+    from comicarr import importer
+
+    return importer.issue_collection(issuedata, nostatus=nostatus, serieslast_updated=serieslast_updated)
+
+
+def add_manual_annual(**legacy_kwargs: Any) -> Any:
+    """Add or refresh a series' annuals, through ``importer.manualAnnual``."""
+    from comicarr import importer
+
+    return importer.manualAnnual(**legacy_kwargs)
+
+
+def refresh_worker_should_retire(refresh_queue: Any) -> bool:
+    """Whether the refresh worker may stop: its queue is empty under the producer lock."""
+    from comicarr import importer
+
+    return importer.refresh_worker_should_retire(refresh_queue)
 
 
 def queue_series_adds(series: Sequence[Mapping[str, Any]]) -> None:

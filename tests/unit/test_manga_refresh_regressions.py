@@ -16,8 +16,8 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import importer, updater
-from comicarr.app.series import folder_rescan
+from comicarr import importer
+from comicarr.app.series import folder_rescan, watchlist_refresh
 from comicarr.tables import comics, issues, metadata
 
 
@@ -69,7 +69,7 @@ class TestDbUpdateMangaShortCircuit:
                 },
             )
 
-        monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(watchlist_refresh.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
         monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
 
@@ -80,7 +80,7 @@ class TestDbUpdateMangaShortCircuit:
         monkeypatch.setattr(folder_rescan, "force_rescan", mock_rescan)
         monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", mock_emit)
 
-        updater.dbUpdate(["mal-161890"], calledfrom="refresh")
+        watchlist_refresh.refresh_series_list(["mal-161890"], calledfrom="refresh")
 
         # Manga branch calls addComictoDB positionally (no annload/csyear kwargs) and
         # then re-matches files via forceRescan -- never the CV delete-and-reload path.
@@ -106,7 +106,7 @@ class TestDbUpdateMangaShortCircuit:
                 },
             )
 
-        monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(watchlist_refresh.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
         monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
         mock_add = MagicMock(return_value={"status": "complete", "comicid": "134064"})
@@ -115,7 +115,7 @@ class TestDbUpdateMangaShortCircuit:
         monkeypatch.setattr(folder_rescan, "force_rescan", mock_rescan)
         monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", MagicMock())
 
-        updater.dbUpdate(["134064"], calledfrom="refresh")
+        watchlist_refresh.refresh_series_list(["134064"], calledfrom="refresh")
 
         mock_add.assert_called_once_with("134064", "no")
         mock_rescan.assert_called_once_with("134064")
@@ -136,7 +136,7 @@ class TestDbUpdateMangaShortCircuit:
                 },
             )
 
-        monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(watchlist_refresh.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
         monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
         mock_add = MagicMock(return_value={"status": "complete", "comicid": "md-example"})
@@ -145,7 +145,7 @@ class TestDbUpdateMangaShortCircuit:
         monkeypatch.setattr(folder_rescan, "force_rescan", mock_rescan)
         monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", MagicMock())
 
-        updater.dbUpdate(["md-example"], calledfrom="refresh")
+        watchlist_refresh.refresh_series_list(["md-example"], calledfrom="refresh")
 
         mock_add.assert_called_once_with("md-example", "no")
         mock_rescan.assert_called_once_with("md-example")
@@ -186,7 +186,7 @@ class TestForceRescanNullIssueDate:
                 },
             )
 
-        monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(watchlist_refresh.db, "get_engine", lambda: engine)
         monkeypatch.setattr(
             comicarr,
             "CONFIG",
@@ -265,7 +265,7 @@ class TestForceRescanNullIssueDate:
                     },
                 )
 
-        monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(watchlist_refresh.db, "get_engine", lambda: engine)
         monkeypatch.setattr(
             comicarr,
             "CONFIG",
@@ -561,7 +561,7 @@ class TestMangaRefreshForceRescanErrors:
                 },
             )
 
-        monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(watchlist_refresh.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
         monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
         monkeypatch.setattr(
@@ -573,7 +573,7 @@ class TestMangaRefreshForceRescanErrors:
         mock_emit = MagicMock(return_value={"event_id": 1})
         monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", mock_emit)
 
-        updater.dbUpdate(["mal-161890"], calledfrom="refresh")
+        watchlist_refresh.refresh_series_list(["mal-161890"], calledfrom="refresh")
 
         mock_emit.assert_called()
         assert mock_emit.call_args[0][:2] == ("refresh", "failed")
