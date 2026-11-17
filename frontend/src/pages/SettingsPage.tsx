@@ -22,6 +22,12 @@ import { SaveButton } from "@/components/settings/SaveButton";
 import PageHeader from "@/components/layout/PageHeader";
 import { ToggleChip } from "@/components/ui/toggle-chip";
 import { prepareConfigSaveData } from "@/lib/configSave";
+import {
+  refusalFromBody,
+  settingRefusalMessage,
+  settingValueErrors,
+} from "@/lib/settingValues";
+import { ApiError } from "@/lib/api";
 import { formatAppVersion } from "@/lib/version";
 import { httpOrigin } from "@/lib/httpOrigin";
 import { settingsPanelClassName, type SectionId } from "@/lib/settingsPanel";
@@ -127,6 +133,7 @@ export default function SettingsPage() {
 
   const [formData, setFormData] = useState<SettingsFormData>({});
   const [originalData, setOriginalData] = useState<SettingsFormData>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [regeneratedApiKey, setRegeneratedApiKey] = useState<string | null>(
     null,
   );
@@ -196,6 +203,11 @@ export default function SettingsPage() {
     value: NonNullable<WritableConfig[K]>,
   ) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+    setFieldErrors((prev) => {
+      if (!(key in prev)) return prev;
+      const { [key as string]: _cleared, ...rest } = prev;
+      return rest;
+    });
   };
 
   const validateForm = (data: SettingsFormData): Record<string, string> => {
@@ -271,11 +283,15 @@ export default function SettingsPage() {
           t`Enter the ${label} password again when changing the server`;
       }
     }
-    return errors;
+    return {
+      ...errors,
+      ...settingValueErrors(data, Boolean(config?.discord_webhook_url_set)),
+    };
   };
 
   const handleSave = async () => {
     const errors = validateForm(formData);
+    setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
       addToast({
         type: "error",
@@ -294,16 +310,24 @@ export default function SettingsPage() {
       });
       setOriginalData(formData);
     } catch (err) {
+      const refusal =
+        err instanceof ApiError ? refusalFromBody(err.body) : null;
+      const refusalMessage = refusal ? settingRefusalMessage(refusal) : null;
+      if (refusal && refusalMessage) {
+        setFieldErrors({ [refusal.field]: refusalMessage });
+      }
       addToast({
         type: "error",
         message:
-          err instanceof Error ? err.message : t`Failed to save settings`,
+          refusalMessage ??
+          (err instanceof Error ? err.message : t`Failed to save settings`),
       });
     }
   };
 
   const handleCancel = () => {
     setFormData(originalData);
+    setFieldErrors({});
     addToast({
       type: "info",
       message: providerDirty
@@ -345,6 +369,7 @@ export default function SettingsPage() {
     config: configData as ReadableConfig,
     formData,
     onChange: handleChange,
+    errors: fieldErrors,
   };
   const aboutProps = {
     config: configData,

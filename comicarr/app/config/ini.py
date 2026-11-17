@@ -36,7 +36,7 @@ from pathlib import Path
 import comicarr
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.config.log_level import record_startup_argument, resolve_startup_log_level
-from comicarr.app.config.registry import as_legacy_definitions
+from comicarr.app.config.registry import REGISTRY, as_legacy_definitions
 from comicarr.app.core import db, encrypted, logger
 from comicarr.app.library import directories
 from comicarr.app.search import provider_config, prowlarr
@@ -135,7 +135,7 @@ ENCRYPTED_CONFIG_ITEMS = OrderedDict(
 )
 
 SEARCH_DELAY_DEFAULT_SECONDS = 60
-SEARCH_DELAY_FLOOR_SECONDS = 5
+SEARCH_DELAY_FLOOR_SECONDS = REGISTRY["SEARCH_DELAY"].minimum
 
 
 def minutes_to_search_delay_seconds(raw):
@@ -162,9 +162,15 @@ def clamp_search_delay(cfg):
 
 
 SCHEDULER_INTERVAL_MINIMUMS = {
-    "SEARCH_INTERVAL": (360, "Search interval too low. Resetting to 6 hour minimum"),
-    "RSS_CHECKINTERVAL": (20, "Minimum RSS Interval Check delay set for 20 minutes to avoid hammering."),
-    "DBUPDATE_INTERVAL": (60, "Minimum DB update interval set for 60 minutes to avoid hammering."),
+    "SEARCH_INTERVAL": (REGISTRY["SEARCH_INTERVAL"].minimum, "Search interval too low. Resetting to 6 hour minimum"),
+    "RSS_CHECKINTERVAL": (
+        REGISTRY["RSS_CHECKINTERVAL"].minimum,
+        "Minimum RSS Interval Check delay set for 20 minutes to avoid hammering.",
+    ),
+    "DBUPDATE_INTERVAL": (
+        REGISTRY["DBUPDATE_INTERVAL"].minimum,
+        "Minimum DB update interval set for 60 minutes to avoid hammering.",
+    ),
 }
 
 

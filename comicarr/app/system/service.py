@@ -57,6 +57,7 @@ from comicarr.app.config.registry import (
     scheduler_job_required_config,
     writable_keys,
 )
+from comicarr.app.config.setting_values import check_setting_values
 from comicarr.app.core import db, logger
 from comicarr.app.core.security import LoginRateLimiter
 from comicarr.app.core.tables import comics, jobhistory
@@ -639,6 +640,10 @@ def update_config(ctx, key_values):
                 "error": "LOG_LEVEL must be %s" % ACCEPTED_FORMS,
             }
         filtered["LOG_LEVEL"] = level
+
+    refusal = check_setting_values(ctx.config, filtered)
+    if refusal:
+        return refusal
 
     if "NZB_DOWNLOADER" in filtered:
         nzb_downloader = filtered["NZB_DOWNLOADER"]

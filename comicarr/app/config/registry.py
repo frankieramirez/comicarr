@@ -57,6 +57,13 @@ class ConfigKey:
 
     provider_extra: bool = False
 
+    # Smallest value a settings save accepts. update_config rejects anything
+    # lower with a reason instead of raising it quietly (#1492); the frontend
+    # reads the same numbers from config.generated.ts. Loading an INI file
+    # still raises a low value to this floor (ini.py), because a hand-edited
+    # file has nobody to show an error to.
+    minimum: int | None = None
+
     note: str = field(default="", compare=False)
 
     def __post_init__(self) -> None:
@@ -103,7 +110,7 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("LAUNCH_BROWSER", bool, "General", False, readable=True, writable=True),
     ConfigKey("WANTED_TAB_OFF", bool, "General", False),
     ConfigKey("ENABLE_RSS", bool, "General", False),
-    ConfigKey("SEARCH_DELAY", int, "General", 60, readable=True, writable=True),
+    ConfigKey("SEARCH_DELAY", int, "General", 60, readable=True, writable=True, minimum=5),
     ConfigKey("GRABBAG_DIR", str, "General", None),
     ConfigKey("HIGHCOUNT", int, "General", 0),
     ConfigKey("MAINTAINSERIESFOLDER", bool, "General", False),
@@ -187,10 +194,14 @@ _KEYS: tuple[ConfigKey, ...] = (
         120,
         note="Wall-clock budget in seconds for a scheduled RSS watchlist pass. 0 disables the time cap.",
     ),
-    ConfigKey("RSS_CHECKINTERVAL", int, "Scheduler", 20, readable=True, writable=True, interval_for="rss"),
-    ConfigKey("SEARCH_INTERVAL", int, "Scheduler", 1440, readable=True, writable=True, interval_for="search"),
+    ConfigKey("RSS_CHECKINTERVAL", int, "Scheduler", 20, readable=True, writable=True, interval_for="rss", minimum=20),
+    ConfigKey(
+        "SEARCH_INTERVAL", int, "Scheduler", 1440, readable=True, writable=True, interval_for="search", minimum=360
+    ),
     ConfigKey("DOWNLOAD_SCAN_INTERVAL", int, "Scheduler", 5, readable=True, writable=True, interval_for="monitor"),
-    ConfigKey("DBUPDATE_INTERVAL", int, "Scheduler", 1440, readable=True, writable=True, interval_for="dbupdater"),
+    ConfigKey(
+        "DBUPDATE_INTERVAL", int, "Scheduler", 1440, readable=True, writable=True, interval_for="dbupdater", minimum=60
+    ),
     ConfigKey("CHECK_GITHUB_INTERVAL", int, "Scheduler", 360),
     ConfigKey("BLOCKLIST_TIMER", int, "Scheduler", 3600),
     ConfigKey("IMPORT_SCAN_INTERVAL", int, "Scheduler", 30, readable=True, interval_for="importinbox"),
@@ -556,7 +567,7 @@ _KEYS: tuple[ConfigKey, ...] = (
     ConfigKey("AI_API_KEY", str, "AI", None, writable=True),
     ConfigKey("AI_MODEL", str, "AI", None, readable=True, writable=True),
     ConfigKey("AI_TIMEOUT", int, "AI", 30, readable=True, writable=True),
-    ConfigKey("AI_RPM_LIMIT", int, "AI", 20, readable=True, writable=True),
+    ConfigKey("AI_RPM_LIMIT", int, "AI", 20, readable=True, writable=True, minimum=1),
     ConfigKey("AI_DAILY_TOKEN_LIMIT", int, "AI", 100000, readable=True, writable=True),
     ConfigKey("AI_CIRCUIT_THRESHOLD", int, "AI", 5, readable=True, writable=True),
     ConfigKey("AI_CIRCUIT_COOLDOWN", int, "AI", 300, readable=True, writable=True),

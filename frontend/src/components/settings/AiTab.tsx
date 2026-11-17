@@ -14,6 +14,8 @@ import type {
   SettingsFormData,
   WritableConfig,
 } from "../../types/config.generated";
+import { CONFIG_MINIMUMS } from "../../types/config.generated";
+import { minimumHint, typedInteger } from "@/lib/settingValues";
 import { formatNumber } from "@/lib/intl";
 
 interface AiTabProps {
@@ -23,6 +25,8 @@ interface AiTabProps {
     key: K,
     value: NonNullable<WritableConfig[K]>,
   ) => void;
+  /** Refusals keyed by field, shown under the field. */
+  errors?: Record<string, string>;
 }
 
 interface TestResult {
@@ -31,7 +35,12 @@ interface TestResult {
   model?: string;
 }
 
-export function AiTab({ config: _config, formData, onChange }: AiTabProps) {
+export function AiTab({
+  config: _config,
+  formData,
+  onChange,
+  errors,
+}: AiTabProps) {
   const { data: status } = useAiStatus();
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -167,11 +176,11 @@ export function AiTab({ config: _config, formData, onChange }: AiTabProps) {
           label={t`Requests Per Minute`}
           value={formData.ai_rpm_limit}
           type="number"
-          onChange={(value) =>
-            onChange("ai_rpm_limit", parseInt(value as string) || 20)
-          }
-          placeholder="10"
-          helpText={t`Maximum number of AI requests per minute`}
+          min={CONFIG_MINIMUMS.ai_rpm_limit}
+          onChange={(value) => onChange("ai_rpm_limit", typedInteger(value))}
+          placeholder="20"
+          helpText={`${t`Maximum number of AI requests per minute`} ${minimumHint("ai_rpm_limit")}`}
+          error={errors?.ai_rpm_limit}
         />
         <SettingField
           label={t`Daily Token Limit`}
