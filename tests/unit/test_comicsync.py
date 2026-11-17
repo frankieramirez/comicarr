@@ -1,5 +1,5 @@
 """
-Unit tests for comicarr/comicsync.py — Comic Library Scanner.
+Unit tests for comicarr/app/series/comicsync.py — Comic Library Scanner.
 
 Tests cover directory walking, series matching against ComicVine,
 scan-then-select flow, and concurrent scan prevention.
@@ -20,8 +20,8 @@ def _mock_globals():
 
     with (
         patch("comicarr.CONFIG", mock_config),
-        patch("comicarr.comicsync.logger") as mock_log,
-        patch("comicarr.comicsync.db") as mock_db,
+        patch("comicarr.app.series.comicsync.logger") as mock_log,
+        patch("comicarr.app.series.comicsync.db") as mock_db,
     ):
         mock_log.fdebug = lambda *a, **kw: None
         mock_log.info = lambda *a, **kw: None
@@ -33,7 +33,7 @@ def _mock_globals():
 @pytest.fixture
 def comicsync():
     """Import comicsync fresh for each test and reset globals."""
-    from comicarr import comicsync as cs
+    from comicarr.app.series import comicsync as cs
 
     # Reset module-level state
     cs.COMIC_SCAN_STATUS = None
@@ -197,7 +197,7 @@ class TestComicScan:
                 return_value="/comics/Absolute Batman (2024)",
             ),
             patch.object(comicsync.db, "upsert") as upsert,
-            patch.object(comicsync.updater, "forceRescan") as force_rescan,
+            patch.object(comicsync, "rescan_series") as force_rescan,
             patch("comicarr.app.search.mb.findComic") as find_comic,
         ):
             result = comicsync._match_series(
@@ -243,7 +243,7 @@ class TestComicScan:
                 return_value="/comics/Absolute Batman (2024)",
             ),
             patch.object(comicsync.db, "upsert"),
-            patch.object(comicsync.updater, "forceRescan"),
+            patch.object(comicsync, "rescan_series"),
         ):
             result = comicsync.comicScan("/comics")
 
@@ -270,7 +270,7 @@ class TestComicScan:
                 return_value="/comics/Absolute Batman (2024)",
             ),
             patch.object(comicsync.db, "upsert") as upsert,
-            patch.object(comicsync.updater, "forceRescan") as force_rescan,
+            patch.object(comicsync, "rescan_series") as force_rescan,
         ):
             result = comicsync._match_series(
                 "Absolute Batman (2024)",
@@ -298,8 +298,8 @@ class TestComicScan:
             ),
             patch.object(comicsync.db, "upsert") as upsert,
             patch.object(
-                comicsync.updater,
-                "forceRescan",
+                comicsync,
+                "rescan_series",
                 side_effect=RuntimeError("rescan failed"),
             ),
             pytest.raises(RuntimeError, match="rescan failed"),
@@ -455,7 +455,7 @@ class TestImportSelectedSeries:
             {"series_name": "Superman", "matched": True, "match": {"comicid": "cv-200"}},
         ]
 
-        with patch("comicarr.importer.addComictoDB", return_value={"status": "complete"}) as mock_import:
+        with patch("comicarr.app.series.comicsync.add_series", return_value={"status": "complete"}) as mock_import:
             result = comicsync.import_selected_series(["cv-100", "cv-200"], "12345")
 
         assert result["success"] is True
@@ -469,7 +469,7 @@ class TestImportSelectedSeries:
             {"series_name": "Superman", "matched": True, "match": {"comicid": "cv-200"}},
         ]
 
-        with patch("comicarr.importer.addComictoDB", return_value={"status": "complete"}) as mock_import:
+        with patch("comicarr.app.series.comicsync.add_series", return_value={"status": "complete"}) as mock_import:
             result = comicsync.import_selected_series(["cv-100"], "12345")
 
         assert result["imported"] == 1
@@ -496,7 +496,7 @@ class TestImportSelectedSeries:
             {"series_name": "Batman", "matched": True, "match": {"comicid": "cv-100"}},
         ]
 
-        with patch("comicarr.importer.addComictoDB", return_value={"status": "complete"}):
+        with patch("comicarr.app.series.comicsync.add_series", return_value={"status": "complete"}):
             comicsync.import_selected_series(["cv-100"], "12345")
 
         assert comicsync.COMIC_SCAN_RESULTS is None
@@ -510,7 +510,7 @@ class TestImportSelectedSeries:
         ]
 
         outcomes = {"cv-100": {"status": "incomplete"}, "cv-200": {"status": "complete"}}
-        with patch("comicarr.importer.addComictoDB", side_effect=outcomes.get):
+        with patch("comicarr.app.series.comicsync.add_series", side_effect=outcomes.get):
             result = comicsync.import_selected_series(["cv-100", "cv-200"], "12345")
 
         assert result["success"] is False
@@ -526,7 +526,7 @@ class TestImportSelectedSeries:
             {"series_name": "Batman", "matched": True, "match": {"comicid": "cv-100"}},
         ]
 
-        with patch("comicarr.importer.addComictoDB", return_value=refusal):
+        with patch("comicarr.app.series.comicsync.add_series", return_value=refusal):
             result = comicsync.import_selected_series(["cv-100"], "12345")
 
         assert result["success"] is False

@@ -244,7 +244,7 @@ What it actually cost:
 
 - **`logger.warning` and `logger.exception` did not exist on it.** The branch
   defined only `debug`, `fdebug`, `info`, `warn`, and `error`. The 21
-  `logger.warning(...)` call sites — including `comicsync.py`'s "No COMIC_DIR
+  `logger.warning(...)` call sites — including `app/series/comicsync.py`'s "No COMIC_DIR
   configured" and `importinbox.py`'s missing-import-directory warning — raised
   `AttributeError` instead of logging. The 7 `logger.exception(...)` call sites
   are all inside `except` blocks, so the handler raised while handling the

@@ -1471,14 +1471,14 @@ def manga_scan_confirm(ctx, selected_ids, scan_id):
 
 def comic_scan_progress():
     """Progress of the current or last comic library scan."""
-    from comicarr import comicsync
+    from comicarr.app.series import comicsync
 
     return comicsync.get_scan_progress()
 
 
 def comic_library_scan(ctx):
     """Trigger a comic library scan in the background."""
-    from comicarr import comicsync
+    from comicarr.app.series import comicsync
 
     comic_dir = getattr(comicarr.CONFIG, "COMIC_DIR", None) if comicarr.CONFIG else None
     if not comic_dir:
@@ -1500,7 +1500,7 @@ def comic_library_scan(ctx):
 
 def comic_scan_confirm(ctx, selected_ids, scan_id):
     """Confirm and import selected comic series from scan results."""
-    from comicarr import comicsync
+    from comicarr.app.series import comicsync
 
     if not selected_ids:
         return {"success": False, "error": "No series selected"}

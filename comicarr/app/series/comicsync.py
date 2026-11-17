@@ -33,9 +33,11 @@ import traceback
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, logger, updater
+from comicarr import db, logger
 from comicarr.app.common import series_kind
 from comicarr.app.imports.scanutil import COMIC_EXTENSIONS, find_best_match, normalize_title
+from comicarr.app.series.add import add_series
+from comicarr.app.series.rescan import rescan_series
 from comicarr.tables import comics
 
 COMIC_SCAN_STATUS = None
@@ -280,7 +282,7 @@ def _reconcile_existing_series(existing_series, files):
         db.upsert("comics", {"ComicLocation": scanned_location}, {"ComicID": comic_id})
 
     try:
-        updater.forceRescan(comic_id)
+        rescan_series(comic_id)
     except Exception:
         if changed_location:
             db.upsert("comics", {"ComicLocation": previous_location}, {"ComicID": comic_id})
@@ -382,8 +384,6 @@ def import_selected_series(selected_ids, scan_id):
     """
     global COMIC_SCAN_RESULTS, COMIC_SCAN_ID
 
-    from comicarr import importer
-
     if COMIC_SCAN_ID != scan_id:
         return {
             "success": False,
@@ -409,7 +409,7 @@ def import_selected_series(selected_ids, scan_id):
             continue
         try:
             logger.info("[COMIC-SCAN] Importing series: %s" % comic_id)
-            result = importer.addComictoDB(comic_id)
+            result = add_series(comic_id)
             if not isinstance(result, dict):
                 errors.append({"comicid": comic_id, "error": "import refused"})
                 continue
