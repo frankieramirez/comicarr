@@ -3784,6 +3784,10 @@ msgid "Everything from Mylar3 has been imported. You may need to refresh metadat
 msgstr "Se importó todo lo de Mylar3. Puede que tengas que actualizar los metadatos de algunas series."
 
 #: src/pages/ReleasesPage.tsx
+msgid "Everything out the week of {date}: comics, manga, manhwa and manhua"
+msgstr "Todo lo que sale la semana del {date}: cómics, manga, manhwa y manhua"
+
+#: src/pages/ReleasesPage.tsx
 msgid "Everything out this week: comics, manga, manhwa and manhua"
 msgstr "Todo lo que sale esta semana: cómics, manga, manhwa y manhua"
 
@@ -4195,8 +4199,8 @@ msgid "Finish setting up"
 msgstr "Termina la configuración"
 
 #: src/lib/healthRows.ts
-msgid "Finished without errors"
-msgstr "Terminó sin errores"
+msgid "Finished, nothing to report"
+msgstr "Terminado, nada que informar"
 
 #: src/pages/LoginPage.tsx
 msgid "first-run · create admin"
@@ -9129,6 +9133,10 @@ msgstr "La serie se está añadiendo a tu biblioteca."
 msgid "The server is shutting down. Please wait..."
 msgstr "El servidor se está apagando. Espera..."
 
+#: src/lib/api.ts
+msgid "The server took more than {seconds} seconds to answer. Try again."
+msgstr "El servidor tardó más de {seconds} segundos en responder. Inténtalo de nuevo."
+
 #: src/lib/shelf.ts
 msgid "The shelf could not be updated. Please try again."
 msgstr "No se pudo actualizar la estantería. Inténtalo de nuevo."
@@ -9493,6 +9501,10 @@ msgstr "No se pudo cargar Necesita atención"
 msgid "Unable to load pending imports"
 msgstr "No se pudieron cargar las importaciones pendientes"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Unable to load releases"
+msgstr "No se pudieron cargar los lanzamientos"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Unable to load series"
 msgstr "No se pudo cargar la serie"
@@ -9516,10 +9528,6 @@ msgstr "No se pudo cargar la vista previa de la búsqueda."
 #: src/components/RouteLoader.tsx
 msgid "Unable to load this page"
 msgstr "No se pudo cargar esta página"
-
-#: src/components/releases/IndustryReleasesView.tsx
-msgid "Unable to load this week's releases"
-msgstr "No se pudieron cargar los lanzamientos de esta semana"
 
 #: src/pages/WantedPage.tsx
 msgid "Unable to load wanted issues"

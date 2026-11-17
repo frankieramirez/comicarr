@@ -3783,6 +3783,10 @@ msgid "Everything from Mylar3 has been imported. You may need to refresh metadat
 msgstr "Everything from Mylar3 has been imported. You may need to refresh metadata on a few series."
 
 #: src/pages/ReleasesPage.tsx
+msgid "Everything out the week of {date}: comics, manga, manhwa and manhua"
+msgstr "Everything out the week of {date}: comics, manga, manhwa and manhua"
+
+#: src/pages/ReleasesPage.tsx
 msgid "Everything out this week: comics, manga, manhwa and manhua"
 msgstr "Everything out this week: comics, manga, manhwa and manhua"
 
@@ -4194,8 +4198,8 @@ msgid "Finish setting up"
 msgstr "Finish setting up"
 
 #: src/lib/healthRows.ts
-msgid "Finished without errors"
-msgstr "Finished without errors"
+msgid "Finished, nothing to report"
+msgstr "Finished, nothing to report"
 
 #: src/pages/LoginPage.tsx
 msgid "first-run · create admin"
@@ -9128,6 +9132,10 @@ msgstr "The series is being added to your library."
 msgid "The server is shutting down. Please wait..."
 msgstr "The server is shutting down. Please wait..."
 
+#: src/lib/api.ts
+msgid "The server took more than {seconds} seconds to answer. Try again."
+msgstr "The server took more than {seconds} seconds to answer. Try again."
+
 #: src/lib/shelf.ts
 msgid "The shelf could not be updated. Please try again."
 msgstr "The shelf could not be updated. Please try again."
@@ -9492,6 +9500,10 @@ msgstr "Unable to load needs attention"
 msgid "Unable to load pending imports"
 msgstr "Unable to load pending imports"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "Unable to load releases"
+msgstr "Unable to load releases"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Unable to load series"
 msgstr "Unable to load series"
@@ -9515,10 +9527,6 @@ msgstr "Unable to load the search preview."
 #: src/components/RouteLoader.tsx
 msgid "Unable to load this page"
 msgstr "Unable to load this page"
-
-#: src/components/releases/IndustryReleasesView.tsx
-msgid "Unable to load this week's releases"
-msgstr "Unable to load this week's releases"
 
 #: src/pages/WantedPage.tsx
 msgid "Unable to load wanted issues"

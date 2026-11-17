@@ -19,6 +19,7 @@ import { withLibraryManga } from "@/components/releases/industryRows";
 import WeekBar from "@/components/releases/WeekBar";
 import ReleasesModeBar from "@/components/releases/ReleasesModeBar";
 import { describePullAttempts } from "@/components/releases/pullAttempts";
+import { formatDay } from "@/lib/releaseWeek";
 import {
   INDUSTRY_FORMATS,
   LIBRARY_FORMATS,
@@ -169,7 +170,9 @@ export default function ReleasesPage() {
         meta={
           libraryOnly
             ? t`New issues and chapters from series you follow, week by week`
-            : t`Everything out this week: comics, manga, manhwa and manhua`
+            : week && week.offset !== 0
+              ? t`Everything out the week of ${ph({ date: formatDay(week.start, false) })}: comics, manga, manhwa and manhua`
+              : t`Everything out this week: comics, manga, manhwa and manhua`
         }
         actions={
           <div className="flex items-center gap-2">

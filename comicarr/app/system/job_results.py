@@ -16,8 +16,11 @@ activity log, the weekly table and the import queue. Each summary covers the
 window that starts when the job last ran, so a search that grabs an issue in
 the queue after its scheduler slot returned still counts toward that run.
 
-A summary is ``None`` when there is nothing honest to say; the UI then falls
-back to "Finished without errors".
+A summary is ``None`` when there is nothing honest to say; the UI then says
+the job finished with nothing to report. A summary of a run that only partly
+worked (some grabs or imports failed, a connection did not answer) is a
+``Summary`` with ``partial`` set, so Health shows it as a warning and not as
+a plain success (#1506).
 """
 
 from __future__ import annotations
@@ -29,6 +32,18 @@ from sqlalchemy import and_, func, select
 import comicarr
 from comicarr.app.core import db, logger
 from comicarr.app.core.tables import acquisition_runs, activity_events, comics, importresults, weekly
+
+
+class Summary(str):
+    """A one-line result that can also say the run only partly worked."""
+
+    partial: bool = False
+
+
+def _partial(text) -> Summary:
+    summary = Summary(text)
+    summary.partial = True
+    return summary
 
 
 def _iso(timestamp) -> str | None:
@@ -74,8 +89,11 @@ def _search(since):
     totals = _run_totals("search", since, triggers=("wanted_scan",))
     searched = int(totals["accepted"] or 0)
     grabbed = int(totals["succeeded"] or 0)
+    failed = int(totals["failed"] or 0)
     if searched == 0:
         return "Nothing wanted to search"
+    if failed:
+        return _partial("%s grabbed of %s searched, %s failed" % (grabbed, searched, failed))
     if grabbed:
         return "%s grabbed of %s searched" % (grabbed, searched)
     return "%s searched, nothing grabbed yet" % searched
@@ -83,6 +101,11 @@ def _search(since):
 
 def _rss(since):
     grabbed = _event_count("grab", "succeeded", since)
+    failed = _event_count("grab", "failed", since)
+    if failed:
+        if grabbed:
+            return _partial("%s, %s failed" % (_plural(grabbed, "grab"), failed))
+        return _partial("%s failed" % _plural(failed, "grab"))
     return _plural(grabbed, "grab") if grabbed else "No new matches"
 
 
@@ -90,9 +113,9 @@ def _monitor(since):
     imported = _event_count("import", "succeeded", since)
     failed = _event_count("import", "failed", since)
     if imported and failed:
-        return "%s imported, %s failed" % (imported, failed)
+        return _partial("%s imported, %s failed" % (imported, failed))
     if failed:
-        return "%s failed to import" % failed
+        return _partial("%s failed to import" % failed)
     return "%s imported" % imported if imported else "Nothing to import"
 
 
@@ -103,7 +126,7 @@ def _library_refresh(since):
     if not totals["runs"]:
         return None
     if failed:
-        return "%s refreshed, %s failed" % (_plural(refreshed, "series", "series"), failed)
+        return _partial("%s refreshed, %s failed" % (_plural(refreshed, "series", "series"), failed))
     return "%s up to date" % _plural(refreshed, "series", "series")
 
 
@@ -153,7 +176,11 @@ def _version(_since):
 def _connection_check(_since):
     from comicarr.app.system import connections
 
-    return connections.summarize(connections.snapshot())
+    rows = connections.snapshot()
+    text = connections.summarize(rows)
+    if any(row.get("ok") is False for row in rows):
+        return _partial(text)
+    return text
 
 
 _SUMMARIES = {

@@ -1323,7 +1323,9 @@ def get_job_info(ctx, include_acquisition=True):
                 "last_error": sanitize_job_error(history.get("last_error")) if history.get("last_error") else None,
             },
         }
-        job_info["result"] = job_results.summarize(job.id, history.get("prev_run_timestamp"))
+        summary = job_results.summarize(job.id, history.get("prev_run_timestamp"))
+        job_info["result"] = summary
+        job_info["result_partial"] = bool(getattr(summary, "partial", False))
         if job.id == "weekly":
             if not history.get("status"):
                 status = getattr(comicarr, "WEEKLY_STATUS", "Waiting")

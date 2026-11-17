@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/api";
+import { apiGetWithTimeout, apiRequest } from "@/lib/api";
 import type { WeekRef, WeeklyPullWeek } from "@/pages/weeklyReleaseRowKey";
 
 export interface WeeklyRefreshResult {
@@ -49,16 +49,20 @@ export function useScheduledJobs(enabled: boolean) {
   });
 }
 
+/** How long Releases waits for a week before showing an error with Retry. */
+export const RELEASES_TIMEOUT_MS = 30_000;
+
 /** One week of the industry pull list; no `week` means the current week. */
 export function useWeeklyPullList(week: WeekRef | null) {
   return useQuery({
     queryKey: ["weekly", week?.year ?? "current", week?.week ?? "current"],
-    queryFn: () =>
-      apiRequest<WeeklyPullWeek>(
-        "GET",
+    queryFn: ({ signal }) =>
+      apiGetWithTimeout<WeeklyPullWeek>(
         week
           ? `/api/weekly?week=${encodeURIComponent(week.week)}&year=${encodeURIComponent(week.year)}`
           : "/api/weekly",
+        RELEASES_TIMEOUT_MS,
+        signal,
       ),
     staleTime: 5 * 60 * 1000,
     // MangaUpdates fills in on a background thread; poll until it is done.
