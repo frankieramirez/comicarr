@@ -9,7 +9,6 @@ import {
   useConnections,
   useDeprecations,
   useJobsHealth,
-  useRunJob,
   useSearchHealth,
   useTestConnection,
 } from "@/hooks/useAcquisitionHealth";
@@ -26,6 +25,8 @@ import {
   type JobRow,
 } from "@/lib/healthRows";
 import { cn } from "@/lib/utils";
+import { useRunJobOutcome } from "@/hooks/useRunJobOutcome";
+import { JobResultText } from "@/components/activity/health/JobResultText";
 
 const JOB_COLS =
   "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(160px,1.2fr)_110px_110px_minmax(0,2fr)_96px]";
@@ -74,21 +75,7 @@ function ColumnHeads({ cols, heads }: { cols: string; heads: string[] }) {
 }
 
 function JobLine({ job }: { job: JobRow }) {
-  const run = useRunJob();
-  const { addToast } = useToast();
-  const start = async () => {
-    try {
-      const result = await run.mutateAsync(job.id);
-      addToast({
-        type: result.accepted ? "success" : "error",
-        message: result.accepted
-          ? t`${ph({ label: job.label })} will run in a moment.`
-          : result.error || t`${ph({ label: job.label })} didn't start.`,
-      });
-    } catch (err) {
-      addToast({ type: "error", message: getErrorMessage(err) });
-    }
-  };
+  const { start, running } = useRunJobOutcome(job);
   return (
     <div
       data-testid="health-job"
@@ -110,16 +97,11 @@ function JobLine({ job }: { job: JobRow }) {
       <span className="font-mono text-xs text-foreground-2 max-md:hidden">
         {until(job.nextRun)}
       </span>
-      <span
-        className={cn(
-          "truncate max-md:col-span-2 max-md:row-start-2 max-md:ps-3.5",
-          job.failing ? "font-mono text-xs" : "text-foreground-2",
-        )}
-        style={job.failing ? { color: "var(--status-error)" } : undefined}
-        title={job.result}
-      >
-        {job.result}
-      </span>
+      <JobResultText
+        text={job.result}
+        failing={job.failing}
+        className="max-md:col-span-2 max-md:row-start-2 max-md:ps-3.5"
+      />
       <span className="flex justify-end max-md:col-start-2 max-md:row-start-1">
         {job.runnable && (
           <Button
@@ -127,10 +109,10 @@ function JobLine({ job }: { job: JobRow }) {
             size="compact"
             variant={job.failing ? "default" : "ghost"}
             aria-label={t`Run ${ph({ label: job.label })} now`}
-            disabled={run.isPending || job.busy}
+            disabled={running || job.busy}
             onClick={() => void start()}
           >
-            {job.busy ? t`Queued` : t`Run now`}
+            {running ? t`Running…` : job.busy ? t`Queued` : t`Run now`}
           </Button>
         )}
       </span>

@@ -190,6 +190,11 @@ msgstr "{0, plural, other {# 项需要你处理}}"
 msgid "{0, plural, one {# path setting may need updating for Docker. Review it after migration.} other {# path settings may need updating for Docker. Review them after migration.}}"
 msgstr "{0, plural, other {有 # 个路径设置可能需要为 Docker 调整。迁移后请检查。}}"
 
+#. placeholder {0}: systemProblems.count
+#: src/pages/AttentionPage.tsx
+msgid "{0, plural, one {# problem stops work for the whole library} other {# problems stop work for the whole library}}"
+msgstr "{0, plural, other {# 个问题让整个资料库停止工作}}"
+
 #. placeholder {0}: view.recovered
 #: src/components/dashboard/InFlightLine.tsx
 msgid "{0, plural, one {# recovered from a restart} other {# recovered from a restart}}"
@@ -755,13 +760,25 @@ msgstr "{label} 未响应连接检查。"
 msgid "{label} did not answer: {result}"
 msgstr "{label} 未响应：{result}"
 
-#: src/components/activity/health/HealthView.tsx
+#: src/hooks/useRunJobOutcome.ts
 msgid "{label} didn't start."
 msgstr "{label} 未能启动。"
+
+#: src/hooks/useRunJobOutcome.ts
+msgid "{label} failed: {result}"
+msgstr "{label} 失败：{result}"
+
+#: src/hooks/useRunJobOutcome.ts
+msgid "{label} finished: {result}"
+msgstr "{label} 已完成：{result}"
 
 #: src/components/import/ImportFileRow.tsx
 msgid "{label} for {file}"
 msgstr "{file} 的 {label}"
+
+#: src/components/activity/attention/SystemProblems.tsx
+msgid "{label} is failing"
+msgstr "{label} 运行失败"
 
 #: src/components/activity/timeline/sentences.ts
 msgid "{label} needs attention"
@@ -778,10 +795,6 @@ msgstr "{label} 无响应 — {result}"
 #: src/components/dashboard/DashboardPanel.tsx
 msgid "{label} unavailable"
 msgstr "{label} 不可用"
-
-#: src/components/activity/health/HealthView.tsx
-msgid "{label} will run in a moment."
-msgstr "{label} 即将运行。"
 
 #: src/components/activity/health/HealthView.tsx
 msgid "{label}: {result}"
@@ -1356,12 +1369,12 @@ msgid "Add {title}"
 msgstr "添加 {title}"
 
 #: src/pages/SearchPage.tsx
-msgid "Add a Comic Vine API key in Settings → API to search comics."
-msgstr "在设置 → API 中添加 Comic Vine API 密钥以搜索漫画。"
+msgid "Add a Comic Vine API key in Settings → Sources and keys to search comics."
+msgstr "请在 设置 → 来源与密钥 中添加 Comic Vine API 密钥以搜索漫画。"
 
 #: src/components/storyarcs/ArcSearch.tsx
-msgid "Add a Comic Vine API key in Settings → API to search story arcs."
-msgstr "在设置 → API 中添加 Comic Vine API 密钥以搜索故事线。"
+msgid "Add a Comic Vine API key in Settings → Sources and keys to search story arcs."
+msgstr "请在 设置 → 来源与密钥 中添加 Comic Vine API 密钥以搜索故事线。"
 
 #: src/components/shelf/ShelfSheet.tsx
 msgid "Add a copy"
@@ -1376,6 +1389,10 @@ msgstr "添加下载客户端"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Add a download client to search"
 msgstr "添加下载客户端后才能搜索"
+
+#: src/components/activity/attention/SystemProblems.tsx
+msgid "Add a free key from comicvine.gamespot.com in Sources and keys."
+msgstr "在 comicvine.gamespot.com 免费获取密钥，然后添加到来源与密钥中。"
 
 #: src/components/shelf/ShelfChip.tsx
 msgid "Add a print copy of {label}"
@@ -3171,6 +3188,10 @@ msgstr "数据目录"
 msgid "Database Update Interval"
 msgstr "数据库更新间隔"
 
+#: src/lib/settingValues.ts
+msgid "Database update interval must be {minimum} minutes or more."
+msgstr "数据库更新间隔不能少于 {minimum} 分钟。"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "date"
 msgstr "日期"
@@ -3634,9 +3655,17 @@ msgstr "端点"
 msgid "Ends at chapter"
 msgstr "结束于第几话"
 
+#: src/lib/settingValues.ts
+msgid "Enter a Discord webhook URL to turn on Discord notifications."
+msgstr "请输入 Discord webhook URL 才能开启 Discord 通知。"
+
 #: src/components/shelf/ShelfSheet.tsx
 msgid "Enter a price such as 4.99."
 msgstr "请输入价格，例如 4.99。"
+
+#: src/lib/settingValues.ts
+msgid "Enter a whole number."
+msgstr "请输入整数。"
 
 #: src/components/ai/ChatComposer.tsx
 msgid "enter sends · shift+enter new line"
@@ -5566,6 +5595,10 @@ msgstr "迁移失败"
 msgid "min 8 characters"
 msgstr "至少 8 个字符"
 
+#: src/lib/settingValues.ts
+msgid "Minimum {minimum}."
+msgstr "最小值 {minimum}。"
+
 #: src/components/settings/SearchTab.tsx
 msgid "Minimum file size in megabytes"
 msgstr "最小文件大小（MB）"
@@ -5855,6 +5888,10 @@ msgstr "没有附件"
 #: src/components/ai/ChatThreadList.tsx
 msgid "No chats match “{filter}”."
 msgstr "没有与“{filter}”匹配的聊天。"
+
+#: src/components/activity/attention/SystemProblems.tsx
+msgid "No Comic Vine API key, so comics can't be searched or refreshed"
+msgstr "没有 Comic Vine API 密钥，无法搜索或刷新漫画"
 
 #: src/components/storyarcs/ArcMissingSeries.tsx
 msgid "No ComicVine match — won't be added"
@@ -6496,6 +6533,10 @@ msgstr "打开完整活动"
 msgid "Open full log"
 msgstr "打开完整日志"
 
+#: src/components/activity/attention/SystemProblems.tsx
+msgid "Open Health"
+msgstr "打开健康状况"
+
 #: src/components/dashboard/NeedsAttentionBand.tsx
 msgid "Open in Activity"
 msgstr "在活动中打开"
@@ -6516,10 +6557,11 @@ msgstr "打开搜索设置"
 msgid "Open series"
 msgstr "打开系列"
 
+#: src/components/activity/attention/SystemProblems.tsx
 #: src/components/storyarcs/ArcSearch.tsx
 #: src/pages/SearchPage.tsx
-msgid "Open settings"
-msgstr "打开设置"
+msgid "Open Sources and keys"
+msgstr "打开来源与密钥"
 
 #: src/components/settings/SupportBundleSection.tsx
 msgid "Open the ZIP and read README.txt, manifest.json, and diagnostics.json."
@@ -6650,8 +6692,8 @@ msgid "Pause"
 msgstr "暂停"
 
 #: src/components/settings/SearchTab.tsx
-msgid "Pause between provider searches during a backlog run. Default 60. Minimum 5."
-msgstr "积压运行期间各次提供方搜索之间的暂停时间。默认 60，最小 5。"
+msgid "Pause between provider searches during a backlog run. Default 60."
+msgstr "补搜期间每次向提供方搜索之间的暂停时间。默认 60。"
 
 #: src/lib/healthRows.ts
 msgid "paused"
@@ -6787,6 +6829,10 @@ msgstr "纸质本"
 #: src/components/queue/WantedBySeries.tsx
 msgid "Problems first"
 msgstr "问题优先"
+
+#: src/components/activity/attention/SystemProblems.tsx
+msgid "Problems that stop all downloads"
+msgstr "让所有下载停止的问题"
 
 #: src/components/series/SeriesTable.tsx
 msgid "progress"
@@ -7312,6 +7358,10 @@ msgstr "用下划线替换空格"
 msgid "Requests Per Minute"
 msgstr "每分钟请求数"
 
+#: src/lib/settingValues.ts
+msgid "Requests per minute must be {minimum} or more."
+msgstr "每分钟请求数不能少于 {minimum}。"
+
 #: src/pages/ActivityPage.tsx
 msgid "requeue"
 msgstr "重新排队"
@@ -7565,10 +7615,15 @@ msgstr "RSS 检查"
 msgid "RSS Check Interval"
 msgstr "RSS 检查间隔"
 
+#: src/lib/settingValues.ts
+msgid "RSS check interval must be {minimum} minutes or more."
+msgstr "RSS 检查间隔不能少于 {minimum} 分钟。"
+
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "RSS user ID"
 msgstr "RSS 用户 ID"
 
+#: src/components/activity/attention/SystemProblems.tsx
 #: src/components/activity/health/HealthView.tsx
 msgid "Run {label} now"
 msgstr "立即运行 {label}"
@@ -7581,6 +7636,7 @@ msgstr "运行 {run}"
 msgid "Run a weekly pull list update from Settings to populate this view."
 msgstr "在设置中运行每周拉取列表更新，即可填充此视图。"
 
+#: src/components/activity/attention/SystemProblems.tsx
 #: src/components/activity/health/HealthView.tsx
 msgid "Run now"
 msgstr "立即运行"
@@ -7600,6 +7656,11 @@ msgstr "正在运行"
 #: src/pages/ActivityPage.tsx
 msgid "Running searches and open download or post-processing rows appear here — the same items the status bar counts."
 msgstr "正在运行的搜索以及未完成的下载或后处理行会显示在这里 — 与状态栏统计的项目相同。"
+
+#: src/components/activity/attention/SystemProblems.tsx
+#: src/components/activity/health/HealthView.tsx
+msgid "Running…"
+msgstr "运行中…"
 
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "SABnzbd API key"
@@ -7888,6 +7949,10 @@ msgstr "搜索当前和保留的文件"
 msgid "Search delay (seconds)"
 msgstr "搜索延迟（秒）"
 
+#: src/lib/settingValues.ts
+msgid "Search delay must be {minimum} seconds or more."
+msgstr "搜索延迟不能少于 {minimum} 秒。"
+
 #: src/components/releases/MyReleasesView.tsx
 msgid "Search did not start for the wanted issues"
 msgstr "待获取刊物的搜索没有开始"
@@ -7945,6 +8010,10 @@ msgstr "搜索索引器已保存"
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Search Interval"
 msgstr "搜索间隔"
+
+#: src/lib/settingValues.ts
+msgid "Search interval must be {minimum} minutes or more."
+msgstr "搜索间隔不能少于 {minimum} 分钟。"
 
 #: src/pages/WantedPage.tsx
 msgid "Search is blocked until a complete acquisition route is ready."
@@ -8475,6 +8544,10 @@ msgstr "显示 {rejected_count} 个被拒绝的"
 msgid "Show issues for {series}"
 msgstr "显示 {series} 的期刊"
 
+#: src/components/activity/health/JobResultText.tsx
+msgid "Show less"
+msgstr "收起"
+
 #: src/components/ai/ChatExamplePrompts.tsx
 msgid "Show me everything from Image Comics"
 msgstr "显示 Image Comics 的全部内容"
@@ -8486,6 +8559,10 @@ msgstr "只显示 MangaUpdates 每周前 500 名中的日漫，以及你自己�
 #: src/pages/LoginPage.tsx
 msgid "Show password"
 msgstr "显示密码"
+
+#: src/components/activity/health/JobResultText.tsx
+msgid "Show the full message"
+msgstr "显示完整信息"
 
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "Show the whole week"
@@ -8739,6 +8816,10 @@ msgstr "已停止搜索 {label}"
 #: src/components/activity/attention/StopWantingDialog.tsx
 msgid "Stopping…"
 msgstr "正在停止…"
+
+#: src/components/activity/attention/SystemProblems.tsx
+msgid "Stops work for the whole library"
+msgstr "让整个资料库停止工作"
 
 #: src/components/shelf/ShelfSheet.tsx
 #: src/pages/ShelfPage.tsx
@@ -9500,6 +9581,14 @@ msgstr "未知错误"
 #: src/lib/api.ts
 msgid "Unknown error"
 msgstr "未知错误"
+
+#: src/lib/settingValues.ts
+msgid "Unknown MangaDex content rating: {ratings}. Use safe, suggestive, erotica or pornographic."
+msgstr "未知的 MangaDex 内容分级：{ratings}。请使用 safe、suggestive、erotica 或 pornographic。"
+
+#: src/lib/settingValues.ts
+msgid "Unknown MangaDex language code: {codes}. Use codes like en, ja or pt-br."
+msgstr "未知的 MangaDex 语言代码：{codes}。请使用 en、ja 或 pt-br 这样的代码。"
 
 #: src/components/releases/industryRows.ts
 msgid "Unknown publisher"

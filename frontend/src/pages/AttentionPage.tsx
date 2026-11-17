@@ -40,6 +40,8 @@ import {
 } from "@/components/activity/timeline";
 import { StopWantingDialog } from "@/components/activity/attention/StopWantingDialog";
 import { ImportManuallyDialog } from "@/components/activity/attention/ImportManuallyDialog";
+import { SystemProblemList } from "@/components/activity/attention/SystemProblems";
+import { useSystemProblems } from "@/hooks/useSystemProblems";
 
 type StageFilter = "all" | "failed" | "manual_review";
 type AgeFilter = "all" | "7d" | "30d";
@@ -114,6 +116,7 @@ export default function AttentionPage() {
   } | null>(null);
 
   const band = useActivityBand({ scope_type, scope_id });
+  const systemProblems = useSystemProblems();
   const batch = useBandBatchResolution();
   const { addToast } = useToast();
 
@@ -158,6 +161,10 @@ export default function AttentionPage() {
     filteredKeys.length > 0 && selectedIssues === filteredKeys.length;
 
   const scoped = Boolean(scope_type?.trim() && scope_id?.trim());
+  // Library-wide problems have no series or stage, so a scope or the
+  // Manual review filter leaves them out.
+  const showSystem =
+    !scoped && stage !== "manual_review" && systemProblems.count > 0;
 
   const clearGroupFocus = () => {
     if (!focusedGroup) return;
@@ -263,9 +270,14 @@ export default function AttentionPage() {
           <PageHeader
             title={t`Activity`}
             meta={
-              groups.length === 0
-                ? t`Nothing is waiting on you`
-                : problemsSummary(groups.length, band.data?.member_total ?? 0)
+              groups.length > 0
+                ? problemsSummary(groups.length, band.data?.member_total ?? 0)
+                : showSystem
+                  ? plural(systemProblems.count, {
+                      one: "# problem stops work for the whole library",
+                      other: "# problems stop work for the whole library",
+                    })
+                  : t`Nothing is waiting on you`
             }
           />
           <ActivityTabs active="attention" />
@@ -430,7 +442,10 @@ export default function AttentionPage() {
       }
     >
       <div className="px-8 pb-6 pt-1">
-        {filtered.length === 0 ? (
+        {showSystem && <SystemProblemList problems={systemProblems} />}
+        {filtered.length === 0 &&
+        showSystem &&
+        groups.length === 0 ? null : filtered.length === 0 ? (
           <EmptyState
             variant="custom"
             eyebrow={

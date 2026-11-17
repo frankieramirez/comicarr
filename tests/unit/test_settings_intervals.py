@@ -37,6 +37,7 @@ from comicarr.app.config.ini import (
     SCHEDULER_INTERVAL_MINIMUMS,
     clamp_scheduler_intervals,
 )
+from comicarr.app.config.registry import REGISTRY
 from comicarr.app.system import service as system_service
 
 
@@ -380,7 +381,8 @@ class TestUpdateConfigTriggersReconfiguration:
         calls = []
         monkeypatch.setattr(system_service, "_reconfigure_schedulers", lambda _ctx: calls.append(_ctx))
 
-        result = system_service.update_config(ctx, {config_key.lower(): 60})
+        minimum = REGISTRY[config_key].minimum or 0
+        result = system_service.update_config(ctx, {config_key.lower(): max(60, minimum)})
 
         assert result == {"success": True}
         assert len(calls) == 1

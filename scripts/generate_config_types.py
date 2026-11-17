@@ -10,8 +10,8 @@
     python3 scripts/generate_config_types.py           # rewrite the committed module
     python3 scripts/generate_config_types.py --check    # fail if it is stale
 
-Output is committed and must be regenerated whenever a key's name, type, or
-`readable`/`writable` flag changes in `comicarr/app/config/registry.py`, or
+Output is committed and must be regenerated whenever a key's name, type,
+`minimum`, or `readable`/`writable` flag changes in `comicarr/app/config/registry.py`, or
 whenever `get_safe_config`'s synthesised fields change in `service.py`. The
 `--check` mode is wired into `npm run lint` and the Backend Lint CI job;
 `npm run lint:fix` rewrites the module.
@@ -120,6 +120,14 @@ def render() -> str:
     out.append("/** SettingsPage seeds formData from the readable config, then merges")
     out.append(" *  writable edits into it — so it is both shapes at once. */")
     out.append("export type SettingsFormData = ReadableConfig & WritableConfig;")
+    minimums = [k for k in writable if k.minimum is not None]
+    if minimums:
+        out.append("")
+        out.append("/** Smallest value a settings save accepts; update_config rejects lower. */")
+        out.append("export const CONFIG_MINIMUMS = {")
+        for key in minimums:
+            out.append("  %s: %d," % (key.wire_name, key.minimum))
+        out.append("} as const satisfies Partial<Record<keyof WritableConfig, number>>;")
 
     print(
         "# %d readable, %d writable, %d synthesised" % (len(readable), len(writable), len(_extra_readable_fields())),

@@ -232,12 +232,17 @@ export function SettingField({
           id={fieldId}
           data-testid={testId}
           type={type}
-          value={value ?? ""}
+          value={
+            typeof value === "number" && Number.isNaN(value)
+              ? ""
+              : (value ?? "")
+          }
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           min={type === "number" ? min : undefined}
           disabled={disabled}
           aria-describedby={describedBy}
+          aria-invalid={error ? true : undefined}
           className="mt-1.5"
         />
       )}

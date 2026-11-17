@@ -339,3 +339,12 @@ export interface WritableConfig {
 /** SettingsPage seeds formData from the readable config, then merges
  *  writable edits into it — so it is both shapes at once. */
 export type SettingsFormData = ReadableConfig & WritableConfig;
+
+/** Smallest value a settings save accepts; update_config rejects lower. */
+export const CONFIG_MINIMUMS = {
+  search_delay: 5,
+  rss_checkinterval: 20,
+  search_interval: 360,
+  dbupdate_interval: 60,
+  ai_rpm_limit: 1,
+} as const satisfies Partial<Record<keyof WritableConfig, number>>;

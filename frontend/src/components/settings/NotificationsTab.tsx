@@ -14,12 +14,15 @@ interface NotificationsTabProps {
     key: K,
     value: NonNullable<WritableConfig[K]>,
   ) => void;
+  /** Refusals keyed by field, shown under the field. */
+  errors?: Record<string, string>;
 }
 
 export function NotificationsTab({
   config,
   formData,
   onChange,
+  errors,
 }: NotificationsTabProps) {
   const secretPlaceholder = (
     indicator: keyof ReadableConfig,
@@ -98,6 +101,7 @@ export function NotificationsTab({
                 "discord_webhook_url_set",
                 "https://discord.com/api/webhooks/...",
               )}
+              error={errors?.discord_webhook_url}
             />
             <SettingField
               label={t`Notify on snatch`}

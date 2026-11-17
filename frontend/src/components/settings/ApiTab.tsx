@@ -23,6 +23,8 @@ interface ApiTabProps {
     key: K,
     value: NonNullable<WritableConfig[K]>,
   ) => void;
+  /** Refusals keyed by field, shown under the field. */
+  errors?: Record<string, string>;
   regeneratedApiKey: string | null;
   onRegeneratedApiKey: (apiKey: string) => void;
 }
@@ -31,6 +33,7 @@ export function ApiTab({
   config,
   formData,
   onChange,
+  errors,
   regeneratedApiKey,
   onRegeneratedApiKey,
 }: ApiTabProps) {
@@ -272,6 +275,7 @@ export function ApiTab({
             }
             placeholder={LANGUAGE_CODE_EXAMPLE}
             helpText={t`Comma-separated language codes (e.g., en,ja)`}
+            error={errors?.mangadex_languages}
           />
           <SettingField
             label={t`Content Rating`}
@@ -282,6 +286,7 @@ export function ApiTab({
             }
             placeholder="safe,suggestive"
             helpText={t`Comma-separated ratings: safe, suggestive, erotica, pornographic`}
+            error={errors?.mangadex_content_rating}
           />
         </SettingGroup>
       )}
