@@ -33,9 +33,10 @@ import sqlalchemy.exc
 from sqlalchemy import select
 
 import comicarr
-from comicarr import cv, db, filechecker, filers, helpers, logger, mb, moveit, search, series_metadata, updater
+from comicarr import db, filechecker, filers, helpers, logger, mb, moveit, search, updater
 from comicarr.app.common import series_kind
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.metadata import cv, series_metadata
 from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.tables import annuals, comics, issues
 
@@ -2481,7 +2482,7 @@ def annual_check(ComicName, SeriesYear, comicid, issuetype, issuechk, annualslis
 def image_it(comicid, latestissueid, comlocation, ComicImage):
 
     cimage = os.path.join(comicarr.CONFIG.CACHE_DIR, str(comicid) + ".jpg")
-    imageurl = comicarr.cv.getComic(comicid, "image", issueid=latestissueid)
+    imageurl = cv.getComic(comicid, "image", issueid=latestissueid)
     if imageurl is None:
         return
     covercheck = helpers.getImage(comicid, imageurl["image"])

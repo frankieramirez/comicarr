@@ -27,6 +27,7 @@ from bs4 import BeautifulSoup as Soup
 
 import comicarr
 from comicarr import helpers, logger
+from comicarr.app.common.text_dates import parse_text_date
 from comicarr.app.metadata.series_type import resolve_series_edition
 
 # Request types whose responses are JSON rather than XML.
@@ -674,6 +675,7 @@ def GetIssuesInfo(comicid, dom, arcid=None):
         n = cntiss - 1
     else:
         n = int(len(subtracks))
+    issue = {}
     tempissue = {}
     issuech = []
     firstdate = "2099-00-00"
@@ -738,8 +740,7 @@ def GetIssuesInfo(comicid, dom, arcid=None):
             else:
                 tempissue["DigitalDate"] = "0000-00-00"
                 if all(["digital" in digital_desc.lower()[-90:], "print" in digital_desc.lower()[-90:]]):
-                    mff = comicarr.filechecker.FileChecker()
-                    vlddate = mff.checkthedate(digital_desc[-90:], fulldate=True)
+                    vlddate = parse_text_date(digital_desc[-90:], fulldate=True)
                     if vlddate:
                         tempissue["DigitalDate"] = vlddate
             try:

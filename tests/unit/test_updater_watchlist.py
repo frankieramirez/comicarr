@@ -276,7 +276,7 @@ def _configure_updater(monkeypatch, *, annuals_on, rows, cv_results):
     monkeypatch.setattr(comicarr, "REFRESH_QUEUE", SimpleNamespace(queue=[]))
     monkeypatch.setattr(comicarr, "importer", SimpleNamespace(refresh_thread=refresh_thread))
     monkeypatch.setattr(
-        comicarr,
+        updater,
         "cv",
         SimpleNamespace(
             getComic=lambda **_kwargs: {

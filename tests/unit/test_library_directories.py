@@ -13,15 +13,15 @@ from unittest.mock import MagicMock, patch
 
 
 def test_missing_directory_requested_for_creation_is_not_warned(tmp_path):
-    from comicarr import filechecker
+    from comicarr.app.library import directories
 
     destination = tmp_path / "new-series"
     config = MagicMock()
     config.ENFORCE_PERMS = False
     config.CHMOD_DIR = "0777"
 
-    with patch("comicarr.CONFIG", config), patch("comicarr.filechecker.logger") as mock_logger:
-        result = filechecker.validateAndCreateDirectory(str(destination), create=True)
+    with patch("comicarr.CONFIG", config), patch("comicarr.app.library.directories.logger") as mock_logger:
+        result = directories.validateAndCreateDirectory(str(destination), create=True)
 
     assert result is True
     assert destination.is_dir()
@@ -30,7 +30,7 @@ def test_missing_directory_requested_for_creation_is_not_warned(tmp_path):
 
 
 def test_directory_creation_failure_still_warns(tmp_path):
-    from comicarr import filechecker
+    from comicarr.app.library import directories
 
     destination = tmp_path / "uncreatable"
     config = MagicMock()
@@ -39,10 +39,10 @@ def test_directory_creation_failure_still_warns(tmp_path):
 
     with (
         patch("comicarr.CONFIG", config),
-        patch("comicarr.filechecker.logger") as mock_logger,
-        patch("comicarr.filechecker.os.makedirs", side_effect=OSError("permission denied")),
+        patch("comicarr.app.library.directories.logger") as mock_logger,
+        patch("comicarr.app.library.directories.os.makedirs", side_effect=OSError("permission denied")),
     ):
-        result = filechecker.validateAndCreateDirectory(str(destination), create=True)
+        result = directories.validateAndCreateDirectory(str(destination), create=True)
 
     assert result is False
     warning_text = " ".join(str(part) for call in mock_logger.warn.call_args_list for part in call.args)
