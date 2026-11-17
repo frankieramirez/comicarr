@@ -23,6 +23,7 @@ from sqlalchemy import create_engine, select
 import comicarr
 from comicarr import importer, updater
 from comicarr.app.downloads import service as downloads_service
+from comicarr.app.series import folder_rescan
 from comicarr.app.series import refresh as series_refresh
 from comicarr.tables import annuals, comics, issues, metadata
 
@@ -60,7 +61,7 @@ def fakes(monkeypatch):
     rescan = MagicMock()
     emit = MagicMock(return_value={"event_id": 1})
     monkeypatch.setattr(importer, "addComictoDB", add)
-    monkeypatch.setattr(updater, "forceRescan", rescan)
+    monkeypatch.setattr(folder_rescan, "force_rescan", rescan)
     monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", emit)
     return SimpleNamespace(add=add, rescan=rescan, emit=emit)
 
@@ -259,7 +260,7 @@ def test_dupecheck_refreshes_series_when_have_exceeds_total(engine, tmp_path, mo
 
     monkeypatch.setattr(series_refresh, "refresh_series_metadata", fake_refresh)
     rescan = MagicMock()
-    monkeypatch.setattr(updater, "forceRescan", rescan)
+    monkeypatch.setattr(folder_rescan, "force_rescan", rescan)
 
     result = downloads_service.duplicate_filecheck(str(incoming), ComicID="100", IssueID="i1")
 

@@ -19,6 +19,7 @@ import comicarr
 from comicarr import importer, updater
 from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.series import folder_rescan
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import issues, metadata
 
@@ -47,7 +48,7 @@ def test_bulk_issue_update_persists_issue_location(monkeypatch):
 
     monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
 
-    updater._bulk_update_issue_rows(
+    folder_rescan._bulk_update_issue_rows(
         issues,
         [
             {

@@ -9,7 +9,7 @@
 
 """Characterization tests for the series rescan seam (#1205).
 
-They pin what ``updater.forceRescan`` does today when ``comicarr/app/`` calls it
+They pin what ``folder_rescan.force_rescan`` does today when ``comicarr/app/`` calls it
 through ``comicarr.app.series.rescan``. The real FileChecker reads a temp folder;
 nothing touches the network.
 """
@@ -21,8 +21,8 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import db, updater
-from comicarr.app.series import rescan
+from comicarr import db
+from comicarr.app.series import folder_rescan, rescan
 from comicarr.tables import comics, issues, metadata
 
 
@@ -208,7 +208,7 @@ def test_a_manga_series_is_rematched_by_the_manga_rescan_not_filechecker(engine,
             },
         )
     monkeypatch.setattr(
-        updater.filechecker,
+        folder_rescan.filechecker,
         "FileChecker",
         MagicMock(side_effect=AssertionError("manga rescan must not use FileChecker")),
     )
@@ -228,7 +228,7 @@ def test_a_manga_series_is_rematched_by_the_manga_rescan_not_filechecker(engine,
 
 def test_the_seam_passes_archive_only_when_given(monkeypatch):
     calls = []
-    monkeypatch.setattr(updater, "forceRescan", lambda *args, **kwargs: calls.append((args, kwargs)))
+    monkeypatch.setattr(folder_rescan, "force_rescan", lambda *args, **kwargs: calls.append((args, kwargs)))
 
     rescan.rescan_series("4050")
     rescan.rescan_series("4050", archive="/inbox")
@@ -237,7 +237,7 @@ def test_the_seam_passes_archive_only_when_given(monkeypatch):
 
 
 def test_the_seam_lets_a_rescan_failure_propagate(monkeypatch):
-    monkeypatch.setattr(updater, "forceRescan", MagicMock(side_effect=RuntimeError("disk gone")))
+    monkeypatch.setattr(folder_rescan, "force_rescan", MagicMock(side_effect=RuntimeError("disk gone")))
 
     with pytest.raises(RuntimeError, match="disk gone"):
         rescan.rescan_series("4050")

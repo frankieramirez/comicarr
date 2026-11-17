@@ -164,7 +164,7 @@ def _drive_process_next(library, monkeypatch, *, config=None, place=None, ml=Non
 
     with (
         patch.object(comicarr, "CONFIG", config or Config()),
-        patch("comicarr.updater.totals"),
+        patch("comicarr.app.series.folder_rescan.totals"),
         patch("comicarr.updater.foundsearch"),
         patch("comicarr.app.notifications.service", MagicMock()),
     ):
@@ -393,7 +393,7 @@ def _drive_nzb_or_oneoff(library, monkeypatch, *, config=None, place=None, tinfo
 
     with (
         patch.object(comicarr, "CONFIG", config),
-        patch("comicarr.updater.totals"),
+        patch("comicarr.app.series.folder_rescan.totals"),
         patch("comicarr.updater.foundsearch"),
         patch.object(postprocess_pipeline.db, "upsert"),
         patch("comicarr.app.notifications.service", MagicMock()),

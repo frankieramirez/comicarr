@@ -163,11 +163,12 @@ def _get(client, *paths):
 
 
 def rescan_all():
-    """forceRescan every series, as a full library rescan does."""
-    from comicarr import db, updater
+    """Rescan every series folder, as a full library rescan does."""
+    from comicarr import db
+    from comicarr.app.series import folder_rescan
 
     for row in db.raw_select_all("SELECT ComicID FROM comics ORDER BY ComicID"):
-        updater.forceRescan(row["ComicID"])
+        folder_rescan.force_rescan(row["ComicID"])
 
 
 def weekly_pull_match():

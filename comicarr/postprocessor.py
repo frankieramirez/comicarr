@@ -50,6 +50,7 @@ from comicarr.app.common.placement import place
 from comicarr.app.downloads.postprocess_pipeline import PostProcessItemDeps
 from comicarr.app.library import getimage
 from comicarr.app.manga.ledger import normalize_volume_number
+from comicarr.app.series import folder_rescan
 from comicarr.config import get_manga_destination
 from comicarr.tables import (
     annuals,
@@ -2730,7 +2731,7 @@ def pipeline_deps():
         validate_directory=filechecker.validateAndCreateDirectory,
         set_permissions=filechecker.setperms,
         weekly_check=weeklypull.weekly_check,
-        totals=updater.totals,
+        totals=folder_rescan.totals,
         foundsearch=updater.foundsearch,
         extract_cover=getimage.extract_image,
         manga_destination=get_manga_destination,

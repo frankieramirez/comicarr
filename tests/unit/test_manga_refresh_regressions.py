@@ -17,6 +17,7 @@ from sqlalchemy import create_engine, select
 
 import comicarr
 from comicarr import importer, updater
+from comicarr.app.series import folder_rescan
 from comicarr.tables import comics, issues, metadata
 
 
@@ -76,7 +77,7 @@ class TestDbUpdateMangaShortCircuit:
         mock_rescan = MagicMock()
         mock_emit = MagicMock(return_value={"event_id": 1})
         monkeypatch.setattr(comicarr.importer, "addComictoDB", mock_add)
-        monkeypatch.setattr(updater, "forceRescan", mock_rescan)
+        monkeypatch.setattr(folder_rescan, "force_rescan", mock_rescan)
         monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", mock_emit)
 
         updater.dbUpdate(["mal-161890"], calledfrom="refresh")
@@ -111,7 +112,7 @@ class TestDbUpdateMangaShortCircuit:
         mock_add = MagicMock(return_value={"status": "complete", "comicid": "134064"})
         mock_rescan = MagicMock()
         monkeypatch.setattr(comicarr.importer, "addComictoDB", mock_add)
-        monkeypatch.setattr(updater, "forceRescan", mock_rescan)
+        monkeypatch.setattr(folder_rescan, "force_rescan", mock_rescan)
         monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", MagicMock())
 
         updater.dbUpdate(["134064"], calledfrom="refresh")
@@ -141,7 +142,7 @@ class TestDbUpdateMangaShortCircuit:
         mock_add = MagicMock(return_value={"status": "complete", "comicid": "md-example"})
         mock_rescan = MagicMock()
         monkeypatch.setattr(comicarr.importer, "addComictoDB", mock_add)
-        monkeypatch.setattr(updater, "forceRescan", mock_rescan)
+        monkeypatch.setattr(folder_rescan, "force_rescan", mock_rescan)
         monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", MagicMock())
 
         updater.dbUpdate(["md-example"], calledfrom="refresh")
@@ -216,10 +217,10 @@ class TestForceRescanNullIssueDate:
                 }
             ],
         }
-        monkeypatch.setattr(updater.filechecker, "FileChecker", lambda **kwargs: fake_filecheck)
+        monkeypatch.setattr(folder_rescan.filechecker, "FileChecker", lambda **kwargs: fake_filecheck)
 
         try:
-            updater.forceRescan("mal-161890")
+            folder_rescan.force_rescan("mal-161890")
         except TypeError as e:
             if "subscriptable" in str(e):
                 pytest.fail("forceRescan crashed on NULL IssueDate: %s" % e)
@@ -295,9 +296,9 @@ class TestForceRescanNullIssueDate:
                 }
             ],
         }
-        monkeypatch.setattr(updater.filechecker, "FileChecker", lambda **kwargs: fake_filecheck)
+        monkeypatch.setattr(folder_rescan.filechecker, "FileChecker", lambda **kwargs: fake_filecheck)
 
-        updater.forceRescan("mal-161890")
+        folder_rescan.force_rescan("mal-161890")
 
         with engine.connect() as conn:
             rows = (
@@ -568,7 +569,7 @@ class TestMangaRefreshForceRescanErrors:
             "addComictoDB",
             MagicMock(return_value={"status": "complete", "comicid": "mal-161890"}),
         )
-        monkeypatch.setattr(updater, "forceRescan", MagicMock(side_effect=RuntimeError("disk gone")))
+        monkeypatch.setattr(folder_rescan, "force_rescan", MagicMock(side_effect=RuntimeError("disk gone")))
         mock_emit = MagicMock(return_value={"event_id": 1})
         monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", mock_emit)
 
