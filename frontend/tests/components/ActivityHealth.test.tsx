@@ -104,7 +104,21 @@ describe("Activity > Health", () => {
     server.use(
       http.get("/api/system/jobs", () =>
         HttpResponse.json({
-          jobs: [job("rss", "RSS Feeds"), failingMonitor],
+          jobs: [
+            ran.length > 0
+              ? job("rss", "RSS Feeds", {
+                  result: "Checked 4 feeds",
+                  dispatch: {
+                    state: "waiting",
+                    last_attempt: now - 1,
+                    last_success: now - 1,
+                    last_failure: null,
+                    last_error: null,
+                  },
+                })
+              : job("rss", "RSS Feeds"),
+            failingMonitor,
+          ],
         }),
       ),
       http.post("/api/system/jobs/:id/run", ({ params }) => {
@@ -128,10 +142,50 @@ describe("Activity > Health", () => {
     ).toContain("1 failing");
 
     await user.click(screen.getByRole("button", { name: "Run RSS check now" }));
+    // Run now reports the run's outcome, not just that it was accepted.
     expect(
-      await screen.findByText("RSS check will run in a moment."),
+      await screen.findByText(
+        "RSS check finished: Checked 4 feeds",
+        {},
+        { timeout: 4000 },
+      ),
     ).toBeTruthy();
     expect(ran).toEqual(["rss"]);
+  });
+
+  it("opens a long job error in full", async () => {
+    const error =
+      "Post-processing could not move the file because the destination folder is on a volume that is not mounted right now";
+    server.use(
+      http.get("/api/system/jobs", () =>
+        HttpResponse.json({
+          jobs: [
+            job("monitor", "Folder Monitor", {
+              status: "Error",
+              state: "error",
+              dispatch: {
+                state: "error",
+                last_attempt: now - 60,
+                last_success: null,
+                last_failure: now - 60,
+                last_error: error,
+              },
+            }),
+          ],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<ActivityPage />, {
+      useMemoryRouter: true,
+      route: "/activity?view=health",
+    });
+
+    const toggle = await screen.findByRole("button", { name: error });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    await user.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(toggle.className).toContain("whitespace-pre-wrap");
   });
 
   it("shows connections from route health", async () => {

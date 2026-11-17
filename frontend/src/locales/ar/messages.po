@@ -190,6 +190,11 @@ msgstr "{0, plural, other {# بانتظارك}}"
 msgid "{0, plural, one {# path setting may need updating for Docker. Review it after migration.} other {# path settings may need updating for Docker. Review them after migration.}}"
 msgstr "{0, plural, one {قد يحتاج إعداد واحد للمسار إلى تحديث من أجل Docker. راجعه بعد الترحيل.} two {قد يحتاج إعدادان للمسار إلى تحديث من أجل Docker. راجعه بعد الترحيل.} few {قد يحتاج # إعدادات للمسار إلى تحديث من أجل Docker. راجعه بعد الترحيل.} many {قد يحتاج # إعدادًا للمسار إلى تحديث من أجل Docker. راجعه بعد الترحيل.} other {قد يحتاج # إعداد للمسار إلى تحديث من أجل Docker. راجعه بعد الترحيل.}}"
 
+#. placeholder {0}: systemProblems.count
+#: src/pages/AttentionPage.tsx
+msgid "{0, plural, one {# problem stops work for the whole library} other {# problems stop work for the whole library}}"
+msgstr "{0, plural, one {مشكلة واحدة توقف العمل في المكتبة كلها} two {مشكلتان توقفان العمل في المكتبة كلها} few {# مشكلات توقف العمل في المكتبة كلها} many {# مشكلة توقف العمل في المكتبة كلها} other {# مشكلة توقف العمل في المكتبة كلها}}"
+
 #. placeholder {0}: view.recovered
 #: src/components/dashboard/InFlightLine.tsx
 msgid "{0, plural, one {# recovered from a restart} other {# recovered from a restart}}"
@@ -755,13 +760,25 @@ msgstr "لم يستجب {label} لفحص الاتصال."
 msgid "{label} did not answer: {result}"
 msgstr "لم يستجب {label}: {result}"
 
-#: src/components/activity/health/HealthView.tsx
+#: src/hooks/useRunJobOutcome.ts
 msgid "{label} didn't start."
 msgstr "لم يبدأ {label}."
+
+#: src/hooks/useRunJobOutcome.ts
+msgid "{label} failed: {result}"
+msgstr "فشل {label}: {result}"
+
+#: src/hooks/useRunJobOutcome.ts
+msgid "{label} finished: {result}"
+msgstr "اكتمل {label}: {result}"
 
 #: src/components/import/ImportFileRow.tsx
 msgid "{label} for {file}"
 msgstr "{label} لـ {file}"
+
+#: src/components/activity/attention/SystemProblems.tsx
+msgid "{label} is failing"
+msgstr "{label} يفشل"
 
 #: src/components/activity/timeline/sentences.ts
 msgid "{label} needs attention"
@@ -778,10 +795,6 @@ msgstr "{label} لا يستجيب — {result}"
 #: src/components/dashboard/DashboardPanel.tsx
 msgid "{label} unavailable"
 msgstr "{label} غير متاح"
-
-#: src/components/activity/health/HealthView.tsx
-msgid "{label} will run in a moment."
-msgstr "سيعمل {label} بعد لحظات."
 
 #: src/components/activity/health/HealthView.tsx
 msgid "{label}: {result}"
@@ -1356,12 +1369,12 @@ msgid "Add {title}"
 msgstr "إضافة {title}"
 
 #: src/pages/SearchPage.tsx
-msgid "Add a Comic Vine API key in Settings → API to search comics."
-msgstr "أضف مفتاح Comic Vine API في الإعدادات ← API للبحث عن القصص المصورة."
+msgid "Add a Comic Vine API key in Settings → Sources and keys to search comics."
+msgstr "أضف مفتاح Comic Vine API في الإعدادات ← المصادر والمفاتيح للبحث عن القصص المصورة."
 
 #: src/components/storyarcs/ArcSearch.tsx
-msgid "Add a Comic Vine API key in Settings → API to search story arcs."
-msgstr "أضف مفتاح Comic Vine API في الإعدادات ← API للبحث عن الأقواس القصصية."
+msgid "Add a Comic Vine API key in Settings → Sources and keys to search story arcs."
+msgstr "أضف مفتاح Comic Vine API في الإعدادات ← المصادر والمفاتيح للبحث عن الأقواس القصصية."
 
 #: src/components/shelf/ShelfSheet.tsx
 msgid "Add a copy"
@@ -1376,6 +1389,10 @@ msgstr "إضافة عميل تنزيل"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Add a download client to search"
 msgstr "أضف عميل تنزيل لتتمكن من البحث"
+
+#: src/components/activity/attention/SystemProblems.tsx
+msgid "Add a free key from comicvine.gamespot.com in Sources and keys."
+msgstr "احصل على مفتاح مجاني من comicvine.gamespot.com وأضفه في المصادر والمفاتيح."
 
 #: src/components/shelf/ShelfChip.tsx
 msgid "Add a print copy of {label}"
@@ -3171,6 +3188,10 @@ msgstr "مجلد البيانات"
 msgid "Database Update Interval"
 msgstr "فاصل تحديث قاعدة البيانات"
 
+#: src/lib/settingValues.ts
+msgid "Database update interval must be {minimum} minutes or more."
+msgstr "يجب أن يكون فاصل تحديث قاعدة البيانات {minimum} دقيقة أو أكثر."
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "date"
 msgstr "التاريخ"
@@ -3634,9 +3655,17 @@ msgstr "نقطة النهاية"
 msgid "Ends at chapter"
 msgstr "ينتهي عند الفصل"
 
+#: src/lib/settingValues.ts
+msgid "Enter a Discord webhook URL to turn on Discord notifications."
+msgstr "أدخل عنوان URL لخطاف Discord لتشغيل إشعارات Discord."
+
 #: src/components/shelf/ShelfSheet.tsx
 msgid "Enter a price such as 4.99."
 msgstr "أدخل سعرًا مثل 4.99."
+
+#: src/lib/settingValues.ts
+msgid "Enter a whole number."
+msgstr "أدخل عددًا صحيحًا."
 
 #: src/components/ai/ChatComposer.tsx
 msgid "enter sends · shift+enter new line"
@@ -5566,6 +5595,10 @@ msgstr "فشل الترحيل"
 msgid "min 8 characters"
 msgstr "8 أحرف على الأقل"
 
+#: src/lib/settingValues.ts
+msgid "Minimum {minimum}."
+msgstr "الحد الأدنى {minimum}."
+
 #: src/components/settings/SearchTab.tsx
 msgid "Minimum file size in megabytes"
 msgstr "الحد الأدنى لحجم الملف بالميغابايت"
@@ -5855,6 +5888,10 @@ msgstr "لا مرفقات"
 #: src/components/ai/ChatThreadList.tsx
 msgid "No chats match “{filter}”."
 msgstr "لا دردشات تطابق “{filter}”."
+
+#: src/components/activity/attention/SystemProblems.tsx
+msgid "No Comic Vine API key, so comics can't be searched or refreshed"
+msgstr "لا يوجد مفتاح Comic Vine API، لذا لا يمكن البحث عن القصص المصورة أو تحديثها"
 
 #: src/components/storyarcs/ArcMissingSeries.tsx
 msgid "No ComicVine match — won't be added"
@@ -6496,6 +6533,10 @@ msgstr "فتح النشاط الكامل"
 msgid "Open full log"
 msgstr "فتح السجل الكامل"
 
+#: src/components/activity/attention/SystemProblems.tsx
+msgid "Open Health"
+msgstr "فتح السلامة"
+
 #: src/components/dashboard/NeedsAttentionBand.tsx
 msgid "Open in Activity"
 msgstr "فتح في النشاط"
@@ -6516,10 +6557,11 @@ msgstr "فتح إعدادات البحث"
 msgid "Open series"
 msgstr "فتح السلسلة"
 
+#: src/components/activity/attention/SystemProblems.tsx
 #: src/components/storyarcs/ArcSearch.tsx
 #: src/pages/SearchPage.tsx
-msgid "Open settings"
-msgstr "فتح الإعدادات"
+msgid "Open Sources and keys"
+msgstr "فتح المصادر والمفاتيح"
 
 #: src/components/settings/SupportBundleSection.tsx
 msgid "Open the ZIP and read README.txt, manifest.json, and diagnostics.json."
@@ -6650,8 +6692,8 @@ msgid "Pause"
 msgstr "إيقاف مؤقت"
 
 #: src/components/settings/SearchTab.tsx
-msgid "Pause between provider searches during a backlog run. Default 60. Minimum 5."
-msgstr "فاصل بين عمليات البحث لدى المزوّدين أثناء تشغيل المتأخرات. الافتراضي 60. الحد الأدنى 5."
+msgid "Pause between provider searches during a backlog run. Default 60."
+msgstr "مدة التوقف بين عمليات البحث لدى المزوّدين أثناء البحث عن المتأخرات. الافتراضي 60."
 
 #: src/lib/healthRows.ts
 msgid "paused"
@@ -6787,6 +6829,10 @@ msgstr "النسخ المطبوعة"
 #: src/components/queue/WantedBySeries.tsx
 msgid "Problems first"
 msgstr "المشكلات أولًا"
+
+#: src/components/activity/attention/SystemProblems.tsx
+msgid "Problems that stop all downloads"
+msgstr "مشكلات توقف كل التنزيلات"
 
 #: src/components/series/SeriesTable.tsx
 msgid "progress"
@@ -7312,6 +7358,10 @@ msgstr "استبدال المسافات بشرطات سفلية"
 msgid "Requests Per Minute"
 msgstr "الطلبات في الدقيقة"
 
+#: src/lib/settingValues.ts
+msgid "Requests per minute must be {minimum} or more."
+msgstr "يجب أن تكون الطلبات في الدقيقة {minimum} أو أكثر."
+
 #: src/pages/ActivityPage.tsx
 msgid "requeue"
 msgstr "إعادة الإدراج"
@@ -7565,10 +7615,15 @@ msgstr "فحص RSS"
 msgid "RSS Check Interval"
 msgstr "فاصل فحص RSS"
 
+#: src/lib/settingValues.ts
+msgid "RSS check interval must be {minimum} minutes or more."
+msgstr "يجب أن يكون فاصل فحص RSS {minimum} دقيقة أو أكثر."
+
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "RSS user ID"
 msgstr "معرّف مستخدم RSS"
 
+#: src/components/activity/attention/SystemProblems.tsx
 #: src/components/activity/health/HealthView.tsx
 msgid "Run {label} now"
 msgstr "تشغيل {label} الآن"
@@ -7581,6 +7636,7 @@ msgstr "التشغيل {run}"
 msgid "Run a weekly pull list update from Settings to populate this view."
 msgstr "شغّل تحديث قائمة السحب الأسبوعية من الإعدادات لملء هذا العرض."
 
+#: src/components/activity/attention/SystemProblems.tsx
 #: src/components/activity/health/HealthView.tsx
 msgid "Run now"
 msgstr "تشغيل الآن"
@@ -7600,6 +7656,11 @@ msgstr "قيد التشغيل الآن"
 #: src/pages/ActivityPage.tsx
 msgid "Running searches and open download or post-processing rows appear here — the same items the status bar counts."
 msgstr "تظهر هنا عمليات البحث الجارية وصفوف التنزيل أو المعالجة اللاحقة المفتوحة — العناصر نفسها التي يعدّها شريط الحالة."
+
+#: src/components/activity/attention/SystemProblems.tsx
+#: src/components/activity/health/HealthView.tsx
+msgid "Running…"
+msgstr "قيد التشغيل…"
 
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "SABnzbd API key"
@@ -7888,6 +7949,10 @@ msgstr "البحث في الملفات الحالية والمحتفظ بها"
 msgid "Search delay (seconds)"
 msgstr "تأخير البحث (بالثواني)"
 
+#: src/lib/settingValues.ts
+msgid "Search delay must be {minimum} seconds or more."
+msgstr "يجب أن يكون تأخير البحث {minimum} ثانية أو أكثر."
+
 #: src/components/releases/MyReleasesView.tsx
 msgid "Search did not start for the wanted issues"
 msgstr "لم يبدأ البحث عن الأعداد المطلوبة"
@@ -7945,6 +8010,10 @@ msgstr "تم حفظ مفهرسات البحث"
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Search Interval"
 msgstr "فاصل البحث"
+
+#: src/lib/settingValues.ts
+msgid "Search interval must be {minimum} minutes or more."
+msgstr "يجب أن يكون فاصل البحث {minimum} دقيقة أو أكثر."
 
 #: src/pages/WantedPage.tsx
 msgid "Search is blocked until a complete acquisition route is ready."
@@ -8475,6 +8544,10 @@ msgstr "عرض {rejected_count} مرفوضة"
 msgid "Show issues for {series}"
 msgstr "عرض أعداد {series}"
 
+#: src/components/activity/health/JobResultText.tsx
+msgid "Show less"
+msgstr "عرض أقل"
+
 #: src/components/ai/ChatExamplePrompts.tsx
 msgid "Show me everything from Image Comics"
 msgstr "اعرض لي كل شيء من Image Comics"
@@ -8486,6 +8559,10 @@ msgstr "عرض المانغا الموجودة في أعلى 500 أسبوعيً�
 #: src/pages/LoginPage.tsx
 msgid "Show password"
 msgstr "إظهار كلمة المرور"
+
+#: src/components/activity/health/JobResultText.tsx
+msgid "Show the full message"
+msgstr "عرض الرسالة كاملة"
 
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "Show the whole week"
@@ -8739,6 +8816,10 @@ msgstr "توقف البحث عن {label}"
 #: src/components/activity/attention/StopWantingDialog.tsx
 msgid "Stopping…"
 msgstr "جارٍ الإيقاف…"
+
+#: src/components/activity/attention/SystemProblems.tsx
+msgid "Stops work for the whole library"
+msgstr "يوقف العمل في المكتبة كلها"
 
 #: src/components/shelf/ShelfSheet.tsx
 #: src/pages/ShelfPage.tsx
@@ -9500,6 +9581,14 @@ msgstr "خطأ غير معروف"
 #: src/lib/api.ts
 msgid "Unknown error"
 msgstr "خطأ غير معروف"
+
+#: src/lib/settingValues.ts
+msgid "Unknown MangaDex content rating: {ratings}. Use safe, suggestive, erotica or pornographic."
+msgstr "تصنيف محتوى MangaDex غير معروف: {ratings}. استخدم safe أو suggestive أو erotica أو pornographic."
+
+#: src/lib/settingValues.ts
+msgid "Unknown MangaDex language code: {codes}. Use codes like en, ja or pt-br."
+msgstr "رمز لغة MangaDex غير معروف: {codes}. استخدم رموزًا مثل en أو ja أو pt-br."
 
 #: src/components/releases/industryRows.ts
 msgid "Unknown publisher"
