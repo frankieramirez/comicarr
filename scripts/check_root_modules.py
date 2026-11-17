@@ -53,7 +53,6 @@ ROOT_MODULES: dict[str, int] = {
     "carepackage": 1419,
     "cdh_mapping": 1422,
     "cfscrape_compat": 1421,
-    "cmtag": 1418,
     "comicsync": 1420,
     "config": 1423,
     "db": 1423,

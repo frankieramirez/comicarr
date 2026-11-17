@@ -917,7 +917,7 @@ class TestMangaMetatagOnImport:
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
             patch("comicarr.app.downloads.journal.record_transition", return_value=True),
             patch("comicarr.postprocessor.place", return_value=placement_result()) as mock_place,
-            patch("comicarr.cmtag.run", return_value=resolved) as mock_cmtag,
+            patch("comicarr.app.metadata.tagging.run", return_value=resolved) as mock_cmtag,
             patch.object(comicarr, "CONFIG", config),
             _mock_db() as mock_db,
         ):
@@ -1215,7 +1215,7 @@ class TestMangaVolumeForIssue:
 
     @staticmethod
     def _resolve(issue_row, comic_row, issueid="446055"):
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         rows = [issue_row, comic_row]
         with patch("comicarr.db.select_one", side_effect=lambda *a, **k: rows.pop(0)):
@@ -1272,14 +1272,14 @@ class TestMangaVolumeForIssue:
         assert self._resolve(None, None) is None
 
     def test_no_issueid_never_queries(self):
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         with patch("comicarr.db.select_one", side_effect=AssertionError("must not query")):
             assert cmtag.manga_volume_for_issue(None) is None
 
     def test_a_lookup_failure_never_breaks_tagging(self):
         """Best-effort enrichment: a DB error tags as a periodical, not 'fail'."""
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         with patch("comicarr.db.select_one", side_effect=RuntimeError("boom")):
             assert cmtag.manga_volume_for_issue("446055") is None
@@ -1300,7 +1300,7 @@ class TestRestoreTaggedFileMode:
         return SimpleNamespace(ENFORCE_PERMS=enforce)
 
     def test_a_mode_tagging_reduced_is_restored(self, tmp_path):
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         f = tmp_path / "One-Punch Man v01.cbz"
         f.write_bytes(b"x")
@@ -1310,7 +1310,7 @@ class TestRestoreTaggedFileMode:
         assert os.stat(f).st_mode & 0o7777 == 0o644
 
     def test_an_unchanged_mode_is_left_alone(self, tmp_path):
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
@@ -1321,12 +1321,12 @@ class TestRestoreTaggedFileMode:
 
     def test_enforce_perms_defers_to_the_existing_owner(self, tmp_path):
         """CHMOD_FILE has an owner already; this must not become a second one."""
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
         with patch.object(comicarr, "CONFIG", self._cfg(enforce=True)):
-            with patch.object(cmtag.filechecker, "setperms", return_value=True) as setperms:
+            with patch.object(cmtag.directories, "setperms", return_value=True) as setperms:
                 assert cmtag.restore_tagged_file_mode(str(f), 0o644) is True
         setperms.assert_called_once_with(str(f))
 
@@ -1335,12 +1335,12 @@ class TestRestoreTaggedFileMode:
 
         Answering True regardless claimed a mode that was never set.
         """
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
         with patch.object(comicarr, "CONFIG", self._cfg(enforce=True)):
-            with patch.object(cmtag.filechecker, "setperms", return_value=False):
+            with patch.object(cmtag.directories, "setperms", return_value=False):
                 assert cmtag.restore_tagged_file_mode(str(f), 0o644) is False
 
     def test_a_raising_setperms_never_costs_the_import(self, tmp_path):
@@ -1351,13 +1351,13 @@ class TestRestoreTaggedFileMode:
         only ImportError, and killed post-processing AFTER the tag had already
         succeeded -- losing the rest of the job to a cosmetic step.
         """
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
         with patch.object(comicarr, "CONFIG", self._cfg(enforce=True)):
             with patch.object(
-                cmtag.filechecker,
+                cmtag.directories,
                 "setperms",
                 side_effect=ValueError("invalid literal for int() with base 8: '888'"),
             ):
@@ -1365,7 +1365,7 @@ class TestRestoreTaggedFileMode:
 
     def test_an_uncapturable_original_mode_changes_nothing(self, tmp_path):
         """A stat failure before tagging must not invent a mode."""
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
@@ -1376,7 +1376,7 @@ class TestRestoreTaggedFileMode:
 
     def test_a_chmod_failure_never_breaks_tagging(self, tmp_path):
         """Best-effort: a tagged file is still worth returning."""
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
@@ -1386,7 +1386,7 @@ class TestRestoreTaggedFileMode:
                 assert cmtag.restore_tagged_file_mode(str(f), 0o644) is False
 
     def test_current_file_mode_reads_the_bits(self, tmp_path):
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
@@ -1395,7 +1395,7 @@ class TestRestoreTaggedFileMode:
 
     def test_current_file_mode_of_a_missing_path_is_none(self, tmp_path):
         """The .cbr is deleted by the .cbz conversion under FILE_OPTS = move."""
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         assert cmtag.current_file_mode(str(tmp_path / "gone.cbr")) is None
 
@@ -1407,7 +1407,7 @@ class TestRestoreTaggedFileModeWiring:
     def _run_source():
         import inspect
 
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         return inspect.getsource(cmtag.run)
 
@@ -1436,7 +1436,7 @@ class TestMangaTagShape:
 
     def test_the_issue_number_is_removed_after_comicvine_numbers_it(self):
         """ComicVine catalogues an English volume as an issue and numbers it."""
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         tags = cmtag.build_tags(None, {"Volume": "7"}, {"Number": "7", "Series": "One-Punch Man"}, (), "7")
 
@@ -1444,7 +1444,7 @@ class TestMangaTagShape:
         assert "Number" not in tags.fields
 
     def test_a_periodical_keeps_its_number(self):
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         tags = cmtag.build_tags(None, {"Volume": "2015"}, {"Number": "7"}, (), None)
 
@@ -1453,7 +1453,7 @@ class TestMangaTagShape:
     def test_run_resolves_a_manga_volume(self):
         import inspect
 
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         assert "manga_volume_for_issue(issueid)" in inspect.getsource(cmtag.run), (
             "the meta-tagger no longer resolves a manga volume; manga would be "
@@ -1465,14 +1465,14 @@ class TestComicVineIds:
     """Only a ComicVine id is looked up online."""
 
     def test_a_comicvine_id_is_fetched(self):
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         assert cmtag.is_comicvine_id("12345") is True
 
     @pytest.mark.parametrize("issueid", ["md-csm-ch165", "md-a1b2", None])
     def test_other_ids_are_tagged_locally(self, issueid):
         """Asking ComicVine for a MangaDex id fails the whole tag."""
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         assert cmtag.is_comicvine_id(issueid) is False
 
@@ -1492,33 +1492,33 @@ class TestVolumeMetadataField:
 
     def test_a_manga_volume_overrides_the_series_volume_label(self, monkeypatch):
         """The file IS volume 7, so it is tagged volume 7 -- not volume 2015."""
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
         assert cmtag.volume_value("2015", "7") == "7"
 
     def test_a_manga_volume_wins_even_with_no_series_label(self, monkeypatch):
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
         assert cmtag.volume_value(None, "7") == "7"
 
     def test_a_manga_volume_wins_over_the_default_volume_setting(self, monkeypatch):
         """SETDEFAULTVOLUME forces 1; the book's own volume must still win."""
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         monkeypatch.setattr(comicarr, "CONFIG", self._cfg(SETDEFAULTVOLUME=True))
         assert cmtag.volume_value(None, "7") == "7"
 
     def test_a_periodical_keeps_its_series_volume_label(self, monkeypatch):
         """Control: with no manga volume the comic behaviour is untouched."""
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
         assert cmtag.volume_value("2015", None) == "2015"
 
     def test_volume_tagging_off_removes_the_field(self, monkeypatch):
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging as cmtag
 
         monkeypatch.setattr(comicarr, "CONFIG", self._cfg(CMTAG_VOLUME=False))
         assert cmtag.volume_value("2015", None) == ""
@@ -1585,7 +1585,7 @@ class TestMangaKeepsTheFileWhenTheDownloadFolderIsTheSeriesFolder:
             patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
             patch("comicarr.app.downloads.journal.record_transition", return_value=True),
             patch("comicarr.postprocessor.place", side_effect=fake_place),
-            patch("comicarr.cmtag.run", return_value=str(tagged)),
+            patch("comicarr.app.metadata.tagging.run", return_value=str(tagged)),
             _mock_db() as mock_db,
         ):
             mock_db.select_one.side_effect = [comic_row, issue_row, None, have_count]

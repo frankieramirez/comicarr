@@ -225,7 +225,7 @@ def group_metatag(ctx, comic_id):
 
 
 def cmtag_series_arguments(issueid, comicid, comversion, seriesyear, agerating):
-    """Volume label, reading order and age rating for `cmtag.run`.
+    """Volume label, reading order and age rating for `tagging.run`.
 
     Shared by manual metatagging and import finalization so an imported file is
     tagged with the same series fields as one tagged from the series page.
@@ -338,9 +338,9 @@ def _do_manual_metatag(issueid, comicid=None, group=False):
         agerating = issuedata["AgeRating"]
         comicname = issuedata["ComicName"]
 
-        from comicarr import cmtag
+        from comicarr.app.metadata import tagging
 
-        metaresponse = cmtag.run(
+        metaresponse = tagging.run(
             dirName,
             issueid=issueid,
             filename=filename,

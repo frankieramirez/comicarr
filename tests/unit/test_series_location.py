@@ -352,7 +352,7 @@ def test_tagging_a_left_behind_file_rewrites_it_where_it_is(library, monkeypatch
         tagged.write_text("tagged zip issue")
         return str(tagged)
 
-    monkeypatch.setattr("comicarr.cmtag.run", tag)
+    monkeypatch.setattr("comicarr.app.metadata.tagging.run", tag)
 
     metadata_service._do_manual_metatag("wiz-1")
 

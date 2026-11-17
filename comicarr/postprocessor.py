@@ -2740,6 +2740,6 @@ def pipeline_deps():
 
 
 def _tag_file(*args, **kwargs):
-    from . import cmtag
+    from comicarr.app.metadata import tagging
 
-    return cmtag.run(*args, **kwargs)
+    return tagging.run(*args, **kwargs)
