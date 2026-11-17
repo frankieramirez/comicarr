@@ -126,7 +126,6 @@ DEFERRED_ALLOWLIST = {
     ("comicarr/app/search/evaluation.py", "filechecker"): ("FileChecker parses release names", DEFERRED),
     ("comicarr/app/search/interactive.py", "search"): ("interactive search drives search.py", DEFERRED),
     ("comicarr/app/search/service.py", "search"): ("searchforissue", DEFERRED),
-    ("comicarr/app/series/service.py", "comicsync"): ("comicScan and import_selected_series", DEFERRED),
     ("comicarr/app/series/service.py", "filechecker"): ("validateAndCreateDirectory", DEFERRED),
     ("comicarr/app/storyarcs/service.py", "filechecker"): ("FileChecker and validateAndCreateDirectory", DEFERRED),
 }

@@ -163,7 +163,7 @@ Leads on the registered modern machines:
 | Search lock | `SEARCHLOCK` | The queueing branch releases the lock without acquiring it (`search.py:2777-2780`, *read*). |
 | Provider blocklist, route readiness | `PROVIDER_BLOCKLIST`, `search/health.py` | A list is mutated while iterated. |
 | Mylar3 migration progress | `MIGRATION_*` globals | The in-progress flag is set only after the quiescence wait. |
-| Library scans | `importinbox.py`, `comicsync.py`, `mangasync.py` | One machine copied three times. |
+| Library scans | `importinbox.py`, `app/series/comicsync.py`, `mangasync.py` | One machine copied three times. |
 | Import finalization phase | `imports/finalization.py` | None. |
 | AI circuit breaker | `ai/circuit_breaker.py` | Half-open admits every request. Frozen feature. |
 | EventBus, MCP session | `core/events.py`, `mcp/server.py` | Publishes before the loop is set are dropped. |

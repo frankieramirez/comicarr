@@ -13,7 +13,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from comicarr import comicsync
+from comicarr.app.series import comicsync
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_session
 from comicarr.app.manga import mangasync

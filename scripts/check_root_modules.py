@@ -52,7 +52,6 @@ SKIP_DIR_NAMES = {"__pycache__"}
 ROOT_MODULES: dict[str, int] = {
     "cdh_mapping": 1422,
     "cfscrape_compat": 1421,
-    "comicsync": 1420,
     "config": 1423,
     "db": 1423,
     "encrypted": 1423,

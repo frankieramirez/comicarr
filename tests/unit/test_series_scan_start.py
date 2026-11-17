@@ -43,7 +43,7 @@ def test_library_scan_rejects_missing_mount(monkeypatch, scan, config_key, path,
     [
         (
             service.comic_library_scan,
-            "comicarr.comicsync",
+            "comicarr.app.series.comicsync",
             "COMIC_DIR",
             "/library/comics",
             "COMIC_SCAN_STATUS",
