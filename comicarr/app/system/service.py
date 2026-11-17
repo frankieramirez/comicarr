@@ -565,6 +565,7 @@ _OPTIONAL_FOLDER_LABELS = {
     "MANGA_DIR": "Manga folder to scan",
     "MANGA_DESTINATION_DIR": "Manga library folder",
     "IMPORT_DIR": "Import folder",
+    "CHECK_FOLDER": "Completed downloads folder",
 }
 _IMPORT_OVERLAP_KEYS = ("DESTINATION_DIR", "MANGA_DESTINATION_DIR", "COMIC_DIR", "MANGA_DIR", "CHECK_FOLDER")
 
@@ -1593,7 +1594,26 @@ def preview_migration(ctx, path):
     result = m.validate()
     if result.get("valid"):
         return result
-    return {"success": False, "error": result.get("error", "Invalid Mylar3 data path")}
+    error = result.get("error", "Invalid Mylar3 data path")
+    refusal = {"success": False, "error": error}
+    code = _MIGRATION_PATH_CODES.get(error)
+    if code:
+        # The UI words these itself. Docker users usually have not mounted the
+        # Mylar3 folder, so say whether the path was checked inside a
+        # container (#1498).
+        in_container = getattr(comicarr, "INSTALL_TYPE", None) == "docker"
+        refusal.update({"code": code, "path": path, "in_container": in_container})
+        if code == "not_a_directory":
+            where = " inside the Comicarr container" if in_container else ""
+            refusal["error"] = "No folder at %s%s." % (path, where)
+    return refusal
+
+
+_MIGRATION_PATH_CODES = {
+    "Path is not a directory": "not_a_directory",
+    "No mylar.db found at path": "no_database",
+    "No config.ini found at path": "no_config",
+}
 
 
 def start_migration(ctx, path):

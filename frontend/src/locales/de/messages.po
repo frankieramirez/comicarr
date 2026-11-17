@@ -2564,6 +2564,10 @@ msgstr "Scan der Comic-Bibliothek fehlgeschlagen."
 msgid "Comic library scan started."
 msgstr "Scan der Comic-Bibliothek gestartet."
 
+#: src/pages/SearchPage.tsx
+msgid "Comic search needs a Comic Vine API key. <0>Add it in Sources and keys</0>"
+msgstr "Die Comic-Suche braucht einen Comic-Vine-API-Schlüssel. <0>In Quellen und Schlüssel hinzufügen</0>"
+
 #: src/components/settings/ApiTab.tsx
 msgid "Comic Vine"
 msgstr "Comic Vine"
@@ -2766,6 +2770,10 @@ msgstr "Abgeschlossen"
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Completed downloads"
 msgstr "Abgeschlossene Downloads"
+
+#: src/components/settings/DownloadClientsTab.tsx
+msgid "Completed downloads folder"
+msgstr "Ordner für fertige Downloads"
 
 #: src/components/settings/LogsTab.tsx
 msgid "Component"
@@ -5966,6 +5974,14 @@ msgstr "Es sind keine infrage kommenden fehlenden Ausgaben mehr zu suchen."
 msgid "No eligible wanted issues are ready to search."
 msgstr "Keine infrage kommenden gesuchten Ausgaben sind bereit zur Suche."
 
+#: src/components/onboarding/OnboardingDialog.tsx
+msgid "No folder at {path} inside the Comicarr container."
+msgstr "Kein Ordner unter {path} im Comicarr-Container."
+
+#: src/components/onboarding/OnboardingDialog.tsx
+msgid "No folder at {path}."
+msgstr "Kein Ordner unter {path}."
+
 #: src/pages/ImportPage.tsx
 msgid "No ignored files"
 msgstr "Keine ignorierten Dateien"
@@ -6702,6 +6718,10 @@ msgstr "Pfad"
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Path"
 msgstr "Pfad"
+
+#: src/components/onboarding/OnboardingDialog.tsx
+msgid "Paths here are inside the container. Mount your Mylar3 data folder as a volume, then enter the path it has inside the container, such as /mylar3. <0>See the volume example</0>"
+msgstr "Pfade hier gelten im Container. Binde deinen Mylar3-Datenordner als Volume ein und gib dann den Pfad im Container ein, etwa /mylar3. <0>Volume-Beispiel ansehen</0>"
 
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Pattern for issue files. Variables: $Series, $Issue, $Year, $Title"
@@ -7832,12 +7852,12 @@ msgid "Scan the watched inbox for new files"
 msgstr "Den überwachten Eingang nach neuen Dateien scannen"
 
 #: src/components/settings/DownloadClientsTab.tsx
-msgid "Scanned after the main monitored folder, {folder}. One server path per line. In Docker, use the path inside the container."
-msgstr "Wird nach dem überwachten Hauptordner {folder} gescannt. Ein Serverpfad pro Zeile. Verwende unter Docker den Pfad im Container."
+msgid "Scanned after the completed downloads folder above. These folders are ignored until it is set."
+msgstr "Werden nach dem Ordner für fertige Downloads oben durchsucht. Sie werden ignoriert, bis er gesetzt ist."
 
 #: src/components/settings/DownloadClientsTab.tsx
-msgid "Scanned after the main monitored folder, which is set as CHECK_FOLDER in the config file. These folders are ignored until it is set."
-msgstr "Wird nach dem überwachten Hauptordner gescannt, der in der Konfigurationsdatei als CHECK_FOLDER gesetzt ist. Diese Ordner werden ignoriert, bis er gesetzt ist."
+msgid "Scanned after the main monitored folder, {folder}. One server path per line. In Docker, use the path inside the container."
+msgstr "Wird nach dem überwachten Hauptordner {folder} gescannt. Ein Serverpfad pro Zeile. Verwende unter Docker den Pfad im Container."
 
 #: src/components/import/ImportInboxSection.tsx
 #: src/components/import/LibraryScanSection.tsx
@@ -9149,6 +9169,14 @@ msgstr "Der Usenet-Download-Client ist deaktiviert. Wähle einen in den Einstell
 msgid "Theme"
 msgstr "Design"
 
+#: src/components/onboarding/OnboardingDialog.tsx
+msgid "There is no config.ini in {path}."
+msgstr "Keine config.ini in {path}."
+
+#: src/components/onboarding/OnboardingDialog.tsx
+msgid "There is no mylar.db in {path}."
+msgstr "Keine mylar.db in {path}."
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "These are not selected by default. Select only released, missing rows you explicitly want to mark Wanted."
 msgstr "Diese sind standardmäßig nicht ausgewählt. Wähle nur erschienene, fehlende Zeilen aus, die du ausdrücklich als Gesucht markieren willst."
@@ -9439,6 +9467,10 @@ msgstr "Zwei Serien in deiner Bibliothek haben diesen Titel, daher muss diese ge
 #: src/pages/SeriesDetailPage.tsx
 msgid "type"
 msgstr "Typ"
+
+#: src/pages/SearchPage.tsx
+msgid "Type at least 3 characters"
+msgstr "Gib mindestens 3 Zeichen ein"
 
 #: src/pages/SearchPage.tsx
 msgid "Type at least 3 characters to search across your configured providers."
@@ -10074,6 +10106,10 @@ msgstr "Wo es steht"
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Where your comics and manga live. Downloads are filed here, and Import scans these folders for what you already have."
 msgstr "Wo deine Comics und Mangas liegen. Downloads werden hier einsortiert, und der Import durchsucht diese Ordner nach dem, was du schon hast."
+
+#: src/components/settings/DownloadClientsTab.tsx
+msgid "Where your download client puts finished comics, as Comicarr sees it. In Docker, use the path inside the container. Leave empty to turn the Folder Monitor off."
+msgstr "Wo dein Download-Client fertige Comics ablegt, so wie Comicarr den Pfad sieht. Unter Docker den Pfad im Container verwenden. Leer lassen, um die Ordnerüberwachung auszuschalten."
 
 #: src/components/queue/WantedBySeries.tsx
 msgid "Which"
