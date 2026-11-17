@@ -112,8 +112,11 @@ export default function ArcSearch({ searchInputRef, formRef }: ArcSearchProps) {
               icon={Settings}
               eyebrow={t`PROVIDER · NOT CONFIGURED`}
               title={t`Comic Vine API key required`}
-              description={t`Add a Comic Vine API key in Settings → API to search story arcs.`}
-              action={{ label: t`Open settings`, to: "/settings" }}
+              description={t`Add a Comic Vine API key in Settings → Sources and keys to search story arcs.`}
+              action={{
+                label: t`Open Sources and keys`,
+                to: "/settings?section=api",
+              }}
             />
           ) : (
             <EmptyState

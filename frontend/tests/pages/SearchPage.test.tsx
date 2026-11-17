@@ -111,4 +111,38 @@ describe("SearchPage result views", () => {
     await screen.findByText("Amazing Spider-Man");
     expect(screen.queryAllByTestId("search-result-card")).toHaveLength(0);
   });
+
+  it("sends a missing Comic Vine key to Sources and keys and claims no search", async () => {
+    server.use(
+      http.get("/api/config", () =>
+        HttpResponse.json({
+          comicvine_enabled: true,
+          comicvine_api_set: false,
+        }),
+      ),
+      http.post("/api/search/comics", () =>
+        HttpResponse.json(
+          { detail: "Comic Vine API key is not set" },
+          { status: 400 },
+        ),
+      ),
+    );
+    render(<SearchPage />, {
+      useMemoryRouter: true,
+      route: "/search?q=spider&type=comic",
+    });
+
+    expect(await screen.findByText("Comic Vine API key required")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Add a Comic Vine API key in Settings → Sources and keys to search comics.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: "Open Sources and keys" })
+        .getAttribute("href"),
+    ).toBe("/settings?section=api");
+    expect(screen.queryByText("Searched ComicVine and Metron")).toBeNull();
+  });
 });
