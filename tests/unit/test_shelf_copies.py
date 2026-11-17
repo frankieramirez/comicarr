@@ -225,5 +225,18 @@ def test_routes_round_trip_and_return_codes(client):
     assert client.delete("/api/shelf/copies/%s" % copy_id).status_code == 404
 
 
+def test_export_is_one_row_per_copy_and_defuses_formulas(client):
+    _issue_copy(VariantName="=HYPERLINK(1)", PaidCents=6005, Storage="Long box 03")
+    service.create_copy({"ComicID": "md-1", "VolumeNumber": "2"})
+
+    exported = client.get("/api/shelf/export.csv")
+    assert exported.headers["content-type"] == "text/csv; charset=utf-8"
+    assert "comicarr-shelf.csv" in exported.headers["content-disposition"]
+    lines = exported.text.splitlines()
+    assert lines[0] == "Series,Item,Variant,Grade,Paid,Storage,Notes,Added"
+    assert lines[1].startswith("Paper Tigers,Vol. 2,,,,,,")
+    assert lines[2].startswith("Starfall Saga,#64 · Chapter Sixty-Four,'=HYPERLINK(1),,60.05,Long box 03,,")
+
+
 def test_every_route_requires_a_session():
     assert [dependency.dependency for dependency in router.dependencies] == [require_session]

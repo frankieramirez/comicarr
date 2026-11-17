@@ -49,6 +49,9 @@ const WantedPage = () => (
 const SettingsPage = () => (
   <RouteLoader load={() => import("@/pages/SettingsPage")} />
 );
+const ShelfPage = () => (
+  <RouteLoader load={() => import("@/pages/ShelfPage")} />
+);
 const StoryArcsPage = () => (
   <RouteLoader load={() => import("@/pages/StoryArcsPage")} />
 );
@@ -168,6 +171,7 @@ function AppContent() {
                       />
                       <Route path="/wanted" element={<WantedPage />} />
                       <Route path="/story-arcs" element={<StoryArcsPage />} />
+                      <Route path="/shelf" element={<ShelfPage />} />
                       <Route
                         path="/story-arcs/:storyArcId"
                         element={<StoryArcDetailPage />}

@@ -446,6 +446,10 @@ msgstr "{count, plural, one {# issue} other {# issues}}"
 msgid "{count, plural, one {# needs you} other {# need you}}"
 msgstr "{count, plural, one {# needs you} other {# need you}}"
 
+#: src/components/shelf/ShelfChip.tsx
+msgid "{count, plural, one {# print copy of {label}} other {# print copies of {label}}}"
+msgstr "{count, plural, one {# print copy of {label}} other {# print copies of {label}}}"
+
 #: src/pages/DiscoverPage.tsx
 msgid "{count, plural, one {# recommendation} other {# recommendations}}"
 msgstr "{count, plural, one {# recommendation} other {# recommendations}}"
@@ -542,6 +546,10 @@ msgstr "{count} series in your library share this title, so this one needs a che
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "{count} unknown"
 msgstr "{count} unknown"
+
+#: src/hooks/useShelf.ts
+msgid "{created, plural, one {# book marked on your shelf} other {# books marked on your shelf}}"
+msgstr "{created, plural, one {# book marked on your shelf} other {# books marked on your shelf}}"
 
 #: src/lib/wantedPacing.ts
 msgid "{days, plural, one {~# day} other {~# days}}"
@@ -887,6 +895,10 @@ msgstr "{offset, plural, one {In # week} other {In # weeks}}"
 msgid "{overflow, plural, one {…and # earlier release} other {…and # earlier releases}}"
 msgstr "{overflow, plural, one {…and # earlier release} other {…and # earlier releases}}"
 
+#: src/pages/ShelfPage.tsx
+msgid "{paid} paid"
+msgstr "{paid} paid"
+
 #: src/components/import/ConfidenceBadge.tsx
 msgid "{pct}% match confidence"
 msgstr "{pct}% match confidence"
@@ -1000,6 +1012,10 @@ msgstr "{seriesCount} · {comicCount} · {mangaCount}"
 msgid "{seriesIndexed, plural, one {# series indexed} other {# series indexed}}"
 msgstr "{seriesIndexed, plural, one {# series indexed} other {# series indexed}}"
 
+#: src/pages/SeriesDetailPage.tsx
+msgid "{seriesName} Vol. {number}"
+msgstr "{seriesName} Vol. {number}"
+
 #: src/lib/importPick.ts
 msgid "{size} B"
 msgstr "{size} B"
@@ -1028,6 +1044,10 @@ msgstr "{StoryArc} has been removed."
 #: src/pages/AttentionPage.tsx
 msgid "{succeeded, plural, one {{verb} — # issue.} other {{verb} — # issues.}}"
 msgstr "{succeeded, plural, one {{verb} — # issue.} other {{verb} — # issues.}}"
+
+#: src/pages/ShelfPage.tsx
+msgid "{total, plural, one {# copy} other {# copies}}"
+msgstr "{total, plural, one {# copy} other {# copies}}"
 
 #: src/pages/WantedPage.tsx
 msgid "{total, plural, one {# missing issue} other {# missing issues}}"
@@ -1322,6 +1342,10 @@ msgstr "Add a Comic Vine API key in Settings → API to search comics."
 msgid "Add a Comic Vine API key in Settings → API to search story arcs."
 msgstr "Add a Comic Vine API key in Settings → API to search story arcs."
 
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Add a copy"
+msgstr "Add a copy"
+
 #: src/components/onboarding/OnboardingDialog.tsx
 #: src/lib/searchBlockers.ts
 #: src/lib/setupSteps.ts
@@ -1331,6 +1355,10 @@ msgstr "Add a download client"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Add a download client to search"
 msgstr "Add a download client to search"
+
+#: src/components/shelf/ShelfChip.tsx
+msgid "Add a print copy of {label}"
+msgstr "Add a print copy of {label}"
 
 #: src/components/activity/timeline/TimelineView.tsx
 #: src/pages/SearchPage.tsx
@@ -1358,6 +1386,10 @@ msgstr "Add an indexer to search"
 #: src/components/import/ImportPickPanel.tsx
 msgid "Add and import as {series}"
 msgstr "Add and import as {series}"
+
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Add another copy"
+msgstr "Add another copy"
 
 #: src/lib/setupSteps.ts
 msgid "Add API key"
@@ -1417,6 +1449,10 @@ msgstr "Add series and want #{issue}"
 #: src/components/search/SearchAddButton.tsx
 msgid "Add to a chosen folder"
 msgstr "Add to a chosen folder"
+
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Add to shelf"
+msgstr "Add to shelf"
 
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "Add Torznab indexer"
@@ -2014,6 +2050,10 @@ msgstr "blocked"
 msgid "Blocked"
 msgstr "Blocked"
 
+#: src/pages/ShelfPage.tsx
+msgid "Book"
+msgstr "Book"
+
 #: src/components/settings/NotificationsTab.tsx
 msgid "Bot Token"
 msgstr "Bot Token"
@@ -2092,6 +2132,7 @@ msgstr "Can't search"
 #: src/components/series/SeriesSearchProviders.tsx
 #: src/components/settings/SaveButton.tsx
 #: src/components/settings/SupportBundleSection.tsx
+#: src/components/shelf/ShelfSheet.tsx
 #: src/components/storyarcs/ArcHeader.tsx
 #: src/components/storyarcs/ArcIssueTable.tsx
 #: src/components/storyarcs/ArcMissingSeries.tsx
@@ -2958,6 +2999,10 @@ msgstr "Couldn't tag {label}"
 msgid "Couldn't update volume {number}"
 msgstr "Couldn't update volume {number}"
 
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Cover B, 2nd printing…"
+msgstr "Cover B, 2nd printing…"
+
 #: src/components/settings/InterfaceTab.tsx
 msgid "Cover wall on sign-in"
 msgstr "Cover wall on sign-in"
@@ -3385,6 +3430,10 @@ msgstr "Earlier"
 msgid "Earlier files are still read from {folders}."
 msgstr "Earlier files are still read from {folders}."
 
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Edit"
+msgstr "Edit"
+
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Edit {client}"
 msgstr "Edit {client}"
@@ -3392,6 +3441,10 @@ msgstr "Edit {client}"
 #: src/components/import/ImportPickPanel.tsx
 msgid "Edit chapter numbers"
 msgstr "Edit chapter numbers"
+
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Edit copy"
+msgstr "Edit copy"
 
 #: src/components/import/ImportPickPanel.tsx
 msgid "Edit issue numbers"
@@ -3514,6 +3567,10 @@ msgstr "Endpoint"
 #: src/components/series/MangaVolumes.tsx
 msgid "Ends at chapter"
 msgstr "Ends at chapter"
+
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Enter a price such as 4.99."
+msgstr "Enter a price such as 4.99."
 
 #: src/components/ai/ChatComposer.tsx
 msgid "enter sends · shift+enter new line"
@@ -3638,6 +3695,10 @@ msgstr "Existing comic folder scanned by library import; imported series stay in
 #: src/components/settings/GeneralTab.tsx
 msgid "Existing manga folder scanned by library import; imported series stay in place here"
 msgstr "Existing manga folder scanned by library import; imported series stay in place here"
+
+#: src/pages/ShelfPage.tsx
+msgid "Export CSV"
+msgstr "Export CSV"
 
 #: src/components/activity/timeline/attentionStage.ts
 msgid "failed"
@@ -4188,6 +4249,11 @@ msgstr "Grabbed {label}"
 #: src/components/activity/timeline/sentences.ts
 msgid "Grabbed {label} from {provider}"
 msgstr "Grabbed {label} from {provider}"
+
+#: src/components/shelf/ShelfSheet.tsx
+#: src/pages/ShelfPage.tsx
+msgid "Grade"
+msgstr "Grade"
 
 #: src/components/series/SeriesTable.tsx
 msgid "Grid"
@@ -4865,6 +4931,7 @@ msgstr "Level"
 #: src/pages/SeriesDetailPage.tsx
 #: src/pages/SeriesListPage.tsx
 #: src/pages/SettingsPage.tsx
+#: src/pages/ShelfPage.tsx
 #: src/pages/StoryArcsPage.tsx
 msgid "Library"
 msgstr "Library"
@@ -5076,6 +5143,10 @@ msgstr "Logout failed. Your session is still active; please try again."
 msgid "Logs"
 msgstr "Logs"
 
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Long box 1"
+msgstr "Long box 1"
+
 #: src/components/import/ImportPickPanel.tsx
 msgid "Looking for series outside your library…"
 msgstr "Looking for series outside your library…"
@@ -5243,6 +5314,10 @@ msgstr "Mark as Wanted"
 #: src/components/ui/EmptyState.tsx
 msgid "Mark issues as wanted from a series and Comicarr will search for them automatically."
 msgstr "Mark issues as wanted from a series and Comicarr will search for them automatically."
+
+#: src/pages/SeriesDetailPage.tsx
+msgid "Mark on shelf"
+msgstr "Mark on shelf"
 
 #: src/components/queue/BulkActionBar.tsx
 msgid "Mark Wanted"
@@ -5662,6 +5737,10 @@ msgstr "Next run"
 msgid "Next week"
 msgstr "Next week"
 
+#: src/components/shelf/ShelfSheet.tsx
+msgid "NM, CGC 9.8…"
+msgstr "NM, CGC 9.8…"
+
 #: src/pages/ActivityPage.tsx
 msgid "No active downloads"
 msgstr "No active downloads"
@@ -5701,6 +5780,10 @@ msgstr "No confident matches waiting"
 #: src/components/ai/ChatResultCard.tsx
 msgid "NO COVER"
 msgstr "NO COVER"
+
+#: src/components/shelf/ShelfSheet.tsx
+msgid "No details yet"
+msgstr "No details yet"
 
 #: src/lib/searchBlockers.ts
 msgid "no download client"
@@ -6042,6 +6125,10 @@ msgstr "not live"
 msgid "Not needed: ComicVine is off"
 msgstr "Not needed: ComicVine is off"
 
+#: src/pages/SeriesDetailPage.tsx
+msgid "Not on shelf"
+msgstr "Not on shelf"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "not ready"
 msgstr "not ready"
@@ -6083,6 +6170,10 @@ msgstr "Not Tracked"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Not wanted"
 msgstr "Not wanted"
+
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Notes"
+msgstr "Notes"
 
 #: src/components/whats-new/WhatsNewModal.tsx
 msgid "Notes could not load. You can still read them in <0>Settings → About</0>."
@@ -6169,6 +6260,10 @@ msgstr "Nothing needs your attention"
 #: src/components/weekly/AiSuggestions.tsx
 msgid "Nothing new this week matches your collection"
 msgstr "Nothing new this week matches your collection"
+
+#: src/pages/ShelfPage.tsx
+msgid "Nothing on your shelf matches"
+msgstr "Nothing on your shelf matches"
 
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "Nothing popular out this week"
@@ -6273,6 +6368,10 @@ msgstr "Open {name}"
 #: src/components/search/SearchResultsTable.tsx
 msgid "Open {name} on provider site"
 msgstr "Open {name} on provider site"
+
+#: src/pages/ShelfPage.tsx
+msgid "Open a series and use the shelf mark on an issue or volume to record a print copy."
+msgstr "Open a series and use the shelf mark on an issue or volume to record a print copy."
 
 #: src/lib/healthBand.ts
 msgid "open acquisition health"
@@ -6406,6 +6505,11 @@ msgstr "Page settings saved; indexer edits still need Save indexers"
 #: src/components/data-table/DataTableFooter.tsx
 msgid "Pagination"
 msgstr "Pagination"
+
+#: src/components/shelf/ShelfSheet.tsx
+#: src/pages/ShelfPage.tsx
+msgid "Paid"
+msgstr "Paid"
 
 #: src/components/settings/DownloadClientsTab.tsx
 #: src/components/settings/NotificationsTab.tsx
@@ -6575,6 +6679,11 @@ msgstr "Previous week"
 #: src/components/layout/MobileTabBar.tsx
 msgid "Primary"
 msgstr "Primary"
+
+#: src/components/shelf/ShelfSheet.tsx
+#: src/pages/IssueDetailPage.tsx
+msgid "Print copies"
+msgstr "Print copies"
 
 #: src/components/queue/WantedBySeries.tsx
 msgid "Problems first"
@@ -6816,6 +6925,10 @@ msgstr "Reconnected"
 msgid "Record limit"
 msgstr "Record limit"
 
+#: src/components/settings/InterfaceTab.tsx
+msgid "Record the physical books you own. Adds a shelf mark to issues and volumes, and a Shelf tab to the Library. It never changes what Comicarr searches for or downloads."
+msgstr "Record the physical books you own. Adds a shelf mark to issues and volumes, and a Shelf tab to the Library. It never changes what Comicarr searches for or downloads."
+
 #: src/components/ErrorBoundary.tsx
 msgid "RECOVERY"
 msgstr "RECOVERY"
@@ -7007,6 +7120,7 @@ msgid "Removable from"
 msgstr "Removable from"
 
 #: src/components/ai-elements/attachments.tsx
+#: src/components/shelf/ShelfSheet.tsx
 msgid "Remove"
 msgstr "Remove"
 
@@ -7413,6 +7527,7 @@ msgid "Same as downloads"
 msgstr "Same as downloads"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/shelf/ShelfSheet.tsx
 msgid "Save"
 msgstr "Save"
 
@@ -7833,6 +7948,10 @@ msgstr "Search selected"
 msgid "Search series"
 msgstr "Search series"
 
+#: src/pages/ShelfPage.tsx
+msgid "Search series, variant, storage or notes"
+msgstr "Search series, variant, storage or notes"
+
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Search session expired"
 msgstr "Search session expired"
@@ -7885,6 +8004,10 @@ msgstr "Search wanted"
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Search with Prowlarr"
 msgstr "Search with Prowlarr"
+
+#: src/pages/ShelfPage.tsx
+msgid "Search your shelf"
+msgstr "Search your shelf"
 
 #: src/pages/SearchPage.tsx
 msgid "Searched ComicVine and Metron"
@@ -8249,6 +8372,10 @@ msgstr "Setup token (optional)"
 msgid "Severity"
 msgstr "Severity"
 
+#: src/components/series/LibraryTabs.tsx
+msgid "Shelf"
+msgstr "Shelf"
+
 #: src/pages/LoginPage.tsx
 msgid "show"
 msgstr "show"
@@ -8288,6 +8415,10 @@ msgstr "Showing <0>{activeDayHeading}</0> only"
 #: src/pages/IssueDetailPage.tsx
 msgid "Showing the first {count}."
 msgstr "Showing the first {count}."
+
+#: src/pages/ShelfPage.tsx
+msgid "Showing the newest {shown} of {total}. Search to narrow the list."
+msgstr "Showing the newest {shown} of {total}. Search to narrow the list."
 
 #: src/components/ui/sidebar.tsx
 msgid "Sidebar"
@@ -8423,6 +8554,10 @@ msgstr "Sources and keys"
 msgid "Sources and scans"
 msgstr "Sources and scans"
 
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Standard cover"
+msgstr "Standard cover"
+
 #: src/components/settings/LogsTab.tsx
 msgid "Start a new log file? The current log is kept as a rotated archive — the viewer will show only what happens from now on."
 msgstr "Start a new log file? The current log is kept as a rotated archive — the viewer will show only what happens from now on."
@@ -8517,6 +8652,11 @@ msgstr "Stopped searching for {label}"
 #: src/components/activity/attention/StopWantingDialog.tsx
 msgid "Stopping…"
 msgstr "Stopping…"
+
+#: src/components/shelf/ShelfSheet.tsx
+#: src/pages/ShelfPage.tsx
+msgid "Storage"
+msgstr "Storage"
 
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Stored encrypted and never returned by the API."
@@ -8650,6 +8790,10 @@ msgstr "Test Connection"
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Testing..."
 msgstr "Testing..."
+
+#: src/lib/shelf.ts
+msgid "That text is too long."
+msgstr "That text is too long."
 
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "The <0>i=</0> parameter of this indexer’s RSS URL. Leave as 1 unless your indexer says otherwise."
@@ -8788,6 +8932,10 @@ msgstr "The series is being added to your library."
 msgid "The server is shutting down. Please wait..."
 msgstr "The server is shutting down. Please wait..."
 
+#: src/lib/shelf.ts
+msgid "The shelf could not be updated. Please try again."
+msgstr "The shelf could not be updated. Please try again."
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "The Usenet download client is disabled. Choose one in Download client settings."
 msgstr "The Usenet download client is disabled. Choose one in Download client settings."
@@ -8823,6 +8971,14 @@ msgstr "This arc reads through series you don't track yet. Add them and Comicarr
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "This candidate cannot be grabbed. Select a ready or overrideable result."
 msgstr "This candidate cannot be grabbed. Select a ready or overrideable result."
+
+#: src/lib/shelf.ts
+msgid "This copy was already removed."
+msgstr "This copy was already removed."
+
+#: src/lib/shelf.ts
+msgid "This issue is no longer in the library."
+msgstr "This issue is no longer in the library."
 
 #: src/components/settings/ApiTab.tsx
 msgid "This key is used to authenticate API requests to Comicarr"
@@ -8868,6 +9024,10 @@ msgstr "This search session has expired, so its results can no longer be grabbed
 msgid "This series has no issues tracked yet. Refresh to pull the latest metadata."
 msgstr "This series has no issues tracked yet. Refresh to pull the latest metadata."
 
+#: src/lib/shelf.ts
+msgid "This series is no longer in the library."
+msgstr "This series is no longer in the library."
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "This series is now cataloged as {nextKind}."
 msgstr "This series is now cataloged as {nextKind}."
@@ -8886,6 +9046,10 @@ msgstr "This week"
 #: src/components/releases/MyReleasesView.tsx
 msgid "This week's pull list isn't available yet"
 msgstr "This week's pull list isn't available yet"
+
+#: src/hooks/useShelf.ts
+msgid "Those are already on your shelf"
+msgstr "Those are already on your shelf"
 
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Time"
@@ -9001,6 +9165,10 @@ msgstr "Torznab indexer URL"
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "Torznab indexers saved"
 msgstr "Torznab indexers saved"
+
+#: src/components/settings/InterfaceTab.tsx
+msgid "Track print copies"
+msgstr "Track print copies"
 
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Tracked"
@@ -9171,6 +9339,10 @@ msgstr "Unable to load your library"
 #: src/components/releases/MyReleasesView.tsx
 msgid "Unable to load your releases"
 msgstr "Unable to load your releases"
+
+#: src/pages/ShelfPage.tsx
+msgid "Unable to load your shelf"
+msgstr "Unable to load your shelf"
 
 #: src/pages/ReleasesPage.tsx
 msgid "Unable to refresh releases: {error}"
@@ -9429,6 +9601,11 @@ msgstr "validate"
 msgid "Validation error: {error}"
 msgstr "Validation error: {error}"
 
+#: src/components/shelf/ShelfSheet.tsx
+#: src/pages/ShelfPage.tsx
+msgid "Variant"
+msgstr "Variant"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Verified build"
 msgstr "Verified build"
@@ -9502,6 +9679,10 @@ msgstr "View toggles"
 #: src/pages/SeriesDetailPage.tsx
 msgid "vol"
 msgstr "vol"
+
+#: src/pages/SeriesDetailPage.tsx
+msgid "Vol. {number}"
+msgstr "Vol. {number}"
 
 #: src/components/releases/industryRows.ts
 msgid "Vol. {volume}"
@@ -9814,6 +9995,10 @@ msgstr "Your Pushover user key"
 #: src/lib/supportBundle.ts
 msgid "Your session has expired. Sign in again before creating a support bundle."
 msgstr "Your session has expired. Sign in again before creating a support bundle."
+
+#: src/pages/ShelfPage.tsx
+msgid "Your shelf is empty"
+msgstr "Your shelf is empty"
 
 #: src/components/settings/NotificationsTab.tsx
 msgid "Your Telegram user or chat ID. To post into a forum topic, append the topic ID."

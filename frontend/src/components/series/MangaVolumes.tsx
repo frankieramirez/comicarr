@@ -1,6 +1,6 @@
 import { plural, t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import StatusBadge from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
@@ -166,10 +166,13 @@ export function MangaVolumeList({
   comicId,
   volumes,
   progress,
+  shelfMark,
 }: {
   comicId: string;
   volumes: MangaVolume[];
   progress: MangaProgress;
+  /** The print-copy mark for a volume, when the shelf is switched on. */
+  shelfMark?: (volume: MangaVolume) => ReactNode;
 }) {
   const [filter, setFilter] = useState<VolumeFilter>("all");
   const [editing, setEditing] = useState<string | null>(null);
@@ -256,6 +259,7 @@ export function MangaVolumeList({
               key={volume.number}
               comicId={comicId}
               volume={volume}
+              shelf={shelfMark?.(volume)}
               editing={editing === volume.number}
               onEdit={(open) => setEditing(open ? volume.number : null)}
             />
@@ -305,11 +309,13 @@ function RangeText({ volume }: { volume: MangaVolume }) {
 function VolumeRow({
   comicId,
   volume,
+  shelf,
   editing,
   onEdit,
 }: {
   comicId: string;
   volume: MangaVolume;
+  shelf?: ReactNode;
   editing: boolean;
   onEdit: (open: boolean) => void;
 }) {
@@ -333,7 +339,7 @@ function VolumeRow({
 
   return (
     <div
-      className="mx-8 border-b border-border-subtle px-2 py-1 text-[13px] hover:bg-surface-1"
+      className="group/row mx-8 border-b border-border-subtle px-2 py-1 text-[13px] hover:bg-surface-1"
       data-testid={`manga-volume-${number}`}
     >
       <div className={`grid ${VOLUME_GRID_COLS} min-h-9 items-center gap-3`}>
@@ -353,7 +359,8 @@ function VolumeRow({
             <span className="text-muted-foreground">—</span>
           )}
         </div>
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-2">
+          {shelf}
           <Button
             type="button"
             variant="ghost"

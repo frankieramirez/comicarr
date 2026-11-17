@@ -447,6 +447,10 @@ msgstr "{count, plural, other {# 期}}"
 msgid "{count, plural, one {# needs you} other {# need you}}"
 msgstr "{count, plural, other {# 项需要你处理}}"
 
+#: src/components/shelf/ShelfChip.tsx
+msgid "{count, plural, one {# print copy of {label}} other {# print copies of {label}}}"
+msgstr "{count, plural, other {{label} 的 # 本纸质本}}"
+
 #: src/pages/DiscoverPage.tsx
 msgid "{count, plural, one {# recommendation} other {# recommendations}}"
 msgstr "{count, plural, other {# 条推荐}}"
@@ -543,6 +547,10 @@ msgstr "你的书库中有 {count} 个系列同名，因此需要核对这一个
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "{count} unknown"
 msgstr "未知 {count} 项"
+
+#: src/hooks/useShelf.ts
+msgid "{created, plural, one {# book marked on your shelf} other {# books marked on your shelf}}"
+msgstr "{created, plural, other {已将 # 本书标记到你的书架}}"
 
 #: src/lib/wantedPacing.ts
 msgid "{days, plural, one {~# day} other {~# days}}"
@@ -888,6 +896,10 @@ msgstr "{offset, plural, other {# 周后}}"
 msgid "{overflow, plural, one {…and # earlier release} other {…and # earlier releases}}"
 msgstr "{overflow, plural, other {…以及更早的 # 个发布}}"
 
+#: src/pages/ShelfPage.tsx
+msgid "{paid} paid"
+msgstr "已付 {paid}"
+
 #: src/components/import/ConfidenceBadge.tsx
 msgid "{pct}% match confidence"
 msgstr "匹配置信度 {pct}%"
@@ -1001,6 +1013,10 @@ msgstr "{seriesCount} · {comicCount} · {mangaCount}"
 msgid "{seriesIndexed, plural, one {# series indexed} other {# series indexed}}"
 msgstr "{seriesIndexed, plural, other {已索引 # 个系列}}"
 
+#: src/pages/SeriesDetailPage.tsx
+msgid "{seriesName} Vol. {number}"
+msgstr "{seriesName} 第 {number} 卷"
+
 #: src/lib/importPick.ts
 msgid "{size} B"
 msgstr "{size} B"
@@ -1029,6 +1045,10 @@ msgstr "{StoryArc} 已移除。"
 #: src/pages/AttentionPage.tsx
 msgid "{succeeded, plural, one {{verb} — # issue.} other {{verb} — # issues.}}"
 msgstr "{succeeded, plural, other {{verb} — # 期。}}"
+
+#: src/pages/ShelfPage.tsx
+msgid "{total, plural, one {# copy} other {# copies}}"
+msgstr "{total, plural, other {# 本}}"
 
 #: src/pages/WantedPage.tsx
 msgid "{total, plural, one {# missing issue} other {# missing issues}}"
@@ -1323,6 +1343,10 @@ msgstr "在设置 → API 中添加 Comic Vine API 密钥以搜索漫画。"
 msgid "Add a Comic Vine API key in Settings → API to search story arcs."
 msgstr "在设置 → API 中添加 Comic Vine API 密钥以搜索故事线。"
 
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Add a copy"
+msgstr "添加一本"
+
 #: src/components/onboarding/OnboardingDialog.tsx
 #: src/lib/searchBlockers.ts
 #: src/lib/setupSteps.ts
@@ -1332,6 +1356,10 @@ msgstr "添加下载客户端"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Add a download client to search"
 msgstr "添加下载客户端后才能搜索"
+
+#: src/components/shelf/ShelfChip.tsx
+msgid "Add a print copy of {label}"
+msgstr "添加 {label} 的纸质本"
 
 #: src/components/activity/timeline/TimelineView.tsx
 #: src/pages/SearchPage.tsx
@@ -1359,6 +1387,10 @@ msgstr "添加索引器后才能搜索"
 #: src/components/import/ImportPickPanel.tsx
 msgid "Add and import as {series}"
 msgstr "添加并导入为 {series}"
+
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Add another copy"
+msgstr "再添加一本"
 
 #: src/lib/setupSteps.ts
 msgid "Add API key"
@@ -1418,6 +1450,10 @@ msgstr "添加系列并将 #{issue} 标记为待获取"
 #: src/components/search/SearchAddButton.tsx
 msgid "Add to a chosen folder"
 msgstr "添加到所选文件夹"
+
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Add to shelf"
+msgstr "加入书架"
 
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "Add Torznab indexer"
@@ -2015,6 +2051,10 @@ msgstr "已阻止"
 msgid "Blocked"
 msgstr "已阻止"
 
+#: src/pages/ShelfPage.tsx
+msgid "Book"
+msgstr "书"
+
 #: src/components/settings/NotificationsTab.tsx
 msgid "Bot Token"
 msgstr "机器人令牌"
@@ -2093,6 +2133,7 @@ msgstr "无法搜索"
 #: src/components/series/SeriesSearchProviders.tsx
 #: src/components/settings/SaveButton.tsx
 #: src/components/settings/SupportBundleSection.tsx
+#: src/components/shelf/ShelfSheet.tsx
 #: src/components/storyarcs/ArcHeader.tsx
 #: src/components/storyarcs/ArcIssueTable.tsx
 #: src/components/storyarcs/ArcMissingSeries.tsx
@@ -2959,6 +3000,10 @@ msgstr "无法标记 {label}"
 msgid "Couldn't update volume {number}"
 msgstr "无法更新第 {number} 卷"
 
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Cover B, 2nd printing…"
+msgstr "封面 B、第二次印刷…"
+
 #: src/components/settings/InterfaceTab.tsx
 msgid "Cover wall on sign-in"
 msgstr "登录页封面墙"
@@ -3386,6 +3431,10 @@ msgstr "更早"
 msgid "Earlier files are still read from {folders}."
 msgstr "更早的文件仍从 {folders} 读取。"
 
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Edit"
+msgstr "编辑"
+
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Edit {client}"
 msgstr "编辑 {client}"
@@ -3393,6 +3442,10 @@ msgstr "编辑 {client}"
 #: src/components/import/ImportPickPanel.tsx
 msgid "Edit chapter numbers"
 msgstr "编辑章节号"
+
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Edit copy"
+msgstr "编辑这一本"
 
 #: src/components/import/ImportPickPanel.tsx
 msgid "Edit issue numbers"
@@ -3515,6 +3568,10 @@ msgstr "端点"
 #: src/components/series/MangaVolumes.tsx
 msgid "Ends at chapter"
 msgstr "结束于第几话"
+
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Enter a price such as 4.99."
+msgstr "请输入价格，例如 4.99。"
 
 #: src/components/ai/ChatComposer.tsx
 msgid "enter sends · shift+enter new line"
@@ -3639,6 +3696,10 @@ msgstr "由书库导入扫描的现有漫画文件夹；导入的系列保留在
 #: src/components/settings/GeneralTab.tsx
 msgid "Existing manga folder scanned by library import; imported series stay in place here"
 msgstr "由书库导入扫描的现有日漫文件夹；导入的系列保留在原处"
+
+#: src/pages/ShelfPage.tsx
+msgid "Export CSV"
+msgstr "导出 CSV"
 
 #: src/components/activity/timeline/attentionStage.ts
 msgid "failed"
@@ -4189,6 +4250,11 @@ msgstr "已抓取 {label}"
 #: src/components/activity/timeline/sentences.ts
 msgid "Grabbed {label} from {provider}"
 msgstr "已从 {provider} 抓取 {label}"
+
+#: src/components/shelf/ShelfSheet.tsx
+#: src/pages/ShelfPage.tsx
+msgid "Grade"
+msgstr "品相"
 
 #: src/components/series/SeriesTable.tsx
 msgid "Grid"
@@ -4866,6 +4932,7 @@ msgstr "级别"
 #: src/pages/SeriesDetailPage.tsx
 #: src/pages/SeriesListPage.tsx
 #: src/pages/SettingsPage.tsx
+#: src/pages/ShelfPage.tsx
 #: src/pages/StoryArcsPage.tsx
 msgid "Library"
 msgstr "书库"
@@ -5077,6 +5144,10 @@ msgstr "退出登录失败。你的会话仍然有效；请重试。"
 msgid "Logs"
 msgstr "日志"
 
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Long box 1"
+msgstr "长箱 1"
+
 #: src/components/import/ImportPickPanel.tsx
 msgid "Looking for series outside your library…"
 msgstr "正在查找书库之外的系列…"
@@ -5244,6 +5315,10 @@ msgstr "标记为待获取"
 #: src/components/ui/EmptyState.tsx
 msgid "Mark issues as wanted from a series and Comicarr will search for them automatically."
 msgstr "在系列中将期刊标记为待获取，Comicarr 会自动搜索它们。"
+
+#: src/pages/SeriesDetailPage.tsx
+msgid "Mark on shelf"
+msgstr "标记到书架"
 
 #: src/components/queue/BulkActionBar.tsx
 msgid "Mark Wanted"
@@ -5663,6 +5738,10 @@ msgstr "下次运行"
 msgid "Next week"
 msgstr "下周"
 
+#: src/components/shelf/ShelfSheet.tsx
+msgid "NM, CGC 9.8…"
+msgstr "NM、CGC 9.8…"
+
 #: src/pages/ActivityPage.tsx
 msgid "No active downloads"
 msgstr "没有进行中的下载"
@@ -5702,6 +5781,10 @@ msgstr "没有等待中的高置信匹配"
 #: src/components/ai/ChatResultCard.tsx
 msgid "NO COVER"
 msgstr "无封面"
+
+#: src/components/shelf/ShelfSheet.tsx
+msgid "No details yet"
+msgstr "暂无详情"
 
 #: src/lib/searchBlockers.ts
 msgid "no download client"
@@ -6043,6 +6126,10 @@ msgstr "未上线"
 msgid "Not needed: ComicVine is off"
 msgstr "不需要：ComicVine 已关闭"
 
+#: src/pages/SeriesDetailPage.tsx
+msgid "Not on shelf"
+msgstr "不在书架上"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "not ready"
 msgstr "未就绪"
@@ -6084,6 +6171,10 @@ msgstr "未跟踪"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Not wanted"
 msgstr "不需要"
+
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Notes"
+msgstr "备注"
 
 #: src/components/whats-new/WhatsNewModal.tsx
 msgid "Notes could not load. You can still read them in <0>Settings → About</0>."
@@ -6170,6 +6261,10 @@ msgstr "没有需要你关注的事项"
 #: src/components/weekly/AiSuggestions.tsx
 msgid "Nothing new this week matches your collection"
 msgstr "本周没有与你的收藏匹配的新内容"
+
+#: src/pages/ShelfPage.tsx
+msgid "Nothing on your shelf matches"
+msgstr "书架上没有匹配的内容"
 
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "Nothing popular out this week"
@@ -6274,6 +6369,10 @@ msgstr "打开 {name}"
 #: src/components/search/SearchResultsTable.tsx
 msgid "Open {name} on provider site"
 msgstr "在提供方网站上打开 {name}"
+
+#: src/pages/ShelfPage.tsx
+msgid "Open a series and use the shelf mark on an issue or volume to record a print copy."
+msgstr "打开一个系列，点击某一期或某一卷上的书架标记，即可记录纸质本。"
 
 #: src/lib/healthBand.ts
 msgid "open acquisition health"
@@ -6407,6 +6506,11 @@ msgstr "页面设置已保存；索引器修改仍需点击“保存索引器”
 #: src/components/data-table/DataTableFooter.tsx
 msgid "Pagination"
 msgstr "分页"
+
+#: src/components/shelf/ShelfSheet.tsx
+#: src/pages/ShelfPage.tsx
+msgid "Paid"
+msgstr "购入价"
 
 #: src/components/settings/DownloadClientsTab.tsx
 #: src/components/settings/NotificationsTab.tsx
@@ -6576,6 +6680,11 @@ msgstr "上周"
 #: src/components/layout/MobileTabBar.tsx
 msgid "Primary"
 msgstr "主要"
+
+#: src/components/shelf/ShelfSheet.tsx
+#: src/pages/IssueDetailPage.tsx
+msgid "Print copies"
+msgstr "纸质本"
 
 #: src/components/queue/WantedBySeries.tsx
 msgid "Problems first"
@@ -6817,6 +6926,10 @@ msgstr "已重新连接"
 msgid "Record limit"
 msgstr "记录上限"
 
+#: src/components/settings/InterfaceTab.tsx
+msgid "Record the physical books you own. Adds a shelf mark to issues and volumes, and a Shelf tab to the Library. It never changes what Comicarr searches for or downloads."
+msgstr "记录你拥有的实体书。会在每期和每卷上添加书架标记，并在书库中添加“书架”标签页。它绝不会改变 Comicarr 搜索或下载的内容。"
+
 #: src/components/ErrorBoundary.tsx
 msgid "RECOVERY"
 msgstr "恢复"
@@ -7008,6 +7121,7 @@ msgid "Removable from"
 msgstr "可从以下位置移除"
 
 #: src/components/ai-elements/attachments.tsx
+#: src/components/shelf/ShelfSheet.tsx
 msgid "Remove"
 msgstr "移除"
 
@@ -7414,6 +7528,7 @@ msgid "Same as downloads"
 msgstr "与下载相同"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/shelf/ShelfSheet.tsx
 msgid "Save"
 msgstr "保存"
 
@@ -7834,6 +7949,10 @@ msgstr "搜索所选"
 msgid "Search series"
 msgstr "搜索系列"
 
+#: src/pages/ShelfPage.tsx
+msgid "Search series, variant, storage or notes"
+msgstr "搜索系列、变体、存放位置或备注"
+
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Search session expired"
 msgstr "搜索会话已过期"
@@ -7886,6 +8005,10 @@ msgstr "搜索待获取"
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Search with Prowlarr"
 msgstr "使用 Prowlarr 搜索"
+
+#: src/pages/ShelfPage.tsx
+msgid "Search your shelf"
+msgstr "搜索你的书架"
 
 #: src/pages/SearchPage.tsx
 msgid "Searched ComicVine and Metron"
@@ -8250,6 +8373,10 @@ msgstr "设置令牌（可选）"
 msgid "Severity"
 msgstr "严重性"
 
+#: src/components/series/LibraryTabs.tsx
+msgid "Shelf"
+msgstr "书架"
+
 #: src/pages/LoginPage.tsx
 msgid "show"
 msgstr "显示"
@@ -8289,6 +8416,10 @@ msgstr "仅显示 <0>{activeDayHeading}</0>"
 #: src/pages/IssueDetailPage.tsx
 msgid "Showing the first {count}."
 msgstr "显示前 {count} 个。"
+
+#: src/pages/ShelfPage.tsx
+msgid "Showing the newest {shown} of {total}. Search to narrow the list."
+msgstr "显示最新的 {shown} 本，共 {total} 本。可通过搜索缩小范围。"
 
 #: src/components/ui/sidebar.tsx
 msgid "Sidebar"
@@ -8424,6 +8555,10 @@ msgstr "来源与密钥"
 msgid "Sources and scans"
 msgstr "来源与扫描"
 
+#: src/components/shelf/ShelfSheet.tsx
+msgid "Standard cover"
+msgstr "标准封面"
+
 #: src/components/settings/LogsTab.tsx
 msgid "Start a new log file? The current log is kept as a rotated archive — the viewer will show only what happens from now on."
 msgstr "开始新的日志文件？当前日志会保留为轮转归档 — 查看器只会显示从现在起发生的内容。"
@@ -8518,6 +8653,11 @@ msgstr "已停止搜索 {label}"
 #: src/components/activity/attention/StopWantingDialog.tsx
 msgid "Stopping…"
 msgstr "正在停止…"
+
+#: src/components/shelf/ShelfSheet.tsx
+#: src/pages/ShelfPage.tsx
+msgid "Storage"
+msgstr "存放位置"
 
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Stored encrypted and never returned by the API."
@@ -8651,6 +8791,10 @@ msgstr "测试连接"
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Testing..."
 msgstr "测试中…"
+
+#: src/lib/shelf.ts
+msgid "That text is too long."
+msgstr "文字太长。"
 
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "The <0>i=</0> parameter of this indexer’s RSS URL. Leave as 1 unless your indexer says otherwise."
@@ -8789,6 +8933,10 @@ msgstr "正在将该系列添加到你的书库。"
 msgid "The server is shutting down. Please wait..."
 msgstr "服务器正在关闭。请稍候…"
 
+#: src/lib/shelf.ts
+msgid "The shelf could not be updated. Please try again."
+msgstr "无法更新书架，请重试。"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "The Usenet download client is disabled. Choose one in Download client settings."
 msgstr "Usenet 下载客户端已禁用。请在下载客户端设置中选择一个。"
@@ -8824,6 +8972,14 @@ msgstr "此故事线涉及你尚未跟踪的系列。添加它们后，Comicarr 
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "This candidate cannot be grabbed. Select a ready or overrideable result."
 msgstr "无法抓取此候选。请选择就绪或可覆盖的结果。"
+
+#: src/lib/shelf.ts
+msgid "This copy was already removed."
+msgstr "这一本已被移除。"
+
+#: src/lib/shelf.ts
+msgid "This issue is no longer in the library."
+msgstr "这一期已不在书库中。"
 
 #: src/components/settings/ApiTab.tsx
 msgid "This key is used to authenticate API requests to Comicarr"
@@ -8869,6 +9025,10 @@ msgstr "此搜索会话已过期，其结果无法再抓取。关闭此对话框
 msgid "This series has no issues tracked yet. Refresh to pull the latest metadata."
 msgstr "此系列还没有跟踪的期刊。刷新以拉取最新的元数据。"
 
+#: src/lib/shelf.ts
+msgid "This series is no longer in the library."
+msgstr "这个系列已不在书库中。"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "This series is now cataloged as {nextKind}."
 msgstr "此系列现已归类为{nextKind}。"
@@ -8887,6 +9047,10 @@ msgstr "本周"
 #: src/components/releases/MyReleasesView.tsx
 msgid "This week's pull list isn't available yet"
 msgstr "本周的拉取列表尚不可用"
+
+#: src/hooks/useShelf.ts
+msgid "Those are already on your shelf"
+msgstr "这些已在你的书架上"
 
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Time"
@@ -9002,6 +9166,10 @@ msgstr "Torznab 索引器 URL"
 #: src/components/settings/SearchProviderEditor.tsx
 msgid "Torznab indexers saved"
 msgstr "Torznab 索引器已保存"
+
+#: src/components/settings/InterfaceTab.tsx
+msgid "Track print copies"
+msgstr "记录纸质本"
 
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Tracked"
@@ -9172,6 +9340,10 @@ msgstr "无法加载你的书库"
 #: src/components/releases/MyReleasesView.tsx
 msgid "Unable to load your releases"
 msgstr "无法加载你的新刊"
+
+#: src/pages/ShelfPage.tsx
+msgid "Unable to load your shelf"
+msgstr "无法加载你的书架"
 
 #: src/pages/ReleasesPage.tsx
 msgid "Unable to refresh releases: {error}"
@@ -9430,6 +9602,11 @@ msgstr "验证"
 msgid "Validation error: {error}"
 msgstr "验证错误：{error}"
 
+#: src/components/shelf/ShelfSheet.tsx
+#: src/pages/ShelfPage.tsx
+msgid "Variant"
+msgstr "变体"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "Verified build"
 msgstr "已验证的构建"
@@ -9503,6 +9680,10 @@ msgstr "视图切换"
 #: src/pages/SeriesDetailPage.tsx
 msgid "vol"
 msgstr "卷"
+
+#: src/pages/SeriesDetailPage.tsx
+msgid "Vol. {number}"
+msgstr "第 {number} 卷"
 
 #: src/components/releases/industryRows.ts
 msgid "Vol. {volume}"
@@ -9815,6 +9996,10 @@ msgstr "你的 Pushover 用户密钥"
 #: src/lib/supportBundle.ts
 msgid "Your session has expired. Sign in again before creating a support bundle."
 msgstr "你的会话已过期。请重新登录后再创建支持包。"
+
+#: src/pages/ShelfPage.tsx
+msgid "Your shelf is empty"
+msgstr "你的书架是空的"
 
 #: src/components/settings/NotificationsTab.tsx
 msgid "Your Telegram user or chat ID. To post into a forum topic, append the topic ID."

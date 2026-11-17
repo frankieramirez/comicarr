@@ -68,6 +68,16 @@ def delete_copy(copy_id: str):
     return Response(status_code=204)
 
 
+@router.get("/export.csv")
+def export_csv():
+    """The whole shelf as a spreadsheet file."""
+    return Response(
+        service.export_csv(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="comicarr-shelf.csv"', "Cache-Control": "no-store"},
+    )
+
+
 @router.get("/series/{comic_id}")
 def series_shelf(comic_id: str):
     """Copy counts for one series: ``issues`` by id and ``volumes`` by number."""

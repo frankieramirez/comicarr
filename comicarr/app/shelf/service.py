@@ -21,7 +21,9 @@ Nothing here changes an issue's status or what search looks for.
 
 from __future__ import annotations
 
+import csv
 import datetime
+import io
 import uuid
 from typing import Any, Mapping
 
@@ -242,6 +244,33 @@ def series_shelf(comic_id: str) -> dict[str, dict[str, int]]:
             else:
                 shelf["volumes"][volume_number] = count
     return shelf
+
+
+def export_csv() -> str:
+    """Every copy as CSV, sorted the way a shelf is: by series, then item."""
+    statement = _SELECT.order_by(
+        func.lower(physical_copies.c.SeriesName), physical_copies.c.ItemLabel, physical_copies.c.created_at
+    )
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["Series", "Item", "Variant", "Grade", "Paid", "Storage", "Notes", "Added"])
+    with db.get_engine().connect() as conn:
+        for record in conn.execute(statement).mappings():
+            copy = _row(record)
+            paid = copy["PaidCents"]
+            cells = [
+                copy["SeriesName"],
+                copy["ItemLabel"],
+                copy["VariantName"],
+                copy["Grade"],
+                "" if paid is None else "%d.%02d" % divmod(paid, 100),
+                copy["Storage"],
+                copy["Notes"],
+                copy["created_at"][:10],
+            ]
+            # A leading = + - @ would run as a formula when a spreadsheet opens the file.
+            writer.writerow(["'" + cell if cell and cell[0] in "=+-@" else cell or "" for cell in cells])
+    return out.getvalue()
 
 
 # --- writes ----------------------------------------------------------------------

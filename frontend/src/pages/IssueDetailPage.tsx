@@ -3,10 +3,11 @@ import { Trans } from "@lingui/react/macro";
 import { formatNumber } from "@/lib/intl";
 import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Activity } from "lucide-react";
+import { Activity, LibraryBig } from "lucide-react";
 import IssueStatusMenu from "@/components/series/IssueStatusMenu";
 import { SectionHeader } from "@/components/dashboard/DashboardPanel";
-import { buttonVariants } from "@/components/ui/button";
+import { ShelfSheet } from "@/components/shelf/ShelfSheet";
+import { Button, buttonVariants } from "@/components/ui/button";
 import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
@@ -20,6 +21,7 @@ import {
 import { useState } from "react";
 import IssueStory, { IssueCauseActions } from "@/components/series/IssueStory";
 import { useSetIssueStatus } from "@/hooks/useSeries";
+import { useSeriesShelf, useShelfEnabled } from "@/hooks/useShelf";
 import type { IssueMetadata } from "@/hooks/useIssueDetail";
 import { isNotFoundError } from "@/lib/api";
 
@@ -175,6 +177,10 @@ export default function IssueDetailPage() {
   );
   const cause = issueId ? (band.data?.causes?.[0] ?? null) : null;
   const story = useIssueStoryDetails(issueId);
+  // Print copies hang off issues. A manga series keeps them on its volumes.
+  const shelfEnabled = useShelfEnabled() && !/^(md|mal)-/.test(comicId ?? "");
+  const seriesShelf = useSeriesShelf(comicId);
+  const [shelfOpen, setShelfOpen] = useState(false);
   const missingIssue =
     isNotFoundError(error) ||
     (error instanceof Error &&
@@ -368,6 +374,21 @@ export default function IssueDetailPage() {
             {issueId ? (
               <div className="flex shrink-0 flex-wrap items-center gap-2">
                 {cause && <IssueCauseActions cause={cause} label={title} />}
+                {shelfEnabled && comicId ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="toolbar"
+                    className="bg-surface-2"
+                    onClick={() => setShelfOpen(true)}
+                  >
+                    <LibraryBig />
+                    <Trans>Print copies</Trans>
+                    <span className="mono-meta">
+                      {seriesShelf.data?.issues[issueId] ?? 0}
+                    </span>
+                  </Button>
+                ) : null}
                 <Link
                   to={`/activity?scope_type=issue&scope_id=${encodeURIComponent(issueId)}`}
                   className={buttonVariants({
@@ -479,6 +500,14 @@ export default function IssueDetailPage() {
           </aside>
         </div>
       </div>
+      <ShelfSheet
+        target={
+          shelfOpen && comicId && issueId
+            ? { item: { ComicID: comicId, ItemID: issueId }, title }
+            : null
+        }
+        onClose={() => setShelfOpen(false)}
+      />
     </div>
   );
 }

@@ -51,6 +51,16 @@ import ErrorDisplay from "@/components/ui/ErrorDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { ReleaseReviewSheet } from "@/components/releases/ReleaseReviewSheet";
+import { ShelfChip } from "@/components/shelf/ShelfChip";
+import {
+  ShelfSheet,
+  type ShelfSheetTarget,
+} from "@/components/shelf/ShelfSheet";
+import {
+  useMarkOnShelf,
+  useSeriesShelf,
+  useShelfEnabled,
+} from "@/hooks/useShelf";
 import { useInteractiveReview } from "@/hooks/useInteractiveSearch";
 import {
   useBulkSetIssueStatus,
@@ -82,7 +92,8 @@ import { displayComicDate, pickComicDate } from "@/lib/format";
 import { seriesCoverSrc, seriesSyncLabel } from "@/lib/series-utils";
 import { DESKTOP_COL } from "@/components/data-table/gridColumns";
 
-type IssueFilter = "all" | "have" | "in_volume" | "wanted" | "not_wanted";
+type IssueFilter =
+  "all" | "have" | "in_volume" | "wanted" | "not_wanted" | "not_on_shelf";
 
 function getIssueStatus(issue: Issue): string {
   return issue.displayState ?? issue.status ?? issue.Status ?? t`Unknown`;
@@ -400,6 +411,10 @@ export default function SeriesDetailPage() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchRunId, setSearchRunId] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const shelfEnabled = useShelfEnabled();
+  const seriesShelf = useSeriesShelf(comicId);
+  const markOnShelf = useMarkOnShelf();
+  const [shelfTarget, setShelfTarget] = useState<ShelfSheetTarget | null>(null);
 
   const {
     data: seriesData,
@@ -675,7 +690,15 @@ export default function SeriesDetailPage() {
     : comicId?.startsWith("mal-")
       ? "mal"
       : "cv";
+  // Print copies hang off issues. A manga series keeps them on its volumes.
+  const shelfOnIssues = shelfEnabled && !isManga;
+  const shelfCount = (issue: Issue): number =>
+    seriesShelf.data?.issues[String(issue.id ?? issue.IssueID)] ?? 0;
+  const onShelf = shelfOnIssues
+    ? allIssues.filter((issue) => shelfCount(issue) > 0).length
+    : 0;
   const filteredIssues = allIssues.filter((issue) => {
+    if (filter === "not_on_shelf") return shelfCount(issue) === 0;
     if (filter === "have") return isIssueOwned(issue);
     if (filter === "in_volume") return Boolean(issue.covered);
     if (filter === "wanted") return isIssueWanted(issue);
@@ -1268,6 +1291,26 @@ export default function SeriesDetailPage() {
             comicId={comicId}
             volumes={mangaView.volumes}
             progress={mangaView.progress}
+            shelfMark={
+              shelfEnabled
+                ? (volume) => {
+                    const number = volume.number;
+                    const seriesName = comic.ComicName;
+                    return (
+                      <ShelfChip
+                        count={seriesShelf.data?.volumes[number] ?? 0}
+                        label={t`Vol. ${number}`}
+                        onClick={() =>
+                          setShelfTarget({
+                            item: { ComicID: comicId, VolumeNumber: number },
+                            title: t`${seriesName} Vol. ${number}`,
+                          })
+                        }
+                      />
+                    );
+                  }
+                : undefined
+            }
           />
         ) : tab === "issues" || tab === "volumes" ? (
           <>
@@ -1289,6 +1332,11 @@ export default function SeriesDetailPage() {
                       : []),
                     ["wanted", t`Wanted`, wanted],
                     ["not_wanted", t`Not wanted`, notWanted],
+                    ...(onShelf > 0
+                      ? ([
+                          ["not_on_shelf", t`Not on shelf`, total - onShelf],
+                        ] as const)
+                      : []),
                   ] as const
                 ).map(([key, label, count]) => (
                   <button
@@ -1339,6 +1387,25 @@ export default function SeriesDetailPage() {
                   }
                   onSelect={(status) => void handleBulkSetStatus(status)}
                 />
+                {shelfOnIssues && comicId ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="toolbar"
+                    disabled={markOnShelf.isPending}
+                    onClick={() =>
+                      void markOnShelf
+                        .mark(comicId, {
+                          ItemIDs: selectedTargets.map(
+                            (target) => target.issueId,
+                          ),
+                        })
+                        .then(() => setSelectedRows(new Set()))
+                    }
+                  >
+                    <Trans>Mark on shelf</Trans>
+                  </Button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => setSelectedRows(new Set())}
@@ -1493,6 +1560,21 @@ export default function SeriesDetailPage() {
                               handleIssueStatusSelect(issue, next)
                             }
                           />
+                          {shelfOnIssues && comicId && issueId ? (
+                            <ShelfChip
+                              count={shelfCount(issue)}
+                              label={rowLabel}
+                              onClick={() =>
+                                setShelfTarget({
+                                  item: {
+                                    ComicID: comicId,
+                                    ItemID: String(issueId),
+                                  },
+                                  title: `${comic.ComicName} #${issueNumber ?? ""}`,
+                                })
+                              }
+                            />
+                          ) : null}
                           {isIssueNotWanted(issue) && issueId && (
                             <button
                               type="button"
@@ -1926,6 +2008,7 @@ export default function SeriesDetailPage() {
         </DialogContent>
       </Dialog>
       <ReleaseReviewSheet {...reviewSheetProps} />
+      <ShelfSheet target={shelfTarget} onClose={() => setShelfTarget(null)} />
     </div>
   );
 }
