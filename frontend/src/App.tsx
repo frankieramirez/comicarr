@@ -67,6 +67,9 @@ const ActivityPage = () => (
 const AttentionPage = () => (
   <RouteLoader load={() => import("@/pages/AttentionPage")} />
 );
+const NotFoundPage = () => (
+  <RouteLoader load={() => import("@/pages/NotFoundPage")} />
+);
 const ChatPage = () => <RouteLoader load={() => import("@/pages/ChatPage")} />;
 
 function ChatWorkspace() {
@@ -183,7 +186,7 @@ function AppContent() {
                       />
                       <Route path="/import" element={<ImportPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="*" element={<Navigate to="/" replace />} />
+                      <Route path="*" element={<NotFoundPage />} />
                     </Routes>
                   </Layout>
                 </ProtectedRoute>

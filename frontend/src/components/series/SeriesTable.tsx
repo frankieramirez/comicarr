@@ -162,8 +162,8 @@ export default function SeriesTable({
   const search = urlStore.state.globalFilter;
 
   const searchedCount = useMemo(() => {
-    if (!search) return filteredData.length;
-    const query = search.toLowerCase();
+    const query = search.trim().toLowerCase();
+    if (!query) return filteredData.length;
     return filteredData.filter((comic) =>
       [
         comic.ComicName,

@@ -2642,6 +2642,14 @@ msgstr "Comicarr no pudo terminar esto."
 msgid "Comicarr doesn't know where this download went. Enter the folder and name yourself."
 msgstr "Comicarr no sabe adónde fue esta descarga. Introduce tú la carpeta y el nombre."
 
+#: src/components/settings/DownloadClientsTab.tsx
+msgid "Comicarr drops each .nzb file here. Point your usenet client's watch folder at the same place, as Comicarr sees it."
+msgstr "Comicarr deja aquí cada archivo .nzb. Apunta la carpeta vigilada de tu cliente de usenet al mismo lugar, tal como lo ve Comicarr."
+
+#: src/components/settings/DownloadClientsTab.tsx
+msgid "Comicarr drops each .torrent file here. Point your torrent client's watch folder at the same place, as Comicarr sees it."
+msgstr "Comicarr deja aquí cada archivo .torrent. Apunta la carpeta vigilada de tu cliente de torrent al mismo lugar, tal como lo ve Comicarr."
+
 #: src/components/layout/AppSidebar.tsx
 msgid "Comicarr home"
 msgstr "Inicio de Comicarr"
@@ -3929,7 +3937,7 @@ msgstr "No se pudo guardar el orden de búsqueda"
 
 #: src/pages/SettingsPage.tsx
 msgid "Failed to save settings"
-msgstr "No se pudieron guardar los ajustes"
+msgstr ""
 
 #: src/pages/ImportPage.tsx
 msgid "Failed to scan inbox: {error}"
@@ -3969,10 +3977,6 @@ msgstr "No se pudo iniciar la búsqueda: {error}"
 #: src/pages/ImportPage.tsx
 msgid "Failed to unignore files: {error}"
 msgstr "No se pudo dejar de ignorar los archivos: {error}"
-
-#: src/hooks/useConfig.ts
-msgid "Failed to update configuration"
-msgstr "No se pudo actualizar la configuración"
 
 #: src/pages/ImportPage.tsx
 msgid "Failed to update import metadata: {error}"
@@ -4201,6 +4205,7 @@ msgstr "primer inicio · crear administrador"
 #: src/components/activity/attention/ImportManuallyDialog.tsx
 #: src/components/search/SearchAddButton.tsx
 #: src/components/series/SeriesFolder.tsx
+#: src/components/settings/DownloadClientsTab.tsx
 msgid "Folder"
 msgstr "Carpeta"
 
@@ -4303,6 +4308,10 @@ msgstr "orden global"
 
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "Go to dashboard"
+msgstr "Ir al panel"
+
+#: src/pages/NotFoundPage.tsx
+msgid "Go to the dashboard"
 msgstr "Ir al panel"
 
 #: src/components/whats-new/WhatsNewModal.tsx
@@ -4893,6 +4902,10 @@ msgstr "No incluye tu base de datos, los valores de los ajustes, líneas de regi
 #: src/components/settings/LogsTab.tsx
 msgid "It is an operator diagnostic and can contain series names and library paths. Copy results copies only the records shown above."
 msgstr "Es un diagnóstico para el operador y puede contener nombres de series y rutas de biblioteca. Copiar resultados copia solo los registros mostrados arriba."
+
+#: src/pages/SeriesDetailPage.tsx
+msgid "It may have been deleted, or the link points to a series this library never had."
+msgstr "Puede que se haya eliminado, o el enlace apunta a una serie que esta biblioteca nunca tuvo."
 
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Items that need you stay above until you act on them."
@@ -6241,6 +6254,10 @@ msgstr "¿No lo encuentras? Busca por ID de ComicVine o MangaDex, o pega un enla
 msgid "Not found"
 msgstr "No encontrado"
 
+#: src/pages/NotFoundPage.tsx
+msgid "NOT FOUND"
+msgstr "NO ENCONTRADO"
+
 #: src/lib/wantedAnnotation.ts
 msgid "Not found {max_attempts}×"
 msgstr "No encontrado {max_attempts}×"
@@ -6346,6 +6363,10 @@ msgstr "Aún no hay nada en {fileName}."
 #: src/components/settings/LogsTab.tsx
 msgid "Nothing in {fileName} yet. Comicarr is logging at {levelNumber} ({levelName}) — raise the level above to capture more."
 msgstr "Aún no hay nada en {fileName}. Comicarr registra en el nivel {levelNumber} ({levelName}): sube el nivel arriba para capturar más."
+
+#: src/pages/NotFoundPage.tsx
+msgid "Nothing in Comicarr lives at {path}. The link may be old or mistyped."
+msgstr "No hay nada en Comicarr en {path}. Puede que el enlace sea antiguo o tenga un error."
 
 #: src/lib/inFlight.ts
 msgid "nothing in flight"
@@ -8392,10 +8413,6 @@ msgid "Series not found"
 msgstr "No se encontró la serie"
 
 #: src/pages/SeriesDetailPage.tsx
-msgid "Series not found."
-msgstr "No se encontró la serie."
-
-#: src/pages/SeriesDetailPage.tsx
 msgid "Series sections"
 msgstr "Secciones de la serie"
 
@@ -8991,6 +9008,10 @@ msgstr "el archivo comprimido no se abría"
 msgid "The best guess scored {best}%, under your {confidence_bar}% auto-import bar."
 msgstr "La mejor opción obtuvo un {best}%, por debajo de tu umbral de importación automática del {confidence_bar}%."
 
+#: src/components/releases/pullAttempts.ts
+msgid "The built-in release calendar could not be reached. It needs no setup, and Comicarr tries it again on the next refresh."
+msgstr "No se pudo contactar con el calendario de lanzamientos integrado. No necesita configuración y Comicarr lo vuelve a intentar en la próxima actualización."
+
 #: src/components/releases/MyReleasesView.tsx
 msgid "The comics pull list for this week isn’t available yet, so this shows your series’ own release dates. Some comics may be missing until it is."
 msgstr "La lista de cómics de esta semana aún no está disponible, así que se muestran las fechas de lanzamiento de tus series. Puede que falten algunos cómics hasta que lo esté."
@@ -9163,6 +9184,10 @@ msgstr "Esta coincidencia supera tu umbral de importación automática del {conf
 #: src/pages/ChatPage.tsx
 msgid "This model cannot read images"
 msgstr "Este modelo no puede leer imágenes"
+
+#: src/pages/NotFoundPage.tsx
+msgid "This page doesn't exist"
+msgstr "Esta página no existe"
 
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "This preview is already frozen into the manifest below."
@@ -9903,10 +9928,6 @@ msgstr "Esperando a que se vacíe el trabajo de adquisición"
 #: src/components/activity/timeline/attentionStage.ts
 msgid "Waiting on your decision."
 msgstr "Esperando tu decisión."
-
-#: src/components/releases/pullAttempts.ts
-msgid "Walksoftly, the main pull-list source, could not be reached."
-msgstr "No se pudo contactar con Walksoftly, la fuente principal de la lista."
 
 #: src/components/queue/upcomingColumns.tsx
 #: src/components/releases/IndustryReleasesView.tsx

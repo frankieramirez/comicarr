@@ -539,7 +539,9 @@ async def test_connection(key: str):
 
     result = await asyncio.to_thread(connections.test_connection, key)
     if result is None:
-        return JSONResponse(status_code=404, content={"detail": "No connection with that key is configured."})
+        return JSONResponse(
+            status_code=404, content={"detail": "That connection is not set up any more, so there is nothing to test."}
+        )
     return result
 
 

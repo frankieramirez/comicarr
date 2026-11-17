@@ -94,18 +94,12 @@ export default function SettingsPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const sectionFromUrl = parseSectionParam(searchParams.get("section"));
-  const [section, setSectionState] = useState<SectionId>(
-    () => sectionFromUrl ?? "general",
-  );
+  // The URL is the only source of truth for the open section. Keeping a
+  // second copy in state raced with it: a click could set state, then an
+  // effect saw the not-yet-updated URL and put the old section back (#1494).
+  const section: SectionId =
+    parseSectionParam(searchParams.get("section")) ?? "general";
   const [providerDirty, setProviderDirty] = useState(false);
-
-  useEffect(() => {
-    if (sectionFromUrl && sectionFromUrl !== section) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- URL is the source of truth for deep links
-      setSectionState(sectionFromUrl);
-    }
-  }, [sectionFromUrl, section]);
 
   const setSection = (id: SectionId) => {
     if (
@@ -116,7 +110,6 @@ export default function SettingsPage() {
     ) {
       return;
     }
-    setSectionState(id);
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);

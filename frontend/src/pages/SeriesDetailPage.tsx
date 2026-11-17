@@ -550,7 +550,10 @@ export default function SeriesDetailPage() {
             <Trans>Series not found</Trans>
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error?.message || t`Series not found.`}
+            <Trans>
+              It may have been deleted, or the link points to a series this
+              library never had.
+            </Trans>
           </p>
           <Link
             to="/library"

@@ -2641,6 +2641,14 @@ msgstr "Comicarr couldn't finish this."
 msgid "Comicarr doesn't know where this download went. Enter the folder and name yourself."
 msgstr "Comicarr doesn't know where this download went. Enter the folder and name yourself."
 
+#: src/components/settings/DownloadClientsTab.tsx
+msgid "Comicarr drops each .nzb file here. Point your usenet client's watch folder at the same place, as Comicarr sees it."
+msgstr "Comicarr drops each .nzb file here. Point your usenet client's watch folder at the same place, as Comicarr sees it."
+
+#: src/components/settings/DownloadClientsTab.tsx
+msgid "Comicarr drops each .torrent file here. Point your torrent client's watch folder at the same place, as Comicarr sees it."
+msgstr "Comicarr drops each .torrent file here. Point your torrent client's watch folder at the same place, as Comicarr sees it."
+
 #: src/components/layout/AppSidebar.tsx
 msgid "Comicarr home"
 msgstr "Comicarr home"
@@ -3969,10 +3977,6 @@ msgstr "Failed to start search: {error}"
 msgid "Failed to unignore files: {error}"
 msgstr "Failed to unignore files: {error}"
 
-#: src/hooks/useConfig.ts
-msgid "Failed to update configuration"
-msgstr "Failed to update configuration"
-
 #: src/pages/ImportPage.tsx
 msgid "Failed to update import metadata: {error}"
 msgstr "Failed to update import metadata: {error}"
@@ -4200,6 +4204,7 @@ msgstr "first-run · create admin"
 #: src/components/activity/attention/ImportManuallyDialog.tsx
 #: src/components/search/SearchAddButton.tsx
 #: src/components/series/SeriesFolder.tsx
+#: src/components/settings/DownloadClientsTab.tsx
 msgid "Folder"
 msgstr "Folder"
 
@@ -4303,6 +4308,10 @@ msgstr "global order"
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "Go to dashboard"
 msgstr "Go to dashboard"
+
+#: src/pages/NotFoundPage.tsx
+msgid "Go to the dashboard"
+msgstr "Go to the dashboard"
 
 #: src/components/whats-new/WhatsNewModal.tsx
 msgid "Got it"
@@ -4892,6 +4901,10 @@ msgstr "It does not include your database, settings values, raw log lines, libra
 #: src/components/settings/LogsTab.tsx
 msgid "It is an operator diagnostic and can contain series names and library paths. Copy results copies only the records shown above."
 msgstr "It is an operator diagnostic and can contain series names and library paths. Copy results copies only the records shown above."
+
+#: src/pages/SeriesDetailPage.tsx
+msgid "It may have been deleted, or the link points to a series this library never had."
+msgstr "It may have been deleted, or the link points to a series this library never had."
 
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Items that need you stay above until you act on them."
@@ -6240,6 +6253,10 @@ msgstr "Not finding it? Search by ComicVine or MangaDex ID, or paste a link."
 msgid "Not found"
 msgstr "Not found"
 
+#: src/pages/NotFoundPage.tsx
+msgid "NOT FOUND"
+msgstr "NOT FOUND"
+
 #: src/lib/wantedAnnotation.ts
 msgid "Not found {max_attempts}×"
 msgstr "Not found {max_attempts}×"
@@ -6345,6 +6362,10 @@ msgstr "Nothing in {fileName} yet."
 #: src/components/settings/LogsTab.tsx
 msgid "Nothing in {fileName} yet. Comicarr is logging at {levelNumber} ({levelName}) — raise the level above to capture more."
 msgstr "Nothing in {fileName} yet. Comicarr is logging at {levelNumber} ({levelName}) — raise the level above to capture more."
+
+#: src/pages/NotFoundPage.tsx
+msgid "Nothing in Comicarr lives at {path}. The link may be old or mistyped."
+msgstr "Nothing in Comicarr lives at {path}. The link may be old or mistyped."
 
 #: src/lib/inFlight.ts
 msgid "nothing in flight"
@@ -8391,10 +8412,6 @@ msgid "Series not found"
 msgstr "Series not found"
 
 #: src/pages/SeriesDetailPage.tsx
-msgid "Series not found."
-msgstr "Series not found."
-
-#: src/pages/SeriesDetailPage.tsx
 msgid "Series sections"
 msgstr "Series sections"
 
@@ -8990,6 +9007,10 @@ msgstr "the archive wouldn't open"
 msgid "The best guess scored {best}%, under your {confidence_bar}% auto-import bar."
 msgstr "The best guess scored {best}%, under your {confidence_bar}% auto-import bar."
 
+#: src/components/releases/pullAttempts.ts
+msgid "The built-in release calendar could not be reached. It needs no setup, and Comicarr tries it again on the next refresh."
+msgstr "The built-in release calendar could not be reached. It needs no setup, and Comicarr tries it again on the next refresh."
+
 #: src/components/releases/MyReleasesView.tsx
 msgid "The comics pull list for this week isn’t available yet, so this shows your series’ own release dates. Some comics may be missing until it is."
 msgstr "The comics pull list for this week isn’t available yet, so this shows your series’ own release dates. Some comics may be missing until it is."
@@ -9162,6 +9183,10 @@ msgstr "This match clears your {confidence_bar}% auto-import bar."
 #: src/pages/ChatPage.tsx
 msgid "This model cannot read images"
 msgstr "This model cannot read images"
+
+#: src/pages/NotFoundPage.tsx
+msgid "This page doesn't exist"
+msgstr "This page doesn't exist"
 
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "This preview is already frozen into the manifest below."
@@ -9902,10 +9927,6 @@ msgstr "Waiting for acquisition work to drain"
 #: src/components/activity/timeline/attentionStage.ts
 msgid "Waiting on your decision."
 msgstr "Waiting on your decision."
-
-#: src/components/releases/pullAttempts.ts
-msgid "Walksoftly, the main pull-list source, could not be reached."
-msgstr "Walksoftly, the main pull-list source, could not be reached."
 
 #: src/components/queue/upcomingColumns.tsx
 #: src/components/releases/IndustryReleasesView.tsx

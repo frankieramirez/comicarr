@@ -4,7 +4,7 @@ import type { PullAttempt } from "@/pages/weeklyReleaseRowKey";
 /** One sentence per pull-list source that did not fill the week. */
 function describeAttempt({ source, reason }: PullAttempt): string | null {
   if (source === "walksoftly") {
-    return t`Walksoftly, the main pull-list source, could not be reached.`;
+    return t`The built-in release calendar could not be reached. It needs no setup, and Comicarr tries it again on the next refresh.`;
   }
   if (source === "metron") {
     if (reason === "not_configured")

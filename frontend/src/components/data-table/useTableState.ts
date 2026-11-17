@@ -279,7 +279,9 @@ export function useTableState<TData extends RowData>({
     getRowId,
     state: {
       sorting,
-      globalFilter,
+      // Match on the trimmed text; the box keeps what was typed, but
+      // "Batman " must still find Batman (#1502).
+      globalFilter: globalFilter.trim(),
       rowSelection,
       expanded,
       ...(pagination ? { pagination: paginationState } : {}),
