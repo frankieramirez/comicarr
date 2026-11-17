@@ -147,6 +147,16 @@ export function SearchTab({
 
   return (
     <div className="space-y-6">
+      <ProwlarrSettings
+        config={config}
+        formData={formData}
+        onChange={onChange}
+      />
+
+      {/* Where results come from goes first: new users missed the indexer
+          list below the pacing knobs (#1505). */}
+      <SearchProviderSettings onDirtyChange={onProviderDirtyChange} />
+
       <SettingGroup
         title={t`Search pace`}
         description={t`How long Comicarr waits before asking the same indexer again`}
@@ -161,14 +171,6 @@ export function SearchTab({
           error={errors?.search_delay}
         />
       </SettingGroup>
-
-      <ProwlarrSettings
-        config={config}
-        formData={formData}
-        onChange={onChange}
-      />
-
-      <SearchProviderSettings onDirtyChange={onProviderDirtyChange} />
 
       <SettingGroup
         title={t`Quality Settings`}

@@ -2564,6 +2564,10 @@ msgstr "漫画书库扫描失败。"
 msgid "Comic library scan started."
 msgstr "漫画书库扫描已开始。"
 
+#: src/pages/SearchPage.tsx
+msgid "Comic search needs a Comic Vine API key. <0>Add it in Sources and keys</0>"
+msgstr "漫画搜索需要 Comic Vine API 密钥。<0>在“来源和密钥”中添加</0>"
+
 #: src/components/settings/ApiTab.tsx
 msgid "Comic Vine"
 msgstr "Comic Vine"
@@ -2766,6 +2770,10 @@ msgstr "已完成"
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Completed downloads"
 msgstr "已完成的下载"
+
+#: src/components/settings/DownloadClientsTab.tsx
+msgid "Completed downloads folder"
+msgstr "已完成下载文件夹"
 
 #: src/components/settings/LogsTab.tsx
 msgid "Component"
@@ -5966,6 +5974,14 @@ msgstr "没有剩余符合条件的缺少期刊可搜索。"
 msgid "No eligible wanted issues are ready to search."
 msgstr "没有符合条件的待获取刊物可以搜索。"
 
+#: src/components/onboarding/OnboardingDialog.tsx
+msgid "No folder at {path} inside the Comicarr container."
+msgstr "Comicarr 容器内 {path} 处没有文件夹。"
+
+#: src/components/onboarding/OnboardingDialog.tsx
+msgid "No folder at {path}."
+msgstr "{path} 处没有文件夹。"
+
 #: src/pages/ImportPage.tsx
 msgid "No ignored files"
 msgstr "没有已忽略的文件"
@@ -6702,6 +6718,10 @@ msgstr "路径"
 #: src/components/settings/DownloadClientsTab.tsx
 msgid "Path"
 msgstr "路径"
+
+#: src/components/onboarding/OnboardingDialog.tsx
+msgid "Paths here are inside the container. Mount your Mylar3 data folder as a volume, then enter the path it has inside the container, such as /mylar3. <0>See the volume example</0>"
+msgstr "这里的路径是容器内的路径。请把 Mylar3 数据文件夹挂载为卷，然后输入它在容器内的路径，例如 /mylar3。<0>查看卷示例</0>"
 
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Pattern for issue files. Variables: $Series, $Issue, $Year, $Title"
@@ -7832,12 +7852,12 @@ msgid "Scan the watched inbox for new files"
 msgstr "扫描监控的收件箱中的新文件"
 
 #: src/components/settings/DownloadClientsTab.tsx
-msgid "Scanned after the main monitored folder, {folder}. One server path per line. In Docker, use the path inside the container."
-msgstr "在主监控文件夹 {folder} 之后扫描。每行一个服务器路径。在 Docker 中，请使用容器内的路径。"
+msgid "Scanned after the completed downloads folder above. These folders are ignored until it is set."
+msgstr "在上方的已完成下载文件夹之后扫描。设置该文件夹之前，这些文件夹会被忽略。"
 
 #: src/components/settings/DownloadClientsTab.tsx
-msgid "Scanned after the main monitored folder, which is set as CHECK_FOLDER in the config file. These folders are ignored until it is set."
-msgstr "在主监控文件夹（配置文件中的 CHECK_FOLDER）之后扫描。设置该项之前，这些文件夹会被忽略。"
+msgid "Scanned after the main monitored folder, {folder}. One server path per line. In Docker, use the path inside the container."
+msgstr "在主监控文件夹 {folder} 之后扫描。每行一个服务器路径。在 Docker 中，请使用容器内的路径。"
 
 #: src/components/import/ImportInboxSection.tsx
 #: src/components/import/LibraryScanSection.tsx
@@ -9149,6 +9169,14 @@ msgstr "Usenet 下载客户端已禁用。请在下载客户端设置中选择�
 msgid "Theme"
 msgstr "主题"
 
+#: src/components/onboarding/OnboardingDialog.tsx
+msgid "There is no config.ini in {path}."
+msgstr "{path} 中没有 config.ini。"
+
+#: src/components/onboarding/OnboardingDialog.tsx
+msgid "There is no mylar.db in {path}."
+msgstr "{path} 中没有 mylar.db。"
+
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "These are not selected by default. Select only released, missing rows you explicitly want to mark Wanted."
 msgstr "这些默认不选中。只选择已发布、缺少且你明确想标记为待获取的行。"
@@ -9439,6 +9467,10 @@ msgstr "你的书库中有两个系列同名，因此需要核对这一个。"
 #: src/pages/SeriesDetailPage.tsx
 msgid "type"
 msgstr "类型"
+
+#: src/pages/SearchPage.tsx
+msgid "Type at least 3 characters"
+msgstr "请至少输入 3 个字符"
 
 #: src/pages/SearchPage.tsx
 msgid "Type at least 3 characters to search across your configured providers."
@@ -10074,6 +10106,10 @@ msgstr "当前状况"
 #: src/components/settings/MediaManagementTab.tsx
 msgid "Where your comics and manga live. Downloads are filed here, and Import scans these folders for what you already have."
 msgstr "你的漫画和日漫存放的位置。下载内容会归档到这里，导入也会扫描这些文件夹以找到你已有的内容。"
+
+#: src/components/settings/DownloadClientsTab.tsx
+msgid "Where your download client puts finished comics, as Comicarr sees it. In Docker, use the path inside the container. Leave empty to turn the Folder Monitor off."
+msgstr "下载客户端存放已完成漫画的位置（按 Comicarr 看到的路径）。在 Docker 中请使用容器内的路径。留空则关闭文件夹监视。"
 
 #: src/components/queue/WantedBySeries.tsx
 msgid "Which"

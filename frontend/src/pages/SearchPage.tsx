@@ -10,6 +10,7 @@ import {
   Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
 import {
   Select,
   SelectContent,
@@ -267,12 +268,33 @@ export default function SearchPage() {
               size="sm"
               variant="outline"
               disabled={searchQuery.trim().length < 3}
-              className="sr-only focus-visible:not-sr-only"
+              title={
+                searchQuery.trim().length < 3
+                  ? t`Type at least 3 characters`
+                  : undefined
+              }
             >
               <Trans>Search</Trans>
             </Button>
           </label>
         </form>
+        {isLoaded && searchMode === "comic" && !comicsConfigured && (
+          <Callout
+            tone="warning"
+            className="mt-3 text-[13px]"
+            data-testid="search-missing-key"
+          >
+            <Trans>
+              Comic search needs a Comic Vine API key.{" "}
+              <Link
+                to="/settings?section=api"
+                className="font-medium underline underline-offset-2"
+              >
+                Add it in Sources and keys
+              </Link>
+            </Trans>
+          </Callout>
+        )}
 
         <div className="flex flex-wrap items-center gap-3 border-b border-border-subtle py-4">
           {showBothTabs && (

@@ -883,6 +883,14 @@ export function DownloadClientsTab({
         description={t`The Folder Monitor checks these folders for finished downloads and imports them.`}
       >
         <SettingField
+          label={t`Completed downloads folder`}
+          type="text"
+          value={formData.check_folder ?? ""}
+          onChange={(v) => onChange("check_folder", v as string)}
+          helpText={t`Where your download client puts finished comics, as Comicarr sees it. In Docker, use the path inside the container. Leave empty to turn the Folder Monitor off.`}
+          placeholder="/downloads/complete"
+        />
+        <SettingField
           label={t`Additional monitored folders`}
           type="textarea"
           value={formData.additional_check_folders || ""}
@@ -890,7 +898,7 @@ export function DownloadClientsTab({
           helpText={
             config.check_folder
               ? t`Scanned after the main monitored folder, ${ph({ folder: config.check_folder })}. One server path per line. In Docker, use the path inside the container.`
-              : t`Scanned after the main monitored folder, which is set as CHECK_FOLDER in the config file. These folders are ignored until it is set.`
+              : t`Scanned after the completed downloads folder above. These folders are ignored until it is set.`
           }
           placeholder="/downloads/Magazines"
         />

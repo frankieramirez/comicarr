@@ -26,6 +26,7 @@ import { Kbd } from "@/components/ui/kbd";
 import Logo from "@/components/Logo";
 import { formatAppVersion } from "@/lib/version";
 import { formatNumber } from "@/lib/intl";
+import { ApiError } from "@/lib/api";
 
 type Step = "welcome" | "migrate" | "fresh" | "running" | "done";
 
@@ -403,7 +404,7 @@ function MigrateStep({
           className="flex items-start gap-2 rounded-md p-2.5 text-[12px] font-mono"
         >
           <TriangleAlert className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-          <span>{preview.error.message}</span>
+          <MigrationPathError error={preview.error} />
         </Callout>
       )}
 
@@ -675,4 +676,51 @@ function DoneStep({
       </div>
     </div>
   );
+}
+
+const MIGRATION_DOCS =
+  "https://comicarr.com/docs/migration/preparation#mount-mylardb-into-the-comicarr-container";
+
+/**
+ * Why a Mylar3 path was refused. "Path is not a directory" alone left Docker
+ * users guessing; most simply have not mounted the Mylar3 folder (#1498).
+ */
+function MigrationPathError({ error }: { error: Error }) {
+  const body = error instanceof ApiError ? error.body : undefined;
+  const code = typeof body?.code === "string" ? body.code : null;
+  const path = typeof body?.path === "string" ? body.path : "";
+  const inContainer = body?.in_container === true;
+  if (code === "not_a_directory") {
+    return (
+      <span className="flex flex-col gap-1">
+        <span>
+          {inContainer
+            ? t`No folder at ${path} inside the Comicarr container.`
+            : t`No folder at ${path}.`}
+        </span>
+        {inContainer && (
+          <span className="font-sans">
+            <Trans>
+              Paths here are inside the container. Mount your Mylar3 data folder
+              as a volume, then enter the path it has inside the container, such
+              as /mylar3.{" "}
+              <a
+                href={MIGRATION_DOCS}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2"
+              >
+                See the volume example
+              </a>
+            </Trans>
+          </span>
+        )}
+      </span>
+    );
+  }
+  if (code === "no_database")
+    return <span>{t`There is no mylar.db in ${path}.`}</span>;
+  if (code === "no_config")
+    return <span>{t`There is no config.ini in ${path}.`}</span>;
+  return <span>{error.message}</span>;
 }
