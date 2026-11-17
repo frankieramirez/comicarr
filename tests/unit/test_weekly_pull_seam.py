@@ -95,8 +95,8 @@ def _patch_match(monkeypatch, *, autowant, listed):
     monkeypatch.setattr(weeklypull.helpers, "checkthepub", lambda comicid: 60)
     monkeypatch.setattr(weeklypull.helpers, "LoadAlternateSearchNames", lambda *_args: None)
     upcoming_update = MagicMock(return_value=None)
-    monkeypatch.setattr(weeklypull.updater, "upcoming_update", upcoming_update, raising=False)
-    monkeypatch.setattr(weeklypull.updater, "latest_update", MagicMock(), raising=False)
+    monkeypatch.setattr(weeklypull.watchlist_match, "upcoming_update", upcoming_update, raising=False)
+    monkeypatch.setattr(weeklypull.watchlist_match, "latest_update", MagicMock(), raising=False)
     refresh_thread = MagicMock()
     monkeypatch.setattr(weeklypull.importer, "refresh_thread", refresh_thread, raising=False)
     # new_pullcheck logs and swallows per-row errors; surface them instead.

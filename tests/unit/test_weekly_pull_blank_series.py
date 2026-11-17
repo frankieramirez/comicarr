@@ -85,10 +85,8 @@ def _patch(monkeypatch, pullist):
     monkeypatch.setattr(weeklypull.helpers, "checkthepub", lambda comicid: 60)
     monkeypatch.setattr(weeklypull.helpers, "LoadAlternateSearchNames", lambda *_args: None)
     upcoming = MagicMock(return_value=None)
-    monkeypatch.setattr(weeklypull.updater, "upcoming_update", upcoming, raising=False)
-    monkeypatch.setattr(weeklypull.updater, "latest_update", MagicMock(), raising=False)
-    monkeypatch.setattr(weeklypull.updater, "foundsearch", MagicMock(return_value=None), raising=False)
-    monkeypatch.setattr(weeklypull.updater, "dbUpdate", MagicMock(), raising=False)
+    monkeypatch.setattr(weeklypull.watchlist_match, "upcoming_update", upcoming, raising=False)
+    monkeypatch.setattr(weeklypull.watchlist_match, "latest_update", MagicMock(), raising=False)
     swallowed = MagicMock()
     monkeypatch.setattr(weeklypull.helpers, "log_that_exception", swallowed)
     return upcoming, swallowed

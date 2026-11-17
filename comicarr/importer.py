@@ -42,6 +42,7 @@ from comicarr.app.metadata import cv, series_metadata
 from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.app.search import mb
 from comicarr.app.series import rescan
+from comicarr.app.weekly import pull
 from comicarr.tables import annuals, comics, issues
 
 
@@ -892,7 +893,7 @@ def addComictoDB(
                         cn_pull = comicname_filesafe
                     else:
                         cn_pull = comic["ComicName"]
-                    updater.newpullcheck(ComicName=cn_pull, ComicID=comicid, issue=latestiss)
+                    pull.match_new_series(cn_pull, comicid, issue=latestiss)
 
                 if calledfrom != "maintenance":
                     results = []

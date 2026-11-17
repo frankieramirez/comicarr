@@ -93,10 +93,8 @@ def _patch_pull_job(monkeypatch, upcoming):
     monkeypatch.setattr(weeklypull.helpers, "listPull", lambda week, year: ["160294"])
     monkeypatch.setattr(weeklypull.helpers, "checkthepub", lambda comicid: 60)
     monkeypatch.setattr(weeklypull.helpers, "LoadAlternateSearchNames", lambda *_args: None)
-    monkeypatch.setattr(weeklypull.updater, "upcoming_update", MagicMock(return_value=upcoming), raising=False)
-    monkeypatch.setattr(weeklypull.updater, "latest_update", MagicMock(), raising=False)
-    monkeypatch.setattr(weeklypull.updater, "foundsearch", MagicMock(return_value=None), raising=False)
-    monkeypatch.setattr(weeklypull.updater, "dbUpdate", MagicMock(), raising=False)
+    monkeypatch.setattr(weeklypull.watchlist_match, "upcoming_update", MagicMock(return_value=upcoming), raising=False)
+    monkeypatch.setattr(weeklypull.watchlist_match, "latest_update", MagicMock(), raising=False)
     # new_pullcheck logs and swallows per-row errors; surface them instead.
     swallowed = MagicMock()
     monkeypatch.setattr(weeklypull.helpers, "log_that_exception", swallowed)
