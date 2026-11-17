@@ -10,7 +10,7 @@
 """OPDS calls into legacy modules, so the router imports no root module (ADR-0005)."""
 
 from comicarr import logger
-from comicarr.getimage import comic_pages, open_archive, page_count, scale_image
+from comicarr.app.library.getimage import comic_pages, open_archive, page_count, scale_image
 
 __all__ = ["comic_pages", "mark_issue_read", "open_archive", "page_count", "scale_image"]
 

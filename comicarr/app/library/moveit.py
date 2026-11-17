@@ -1,9 +1,30 @@
+#  Copyright (C) 2012–2024 Mylar3 contributors
+#  Copyright (C) 2025–2026 Comicarr contributors
+#
+#  This file is part of Comicarr.
+#  Originally based on Mylar3 (https://github.com/mylar3/mylar3).
+#
+#  Comicarr is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  Comicarr is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
+
 import ast
 import os
 import shutil
 
 import comicarr
-from comicarr import db, filechecker, helpers, logger, updater
+from comicarr import db, helpers, logger
+from comicarr.app.library.directories import validateAndCreateDirectory
+from comicarr.app.series.rescan import rescan_series
 
 
 def movefiles(comicid, comlocation, imported):
@@ -20,7 +41,7 @@ def movefiles(comicid, comlocation, imported):
 
     if impres is not None:
         if all([comicarr.CONFIG.CREATE_FOLDERS is False, not os.path.isdir(comlocation)]):
-            checkdirectory = filechecker.validateAndCreateDirectory(comlocation, True)
+            checkdirectory = validateAndCreateDirectory(comlocation, True)
             if not checkdirectory:
                 logger.warn("Error trying to validate/create directory. Aborting this process at this time.")
                 return
@@ -53,7 +74,7 @@ def movefiles(comicid, comlocation, imported):
         for result in files_moved:
             try:
                 result["import_id"]
-            except:
+            except Exception:
                 controlValue = {"ComicFilename": result["filename"], "SRID": result["srid"]}
                 newValue = {"Status": "Imported", "ComicID": comicid}
             else:
@@ -83,15 +104,15 @@ def archivefiles(comicid, comlocation, imported):
 
         for sdir in scandir:
             logger.info("Updating issue information and setting status to Archived for location: " + sdir)
-            updater.forceRescan(comicid, archive=sdir)
+            rescan_series(comicid, archive=sdir)
 
         logger.info("Now scanning in files.")
-        updater.forceRescan(comicid)
+        rescan_series(comicid)
 
         for result in impres:
             try:
                 result["import_id"]
-            except:
+            except Exception:
                 controlValue = {"ComicFilename": result["comicfilename"], "SRID": imported["srid"]}
                 newValue = {"Status": "Imported", "ComicID": comicid}
             else:

@@ -95,7 +95,7 @@ def test_a_refused_move_still_catalogs_the_series(monkeypatch):
 
 
 def test_default_folder_for_a_magazine_is_under_the_magazine_root(monkeypatch):
-    from comicarr import filers
+    from comicarr.app.library import filers
 
     class FakeHandlers:
         def __init__(self, comic):

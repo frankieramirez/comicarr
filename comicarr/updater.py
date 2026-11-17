@@ -32,6 +32,7 @@ from sqlalchemy import bindparam, func, select, text, update
 import comicarr
 from comicarr import db, filechecker, helpers, logger
 from comicarr.app.common import series_kind
+from comicarr.app.library import filers
 from comicarr.app.manga import volumes as manga_volumes
 from comicarr.app.manga.ledger import volume_number_from_id
 from comicarr.app.metadata import cv, series_metadata
@@ -1663,7 +1664,7 @@ def forceRescan(ComicID, archive=None, module=None, recheck=False):
                         comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(rescan["ComicLocation"])
                     )
                 else:
-                    ff = comicarr.filers.FileHandlers(ComicID=ComicID)
+                    ff = filers.FileHandlers(ComicID=ComicID)
                     secondary_folders = ff.secondary_folders(rescan["ComicLocation"])
 
                 logger.fdebug(module + "multiple_dest_dirs:" + comicarr.CONFIG.MULTIPLE_DEST_DIRS)

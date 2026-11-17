@@ -75,7 +75,7 @@ def _configure_worker(monkeypatch):
     monkeypatch.setattr(comicarr, "PACK_ISSUEIDS_DONT_QUEUE", {})
     monkeypatch.setattr(comicarr, "DDL_QUEUED", [])
     monkeypatch.setattr(comicarr, "PP_QUEUE", queue.Queue())
-    monkeypatch.setattr(comicarr, "filers", SimpleNamespace(FileHandlers=lambda **_kwargs: _FileCheck()))
+    monkeypatch.setattr(service, "filers", SimpleNamespace(FileHandlers=lambda **_kwargs: _FileCheck()))
     monkeypatch.setattr(comicarr, "search", SimpleNamespace(searchforissue=provider_search))
     monkeypatch.setattr(service.time, "sleep", lambda _seconds: None)
     return provider_search
@@ -351,7 +351,7 @@ def test_annual_command_preserves_entity_type_through_worker(monkeypatch):
         def walk_the_walk(self):
             return {"status": False}
 
-    monkeypatch.setattr(comicarr, "filers", SimpleNamespace(FileHandlers=AnnualFileCheck))
+    monkeypatch.setattr(service, "filers", SimpleNamespace(FileHandlers=AnnualFileCheck))
     work = queue.Queue()
     work.put({**_command("annual-1"), "entity_type": "annual"})
     work.put("exit")

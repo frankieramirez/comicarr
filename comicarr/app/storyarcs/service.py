@@ -25,6 +25,7 @@ import comicarr
 from comicarr import db, helpers, logger
 from comicarr.app.common import placement
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.library import filers
 from comicarr.app.metadata import cv
 from comicarr.app.storyarcs import queries as arc_queries
 from comicarr.tables import comics, issues, storyarcs
@@ -1099,7 +1100,7 @@ def updatearc_locs(storyarcid, arc_issues):
                                     comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(chk["ComicLocation"])
                                 )
                             else:
-                                ff = comicarr.filers.FileHandlers(ComicID=chk["ComicID"])
+                                ff = filers.FileHandlers(ComicID=chk["ComicID"])
                                 secondary_folders = ff.secondary_folders(chk["ComicLocation"])
 
                             pathsrc = os.path.join(secondary_folders, chk["Location"])

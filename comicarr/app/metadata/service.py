@@ -21,8 +21,9 @@ import requests
 from PIL import Image
 
 import comicarr
-from comicarr import db, getimage, logger
+from comicarr import db, logger
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.library import filers, getimage
 from comicarr.app.metadata import cv
 from comicarr.app.series import rescan as series_rescan
 
@@ -301,7 +302,7 @@ def _do_manual_metatag(issueid, comicid=None, group=False):
                 if os.path.exists(os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(dirName))):
                     secondary_folder = os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(dirName))
                 else:
-                    ff = comicarr.filers.FileHandlers(ComicID=issuedata["ComicID"])
+                    ff = filers.FileHandlers(ComicID=issuedata["ComicID"])
                     secondary_folder = ff.secondary_folders(dirName)
 
                 if os.path.join(secondary_folder, os.path.basename(filename)):
@@ -408,7 +409,7 @@ def _do_manual_metatag(issueid, comicid=None, group=False):
                                 comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(dirName)
                             )
                         else:
-                            ff = comicarr.filers.FileHandlers(ComicID=comicid)
+                            ff = filers.FileHandlers(ComicID=comicid)
                             secondary_folder = ff.secondary_folders(dirName)
 
                         shutil.copy(metaresponse, secondary_folder)
