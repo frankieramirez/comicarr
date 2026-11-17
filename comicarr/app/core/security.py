@@ -228,7 +228,7 @@ def require_opds_auth(
     if credentials is None:
         raise _opds_challenge("OPDS authentication required")
 
-    from comicarr import encrypted
+    from comicarr.app.core import encrypted
 
     username = credentials.username
     password = credentials.password
