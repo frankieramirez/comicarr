@@ -106,6 +106,13 @@ def get_attention(
     return serialize_view(view)
 
 
+def _located_folder(payload, row):
+    from comicarr.app.downloads import sab_reconcile
+
+    name = payload.get("nzb_name") or payload.get("nzbname") or row.get("nzbname")
+    return sab_reconcile.locate_job_folder(name)
+
+
 @router.get("/import-source", dependencies=[Depends(require_session)])
 def get_import_source(release_key: str = Query(..., min_length=1, max_length=512)):
     """Where a download waiting for a manual import was expected to be.
@@ -122,7 +129,7 @@ def get_import_source(release_key: str = Query(..., min_length=1, max_length=512
     return {
         "release_key": release_key,
         "nzb_name": payload.get("nzb_name") or payload.get("nzbname") or row.get("nzbname") or None,
-        "nzb_folder": payload.get("nzb_folder") or None,
+        "nzb_folder": payload.get("nzb_folder") or _located_folder(payload, row),
     }
 
 
