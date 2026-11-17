@@ -308,7 +308,9 @@ def test_rescanned_volume_leaves_the_search_frontier(monkeypatch, tmp_path):
 
     with engine.connect() as conn:
         rows = [dict(row) for row in conn.execute(select(issues)).mappings()]
-    assert search_plan_for_series({"MonitorMode": "blended"}, rows, volume_states("md-naruto")) == []
+    targets = search_plan_for_series({"MonitorMode": "blended"}, rows, volume_states("md-naruto"))
+    assert {"kind": "volume", "number": "12"} not in targets
+    assert not [target for target in targets if target["kind"] == "chapter"]
 
 
 def test_rescan_twice_counts_a_volume_once(monkeypatch, tmp_path):

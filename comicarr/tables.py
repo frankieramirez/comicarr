@@ -819,7 +819,8 @@ mcp_tool_calls = Table(
 )
 
 # A manga volume the library owns or has grabbed (ADR-0004: volumes are not
-# issues). Chapters a Downloaded volume contains read as Covered (#1278).
+# issues). A row with an empty Status only carries an operator's LastChapter.
+# Chapters a Downloaded volume contains read as Covered (#1278).
 manga_volumes = Table(
     "manga_volumes",
     metadata,
@@ -829,6 +830,9 @@ manga_volumes = Table(
     Column("Status", String(16), nullable=False),
     Column("Location", Text),
     Column("updated_at", String(40), nullable=False),
+    # The chapter an operator says this volume ends at; null means
+    # MangaDex's list or an estimate (app/manga/coverage.py).
+    Column("LastChapter", String(32)),
     Index("ix_manga_volumes_comic", "ComicID"),
 )
 

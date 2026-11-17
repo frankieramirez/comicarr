@@ -804,6 +804,7 @@ describe("SeriesDetailPage", () => {
   function serveLedger(
     comic: Record<string, unknown>,
     issues: Record<string, unknown>[],
+    extra: Record<string, unknown> = {},
   ) {
     server.use(
       http.get("/api/series/1", () =>
@@ -818,10 +819,124 @@ describe("SeriesDetailPage", () => {
           },
           issues,
           annuals: [],
+          ...extra,
         }),
       ),
     );
   }
+
+  const mangaPayload = {
+    manga: {
+      volumes: [
+        {
+          number: "3",
+          firstChapter: "21",
+          lastChapter: "30",
+          rangeSource: "estimated",
+          owned: false,
+          inFlight: false,
+          location: null,
+        },
+        {
+          number: "2",
+          firstChapter: "11",
+          lastChapter: "20",
+          rangeSource: "mangadex",
+          owned: true,
+          inFlight: false,
+          location: "One-Punch Man v02.cbz",
+        },
+      ],
+      progress: {
+        volumesTotal: 3,
+        volumesOwned: 1,
+        volumesEstimated: 1,
+        chaptersOwned: 1,
+        chaptersGap: 10,
+        segments: [
+          { kind: "gap", from: "1", to: "10", count: 10 },
+          { kind: "volume", from: "11", to: "20", count: 10 },
+          { kind: "wanted", from: "21", to: "30", count: 10 },
+          { kind: "chapter", from: "31", to: "31", count: 1 },
+        ],
+      },
+    },
+  };
+
+  it("shows which chapters a volume you have covers, and lists the volumes", async () => {
+    serveLedger(
+      { ContentType: "manga" },
+      [
+        ledgerRow("15", {
+          chapterNumber: "15",
+          holdingVolume: "2",
+          covered: true,
+          displayState: "Covered",
+          missing: false,
+        }),
+        ledgerRow("25", {
+          chapterNumber: "25",
+          holdingVolume: "3",
+          holdingEstimated: true,
+        }),
+      ],
+      mangaPayload,
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByRole("heading", { level: 1, name: "One-Punch Man" });
+
+    expect(screen.getByTestId("covered-by-volume").textContent).toBe(
+      "in vol 2",
+    );
+    expect(screen.getByText("~3")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "In a volume 1" })).toBeTruthy();
+    expect(
+      screen.getByRole("img", {
+        name: "1 of 3 volumes, 1 chapter files",
+      }),
+    ).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /^Volumes/ }));
+    const owned = await screen.findByTestId("manga-volume-2");
+    expect(owned.textContent).toContain("One-Punch Man v02.cbz");
+    expect(screen.getByTestId("manga-volume-3").textContent).toContain(
+      "estimated",
+    );
+    expect(screen.getByTestId("manga-volume-estimates")).toBeTruthy();
+  });
+
+  it("saves the chapter a volume ends at", async () => {
+    serveLedger(
+      { ContentType: "manga" },
+      [ledgerRow("25", { chapterNumber: "25" })],
+      mangaPayload,
+    );
+    const bodies: unknown[] = [];
+    server.use(
+      http.patch("/api/series/1/volumes/3", async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({ success: true });
+      }),
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByRole("heading", { level: 1, name: "One-Punch Man" });
+    await user.click(screen.getByRole("button", { name: /^Volumes/ }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Edit the chapters in volume 3",
+      }),
+    );
+    const last = screen.getByLabelText("Ends at chapter");
+    await user.clear(last);
+    await user.type(last, "28");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(bodies).toEqual([{ last_chapter: "28" }]));
+  });
 
   function ledgerRow(id: string, extra: Record<string, unknown>) {
     return {

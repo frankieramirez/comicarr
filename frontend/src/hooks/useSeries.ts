@@ -289,6 +289,27 @@ export function useUpdateSeriesProviderOverride(): UseMutationResult<
 /**
  * Update per-series search flags (pack matching / booktype override)
  */
+/** Set the chapter a manga volume ends at; null goes back to MangaDex or the estimate. */
+export function useSetMangaVolumeEnd(): UseMutationResult<
+  unknown,
+  Error,
+  { comicId: string; volume: string; lastChapter: string | null }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ comicId, volume, lastChapter }) =>
+      apiRequest(
+        "PATCH",
+        `/api/series/${comicId}/volumes/${encodeURIComponent(volume)}`,
+        { last_chapter: lastChapter },
+      ),
+    onSuccess: (_, { comicId }) => {
+      queryClient.invalidateQueries({ queryKey: ["series", comicId] });
+    },
+  });
+}
+
 export function useUpdateSeriesSearchSettings(): UseMutationResult<
   unknown,
   Error,

@@ -147,6 +147,16 @@ def update_series_content_kind(
     return result
 
 
+@router.patch("/series/{comic_id}/volumes/{volume_number}", dependencies=[Depends(require_session)])
+def set_manga_volume_end(comic_id: str, volume_number: str, request_body: dict = None):
+    """Set the chapter a manga volume ends at (``last_chapter``); null clears it."""
+    result = series_service.set_manga_volume_end(comic_id, volume_number, (request_body or {}).get("last_chapter"))
+    if not result["success"]:
+        code = 404 if result.get("code") == "series_not_found" else 400
+        return JSONResponse(status_code=code, content={"detail": result["error"], "code": result["code"]})
+    return result
+
+
 @router.patch("/series/{comic_id}/search-providers", dependencies=[Depends(require_session)])
 def update_series_search_providers(
     comic_id: str,

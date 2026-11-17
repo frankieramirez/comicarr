@@ -273,28 +273,6 @@ def list_comics(ctx, limit=None, offset=None, name=None, kind=None, status=None)
     return [series_queries.with_library_cover_src(row) for row in series_queries.list_comics()]
 
 
-def _cover_chapters_by_owned_volumes(comic_id, projected_issues):
-    """Mark the chapters a Downloaded manga volume contains as Covered (#1278).
-
-    Containment is each chapter row's own VolumeNumber, the partial map
-    MangaDex's aggregate gives; a chapter with no volume is never covered.
-    """
-    from comicarr.app.manga.ledger import apply_volume_coverage, normalize_volume_number
-    from comicarr.app.manga.volumes import covering_volumes, volume_states
-
-    containment = {}
-    for row in projected_issues:
-        number = normalize_volume_number(row.get("volumeNumber"))
-        if number is not None and row.get("chapterNumber") not in (None, ""):
-            containment.setdefault(number, set()).add(row.get("id"))
-    if not containment:
-        return projected_issues
-    owned = covering_volumes(volume_states(comic_id))
-    if not owned:
-        return projected_issues
-    return apply_volume_coverage(projected_issues, owned, containment)
-
-
 def get_comic_detail(ctx, comic_id):
     """Get a single comic with its issues and annuals."""
     comic = [series_queries.with_library_cover_src(row) for row in series_queries.get_comic(comic_id)]
@@ -318,9 +296,16 @@ def get_comic_detail(ctx, comic_id):
         series_location=series_location,
         retained_locations=retained,
     )
-    projected_issues = _cover_chapters_by_owned_volumes(comic_id, projected_issues)
-    summary = _issue_summary(projected_issues + projected_annuals)
     comic_row = comic[0] if comic else None
+    manga = None
+    if comic_row and series_kind.is_manga(comic_row):
+        # Volumes are not issues (ADR-0004): the chapters an owned volume
+        # holds read as Covered, and the volume list rides alongside.
+        from comicarr.app.manga.volumes import series_view
+
+        projected_issues, manga_volumes, manga_progress = series_view(comic_id, projected_issues)
+        manga = {"volumes": manga_volumes, "progress": manga_progress}
+    summary = _issue_summary(projected_issues + projected_annuals)
     override = parse_provider_override(series_queries.get_comic_provider_override(comic_id))
 
     return {
@@ -328,6 +313,7 @@ def get_comic_detail(ctx, comic_id):
         "issues": projected_issues,
         "annuals": projected_annuals,
         "summary": summary,
+        "manga": manga,
         "providerLinks": series_kind.provider_page_links(comic_row) if comic_row else [],
         "searchProviders": {
             "available": [provider.name for provider in effective_provider_plan(ctx.config)] if ctx.config else [],
@@ -2164,3 +2150,23 @@ def issue_status(IssueID):
         return True
     else:
         return False
+
+
+def set_manga_volume_end(comic_id, volume_number, last_chapter):
+    """Record the chapter an operator says a manga volume ends at; None clears it."""
+    from comicarr.app.manga.volumes import set_volume_end
+
+    comic = series_queries.get_comic(comic_id)
+    if not comic:
+        return {"success": False, "error": "Series not found", "code": "series_not_found"}
+    if not series_kind.is_manga(comic[0]):
+        return {"success": False, "error": "Only a manga series has volumes", "code": "not_manga"}
+    try:
+        end = set_volume_end(comic_id, volume_number, last_chapter)
+    except ValueError:
+        return {
+            "success": False,
+            "error": "Give a volume number and a last chapter above zero",
+            "code": "invalid_volume_end",
+        }
+    return {"success": True, "last_chapter": end}
