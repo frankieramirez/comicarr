@@ -23,7 +23,7 @@ Moved unchanged from ``FileChecker.checkthedate`` (#1415).
 import datetime as dt
 import re
 
-from comicarr import helpers
+from comicarr.app.common import strings as common_strings
 
 
 def parse_text_date(txt, fulldate=False, cnt=0):
@@ -75,7 +75,7 @@ def parse_text_date(txt, fulldate=False, cnt=0):
                     add_date += issnumb + ", "
                     cnt += 1
             elif cnt == 2:
-                possyear = helpers.cleanhtml(re.sub(r"\.", "", e).strip())
+                possyear = common_strings.cleanhtml(re.sub(r"\.", "", e).strip())
                 if type(possyear) == bytes:
                     possyear = possyear.decode("utf-8")
                 if possyear.isdigit() and int(possyear) > 1970 and int(possyear) < 2020:

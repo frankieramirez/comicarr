@@ -33,7 +33,8 @@ import requests
 from bs4 import BeautifulSoup
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import configured as configured
 from comicarr.app.common.remote_artifacts import (
     ensure_path_within_directory,
     extract_zip_atomically,
@@ -43,6 +44,7 @@ from comicarr.app.common.remote_artifacts import (
 )
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 from comicarr.app.search import diagnostics as search_diagnostics
+from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import EvaluationSession
 
 
@@ -223,13 +225,13 @@ class GC(object):
             return "no results"
         except requests.exceptions.ConnectionError as e:
             logger.warn("[WARNING] Connection refused to DDL site, stopped by a small tank. Error returned as : %s" % e)
-            if helpers.provider_unreachable(e):
-                helpers.disable_provider("DDL", "Connection Refused.")
+            if search_service.provider_unreachable(e):
+                search_service.disable_provider("DDL", "Connection Refused.")
             return "no results"
         except Exception as err:
             logger.warn("[WARNING] Unable to scrape remote site, stopped by a small tank. Error returned as : %s" % err)
             if "Unable to identify Cloudflare IUAM" in str(err):
-                helpers.disable_provider("DDL", "Unable to identify Cloudflare IUAM Javascript on website")
+                search_service.disable_provider("DDL", "Unable to identify Cloudflare IUAM Javascript on website")
 
             exc_type, exc_value, exc_tb = sys.exc_info()
             filename, line_num, func_name, err_text = traceback.extract_tb(exc_tb)[-1]
@@ -254,7 +256,7 @@ class GC(object):
                 "booktype": None,
             }
 
-            helpers.log_that_exception(except_line)
+            configured.log_that_exception(except_line)
 
             return "no results"
         else:

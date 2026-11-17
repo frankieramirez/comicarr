@@ -25,7 +25,7 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import helpers
+from comicarr.app.common import configured
 from comicarr.app.series import add, refresh
 from comicarr.app.weekly import watchlist_match
 from comicarr.tables import comics, issues, metadata, upcoming
@@ -52,7 +52,7 @@ def engine(monkeypatch):
         raising=False,
     )
     monkeypatch.setattr(
-        helpers,
+        configured,
         "weekly_info",
         lambda weeknumber, year: {"startweek": "March 03, 2024", "endweek": "March 09, 2024"},
     )

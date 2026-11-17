@@ -57,7 +57,7 @@ def monitor(monkeypatch):
     monkeypatch.setattr(comicarr, "IMPORTLOCK", False)
     monkeypatch.setattr(comicarr, "MONITOR_STATUS", "Waiting")
     updates = []
-    monkeypatch.setattr("comicarr.helpers.job_management", lambda **kw: updates.append(kw))
+    monkeypatch.setattr("comicarr.app.system.service.job_management", lambda **kw: updates.append(kw))
     calls = []
     outcomes = {}
 

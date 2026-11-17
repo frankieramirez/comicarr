@@ -20,7 +20,8 @@ import re
 from sqlalchemy import func, select, text
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import configured as configured
 from comicarr.app.series import add, refresh
 from comicarr.app.weekly import locg
 from comicarr.tables import annuals, comics, issues, upcoming, weekly
@@ -43,7 +44,7 @@ def latest_update(ComicID, LatestIssue, LatestDate, ReleaseComicID=None):
     latestCTRLValueDict = {"ComicID": cid}
     newlatestDict = {
         "LatestIssue": str(LatestIssue),
-        "intLatestIssue": helpers.issuedigits(LatestIssue),
+        "intLatestIssue": configured.issuedigits(LatestIssue),
         "LatestDate": str(LatestDate),
     }
     db.upsert("comics", newlatestDict, latestCTRLValueDict)
@@ -124,14 +125,14 @@ def upcoming_update(
         logger.info("altissuenumber is : " + str(altissuenumber))
         issuechk = db.select_one(
             select(issues).where(
-                (issues.c.ComicID == ComicID) & (issues.c.Int_IssueNumber == helpers.issuedigits(altissuenumber))
+                (issues.c.ComicID == ComicID) & (issues.c.Int_IssueNumber == configured.issuedigits(altissuenumber))
             )
         )
 
     if issuechk is not None:
         if issuechk["Issue_Number"] == IssueNumber or issuechk["Issue_Number"] == altissuenumber:
             og_status = issuechk["Status"]
-            wk_info = helpers.weekly_info(weekinfo["weeknumber"], weekinfo["year"])
+            wk_info = configured.weekly_info(weekinfo["weeknumber"], weekinfo["year"])
             if all([issuechk["ReleaseDate"] is not None, issuechk["ReleaseDate"] != "0000-00-00"]):
                 issue_checkdate = issuechk["ReleaseDate"]
             elif all([issuechk["DigitalDate"] is not None, issuechk["DigitalDate"] != "0000-00-00"]):
@@ -188,7 +189,7 @@ def upcoming_update(
                     issuechk = db.select_one(
                         select(issues).where(
                             (issues.c.ComicID == ComicID)
-                            & (issues.c.Int_IssueNumber == helpers.issuedigits(IssueNumber))
+                            & (issues.c.Int_IssueNumber == configured.issuedigits(IssueNumber))
                         )
                     )
                     if issuechk["Status"] != og_status and (

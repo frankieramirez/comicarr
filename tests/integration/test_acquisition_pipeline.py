@@ -1024,8 +1024,8 @@ MAL_COMIC_ID = "mal-" + manga_fake.MAL_ID
 
 @pytest.fixture
 def recorded(tmp_path, monkeypatch):
-    from comicarr import helpers
     from comicarr.app.manga import mangadex
+    from comicarr.app.series import service as series_service
 
     sab = FakeSabnzbd().install(monkeypatch)
     mangadex_api = manga_fake.FakeMangaDex().install(monkeypatch)
@@ -1059,7 +1059,7 @@ def recorded(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
     monkeypatch.setattr(comicarr, "NZB_QUEUE", queue.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", queue.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "COMICSORT", helpers.ComicSort(sequence="startup"), raising=False)
+    monkeypatch.setattr(comicarr, "COMICSORT", series_service.ComicSort(sequence="startup"), raising=False)
     monkeypatch.setattr("comicarr.app.manga.mangadex._rate_limit", lambda: None)
     monkeypatch.setattr("comicarr.app.manga.myanimelist._rate_limit", lambda: None)
     monkeypatch.setattr("comicarr.sabnzbd.time.sleep", lambda _seconds: None)

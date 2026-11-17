@@ -37,6 +37,7 @@ from comicarr.app.downloads.postprocess_pipeline import (
     process_comic_issue,
     process_manga_download,
 )
+from comicarr.app.system import service as system_service
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import annuals, comics, issues, metadata, nzblog, pipeline_journal, storyarcs
 
@@ -504,9 +505,7 @@ def test_an_arc_only_move_interrupted_after_placement_finishes_on_recover(librar
     (arc / "The Chosen").mkdir()  # validate_directory is faked
     with (
         patch.object(comicarr, "CONFIG", config),
-        patch.object(
-            postprocess_pipeline, "_mark_arc_row_downloaded", side_effect=RuntimeError("process killed")
-        ),
+        patch.object(postprocess_pipeline, "_mark_arc_row_downloaded", side_effect=RuntimeError("process killed")),
         pytest.raises(RuntimeError),
     ):
         place_arc_only_matches(run, Fakes().deps(), [ml])
@@ -542,7 +541,7 @@ def test_an_arc_only_claim_without_the_placed_file_is_re_driven(library, arc, mo
     run = _run(library.download, issue_id=None)
     with (
         patch.object(comicarr, "CONFIG", _arc_config(arc, ARC_FILEOPS="move")),
-        patch.object(postprocess_pipeline.helpers, "get_free_space", return_value=False),
+        patch.object(system_service, "get_free_space", return_value=False),
     ):
         place_arc_only_matches(run, Fakes().deps(), [ml])
 

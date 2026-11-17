@@ -109,7 +109,7 @@ def test_cdh_monitor_journals_downloaded_before_pp_queue_put(monkeypatch):
 
     monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp_queue, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
-    monkeypatch.setattr("comicarr.helpers.check_file_condition", lambda p: {"status": True})
+    monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda p: {"status": True})
 
     nzstat = {
         "status": True,
@@ -138,7 +138,7 @@ def test_cdh_monitor_failed_download_still_journals_downloaded(monkeypatch):
     fake_pp_queue = MagicMock()
     monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp_queue, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
-    monkeypatch.setattr("comicarr.helpers.check_file_condition", lambda p: {"status": True})
+    monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda p: {"status": True})
 
     nzstat = {
         "status": True,
@@ -162,7 +162,7 @@ def test_cdh_monitor_journal_failure_does_not_block_pp_queue(monkeypatch):
     fake_pp_queue = MagicMock()
     monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp_queue, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
-    monkeypatch.setattr("comicarr.helpers.check_file_condition", lambda p: {"status": True})
+    monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda p: {"status": True})
 
     nzstat = {
         "status": True,
@@ -260,7 +260,7 @@ def test_ddl_complete_cocommits_ddl_info_and_journal_downloaded(monkeypatch):
     fake_pp_queue = MagicMock()
     fake_pp_queue.put.side_effect = lambda *a, **k: order.append(("pp_put", None))
     monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp_queue, raising=False)
-    monkeypatch.setattr("comicarr.helpers.check_file_condition", lambda p: {"status": True})
+    monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda p: {"status": True})
 
     # Seed the Downloading ddl_info row (the U2 snatch block writes this).
     with get_engine().begin() as conn:
@@ -312,7 +312,7 @@ def test_ddl_complete_journal_failure_quarantines_artifact_without_resubmission(
     monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp_queue, raising=False)
     fake_ddl_queue = MagicMock()
     monkeypatch.setattr(comicarr, "DDL_QUEUE", fake_ddl_queue, raising=False)
-    monkeypatch.setattr("comicarr.helpers.check_file_condition", lambda p: {"status": True})
+    monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda p: {"status": True})
 
     with get_engine().begin() as conn:
         conn.execute(insert(ddl_info).values(ID="ddl-1", status="Downloading"))

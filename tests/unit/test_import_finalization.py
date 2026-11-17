@@ -388,7 +388,7 @@ def test_rename_failure_keeps_original_filename(tmp_path):
 
     with (
         _environment([_row("imp-1", source, issue_number="1")], target_directory),
-        patch("comicarr.helpers.rename_param", side_effect=ValueError("bad format")),
+        patch("comicarr.app.downloads.service.rename_param", side_effect=ValueError("bad format")),
         patch("comicarr.app.series.rescan.rescan_series"),
     ):
         finalization.finalize_manual_match(_ctx(move=True, rename=True), ["imp-1"], "mal-123")

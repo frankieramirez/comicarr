@@ -16,11 +16,12 @@ from contextlib import nullcontext
 
 from sqlalchemy import select
 
-from comicarr import db, helpers, logger, search
+from comicarr import db, logger, search
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.search import progress
 from comicarr.app.search import routes as search_routes
+from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import EvaluationSession
 from comicarr.app.search.evaluation_handoff import handoff_matches
 from comicarr.app.search.interactive_sessions import (
@@ -57,7 +58,7 @@ def _series_missing_items(ctx, series_id):
 
 
 def _ordered_missing(missing):
-    from comicarr.helpers import issuedigits
+    from comicarr.app.common.configured import issuedigits
 
     return sorted(
         missing or [],
@@ -76,7 +77,7 @@ def _search_targets(missing, *, limit=MAX_SERIES_SEARCH_TARGETS):
     series keep range starts first so packs are still discovered.
     """
 
-    from comicarr.helpers import issuedigits
+    from comicarr.app.common.configured import issuedigits
 
     ordered = _ordered_missing(missing)
     starts = []
@@ -160,7 +161,7 @@ def _resolve_grab_entity(candidate):
 def _provider_plan(ctx, series_id=None):
     return effective_provider_plan(
         ctx.config,
-        is_blocked=helpers.block_provider_check,
+        is_blocked=search_service.block_provider_check,
         override=series_queries.get_comic_provider_override(series_id),
     )
 

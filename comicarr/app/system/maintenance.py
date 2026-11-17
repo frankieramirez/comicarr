@@ -27,7 +27,8 @@ import sqlite3
 import time
 
 import comicarr
-from comicarr import filechecker, helpers, logger
+from comicarr import filechecker, logger
+from comicarr.app.common import dates as common_dates
 from comicarr.app.series.add import add_series
 
 
@@ -636,7 +637,7 @@ class Maintenance(object):
                                         "status": "incomplete",
                                         "total": comicarr.MAINTENANCE_DB_TOTAL,
                                         "current": comicarr.MAINTENANCE_DB_COUNT,
-                                        "last_run": helpers.utctimestamp(),
+                                        "last_run": common_dates.utctimestamp(),
                                     }
                                     self.db_update_status(send_it)
 
@@ -697,7 +698,7 @@ class Maintenance(object):
                                             "status": "incomplete",
                                             "total": comicarr.MAINTENANCE_DB_TOTAL,
                                             "current": comicarr.MAINTENANCE_DB_COUNT,
-                                            "last_run": helpers.utctimestamp(),
+                                            "last_run": common_dates.utctimestamp(),
                                         }
                                         self.db_update_status(send_it)
 
@@ -726,7 +727,7 @@ class Maintenance(object):
                                     "status": "complete",
                                     "total": comicarr.MAINTENANCE_DB_TOTAL,
                                     "current": comicarr.MAINTENANCE_DB_COUNT,
-                                    "last_run": helpers.utctimestamp(),
+                                    "last_run": common_dates.utctimestamp(),
                                 }
                             except Exception as e:
                                 print("error_sendit: %s" % e)

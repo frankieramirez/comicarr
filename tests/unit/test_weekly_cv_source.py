@@ -15,6 +15,7 @@ import pytest
 
 import comicarr
 from comicarr import weeklypull
+from comicarr.app.common import configured as configured
 from comicarr.app.weekly import cv_source
 
 WALKSOFTLY_DOWN = {
@@ -191,7 +192,7 @@ def walksoftly_down(cv_config, monkeypatch):
             info["midweek"] = {38: "2026-09-23", 39: "2026-09-30"}[int(week)]
         return info
 
-    monkeypatch.setattr(weeklypull.helpers, "weekly_info", weekly_info)
+    monkeypatch.setattr(configured, "weekly_info", weekly_info)
     monkeypatch.setattr(weeklypull.locg, "locg", lambda **kwargs: dict(WALKSOFTLY_DOWN))
     monkeypatch.setattr(weeklypull.time, "sleep", lambda *_args: None)
     new_pullcheck = MagicMock()

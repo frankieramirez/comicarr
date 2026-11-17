@@ -23,6 +23,11 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr import db, weeklypull, weeklypullit
+from comicarr.app.common import configured as configured
+from comicarr.app.common import dates as common_dates
+from comicarr.app.search import service as search_service
+from comicarr.app.series import service as series_service
+from comicarr.app.system import service as system_service
 from comicarr.app.weekly import pull
 from comicarr.tables import comics, issues, metadata, weekly
 
@@ -91,9 +96,9 @@ def _patch_match(monkeypatch, *, autowant, listed):
     config.AUTOWANT_UPCOMING = autowant
     config.AUTO_MASS_ADD = False
     monkeypatch.setattr(comicarr, "CONFIG", config)
-    monkeypatch.setattr(weeklypull.helpers, "listPull", lambda week, year: listed)
-    monkeypatch.setattr(weeklypull.helpers, "checkthepub", lambda comicid: 60)
-    monkeypatch.setattr(weeklypull.helpers, "LoadAlternateSearchNames", lambda *_args: None)
+    monkeypatch.setattr(series_service, "listPull", lambda week, year: listed)
+    monkeypatch.setattr(series_service, "checkthepub", lambda comicid: 60)
+    monkeypatch.setattr(search_service, "LoadAlternateSearchNames", lambda *_args: None)
     upcoming_update = MagicMock(return_value=None)
     monkeypatch.setattr(weeklypull.watchlist_match, "upcoming_update", upcoming_update, raising=False)
     monkeypatch.setattr(weeklypull.watchlist_match, "latest_update", MagicMock(), raising=False)
@@ -101,7 +106,7 @@ def _patch_match(monkeypatch, *, autowant, listed):
     monkeypatch.setattr(weeklypull.add_workers, "queue_refreshes", refresh_thread)
     # new_pullcheck logs and swallows per-row errors; surface them instead.
     swallowed = MagicMock()
-    monkeypatch.setattr(weeklypull.helpers, "log_that_exception", swallowed)
+    monkeypatch.setattr(configured, "log_that_exception", swallowed)
     return upcoming_update, refresh_thread, swallowed
 
 
@@ -187,7 +192,7 @@ def test_fetch_pull_list_loads_both_weeks_from_walksoftly_and_matches_each(monke
     config.CACHE_DIR = "/tmp"
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
-        weeklypull.helpers,
+        configured,
         "weekly_info",
         lambda: {"weeknumber": 33, "year": 2026, "prev_weeknumber": 32, "prev_year": 2026},
     )
@@ -216,7 +221,7 @@ def test_fetch_pull_list_reports_an_out_of_date_client_as_failure(monkeypatch):
     config.CACHE_DIR = "/tmp"
     monkeypatch.setattr(comicarr, "CONFIG", config)
     monkeypatch.setattr(
-        weeklypull.helpers,
+        configured,
         "weekly_info",
         lambda: {"weeknumber": 33, "year": 2026, "prev_weeknumber": 32, "prev_year": 2026},
     )
@@ -239,8 +244,8 @@ def test_check_future_releases_with_no_new_series_searches_nothing(pull_db, monk
 
 def test_run_weekly_refresh_fetches_then_checks_future_releases(monkeypatch):
     order = []
-    monkeypatch.setattr(weeklypullit.helpers, "job_management", MagicMock())
-    monkeypatch.setattr(weeklypullit.helpers, "utctimestamp", lambda: 123.0)
+    monkeypatch.setattr(system_service, "job_management", MagicMock())
+    monkeypatch.setattr(common_dates, "utctimestamp", lambda: 123.0)
     monkeypatch.setattr(weeklypullit.weeklypull, "pullit", lambda: order.append("pullit") or {"status": "success"})
     monkeypatch.setattr(weeklypullit.weeklypull, "future_check", lambda: order.append("future_check"))
     monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Queued")
@@ -254,8 +259,8 @@ def test_run_weekly_refresh_fetches_then_checks_future_releases(monkeypatch):
 
 def test_run_weekly_refresh_reraises_a_reported_pull_failure(monkeypatch):
     future_check = MagicMock()
-    monkeypatch.setattr(weeklypullit.helpers, "job_management", MagicMock())
-    monkeypatch.setattr(weeklypullit.helpers, "utctimestamp", lambda: 123.0)
+    monkeypatch.setattr(system_service, "job_management", MagicMock())
+    monkeypatch.setattr(common_dates, "utctimestamp", lambda: 123.0)
     monkeypatch.setattr(weeklypullit.weeklypull, "pullit", lambda: {"status": "failure", "cause": "down"})
     monkeypatch.setattr(weeklypullit.weeklypull, "future_check", future_check)
     monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Queued")

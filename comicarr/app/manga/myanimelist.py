@@ -32,7 +32,7 @@ import requests
 import comicarr
 from comicarr import logger
 from comicarr.app.common import series_kind
-from comicarr.helpers import listLibrary
+from comicarr.app.series.service import listLibrary
 
 MAL_API_BASE = "https://api.myanimelist.net/v2"
 

@@ -22,6 +22,7 @@ import comicarr
 from comicarr import db, getcomics
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.downloads import postprocessing, pp_commands, recovery, router, service
+from comicarr.app.downloads import service as downloads_service
 from comicarr.app.downloads.ddl_commands import DDLCommand
 from comicarr.downloaders import mediafire
 from comicarr.tables import ddl_info, metadata
@@ -139,7 +140,7 @@ def test_folder_monitor_defers_when_processing_is_busy(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CHECK_FOLDER=str(tmp_path)))
     monkeypatch.setattr(comicarr, "MONITOR_STATUS", "Waiting")
     updates = []
-    monkeypatch.setattr("comicarr.helpers.job_management", lambda **kw: updates.append(kw))
+    monkeypatch.setattr("comicarr.app.system.service.job_management", lambda **kw: updates.append(kw))
 
     result = FolderCheck().run()
 
@@ -432,7 +433,7 @@ def test_nzb_downloaded_persistence_failure_never_hands_unowned_pp(sqlite_ddl_db
         return real_transition(*args, **kwargs)
 
     monkeypatch.setattr(journal, "record_transition", fail_downloaded)
-    monkeypatch.setattr("comicarr.helpers.check_file_condition", lambda path: {"status": True})
+    monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda path: {"status": True})
     pp_queue = queue.Queue()
     monkeypatch.setattr(comicarr, "PP_QUEUE", pp_queue)
     item = {
@@ -800,12 +801,12 @@ def test_ddl_startup_sweep_runs_before_worker_thread(monkeypatch):
     monkeypatch.setattr(comicarr, "DDL_QUEUE", work_queue)
     monkeypatch.setattr(comicarr, "DDLPOOL", None)
     monkeypatch.setattr(
-        comicarr.helpers,
+        downloads_service,
         "recover_queued_ddl_commands",
         lambda ddl_queue: events.append("recovery"),
         raising=False,
     )
-    monkeypatch.setattr(comicarr.helpers, "ddl_downloader", lambda ddl_queue: events.append("worker"))
+    monkeypatch.setattr(downloads_service, "ddl_downloader", lambda ddl_queue: events.append("worker"))
 
     comicarr.queue_schedule("ddl_queue", "start")
     comicarr.DDLPOOL.join(timeout=2)
@@ -821,8 +822,8 @@ def test_ddl_startup_sweep_is_skipped_when_worker_is_alive(monkeypatch):
     worker = MagicMock()
     monkeypatch.setattr(comicarr, "DDL_QUEUE", work_queue)
     monkeypatch.setattr(comicarr, "DDLPOOL", live_worker)
-    monkeypatch.setattr(comicarr.helpers, "recover_queued_ddl_commands", recover, raising=False)
-    monkeypatch.setattr(comicarr.helpers, "ddl_downloader", worker)
+    monkeypatch.setattr(downloads_service, "recover_queued_ddl_commands", recover, raising=False)
+    monkeypatch.setattr(downloads_service, "ddl_downloader", worker)
 
     comicarr.queue_schedule("ddl_queue", "start")
 

@@ -23,9 +23,11 @@ from sqlalchemy import select
 
 import comicarr
 import comicarr.search
-from comicarr import helpers, rsscheck
+from comicarr import rsscheck
+from comicarr.app.common import dates as common_dates
 from comicarr.app.manga import mangadex
 from comicarr.app.search import rss
+from comicarr.app.system import service as system_service
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import comics, issues, metadata, rssdb
 
@@ -111,7 +113,7 @@ class TestRunFeedCheck:
 
         monkeypatch.setattr(rsscheck, "requests", SimpleNamespace(get=fake_get, exceptions=requests.exceptions))
         monkeypatch.setattr(comicarr.search, "searchforissue", lambda **kw: env.searches.append(kw))
-        monkeypatch.setattr(helpers, "job_management", lambda **kw: env.jobs.append(kw))
+        monkeypatch.setattr(system_service, "job_management", lambda **kw: env.jobs.append(kw))
         return env
 
     def test_a_forced_pass_indexes_the_feed_and_searches_the_watchlist(self, feed_env, rss_db):
@@ -149,7 +151,7 @@ class TestRunFeedCheck:
         assert comicarr.RSS_STATUS == "Waiting"
 
     def test_an_unforced_pass_inside_the_interval_does_nothing(self, feed_env, monkeypatch):
-        monkeypatch.setattr(comicarr, "SCHED_RSS_LAST", str(helpers.utctimestamp()))
+        monkeypatch.setattr(comicarr, "SCHED_RSS_LAST", str(common_dates.utctimestamp()))
 
         assert rss.run_feed_check() is None
 

@@ -88,15 +88,15 @@ def copy_issue_to_arc(
     folder cannot be made, and ``ArcCopyError`` when the disk is full or
     placement fails.
     """
-    from comicarr import helpers
     from comicarr.app.storyarcs import service
+    from comicarr.app.system import service as system_service
 
     if config is None:
         import comicarr
 
         config = comicarr.CONFIG
     if free_space is None:
-        free_space = helpers.get_free_space
+        free_space = system_service.get_free_space
     if create_directory is None:
         create_directory = service.ensure_arc_directory
     if place is None:

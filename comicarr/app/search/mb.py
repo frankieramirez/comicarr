@@ -31,12 +31,9 @@ from xml.parsers.expat import ExpatError
 import comicarr
 from comicarr import logger
 from comicarr.app.metadata import cv
-from comicarr.helpers import (
-    haveit_for_series_id,
-    ignored_publisher_check,
-    listLibrary,
-    listStoryArcs,
-)
+from comicarr.app.search.service import ignored_publisher_check
+from comicarr.app.series.service import haveit_for_series_id, listLibrary
+from comicarr.app.storyarcs.service import listStoryArcs
 
 mb_lock = threading.Lock()
 

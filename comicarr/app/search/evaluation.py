@@ -26,7 +26,9 @@ from dataclasses import dataclass, field
 from wsgiref.handlers import format_date_time
 
 import comicarr
-from comicarr import filechecker, helpers, logger
+from comicarr import filechecker, logger
+from comicarr.app.common import configured as configured
+from comicarr.app.common import numbers as common_numbers
 from comicarr.app.search import _pack_membership
 from comicarr.app.search._release_identity import generate_id
 from comicarr.app.search.diagnostics import log_evaluation, safe_provider_name
@@ -281,7 +283,7 @@ class EvaluationSession:
             size_bytes = int(raw_size)
         except (TypeError, ValueError):
             try:
-                size_bytes = helpers.human2bytes(str(raw_size))
+                size_bytes = common_numbers.human2bytes(str(raw_size))
             except (AssertionError, TypeError, ValueError):
                 size_bytes = None
 
@@ -484,7 +486,7 @@ class EvaluationSession:
                                     logger.warn("Invalid filesize encountered. Ignoring")
                                     comsize_b = None
                                 else:
-                                    comsize_b = helpers.human2bytes(entry["size"])
+                                    comsize_b = common_numbers.human2bytes(entry["size"])
                         elif entry["site"] == "DDL(External)":
                             comsize_b = "0"
                     except Exception:
@@ -497,16 +499,16 @@ class EvaluationSession:
                 logger.fdebug("Size of file cannot be retrieved. Ignoring size-comparison and continuing.")
             else:
                 if entry["title"][:17] != "0-Day Comics Pack":
-                    comsize_m = helpers.human_size(comsize_b)
+                    comsize_m = common_numbers.human_size(comsize_b)
                     logger.fdebug("size given as: %s" % comsize_m)
                     if comicarr.CONFIG.USE_MINSIZE:
-                        conv_minsize = helpers.human2bytes(comicarr.CONFIG.MINSIZE + "M")
+                        conv_minsize = common_numbers.human2bytes(comicarr.CONFIG.MINSIZE + "M")
                         logger.fdebug("comparing Min threshold %s .. to .. nzb %s" % (conv_minsize, comsize_b))
                         if int(conv_minsize) > int(comsize_b):
                             logger.fdebug("Failure to meet the Minimum size threshold - skipping")
                             self._reject("rejected.size_below_min")
                     if comicarr.CONFIG.USE_MAXSIZE:
-                        conv_maxsize = helpers.human2bytes(comicarr.CONFIG.MAXSIZE + "M")
+                        conv_maxsize = common_numbers.human2bytes(comicarr.CONFIG.MAXSIZE + "M")
                         logger.fdebug("comparing Max threshold %s .. to .. nzb %s" % (conv_maxsize, comsize_b))
                         if int(comsize_b) > int(conv_maxsize):
                             logger.fdebug("Failure to meet the Maximium size threshold - skipping")
@@ -1171,7 +1173,7 @@ class EvaluationSession:
                     if intIss is None and all(
                         [
                             booktype == "One-Shot",
-                            helpers.issuedigits(parsed_comic["issue_number"]) == 1000,
+                            configured.issuedigits(parsed_comic["issue_number"]) == 1000,
                         ]
                     ):
                         intIss = 1000
@@ -1182,7 +1184,7 @@ class EvaluationSession:
                             elif len(re.sub("[^0-9]", "", parsed_comic["issue_number"]).strip()) == 4:
                                 intIss = 1000
                             elif parsed_comic["issue_number"] is not None:
-                                intIss = helpers.issuedigits(parsed_comic["issue_number"])
+                                intIss = configured.issuedigits(parsed_comic["issue_number"])
                         else:
                             intIss = 9999999999
                 if filecomic["justthedigits"] is not None:
@@ -1190,7 +1192,7 @@ class EvaluationSession:
                     if annualize is True and len(re.sub("[^0-9]", "", filecomic["justthedigits"]).strip()) == 4:
                         comintIss = 1000
                     else:
-                        comintIss = helpers.issuedigits(filecomic["justthedigits"])
+                        comintIss = configured.issuedigits(filecomic["justthedigits"])
                     logger.fdebug("integer value of issue we have found : %s" % comintIss)
                 else:
                     comintIss = 11111111111
@@ -1198,7 +1200,7 @@ class EvaluationSession:
                 if filecomic["justthedigits"] is None:
                     pc_in = None
                 else:
-                    pc_in = helpers.issuedigits(filecomic["justthedigits"])
+                    pc_in = configured.issuedigits(filecomic["justthedigits"])
                 if (
                     all([intIss is not None, comintIss is not None])
                     and int(intIss) == int(comintIss)
@@ -1215,7 +1217,7 @@ class EvaluationSession:
                             [
                                 chktpb != 0,
                                 pc_in is None,
-                                helpers.issuedigits(F_ComicVersion) == intIss,
+                                configured.issuedigits(F_ComicVersion) == intIss,
                             ]
                         )
                     )

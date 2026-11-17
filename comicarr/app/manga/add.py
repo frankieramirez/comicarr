@@ -19,10 +19,15 @@ import os
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import configured as configured
+from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
+from comicarr.app.common import strings as common_strings
 from comicarr.app.common.series_names import dynamic_series_key
 from comicarr.app.library import directories
+from comicarr.app.metadata import service as metadata_service
+from comicarr.app.series import service as series_service
 from comicarr.app.series.add_activity import emit_add_activity
 from comicarr.tables import comics, issues
 
@@ -58,14 +63,14 @@ def _upsert_placeholder_manga_chapters(mangaid, manga_name, total):
         if int_issue_number is None:
             chapter_number = row.get("ChapterNumber") or row.get("Issue_Number")
             if chapter_number is not None:
-                int_issue_number = helpers.issuedigits(str(chapter_number))
+                int_issue_number = configured.issuedigits(str(chapter_number))
         if int_issue_number is not None:
             existing_chapters.add(int_issue_number)
 
     created = 0
     for chapter_number in range(1, total + 1):
         chapter_number_str = str(chapter_number)
-        if helpers.issuedigits(chapter_number_str) in existing_chapters:
+        if configured.issuedigits(chapter_number_str) in existing_chapters:
             continue
 
         placeholder_id = "%s-ch%s" % (mangaid, chapter_number_str)
@@ -76,9 +81,9 @@ def _upsert_placeholder_manga_chapters(mangaid, manga_name, total):
             "Issue_Number": chapter_number_str,
             "IssueName": "Chapter %s" % chapter_number_str,
             "Status": "Skipped",
-            "Int_IssueNumber": helpers.issuedigits(chapter_number_str),
+            "Int_IssueNumber": configured.issuedigits(chapter_number_str),
             "ChapterNumber": chapter_number_str,
-            "DateAdded": helpers.now(),
+            "DateAdded": common_dates.now(),
         }
         db.upsert("issues", placeholder_values, {"IssueID": placeholder_id})
         created += 1
@@ -147,7 +152,7 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
                     "IssueName": chapter.get("title") or ("Chapter %s" % chapter_num),
                     "ReleaseDate": release_date,
                     "IssueDate": release_date,
-                    "Int_IssueNumber": helpers.issuedigits(chapter_num),
+                    "Int_IssueNumber": configured.issuedigits(chapter_num),
                     "ChapterNumber": str(chapter_num),
                     "VolumeNumber": str(chapter.get("volume")) if chapter.get("volume") else None,
                 }
@@ -156,7 +161,7 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
                     if comicarr.CONFIG.AUTOWANT_ALL:
                         issue_status = "Wanted"
                     issue_values["Status"] = issue_status
-                    issue_values["DateAdded"] = helpers.now()
+                    issue_values["DateAdded"] = common_dates.now()
 
                 db.upsert("issues", issue_values, {"IssueID": issue_id})
                 issue_count += 1
@@ -234,11 +239,11 @@ def _manga_series_folder(manga_dest, manga_name, manga_year):
     Comicarr watching the empty one.
     """
     folder_format = comicarr.CONFIG.FOLDER_FORMAT or "$Series ($Year)"
-    formatted = helpers.filesafe(folder_format.replace("$Series", manga_name).replace("$Year", str(manga_year)))
+    formatted = common_strings.filesafe(folder_format.replace("$Series", manga_name).replace("$Year", str(manga_year)))
     root = os.path.normpath(os.path.abspath(manga_dest))
     formatted_path = os.path.join(manga_dest, formatted)
     checked_formatted = os.path.normpath(os.path.join(root, formatted))
-    plain_path = os.path.normpath(os.path.join(root, helpers.filesafe(manga_name)))
+    plain_path = os.path.normpath(os.path.join(root, common_strings.filesafe(manga_name)))
     if not checked_formatted.startswith(root + os.sep) or not plain_path.startswith(root + os.sep):
         return formatted_path
     if plain_path != checked_formatted and not os.path.isdir(checked_formatted) and os.path.isdir(plain_path):
@@ -369,8 +374,8 @@ def add_mangadex(mangaid, imported=None, calledfrom=None, location=None):
         "ExternalID": mangadex_uuid,
         "MangaDexID": mangadex_uuid,
         "MalID": manga.get("mal_id") or (dbmanga or {}).get("MalID"),
-        "LastUpdated": helpers.now(),
-        "DateAdded": helpers.today() if dbmanga is None else dbmanga.get("DateAdded", helpers.today()),
+        "LastUpdated": common_dates.now(),
+        "DateAdded": common_dates.today() if dbmanga is None else dbmanga.get("DateAdded", common_dates.today()),
     }
 
     alt_titles = manga.get("alt_titles", [])
@@ -382,13 +387,13 @@ def add_mangadex(mangaid, imported=None, calledfrom=None, location=None):
     cover_url = manga.get("cover_url")
     if cover_url:
         try:
-            covercheck = helpers.getImage(mangaid, cover_url)
+            covercheck = metadata_service.getImage(mangaid, cover_url)
             if covercheck["status"] == "retry":
                 logger.info("[MANGADEX] Retrying alternate cover image for: %s" % manga_name)
             elif covercheck["status"] == "success":
                 db.upsert(
                     "comics",
-                    {"ComicImage": helpers.replacetheslash(os.path.join("cache", str(mangaid) + ".jpg"))},
+                    {"ComicImage": common_strings.replacetheslash(os.path.join("cache", str(mangaid) + ".jpg"))},
                     controlValueDict,
                 )
         except Exception as e:
@@ -396,7 +401,7 @@ def add_mangadex(mangaid, imported=None, calledfrom=None, location=None):
 
     _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, None, controlValueDict)
 
-    helpers.ComicSort(comicorder=comicarr.COMICSORT, imported=mangaid)
+    series_service.ComicSort(comicorder=comicarr.COMICSORT, imported=mangaid)
 
     logger.info("[MANGADEX] Successfully added manga: %s" % manga_name)
     emit_add_activity("succeeded", mangaid, comicname=manga_name)
@@ -547,8 +552,8 @@ def add_myanimelist(mangaid, imported=None, calledfrom=None, location=None):
         "ExternalID": mal_numeric_id,
         "MalID": mal_numeric_id,
         "MangaDexID": mangadex_uuid,
-        "LastUpdated": helpers.now(),
-        "DateAdded": helpers.today() if dbmanga is None else dbmanga.get("DateAdded", helpers.today()),
+        "LastUpdated": common_dates.now(),
+        "DateAdded": common_dates.today() if dbmanga is None else dbmanga.get("DateAdded", common_dates.today()),
     }
 
     alt_titles = manga.get("alt_titles", [])
@@ -560,13 +565,13 @@ def add_myanimelist(mangaid, imported=None, calledfrom=None, location=None):
     cover_url = manga.get("cover_url")
     if cover_url:
         try:
-            covercheck = helpers.getImage(mangaid, cover_url)
+            covercheck = metadata_service.getImage(mangaid, cover_url)
             if covercheck["status"] == "retry":
                 logger.info("[MAL] Retrying alternate cover image for: %s" % manga_name)
             elif covercheck["status"] == "success":
                 db.upsert(
                     "comics",
-                    {"ComicImage": helpers.replacetheslash(os.path.join("cache", str(mangaid) + ".jpg"))},
+                    {"ComicImage": common_strings.replacetheslash(os.path.join("cache", str(mangaid) + ".jpg"))},
                     controlValueDict,
                 )
         except Exception as e:
@@ -575,7 +580,7 @@ def add_myanimelist(mangaid, imported=None, calledfrom=None, location=None):
     mal_num_chapters = manga.get("last_chapter")
     _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapters, controlValueDict)
 
-    helpers.ComicSort(comicorder=comicarr.COMICSORT, imported=mangaid)
+    series_service.ComicSort(comicorder=comicarr.COMICSORT, imported=mangaid)
 
     logger.info("[MAL] Successfully added manga: %s" % manga_name)
     emit_add_activity("succeeded", mangaid, comicname=manga_name)

@@ -10,6 +10,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 import comicarr
 from comicarr import weeklypullit
+from comicarr.app.common import dates as common_dates
 from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.workers import BackgroundWorkerRegistry, start_background_thread
@@ -18,8 +19,8 @@ from comicarr.app.system import service as system_service
 
 def test_weekly_run_records_success_and_returns_to_waiting(monkeypatch):
     job_management = MagicMock()
-    monkeypatch.setattr(weeklypullit.helpers, "job_management", job_management)
-    monkeypatch.setattr(weeklypullit.helpers, "utctimestamp", lambda: 123.0)
+    monkeypatch.setattr(system_service, "job_management", job_management)
+    monkeypatch.setattr(common_dates, "utctimestamp", lambda: 123.0)
     monkeypatch.setattr(weeklypullit.weeklypull, "pullit", MagicMock())
     monkeypatch.setattr(weeklypullit.weeklypull, "future_check", MagicMock())
     monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Queued")
@@ -45,8 +46,8 @@ def test_recommendations_run_after_weekly_lock_and_status_are_released(monkeypat
     observations = []
 
     monkeypatch.setattr(system_service, "get_weekly_refresh_lock", lambda: refresh_lock)
-    monkeypatch.setattr(weeklypullit.helpers, "job_management", MagicMock())
-    monkeypatch.setattr(weeklypullit.helpers, "utctimestamp", lambda: 123.0)
+    monkeypatch.setattr(system_service, "job_management", MagicMock())
+    monkeypatch.setattr(common_dates, "utctimestamp", lambda: 123.0)
     monkeypatch.setattr(weeklypullit.weeklypull, "pullit", MagicMock(return_value={"status": "success"}))
     monkeypatch.setattr(weeklypullit.weeklypull, "future_check", MagicMock())
     monkeypatch.setattr(comicarr, "AI_CLIENT", object())
@@ -121,8 +122,8 @@ def test_recommendation_refreshes_coalesce_while_worker_is_busy(monkeypatch):
 
 def test_weekly_run_records_failure_and_recovers_status(monkeypatch):
     job_management = MagicMock()
-    monkeypatch.setattr(weeklypullit.helpers, "job_management", job_management)
-    monkeypatch.setattr(weeklypullit.helpers, "utctimestamp", lambda: 456.0)
+    monkeypatch.setattr(system_service, "job_management", job_management)
+    monkeypatch.setattr(common_dates, "utctimestamp", lambda: 456.0)
     monkeypatch.setattr(weeklypullit.weeklypull, "pullit", MagicMock(side_effect=RuntimeError("upstream down")))
     monkeypatch.setattr(weeklypullit.weeklypull, "future_check", MagicMock())
     monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Queued")
@@ -142,8 +143,8 @@ def test_weekly_run_records_failure_and_recovers_status(monkeypatch):
 
 def test_weekly_run_records_origin_outage_cause(monkeypatch):
     job_management = MagicMock()
-    monkeypatch.setattr(weeklypullit.helpers, "job_management", job_management)
-    monkeypatch.setattr(weeklypullit.helpers, "utctimestamp", lambda: 456.0)
+    monkeypatch.setattr(system_service, "job_management", job_management)
+    monkeypatch.setattr(common_dates, "utctimestamp", lambda: 456.0)
     monkeypatch.setattr(
         weeklypullit.weeklypull,
         "pullit",
@@ -171,8 +172,8 @@ def test_weekly_run_records_origin_outage_cause(monkeypatch):
 
 def test_weekly_run_records_returned_pull_failure(monkeypatch):
     job_management = MagicMock()
-    monkeypatch.setattr(weeklypullit.helpers, "job_management", job_management)
-    monkeypatch.setattr(weeklypullit.helpers, "utctimestamp", lambda: 456.0)
+    monkeypatch.setattr(system_service, "job_management", job_management)
+    monkeypatch.setattr(common_dates, "utctimestamp", lambda: 456.0)
     monkeypatch.setattr(weeklypullit.weeklypull, "pullit", MagicMock(return_value={"status": "failure"}))
     future_check = MagicMock()
     monkeypatch.setattr(weeklypullit.weeklypull, "future_check", future_check)
@@ -207,8 +208,8 @@ def _scheduler_job(monkeypatch, hours_ahead=4):
         return None
 
     monkeypatch.setattr(weeklypullit, "_get_weekly_runtime_value", runtime_value)
-    monkeypatch.setattr(weeklypullit.helpers, "job_management", MagicMock())
-    monkeypatch.setattr(weeklypullit.helpers, "utctimestamp", lambda: 456.0)
+    monkeypatch.setattr(system_service, "job_management", MagicMock())
+    monkeypatch.setattr(common_dates, "utctimestamp", lambda: 456.0)
     monkeypatch.setattr(weeklypullit.weeklypull, "future_check", MagicMock())
     return job
 
@@ -304,8 +305,8 @@ def test_weekly_run_projects_running_state_before_refresh_cannot_enqueue_again(m
     ctx = AppContext(scheduler=scheduler, weekly_status="Queued")
     monkeypatch.setattr(runtime, "_runtime", ctx)
     monkeypatch.setattr(system_service, "_fallback_weekly_refresh_lock", threading.RLock())
-    monkeypatch.setattr(weeklypullit.helpers, "job_management", MagicMock())
-    monkeypatch.setattr(weeklypullit.helpers, "utctimestamp", lambda: 123.0)
+    monkeypatch.setattr(system_service, "job_management", MagicMock())
+    monkeypatch.setattr(common_dates, "utctimestamp", lambda: 123.0)
     monkeypatch.setattr(weeklypullit.weeklypull, "future_check", MagicMock())
 
     observed = []

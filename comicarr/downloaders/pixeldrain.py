@@ -23,7 +23,8 @@ import urllib
 import requests
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import numbers as common_numbers
 
 
 class PixelDrain(object):
@@ -93,7 +94,7 @@ class PixelDrain(object):
             {
                 "filename": str(file_info["filename"]),
                 "remote_filesize": str(file_info["filesize"]),
-                "size": helpers.human_size(file_info["filesize"]),
+                "size": common_numbers.human_size(file_info["filesize"]),
             },
             {"ID": self.id},
         )

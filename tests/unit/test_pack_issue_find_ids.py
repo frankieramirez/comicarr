@@ -10,8 +10,8 @@
 import pytest
 
 import comicarr
+from comicarr.app.common.configured import issuedigits
 from comicarr.app.search import _pack_membership as pack_membership
-from comicarr.helpers import issuedigits
 
 
 def _row(issueid, number, status="Wanted", chapter=None, volume=None, released=None):

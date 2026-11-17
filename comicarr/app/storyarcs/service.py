@@ -22,12 +22,15 @@ import time
 import requests
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import configured as configured
 from comicarr.app.common import placement
+from comicarr.app.common import strings as common_strings
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.library import filers
 from comicarr.app.metadata import cv
 from comicarr.app.storyarcs import queries as arc_queries
+from comicarr.app.storyarcs import service as storyarcs_service
 from comicarr.tables import comics, issues, storyarcs
 
 ALLOWED_ARC_STATUSES = {"Wanted", "Read", "Skipped"}
@@ -333,7 +336,7 @@ def _want_arc_issues(arc_id, audit_identity):
         if issue is None and row["ComicID"]:
             issue = arc_queries.find_library_issue(
                 comic_id=row["ComicID"],
-                int_issue_number=helpers.issuedigits(row["IssueNumber"]),
+                int_issue_number=configured.issuedigits(row["IssueNumber"]),
             )
 
         if issue is None:
@@ -360,7 +363,7 @@ def _want_arc_issues(arc_id, audit_identity):
                 wanted += 1
                 _enqueue_arc_search(issue)
         if row["IssueNumber"]:
-            fields["Int_IssueNumber"] = helpers.issuedigits(row["IssueNumber"])
+            fields["Int_IssueNumber"] = configured.issuedigits(row["IssueNumber"])
         arc_queries.set_arc_issue_fields(row["IssueArcID"], fields)
     return {"wanted": wanted, "unresolved": unresolved, "skipped": skipped}
 
@@ -584,7 +587,7 @@ def _arc_watchlist(StoryArcID=None):
         logger.info("No Story Arcs to search")
     else:
         arcname = ArcWatch[0]["StoryArc"]
-        arcdir = helpers.filesafe(arcname)
+        arcdir = common_strings.filesafe(arcname)
         if StoryArcID is None:
             StoryArcID = ArcWatch[0]["StoryArcID"]
         arcpub = ArcWatch[0]["Publisher"]
@@ -592,7 +595,7 @@ def _arc_watchlist(StoryArcID=None):
             arcpub = ArcWatch[0]["IssuePublisher"]
 
         logger.info("arcpub: %s" % arcpub)
-        dstloc = helpers.arcformat(arcdir, helpers.spantheyears(StoryArcID), arcpub)
+        dstloc = storyarcs_service.arcformat(arcdir, storyarcs_service.spantheyears(StoryArcID), arcpub)
 
         if dstloc is not None:
             if not os.path.isdir(dstloc):
@@ -793,7 +796,7 @@ def _add_story_arc(
             digitaldate = str(arcval["Digital_Date"])
             storedate = str(arcval["Store_Date"])
 
-            int_issnum = helpers.issuedigits(issnum)
+            int_issnum = configured.issuedigits(issnum)
 
             findorder = arclist.find(issid)
             if findorder != -1:
@@ -1060,7 +1063,7 @@ def listStoryArcs():
 def updatearc_locs(storyarcid, arc_issues):
     from sqlalchemy import select
 
-    from comicarr.helpers import rename_param, renamefile_readingorder
+    from comicarr.app.downloads.service import rename_param, renamefile_readingorder
 
     module = "[UPDATEARC-LOCS]"
     issueid_list = []
@@ -1225,7 +1228,7 @@ def spantheyears(storyarcid):
 
 
 def arcformat(arc, spanyears, publisher, config=None):
-    from comicarr.helpers import filesafe, replace_all
+    from comicarr.app.common.strings import filesafe, replace_all
 
     if config is None:
         config = comicarr.CONFIG

@@ -26,7 +26,8 @@ from email.message import Message
 import requests
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import numbers as common_numbers
 from comicarr.app.common.remote_artifacts import (
     resolve_remote_artifact_path,
     safe_remote_filename,
@@ -94,7 +95,7 @@ class MediaFire(object):
         logger.fdebug("[Writing to db: %s" % (filename))
         db.upsert(
             "ddl_info",
-            {"filename": str(filename), "remote_filesize": str(filesize), "size": helpers.human_size(filesize)},
+            {"filename": str(filename), "remote_filesize": str(filesize), "size": common_numbers.human_size(filesize)},
             {"ID": id},
         )
         return self.mediafire_dl(url, id, fileinfo, issueid)

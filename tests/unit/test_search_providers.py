@@ -5,8 +5,10 @@ import pytest
 
 import comicarr
 from comicarr import search
+from comicarr.app.search import service as search_service
 from comicarr.app.search.providers import effective_provider_plan
 from comicarr.app.series import queries as series_queries
+from comicarr.app.series import service as series_service
 
 
 def _config(**overrides):
@@ -41,7 +43,7 @@ def test_effective_provider_plan_includes_enabled_torznab_missing_from_saved_ord
 def test_provider_order_routes_enabled_torznab_even_when_provider_order_is_stale(monkeypatch):
     config = _config()
     monkeypatch.setattr(comicarr, "CONFIG", config)
-    monkeypatch.setattr(search.helpers, "block_provider_check", lambda _site: False)
+    monkeypatch.setattr(search_service, "block_provider_check", lambda _site: False)
 
     result = search.provider_order(initial_run=True)
 
@@ -67,7 +69,7 @@ def test_unnamed_provider_uses_safe_identity_during_legacy_execution(monkeypatch
         EXTRA_TORZNABS=[["", "https://user:secret@indexer.test/api?apikey=token", "1", "secret", "5070", "1", 1]]
     )
     monkeypatch.setattr(comicarr, "CONFIG", config)
-    monkeypatch.setattr(search.helpers, "block_provider_check", lambda _site: False)
+    monkeypatch.setattr(search_service, "block_provider_check", lambda _site: False)
 
     result = search.provider_order()
 
@@ -164,7 +166,13 @@ def _override_config(**overrides):
             ["Nyaa.si", "https://indexer.test/api", "1", "secret", "5070", "1", 1],
             ["MagIndex", "https://mag.test/api", "1", "mag-secret", "5070", "1", 1],
         ],
-        "PROVIDER_ORDER": {"0": "DDL(GetComics)", "1": "DDL(External)", "2": "NZBGeek", "3": "Nyaa.si", "4": "MagIndex"},
+        "PROVIDER_ORDER": {
+            "0": "DDL(GetComics)",
+            "1": "DDL(External)",
+            "2": "NZBGeek",
+            "3": "Nyaa.si",
+            "4": "MagIndex",
+        },
     }
     values.update(overrides)
     return _config(**values)
@@ -196,7 +204,7 @@ def test_series_override_orders_several_names_and_matches_case_insensitively():
 
 def test_excluded_provider_is_absent_for_that_series_only(monkeypatch):
     monkeypatch.setattr(comicarr, "CONFIG", _override_config())
-    monkeypatch.setattr(search.helpers, "block_provider_check", lambda _site: False)
+    monkeypatch.setattr(search_service, "block_provider_check", lambda _site: False)
     stored = {"wizard": '{"order": ["MagIndex"], "exclude": ["DDL(GetComics)"]}'}
     monkeypatch.setattr(series_queries, "get_comic_provider_override", lambda comic_id: stored.get(comic_id))
 
@@ -239,8 +247,8 @@ def test_override_keeps_blocked_providers_blocked():
 def _logged_search_init(monkeypatch, *, override, content_type, config=None):
     messages = []
     monkeypatch.setattr(comicarr, "CONFIG", config or _override_config())
-    monkeypatch.setattr(search.helpers, "block_provider_check", lambda _site: False)
-    monkeypatch.setattr(search.helpers, "get_issue_title", lambda *a, **k: None)
+    monkeypatch.setattr(search_service, "block_provider_check", lambda _site: False)
+    monkeypatch.setattr(series_service, "get_issue_title", lambda *a, **k: None)
     monkeypatch.setattr(series_queries, "get_comic_provider_override", lambda comic_id: override)
 
     def capture(message, *args, **kwargs):
@@ -252,8 +260,16 @@ def _logged_search_init(monkeypatch, *, override, content_type, config=None):
         monkeypatch.setattr(search.logger, level, capture)
     try:
         result = search.search_init(
-            "Wizard", "1", "1991", "1991", None, "1991-07-01", "1991-07-01", "issue-1",
-            ComicID="wizard", content_type=content_type,
+            "Wizard",
+            "1",
+            "1991",
+            "1991",
+            None,
+            "1991-07-01",
+            "1991-07-01",
+            "issue-1",
+            ComicID="wizard",
+            content_type=content_type,
         )
     except RuntimeError as e:
         assert str(e) == "captured-provider-order"
@@ -290,7 +306,7 @@ def test_interactive_release_search_plan_applies_the_series_override(monkeypatch
     from comicarr.app.core.context import AppContext
     from comicarr.app.search import interactive
 
-    monkeypatch.setattr(interactive.helpers, "block_provider_check", lambda _site: False)
+    monkeypatch.setattr(search_service, "block_provider_check", lambda _site: False)
     stored = {"wizard": '{"order": ["MagIndex"], "exclude": ["DDL(GetComics)"]}'}
     monkeypatch.setattr(series_queries, "get_comic_provider_override", lambda comic_id: stored.get(comic_id))
     ctx = AppContext(config=_override_config())

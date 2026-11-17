@@ -551,7 +551,7 @@ def _location_under_manga_dest(location, manga_dest):
 
 
 def _manga_destination():
-    # Lazy import: helpers.py imports this module during comicarr.config init.
+    # Lazy import: comicarr.config imports this module during init.
     from comicarr.config import get_manga_destination
 
     return get_manga_destination()
@@ -1583,7 +1583,7 @@ def ComicSort(comicorder=None, sequence=None, imported=None):
 def updateComicLocation():
     from sqlalchemy import select
 
-    from comicarr.helpers import filesafe, replace_all
+    from comicarr.app.common.strings import filesafe, replace_all
 
     if comicarr.CONFIG.NEWCOM_DIR is not None:
         logger.info("Performing a one-time mass update to Comic Location")
@@ -1728,7 +1728,7 @@ def havetotals(refreshit=None):
 
     from sqlalchemy import delete, func, select
 
-    from comicarr.helpers import today
+    from comicarr.app.common.dates import today
 
     now = time.monotonic()
     if _havetotals_cache is not None and (now - _havetotals_cache_time) < 30 and not refreshit:
@@ -2051,7 +2051,7 @@ def incr_snatched(ComicID):
 def get_issue_title(IssueID=None, ComicID=None, IssueNumber=None, IssueArcID=None):
     from sqlalchemy import select
 
-    from comicarr.helpers import issuedigits
+    from comicarr.app.common.configured import issuedigits
 
     if IssueID:
         issue = db.select_one(select(issues).where(issues.c.IssueID == IssueID))
@@ -2082,7 +2082,7 @@ def get_issue_title(IssueID=None, ComicID=None, IssueNumber=None, IssueArcID=Non
 def latestdate_fix():
     from sqlalchemy import select
 
-    from comicarr.helpers import filesafe
+    from comicarr.app.common.strings import filesafe
 
     datefix = []
     cnupdate = []

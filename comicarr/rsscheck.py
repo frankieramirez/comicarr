@@ -33,7 +33,12 @@ from sqlalchemy import Column, Integer, MetaData, Table, Text, func, or_, select
 from sqlalchemy.exc import OperationalError
 
 import comicarr
-from comicarr import db, filechecker, helpers, logger, utorrent
+from comicarr import db, filechecker, logger, utorrent
+from comicarr.app.common import configured as configured
+from comicarr.app.common import numbers as common_numbers
+from comicarr.app.common import strings as common_strings
+from comicarr.app.common import utilities as common_utilities
+from comicarr.app.search import service as search_service
 from comicarr.app.search.backlog import (
     get_rss_provider_lookup,
     put_rss_provider_lookup,
@@ -41,6 +46,7 @@ from comicarr.app.search.backlog import (
     rss_provider_lookup_key,
 )
 from comicarr.app.search.provider_config import provider_enabled
+from comicarr.app.series import service as series_service
 from comicarr.cfscrape_compat import import_cfscrape
 from comicarr.tables import comics, rssdb
 from comicarr.torrent.clients import deluge as deluge
@@ -271,7 +277,9 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                         "title": entry.title,
                         "link": "".join(linkwwt),
                         "pubdate": entry.updated,
-                        "size": helpers.human2bytes(str(tmpsz[tmpsz_st : tmpsz.find(szform, tmpsz_st) - 1]) + str(sz)),
+                        "size": common_numbers.human2bytes(
+                            str(tmpsz[tmpsz_st : tmpsz.find(szform, tmpsz_st) - 1]) + str(sz)
+                        ),
                     }
                 )
                 i += 1
@@ -322,7 +330,9 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                     elif "TB" in tmpsz[tmpsz_st:tmpsz_end]:
                         szform = "TB"
                         sz = "T"
-                    tsize = helpers.human2bytes(str(tmpsz[tmpsz_st : tmpsz.find(szform, tmpsz_st) - 1]) + str(sz))
+                    tsize = common_numbers.human2bytes(
+                        str(tmpsz[tmpsz_st : tmpsz.find(szform, tmpsz_st) - 1]) + str(sz)
+                    )
 
                     dt = feedme.entries[i].updated
                     try:
@@ -469,7 +479,7 @@ def ddl(forcerss=False):
             sz = "M"
         elif "TB" in size:
             sz = "T"
-        tsize = helpers.human2bytes(re.sub("[^0-9]", "", size).strip() + sz)
+        tsize = common_numbers.human2bytes(re.sub("[^0-9]", "", size).strip() + sz)
 
         results.append({"Title": title, "Size": tsize, "Link": id, "Site": "DDL(GetComics)", "Pubdate": updated})
 
@@ -578,7 +588,7 @@ def nzbs(provider=None, forcerss=False):
             }
             check = _parse_feed("experimental", "https://nzbindex.nl/search/rss", True, params)
             if check == "disable":
-                helpers.disable_provider("experimental")
+                search_service.disable_provider("experimental")
 
         for newznab_host in newznab_hosts:
             site = newznab_host[0].rstrip()
@@ -623,7 +633,7 @@ def nzbs(provider=None, forcerss=False):
 
                     check = _parse_feed(site, url, bool(int(newznab_host[2])), params)
                 if check == "disable":
-                    helpers.disable_provider(site)
+                    search_service.disable_provider(site)
 
         feeddata = []
 
@@ -1002,7 +1012,7 @@ def nzbdbsearch(
                 if provider_list is not None:
                     if not any(
                         nzb["Site"] in olist for olist in provider_list["prov_order"]
-                    ) or helpers.block_provider_check(nzb["Site"]):
+                    ) or search_service.block_provider_check(nzb["Site"]):
                         continue
 
                 else:
@@ -1207,7 +1217,7 @@ def nzbdbsearch(
 
 def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, comicid=None):
     logger.info("matched on " + seriesname)
-    filename = helpers.filesafe(seriesname)
+    filename = common_strings.filesafe(seriesname)
     filename = re.sub(" ", "_", filename)
     filename += "_" + str(issue) + "_" + str(seriesyear)
 
@@ -1243,7 +1253,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
         return "fail"
 
     if site == "DEM":
-        url = helpers.torrent_create("DEM", linkit)
+        url = search_service.torrent_create("DEM", linkit)
 
         if url.startswith("https"):
             dem_referrer = comicarr.DEMURL + "files/download/"
@@ -1258,7 +1268,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
         verify = False
 
     elif site == "WWT":
-        url = helpers.torrent_create("WWT", linkit)
+        url = search_service.torrent_create("WWT", linkit)
 
         if url.startswith("https"):
             wwt_referrer = comicarr.WWTURL
@@ -1341,7 +1351,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
             ):
                 if str(r.status_code) != "503":
                     logger.warn("Unable to download from " + site + " [" + str(r.status_code) + "]")
-                    url = helpers.torrent_create(site, linkit, True)
+                    url = search_service.torrent_create(site, linkit, True)
                     logger.fdebug("Trying alternate url: " + str(url))
                     try:
                         r = requests.get(url, params=payload, verify=verify, stream=True, headers=headers, timeout=30)
@@ -1471,7 +1481,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
 
     elif comicarr.USE_WATCHDIR:
         if comicarr.CONFIG.TORRENT_LOCAL:
-            torrent_info = helpers.get_the_hash(filepath)
+            torrent_info = common_utilities.get_the_hash(filepath)
             torrent_info["clientmode"] = "watchdir"
             torrent_info["link"] = linkit
             torrent_info["filepath"] = filepath
@@ -1656,7 +1666,7 @@ def mangaCheck():
                 store_date = issue_row.get("ReleaseDate") or "0000-00-00"
                 digital_date = issue_row.get("DigitalDate") or "0000-00-00"
 
-                if issue_id and helpers.issue_status(issue_id) is True:
+                if issue_id and series_service.issue_status(issue_id) is True:
                     continue
 
                 try:
@@ -1799,7 +1809,7 @@ def mangadexNewChapterCheck():
                         "ComicID": comic_id,
                         "IssueDate": issue_date,
                         "ReleaseDate": issue_date,
-                        "Int_IssueNumber": helpers.issuedigits(str(ch_num)),
+                        "Int_IssueNumber": configured.issuedigits(str(ch_num)),
                         "ChapterNumber": str(ch_num),
                         "VolumeNumber": str(ch.get("volume")) if ch.get("volume") else None,
                     },

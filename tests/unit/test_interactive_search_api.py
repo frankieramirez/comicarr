@@ -21,6 +21,7 @@ import comicarr
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import COOKIE_NAME, require_session
 from comicarr.app.search import interactive, progress
+from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import ReleaseCandidateEvaluation
 from comicarr.app.search.interactive_sessions import create_session, read_server_candidate, read_session
 from comicarr.app.search.router import router
@@ -59,7 +60,7 @@ def engine(tmp_path, monkeypatch):
     metadata.create_all(value)
     monkeypatch.setattr(interactive.db, "get_engine", lambda: value)
     monkeypatch.setattr(comicarr, "PROVIDER_BLOCKLIST", [])
-    monkeypatch.setattr(interactive.helpers, "block_provider_check", lambda _name: False)
+    monkeypatch.setattr(search_service, "block_provider_check", lambda _name: False)
     monkeypatch.setattr(interactive.search_routes, "route_health", lambda _ctx: {"success": True, "routes": {}})
     yield value
     value.dispose()

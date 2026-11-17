@@ -22,7 +22,8 @@ import os
 import shutil
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.downloads import service as downloads_service
 from comicarr.app.library.directories import validateAndCreateDirectory
 from comicarr.app.series.rescan import rescan_series
 
@@ -51,7 +52,9 @@ def movefiles(comicid, comlocation, imported):
             orig_filename = impr["comicfilename"]
             if comicarr.CONFIG.IMP_RENAME and comicarr.CONFIG.FILE_FORMAT != "":
                 logger.fdebug("Renaming files according to configuration details : " + str(comicarr.CONFIG.FILE_FORMAT))
-                renameit = helpers.rename_param(comicid, imported["ComicName"], impr["issuenumber"], orig_filename)
+                renameit = downloads_service.rename_param(
+                    comicid, imported["ComicName"], impr["issuenumber"], orig_filename
+                )
                 nfilename = renameit["nfilename"]
                 dstimp = os.path.join(comlocation, nfilename)
             else:

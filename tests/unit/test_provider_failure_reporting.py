@@ -25,6 +25,7 @@ from urllib3.exceptions import MaxRetryError, NewConnectionError
 import comicarr
 from comicarr import search
 from comicarr.app.search import failures, interactive, progress
+from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import EvaluationSession
 
 
@@ -97,7 +98,7 @@ def refused_env(monkeypatch):
         types.SimpleNamespace(ENABLE_TORRENT_SEARCH=True, USENET_RETENTION=None, SEARCH_DELAY=5),
     )
     monkeypatch.setattr(search, "last_run_check", lambda **kwargs: {})
-    monkeypatch.setattr(search.helpers, "disable_provider", lambda *args, **kwargs: None)
+    monkeypatch.setattr(search_service, "disable_provider", lambda *args, **kwargs: None)
     monkeypatch.setattr(search.time, "sleep", lambda seconds: None)
 
     def get(url, **kwargs):

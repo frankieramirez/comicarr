@@ -24,8 +24,8 @@ import datetime
 import comicarr
 from comicarr import logger
 from comicarr.app.metadata import cv
+from comicarr.app.search.service import ignored_publisher_check
 from comicarr.app.weekly import locg
-from comicarr.helpers import ignored_publisher_check
 
 SOURCE = "comicvine"
 

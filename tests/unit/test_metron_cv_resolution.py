@@ -110,7 +110,7 @@ class TestAddComictoDBResolution:
         with (
             patch("comicarr.app.metadata.metron.get_cv_id", return_value="145678"),
             patch("comicarr.app.series.comic_add.db") as mock_db,
-            patch("comicarr.app.series.comic_add.helpers"),
+            patch("comicarr.app.series.comic_add.series_service"),
             patch("comicarr.app.series.comic_add.cv") as mock_cv,
             patch.object(comicarr, "COMICSORT", {}, create=True),
             patch.object(comicarr, "CONFIG", MagicMock(IMP_PATHS=False)),

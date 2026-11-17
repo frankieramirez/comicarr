@@ -16,7 +16,9 @@ import pytest
 import comicarr
 from comicarr import search
 from comicarr.app.config.registry import REGISTRY
+from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import EvaluationSession
+from comicarr.app.series import service as series_service
 
 
 def _capture_logs(monkeypatch):
@@ -53,9 +55,11 @@ def _patch_search_env(monkeypatch, providers):
         raising=False,
     )
     monkeypatch.setattr(search, "last_run_check", lambda **kwargs: {})
-    monkeypatch.setattr(search, "provider_order", lambda initial_run=False, comic_id=None: _torznab_providers(providers))
-    monkeypatch.setattr(search.helpers, "get_issue_title", lambda *args, **kwargs: None)
-    monkeypatch.setattr(search.helpers, "block_provider_check", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        search, "provider_order", lambda initial_run=False, comic_id=None: _torznab_providers(providers)
+    )
+    monkeypatch.setattr(series_service, "get_issue_title", lambda *args, **kwargs: None)
+    monkeypatch.setattr(search_service, "block_provider_check", lambda *args, **kwargs: False)
 
 
 @pytest.fixture
@@ -180,7 +184,7 @@ def test_search_init_blocked_provider_still_summarizes(search_env, monkeypatch):
         checks.append(1)
         return len(checks) > 1
 
-    monkeypatch.setattr(search.helpers, "block_provider_check", block_after_first)
+    monkeypatch.setattr(search_service, "block_provider_check", block_after_first)
     info, _debug = _capture_logs(monkeypatch)
 
     _run_search_init(alternate_search="Alias One")

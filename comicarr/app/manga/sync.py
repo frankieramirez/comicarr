@@ -33,7 +33,7 @@ def next_interval_run(last_timestamp, interval_minutes, now_ts=None):
     """
     import datetime
 
-    from comicarr.helpers import utctimestamp
+    from comicarr.app.common.dates import utctimestamp
 
     now = now_ts if now_ts is not None else utctimestamp()
     interval = max(int(interval_minutes or 0), 1)
@@ -105,8 +105,8 @@ def heal_empty_ledgers():
 def run_manga_sync():
     """Scheduled: heal empty ledgers, poll MangaDex, then search wanted."""
     import comicarr
+    from comicarr.app.common.dates import utctimestamp
     from comicarr.app.search.rss import check_manga_releases, check_mangadex_new_chapters
-    from comicarr.helpers import utctimestamp
 
     comicarr.SCHED_MANGA_SYNC_LAST = utctimestamp()
     healed = heal_empty_ledgers()

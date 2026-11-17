@@ -62,7 +62,7 @@ def _row_released_after(row, cutoff_year):
 def issue_find_ids(ComicName, ComicID, pack, IssueNumber, pack_id, kind="issue", span_end=None):
     from sqlalchemy import select
 
-    from comicarr.helpers import issuedigits
+    from comicarr.app.common.configured import issuedigits
 
     pack = re.sub(r"\s*-\s*", "-", pack)
 

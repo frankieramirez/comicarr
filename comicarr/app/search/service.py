@@ -720,7 +720,7 @@ def parse_32pfeed(rssfeedline):
 def checkthe_id(comicid=None, up_vals=None):
     from sqlalchemy import select
 
-    from comicarr.helpers import now
+    from comicarr.app.common.dates import now
 
     if not up_vals:
         chk = db.select_one(select(ref32p).where(ref32p.c.ComicID == comicid))
@@ -1101,7 +1101,7 @@ def _process_search_command(command):
     local_check = mofo.walk_the_walk()
 
     if local_check["status"]:
-        from comicarr.helpers import check_file_condition
+        from comicarr.app.downloads.service import check_file_condition
 
         fullpath = Path(local_check["filepath"]) / local_check["filename"]
         filecondition = check_file_condition(fullpath)
@@ -1278,23 +1278,28 @@ def run_scheduled_search() -> None:
     Job status is written before and after the run. A failure is recorded as
     an Error run and re-raised so the scheduler's health listener sees it.
     """
-    from comicarr import helpers
+    from comicarr.app.common import dates as common_dates
+    from comicarr.app.system import service as system_service
 
     logger.info("[SEARCH] Running Search for Wanted.")
-    helpers.job_management(write=True, job="Auto-Search", current_run=helpers.utctimestamp(), status="Running")
+    system_service.job_management(
+        write=True, job="Auto-Search", current_run=common_dates.utctimestamp(), status="Running"
+    )
     comicarr.SEARCH_STATUS = "Running"
     try:
         comicarr.search.searchforissue()
     except Exception as e:
         comicarr.SEARCH_STATUS = "Error"
-        helpers.job_management(
+        system_service.job_management(
             write=True,
             job="Auto-Search",
-            last_run_completed=helpers.utctimestamp(),
+            last_run_completed=common_dates.utctimestamp(),
             status="Error",
             failure=True,
             failure_message=e,
         )
         raise
-    helpers.job_management(write=True, job="Auto-Search", last_run_completed=helpers.utctimestamp(), status="Waiting")
+    system_service.job_management(
+        write=True, job="Auto-Search", last_run_completed=common_dates.utctimestamp(), status="Waiting"
+    )
     comicarr.SEARCH_STATUS = "Waiting"

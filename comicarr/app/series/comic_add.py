@@ -28,16 +28,21 @@ import sqlalchemy.exc
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, filechecker, helpers, logger, search
+from comicarr import db, filechecker, logger, search
+from comicarr.app.common import configured as configured
+from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
+from comicarr.app.common import strings as common_strings
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.downloads import snatch_record
 from comicarr.app.library import directories, filers, moveit
 from comicarr.app.manga import add as manga_add
 from comicarr.app.metadata import cv, series_metadata
+from comicarr.app.metadata import service as metadata_service
 from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.app.search import mb
 from comicarr.app.series import rescan
+from comicarr.app.series import service as series_service
 from comicarr.app.series.add_activity import emit_add_activity
 from comicarr.app.weekly import pull
 from comicarr.tables import annuals, comics, issues
@@ -258,7 +263,7 @@ def add_comic(
     db.upsert("comics", newValueDict, controlValueDict)
 
     if all([pullupd is None, calledfrom != "maintenance"]):
-        helpers.ComicSort(comicorder=comicarr.COMICSORT, imported=comicid)
+        series_service.ComicSort(comicorder=comicarr.COMICSORT, imported=comicid)
 
     comic = cv.getComic(comicid, "comic", series=True)
 
@@ -378,13 +383,13 @@ def add_comic(
     comicIssues = comic["ComicIssues"]
 
     logger.fdebug("comicIssues: %s" % comicIssues)
-    logger.fdebug("seriesyear: %s / currentyear: %s" % (SeriesYear, helpers.today()[:4]))
+    logger.fdebug("seriesyear: %s / currentyear: %s" % (SeriesYear, common_dates.today()[:4]))
     logger.fdebug("comicType: %s" % comic["Type"])
     booktype = resolve_series_edition(
         series_type=comic["Type"],
         issue_count=comicIssues,
         series_year=SeriesYear,
-        current_year=helpers.today()[:4],
+        current_year=common_dates.today()[:4],
         volume=comic.get("ComicVersion"),
         description=comic.get("ComicDescription"),
         series_name=comic.get("ComicName"),
@@ -395,7 +400,7 @@ def add_comic(
         logger.info("Determined to be a collected volume. Setting Edition to %s" % booktype)
 
     u_comicnm = comic["ComicName"]
-    comicname_filesafe = helpers.filesafe(u_comicnm)
+    comicname_filesafe = common_strings.filesafe(u_comicnm)
 
     dir_rename = False
 
@@ -475,7 +480,7 @@ def add_comic(
     if comicarr.CONFIG.ALTERNATE_LATEST_SERIES_COVERS is False or not os.path.isfile(cimage):
         cimage = os.path.join(comicarr.CONFIG.CACHE_DIR, str(comicid) + ".jpg")
         PRComicImage = os.path.join("cache", str(comicid) + ".jpg")
-        ComicImage = helpers.replacetheslash(PRComicImage)
+        ComicImage = common_strings.replacetheslash(PRComicImage)
         coversize = 0
         if os.path.isfile(cimage):
             statinfo = os.stat(cimage)
@@ -484,11 +489,11 @@ def add_comic(
         if FirstImageSize != 0 and (os.path.isfile(cimage) is True and FirstImageSize == coversize):
             logger.fdebug("Cover already exists for series. Not redownloading.")
         else:
-            covercheck = helpers.getImage(comicid, comic["ComicImage"])
+            covercheck = metadata_service.getImage(comicid, comic["ComicImage"])
             FirstImageSize = covercheck["coversize"]
             if covercheck["status"] == "retry":
                 logger.info("Attempting to retrieve alternate comic image for the series.")
-                covercheck = helpers.getImage(comicid, comic["ComicImageALT"])
+                covercheck = metadata_service.getImage(comicid, comic["ComicImageALT"])
 
         if comicarr.CONFIG.COMIC_COVER_LOCAL is True:
             cloc_it = []
@@ -534,7 +539,7 @@ def add_comic(
     if comicarr.CONFIG.COVER_FOLDER_LOCAL is True:
         if comic["ComicImageThumbnail"] != "None":
             if not os.path.exists(os.path.join(comlocation, "folder.jpg")):
-                th_check = helpers.getImage(
+                th_check = metadata_service.getImage(
                     comicid, comic["ComicImageThumbnail"], thumbnail_path=os.path.join(comlocation, "folder.jpg")
                 )
                 if th_check["status"] == "success":
@@ -598,14 +603,14 @@ def add_comic(
         "Type": booktype,
         "Corrected_Type": comic["Corrected_Type"],
         "Collects": issue_list,
-        "DateAdded": helpers.today(),
+        "DateAdded": common_dates.today(),
         "Status": "Loading",
     }
 
     db.upsert("comics", newValueDict, controlValueDict)
 
     if all([pullupd is None, calledfrom != "maintenance"]):
-        helpers.ComicSort(sequence="update")
+        series_service.ComicSort(sequence="update")
 
     if CV_NoYearGiven == "no":
         issued = cv.getComic(comicid, "issue")
@@ -725,7 +730,7 @@ def add_comic(
         stmt = (
             select(issues.c.Status)
             .where(issues.c.ComicID == comicid)
-            .where(issues.c.Int_IssueNumber == helpers.issuedigits(latestiss))
+            .where(issues.c.Int_IssueNumber == configured.issuedigits(latestiss))
         )
         statbefore = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
@@ -740,7 +745,7 @@ def add_comic(
         stmt = (
             select(issues.c.Status)
             .where(issues.c.ComicID == comicid)
-            .where(issues.c.Int_IssueNumber == helpers.issuedigits(latestiss))
+            .where(issues.c.Int_IssueNumber == configured.issuedigits(latestiss))
         )
         statafter = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
@@ -756,7 +761,7 @@ def add_comic(
                 stmt = (
                     select(issues)
                     .where(issues.c.ComicID == comicid)
-                    .where(issues.c.Int_IssueNumber == helpers.issuedigits(latestiss))
+                    .where(issues.c.Int_IssueNumber == configured.issuedigits(latestiss))
                 )
                 chkstats = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
@@ -766,7 +771,7 @@ def add_comic(
                         stmt = (
                             select(annuals)
                             .where(annuals.c.ComicID == comicid)
-                            .where(annuals.c.Int_IssueNumber == helpers.issuedigits(latestiss))
+                            .where(annuals.c.Int_IssueNumber == configured.issuedigits(latestiss))
                             .where(annuals.c.Deleted == 0)
                         )
                         chkstats = next((dict(row._mapping) for row in conn.execute(stmt)), None)
@@ -956,7 +961,7 @@ def store_issue_rows(issuedata, nostatus, serieslast_updated=None, suppress_adda
 
             if nostatus == "False":
                 if iss_exists is None:
-                    newValueDict["DateAdded"] = helpers.today()
+                    newValueDict["DateAdded"] = common_dates.today()
                     if issue["ReleaseDate"] == "0000-00-00":
                         dk = re.sub("-", "", issue["IssueDate"]).strip()
                     else:
@@ -1133,7 +1138,7 @@ def add_manual_annual(
         newCtrl = {"IssueID": ann["IssueID"]}
         newVals = {
             "Issue_Number": ann["Issue_Number"],
-            "Int_IssueNumber": helpers.issuedigits(ann["Issue_Number"]),
+            "Int_IssueNumber": configured.issuedigits(ann["Issue_Number"]),
             "IssueDate": ann["IssueDate"],
             "ReleaseDate": ann["ReleaseDate"],
             "DigitalDate": ann["DigitalDate"],
@@ -1441,7 +1446,7 @@ def update_issue_data(
                                 )
                                 return {"status": "failure"}
             if any([firstval["Issue_Date"] >= latestdate, storedate >= latestdate]):
-                if int_issnum > helpers.issuedigits(latestiss):
+                if int_issnum > configured.issuedigits(latestiss):
                     latestiss = issnum
                     latestissueid = issid
                 if firstval["Issue_Date"] != "0000-00-00":
@@ -1528,7 +1533,7 @@ def update_issue_data(
         if firstdate[5:7] == "00":
             stmonth = "?"
         else:
-            stmonth = helpers.fullmonth(firstdate[5:7])
+            stmonth = common_dates.fullmonth(firstdate[5:7])
 
         if all([latest_stdate is not None, latest_stdate != "0000-00-00"]):
             p_date = datetime.date(int(latestdate[:4]), int(latestdate[5:7]), 1)
@@ -1540,7 +1545,7 @@ def update_issue_data(
         if latestdate[5:7] == "00":
             ltmonth = "?"
         else:
-            ltmonth = helpers.fullmonth(latestdate[5:7])
+            ltmonth = common_dates.fullmonth(latestdate[5:7])
 
         try:
             c_date = datetime.date(int(latestdate[:4]), int(latestdate[5:7]), 1)
@@ -1557,7 +1562,7 @@ def update_issue_data(
         n_date = datetime.date.today()
         recentchk = (n_date - c_date).days
 
-        if recentchk <= helpers.checkthepub(comicid):
+        if recentchk <= series_service.checkthepub(comicid):
             lastpubdate = "Present"
         else:
             if ltmonth == "?":
@@ -1599,10 +1604,10 @@ def update_issue_data(
         "ComicPublished": publishfigure,
         "NewPublish": newpublish,
         "LatestIssue": latestiss,
-        "intLatestIssue": helpers.issuedigits(latestiss),
+        "intLatestIssue": configured.issuedigits(latestiss),
         "LatestIssueID": latestissueid,
         "LatestDate": latestdate,
-        "LastUpdated": helpers.now(),
+        "LastUpdated": common_dates.now(),
     }
 
     db.upsert("comics", newValueStat, controlValueStat)
@@ -1774,7 +1779,7 @@ def check_annuals(ComicName, SeriesYear, comicid, issuetype, issuechk, annualsli
                         issdate = str(firstval["Issue_Date"])
                         stdate = str(firstval["Store_Date"])
                         digdate = str(firstval["Digital_Date"])
-                        int_issnum = helpers.issuedigits(issnum)
+                        int_issnum = configured.issuedigits(issnum)
 
                         with db.get_engine().connect() as conn:
                             stmt = select(annuals).where(annuals.c.IssueID == issid)
@@ -1856,19 +1861,19 @@ def fetch_series_image(comicid, latestissueid, comlocation, ComicImage):
     imageurl = cv.getComic(comicid, "image", issueid=latestissueid)
     if imageurl is None:
         return
-    covercheck = helpers.getImage(comicid, imageurl["image"])
+    covercheck = metadata_service.getImage(comicid, imageurl["image"])
     if covercheck["status"] == "retry":
         logger.fdebug("Attempting to retrieve a different comic image for this particular issue.")
         if imageurl["image_alt"] is not None:
-            covercheck = helpers.getImage(comicid, imageurl["image_alt"])
+            covercheck = metadata_service.getImage(comicid, imageurl["image_alt"])
         else:
             if not os.path.isfile(cimage):
                 logger.fdebug(
                     "Failed to retrieve issue image, possibly because not available. Reverting back to series image."
                 )
-                covercheck = helpers.getImage(comicid, ComicImage)
+                covercheck = metadata_service.getImage(comicid, ComicImage)
     PRComicImage = os.path.join("cache", str(comicid) + ".jpg")
-    ComicImage = helpers.replacetheslash(PRComicImage)
+    ComicImage = common_strings.replacetheslash(PRComicImage)
 
     if comicarr.CONFIG.COMIC_COVER_LOCAL is True:
         cloc_it = []

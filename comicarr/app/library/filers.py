@@ -29,7 +29,10 @@ import time
 from sqlalchemy import or_, select
 
 import comicarr
-from comicarr import db, filechecker, helpers, logger
+from comicarr import db, filechecker, logger
+from comicarr.app.common import configured as configured
+from comicarr.app.common import dates as common_dates
+from comicarr.app.common import strings as common_strings
 from comicarr.tables import annuals, comics, issues, storyarcs, weekly
 
 
@@ -103,7 +106,7 @@ class FileHandlers(object):
             folder_format = "$Series ($Year)"
 
         publisher = re.sub("!", "", self.comic["ComicPublisher"])
-        publisher = helpers.filesafe(publisher)
+        publisher = common_strings.filesafe(publisher)
 
         if comicarr.OS_DETECT == "Windows":
             if "/" in folder_format:
@@ -117,7 +120,7 @@ class FileHandlers(object):
                 publisher = publisher[:-1]
 
         u_comicnm = self.comic["ComicName"]
-        comicname_filesafe = helpers.filesafe(u_comicnm)
+        comicname_filesafe = common_strings.filesafe(u_comicnm)
         comicdir = comicname_filesafe
 
         series = comicdir
@@ -260,7 +263,7 @@ class FileHandlers(object):
             else:
                 p_path = pathlib.PurePosixPath(ccdir)
             if enforce_format is True:
-                first = helpers.replace_all(chunk_folder_format, values)
+                first = common_strings.replace_all(chunk_folder_format, values)
                 if comicarr.CONFIG.REPLACE_SPACES:
                     first = first.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
                 comlocation = str(p_path.joinpath(first))
@@ -292,7 +295,7 @@ class FileHandlers(object):
             else:
                 p_path = pathlib.PurePosixPath(pathlib.PurePath(bb2).joinpath(bb_tuple))
 
-            first = helpers.replace_all(chunk_folder_format, values)
+            first = common_strings.replace_all(chunk_folder_format, values)
 
             if comicarr.CONFIG.REPLACE_SPACES:
                 first = first.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
@@ -406,7 +409,7 @@ class FileHandlers(object):
             logger.info("generating new directory listing for folder_cache")
             flc = filechecker.FileChecker(folder_location, justparse=True, pp_mode=True)
             comicarr.FOLDER_CACHE = flc.listFiles()
-            comicarr.CHECK_FOLDER_CACHE = datetime.datetime.utcfromtimestamp(helpers.utctimestamp())
+            comicarr.CHECK_FOLDER_CACHE = datetime.datetime.utcfromtimestamp(common_dates.utctimestamp())
 
         local_status = False
         filepath = None
@@ -477,15 +480,15 @@ class FileHandlers(object):
                     temploc = None
                     continue
 
-            int_iss = helpers.issuedigits(issuenumber)
+            int_iss = configured.issuedigits(issuenumber)
             issuedate[:4]
 
             if temploc is not None:
-                fcdigit = helpers.issuedigits(temploc)
+                fcdigit = configured.issuedigits(temploc)
             elif (
                 any([booktype == "TPB", booktype == "GN", booktype == "GC", booktype == "One-Shot"]) and temploc is None
             ):
-                fcdigit = helpers.issuedigits("1")
+                fcdigit = configured.issuedigits("1")
 
             if int(fcdigit) == int_iss:
                 logger.fdebug("[%s] Issue match - #%s" % (self.issueid, self.issue["Issue_Number"]))

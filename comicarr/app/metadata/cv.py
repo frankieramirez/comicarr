@@ -26,7 +26,8 @@ import pytz
 from bs4 import BeautifulSoup as Soup
 
 import comicarr
-from comicarr import helpers, logger
+from comicarr import logger
+from comicarr.app.common import dates as common_dates
 from comicarr.app.common.text_dates import parse_text_date
 from comicarr.app.metadata.series_type import resolve_series_edition
 
@@ -368,7 +369,7 @@ def getComic(
                                 bline
                                 + datetime.timedelta(seconds=round((comicarr.CONFIG.PROBLEM_DATES_SECONDS / 60), 2))
                             ).strftime("%Y-%m-%d %H:%M:%S"),
-                            "end_date": helpers.now(),
+                            "end_date": common_dates.now(),
                         }
                     )
 
@@ -1150,7 +1151,7 @@ def GetSeriesYears(dom):
             series_type=tempseries["Type"],
             issue_count=number_issues,
             series_year=tempseries["SeriesYear"],
-            current_year=helpers.today()[:4],
+            current_year=common_dates.today()[:4],
             volume=tempseries.get("Volume"),
             description=comic_desc,
             deck=comic_deck,
@@ -1654,7 +1655,7 @@ def get_imprint_volume_and_booktype(
         series_type=comic.get("Type"),
         issue_count=issue_count,
         series_year=comic.get("ComicYear"),
-        current_year=helpers.today()[:4],
+        current_year=common_dates.today()[:4],
         volume=comic.get("ComicVersion"),
         description=comic.get("ComicDescription") or comic_desc,
         deck=comic_deck,

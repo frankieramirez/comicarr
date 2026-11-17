@@ -28,10 +28,13 @@ from collections.abc import Mapping
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.metadata import cv, series_metadata
 from comicarr.app.series import add, rescan
+from comicarr.app.series import service as series_service
+from comicarr.app.system import service as system_service
 from comicarr.tables import (
     annuals,
     comics,
@@ -197,7 +200,9 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
                     recentstatus = "Unknown"
                 elif comlist["ForceContinuing"] == 1:
                     recentstatus = "Continuing"
-                elif "present" in comlist["ComicPublished"].lower() or (helpers.today()[:4] in comlist["LatestDate"]):
+                elif "present" in comlist["ComicPublished"].lower() or (
+                    common_dates.today()[:4] in comlist["LatestDate"]
+                ):
                     latestdate = comlist["LatestDate"]
                     c_date = datetime.date(int(latestdate[:4]), int(latestdate[5:7]), 1)
                     n_date = datetime.date.today()
@@ -381,7 +386,7 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
                     whack = True
                 else:
                     logger.fdebug("Checking how out of whack the series is.")
-                    whack = helpers.havetotals(refreshit=ComicID)
+                    whack = series_service.havetotals(refreshit=ComicID)
 
                 if calledfrom == "weekly":
                     if whack:
@@ -806,7 +811,9 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
             logger.info("[BACKFILL-UPDATE] Update ran < 15 minutes ago. Not running.")
             return
 
-    helpers.job_management(write=True, job="DB Updater", current_run=helpers.utctimestamp(), status="Running")
+    system_service.job_management(
+        write=True, job="DB Updater", current_run=common_dates.utctimestamp(), status="Running"
+    )
     comicarr.UPDATER_STATUS = "Running"
 
     logger.info("[BACKFILL-UPDATE] last date set to : %s" % last_date)
@@ -819,8 +826,8 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
                 " job until next db update scheduled run time."
             )
             comicarr.DB_BACKFILL = False
-            helpers.job_management(
-                write=True, job="DB Updater", last_run_completed=helpers.utctimestamp(), status="Waiting"
+            system_service.job_management(
+                write=True, job="DB Updater", last_run_completed=common_dates.utctimestamp(), status="Waiting"
             )
             comicarr.UPDATER_STATUS = "Waiting"
             return
@@ -830,15 +837,17 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
             " job until next db update scheduled run time."
         )
         comicarr.DB_BACKFILL = False
-        helpers.job_management(
-            write=True, job="DB Updater", last_run_completed=helpers.utctimestamp(), status="Waiting"
+        system_service.job_management(
+            write=True, job="DB Updater", last_run_completed=common_dates.utctimestamp(), status="Waiting"
         )
         comicarr.UPDATER_STATUS = "Waiting"
         return
 
     if update_list["count"] == 0:
         logger.info("[BACKFILL-UPDATE] Nothing new has been posted to any series in your watchlist")
-        helpers.job_management(write=True, job="DB Updater", current_run=helpers.utctimestamp(), status="Waiting")
+        system_service.job_management(
+            write=True, job="DB Updater", current_run=common_dates.utctimestamp(), status="Waiting"
+        )
         comicarr.UPDATER_STATUS = "Waiting"
         return
 
@@ -1018,7 +1027,9 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
             )
         )
 
-    helpers.job_management(write=True, job="DB Updater", last_run_completed=helpers.utctimestamp(), status="Waiting")
+    system_service.job_management(
+        write=True, job="DB Updater", last_run_completed=common_dates.utctimestamp(), status="Waiting"
+    )
     comicarr.UPDATER_STATUS = "Waiting"
 
     if comicarr.DB_BACKFILL is True and loaddate_stamp is None:

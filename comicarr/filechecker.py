@@ -25,7 +25,8 @@ import re
 import unicodedata
 
 import comicarr
-from comicarr import helpers, logger
+from comicarr import logger
+from comicarr.app.common import configured as configured
 from comicarr.app.common.series_names import DYNAMIC_HANDLERS, DYNAMIC_REPLACEMENTS, dynamic_series_name
 from comicarr.app.common.series_names import dynamic_series_key as dynamic_series_key
 from comicarr.app.common.text_dates import parse_text_date
@@ -1881,7 +1882,7 @@ class FileChecker(object):
                     continue
 
                 if all([comicarr.CONFIG.ENABLE_TORRENTS is True, self.pp_mode is True]):
-                    tcrc = helpers.crc(os.path.join(dirname, fname))
+                    tcrc = configured.crc(os.path.join(dirname, fname))
                     crcchk = [x for x in pp_crclist if tcrc == x["crc"]]
                     if crcchk:
                         continue

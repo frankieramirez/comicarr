@@ -31,7 +31,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import comicarr
 from comicarr import logger
-from comicarr.helpers import listLibrary
+from comicarr.app.series.service import listLibrary
 
 _IMAGE_CACHE = OrderedDict()
 _IMAGE_CACHE_MAXSIZE = 1000

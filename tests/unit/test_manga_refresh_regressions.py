@@ -17,7 +17,9 @@ from sqlalchemy import create_engine, select
 
 import comicarr
 from comicarr.app.manga import add as manga_add
+from comicarr.app.metadata import service as metadata_service
 from comicarr.app.series import comic_add, folder_rescan, watchlist_refresh
+from comicarr.app.series import service as series_service
 from comicarr.tables import comics, issues, metadata
 
 
@@ -346,9 +348,9 @@ class TestMangaCoverCachePath:
         monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: _mal_details())
         monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: "uuid-1")
         monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: None)
-        monkeypatch.setattr(comic_add.helpers, "getImage", lambda *a, **k: {"status": getimage_status})
+        monkeypatch.setattr(metadata_service, "getImage", lambda *a, **k: {"status": getimage_status})
         monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
-        monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
+        monkeypatch.setattr(series_service, "ComicSort", lambda **k: None)
 
         manga_add.add_myanimelist("mal-13")
 
@@ -446,9 +448,9 @@ class TestMangaRefreshPreservesLibraryState:
         monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: _mal_details())
         monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: None)
         monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: str(tmp_path / "manga-dest"))
-        monkeypatch.setattr(comic_add.helpers, "getImage", lambda *a, **k: {"status": "failed"})
+        monkeypatch.setattr(metadata_service, "getImage", lambda *a, **k: {"status": "failed"})
         monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
-        monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
+        monkeypatch.setattr(series_service, "ComicSort", lambda **k: None)
 
         manga_add.add_myanimelist("mal-13")
 
@@ -525,9 +527,9 @@ class TestMangaRefreshPreservesContentKind:
             raising=False,
         )
         monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: None)
-        monkeypatch.setattr(comic_add.helpers, "getImage", lambda *a, **k: {"status": "failed"})
+        monkeypatch.setattr(metadata_service, "getImage", lambda *a, **k: {"status": "failed"})
         monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
-        monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
+        monkeypatch.setattr(series_service, "ComicSort", lambda **k: None)
 
         if provider == "mangadex":
             monkeypatch.setattr("comicarr.app.manga.mangadex.get_manga_details", lambda _id: _mal_details())

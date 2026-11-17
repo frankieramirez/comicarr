@@ -44,9 +44,12 @@ from dataclasses import dataclass
 from sqlalchemy import Integer, and_, func, inspect, or_, select
 
 import comicarr
-from comicarr import db, filechecker, helpers, logger, weeklypull
+from comicarr import db, filechecker, logger, weeklypull
+from comicarr.app.common import configured as configured
+from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common.placement import place
+from comicarr.app.downloads import service as downloads_service
 from comicarr.app.downloads import snatch_record
 from comicarr.app.downloads.postprocess_pipeline import PostProcessItemDeps
 from comicarr.app.library import getimage
@@ -458,7 +461,7 @@ def match_folder(
                     full_filename = os.path.join(fl["comiclocation"], fl["comicfilename"])
 
             if os.path.isfile(full_filename):
-                condition_check = helpers.check_file_condition(full_filename)
+                condition_check = downloads_service.check_file_condition(full_filename)
                 if condition_check["status"] is False:
                     logger.warn(
                         f"CRC Check: File {full_filename} failed condition check ({condition_check['quality']}).  Ignoring file."
@@ -849,7 +852,7 @@ def match_folder(
             watchvals = []
             for wv in comicseries:
                 try:
-                    tmp_iss = helpers.issuedigits(fl["issue_number"])
+                    tmp_iss = configured.issuedigits(fl["issue_number"])
                 except Exception as e:
                     logger.warn("Unable to determine issue number. This is a no-go, Captain [%s]" % (e,))
 
@@ -861,7 +864,7 @@ def match_folder(
                     continue
                 if (wv["Status"] == "Paused" and any([wv["cv_removed"] == 2, bool(wv["ForceContinuing"]) is True])) or (
                     wv["Have"] == wv["Total"]
-                    and not any(["Present" in wv["ComicPublished"], helpers.now()[:4] in wv["ComicPublished"]])
+                    and not any(["Present" in wv["ComicPublished"], common_dates.now()[:4] in wv["ComicPublished"]])
                 ):
                     dbcheck = db.select_one(
                         select(issues.c.Status).where(
@@ -1115,16 +1118,16 @@ def match_folder(
                         biannchk = re.sub("-", "", temploc.lower()).strip()
                         if "biannual" in biannchk:
                             logger.fdebug("%s Bi-Annual detected." % module)
-                            fcdigit = helpers.issuedigits(re.sub("biannual", "", str(biannchk)).strip())
+                            fcdigit = configured.issuedigits(re.sub("biannual", "", str(biannchk)).strip())
                         else:
                             if "annual" in temploc.lower():
                                 year_check = re.findall(r"(\d{4})(?=[\s]|annual\b|$)", temploc, flags=re.I)
                                 if year_check:
                                     ann_line = "%s annual" % year_check[0]
-                                    fcdigit = helpers.issuedigits(re.sub(ann_line, "", str(temploc.lower())).strip())
-                                fcdigit = helpers.issuedigits(re.sub("annual", "", str(temploc.lower())).strip())
+                                    fcdigit = configured.issuedigits(re.sub(ann_line, "", str(temploc.lower())).strip())
+                                fcdigit = configured.issuedigits(re.sub("annual", "", str(temploc.lower())).strip())
                             else:
-                                fcdigit = helpers.issuedigits(re.sub("special", "", str(temploc.lower())).strip())
+                                fcdigit = configured.issuedigits(re.sub("special", "", str(temploc.lower())).strip())
                             logger.fdebug(
                                 "%s Annual/Special detected [%s]. ComicID assigned as %s"
                                 % (module, fcdigit, cs["ComicID"])
@@ -1142,7 +1145,7 @@ def match_folder(
                     else:
                         annchk = "no"
                         if temploc is not None:
-                            fcdigit = helpers.issuedigits(temploc)
+                            fcdigit = configured.issuedigits(temploc)
                             issuechk = None
                             # A manga VOLUME resolves on VolumeNumber. On
                             # MangaDex/MAL Int_IssueNumber holds the
@@ -1240,14 +1243,14 @@ def match_folder(
                             and all(
                                 [
                                     annchk == "no",
-                                    helpers.issuedigits(temploc) != helpers.issuedigits(isc["Issue_Number"]),
+                                    configured.issuedigits(temploc) != configured.issuedigits(isc["Issue_Number"]),
                                 ]
                             )
                             or all(
                                 [
                                     annchk == "yes",
-                                    helpers.issuedigits(re.sub("annual", "", temploc.lower()).strip())
-                                    != helpers.issuedigits(isc["Issue_Number"]),
+                                    configured.issuedigits(re.sub("annual", "", temploc.lower()).strip())
+                                    != configured.issuedigits(isc["Issue_Number"]),
                                 ]
                             )
                         ):
@@ -1418,7 +1421,7 @@ def match_folder(
                                                 "special", "", week_dynamicname, flags=re.I
                                             ).strip()
                                         week_issue = test["ISSUE"]
-                                        week_intissue = helpers.issuedigits(week_issue)
+                                        week_intissue = configured.issuedigits(week_issue)
                                         logger.fdebug(
                                             "week_dynamicname: %s / dynamic_seriesname: %s"
                                             % (week_dynamicname, dynamic_seriesname)
@@ -1474,7 +1477,7 @@ def match_folder(
                                             [
                                                 "Present" not in cs["ComicPublished"],
                                                 watch_values["ForceContinuing"] is True,
-                                                helpers.now()[:4] not in cs["ComicPublished"],
+                                                common_dates.now()[:4] not in cs["ComicPublished"],
                                             ]
                                         ):
                                             logger.fdebug(
@@ -1849,9 +1852,9 @@ def match_folder(
                                 else:
                                     temploc = None
 
-                            if any([temploc is not None, temploc != 999999999999999]) and helpers.issuedigits(
+                            if any([temploc is not None, temploc != 999999999999999]) and configured.issuedigits(
                                 temploc
-                            ) != helpers.issuedigits(v[i]["ArcValues"]["IssueNumber"]):
+                            ) != configured.issuedigits(v[i]["ArcValues"]["IssueNumber"]):
                                 i += 1
                                 continue
                             else:
@@ -1863,22 +1866,22 @@ def match_folder(
                                     biannchk = re.sub("-", "", temploc.lower()).strip()
                                     if "biannual" in biannchk:
                                         logger.fdebug("%s Bi-Annual detected." % module)
-                                        fcdigit = helpers.issuedigits(re.sub("biannual", "", str(biannchk)).strip())
+                                        fcdigit = configured.issuedigits(re.sub("biannual", "", str(biannchk)).strip())
                                         annualtype = "BiAnnual"
                                     else:
                                         if "annual" in temploc.lower():
                                             year_check = re.findall(r"(\d{4})(?=[\s]|annual\b|$)", temploc, flags=re.I)
                                             if year_check:
                                                 ann_line = "%s annual" % year_check[0]
-                                                fcdigit = helpers.issuedigits(
+                                                fcdigit = configured.issuedigits(
                                                     re.sub(ann_line, "", str(temploc.lower())).strip()
                                                 )
-                                            fcdigit = helpers.issuedigits(
+                                            fcdigit = configured.issuedigits(
                                                 re.sub("annual", "", str(temploc.lower())).strip()
                                             )
                                             annualtype = "Annual"
                                         else:
-                                            fcdigit = helpers.issuedigits(
+                                            fcdigit = configured.issuedigits(
                                                 re.sub("special", "", str(temploc.lower())).strip()
                                             )
                                             annualtype = "Special"
@@ -1899,7 +1902,7 @@ def match_folder(
                                 else:
                                     annchk = "no"
                                     if temploc is not None:
-                                        fcdigit = helpers.issuedigits(temploc)
+                                        fcdigit = configured.issuedigits(temploc)
                                         issuechk = db.select_all(
                                             select(storyarcs).where(
                                                 and_(
@@ -2416,15 +2419,15 @@ def match_folder(
                                     biannchk = re.sub("-", "", temploc.lower()).strip()
                                     if "biannual" in biannchk:
                                         logger.fdebug("%s Bi-Annual detected." % module)
-                                        fcdigit = helpers.issuedigits(re.sub("biannual", "", str(biannchk)).strip())
+                                        fcdigit = configured.issuedigits(re.sub("biannual", "", str(biannchk)).strip())
                                     else:
                                         year_check = re.findall(r"(\d{4})(?=[\s]|annual\b|$)", temploc, flags=re.I)
                                         if year_check:
                                             ann_line = "%s annual" % year_check[0]
-                                            fcdigit = helpers.issuedigits(
+                                            fcdigit = configured.issuedigits(
                                                 re.sub(ann_line, "", str(temploc.lower())).strip()
                                             )
-                                        fcdigit = helpers.issuedigits(
+                                        fcdigit = configured.issuedigits(
                                             re.sub("annual", "", str(temploc.lower())).strip()
                                         )
                                         logger.fdebug(
@@ -2433,12 +2436,12 @@ def match_folder(
                                         )
                                     annchk = "yes"
                                 else:
-                                    fcdigit = helpers.issuedigits(temploc)
+                                    fcdigit = configured.issuedigits(temploc)
 
                             if (
                                 temploc is not None
-                                and fcdigit == helpers.issuedigits(ofv["Issue_Number"])
-                                or all([temploc is None, helpers.issuedigits(ofv["Issue_Number"]) == "1"])
+                                and fcdigit == configured.issuedigits(ofv["Issue_Number"])
+                                or all([temploc is None, configured.issuedigits(ofv["Issue_Number"]) == "1"])
                             ):
                                 if watchmatch["sub"]:
                                     clocation = os.path.join(

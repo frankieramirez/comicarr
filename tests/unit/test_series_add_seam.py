@@ -28,8 +28,10 @@ from comicarr import db
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.manga import add as manga_add
+from comicarr.app.metadata import service as metadata_service
 from comicarr.app.series import add as series_add
 from comicarr.app.series import add_workers, comic_add
+from comicarr.app.series import service as series_service
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import comics, issues, metadata
 
@@ -109,7 +111,7 @@ def test_add_series_provider_failure_is_reported_as_failed(library, monkeypatch)
     get_comic = MagicMock(return_value=None)
     emit = MagicMock()
     monkeypatch.setattr(comic_add.cv, "getComic", get_comic)
-    monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
+    monkeypatch.setattr(series_service, "ComicSort", lambda **k: None)
     monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", emit)
 
     result = series_add.add_series("999")
@@ -131,7 +133,7 @@ def test_refresh_provider_failure_of_a_library_series_is_not_a_failed_add(librar
     with db.get_engine().begin() as conn:
         conn.execute(comics.insert(), {"ComicID": "998", "ComicName": "Saga", "Status": "Active"})
     monkeypatch.setattr(comic_add.cv, "getComic", MagicMock(return_value=None))
-    monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
+    monkeypatch.setattr(series_service, "ComicSort", lambda **k: None)
     emit = MagicMock()
     monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", emit)
 
@@ -156,7 +158,7 @@ def test_refresh_provider_failure_keeps_a_paused_series_name_and_status(library,
     with db.get_engine().begin() as conn:
         conn.execute(comics.insert(), {"ComicID": "997", "ComicName": "Paper Girls", "Status": "Paused"})
     monkeypatch.setattr(comic_add.cv, "getComic", MagicMock(return_value=None))
-    monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
+    monkeypatch.setattr(series_service, "ComicSort", lambda **k: None)
     emit = MagicMock()
     monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", emit)
 
@@ -211,8 +213,8 @@ def test_add_manga_adds_series_from_its_provider(library, tmp_path, monkeypatch,
     )
     monkeypatch.setattr(mangadex, "find_by_mal_id", lambda *a, **k: None)
     monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: 0)
-    monkeypatch.setattr(comic_add.helpers, "getImage", lambda *a, **k: None)
-    monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
+    monkeypatch.setattr(metadata_service, "getImage", lambda *a, **k: None)
+    monkeypatch.setattr(series_service, "ComicSort", lambda **k: None)
     monkeypatch.setattr(comicarr_config, "get_manga_destination", lambda: str(tmp_path / "manga"))
 
     result = series_add.add_manga(comic_id)

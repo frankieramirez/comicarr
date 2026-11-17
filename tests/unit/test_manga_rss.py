@@ -68,7 +68,7 @@ class TestMangaCheck:
     """Tests for mangaCheck() — wanted chapter search triggering."""
 
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
-    @patch("comicarr.rsscheck.helpers")
+    @patch("comicarr.rsscheck.series_service")
     @patch("comicarr.rsscheck.db")
     @patch("comicarr.search.search_init")
     def test_skips_when_no_manga_series(self, mock_search_init, mock_db, mock_helpers):
@@ -79,7 +79,7 @@ class TestMangaCheck:
         mock_search_init.assert_not_called()
 
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
-    @patch("comicarr.rsscheck.helpers")
+    @patch("comicarr.rsscheck.series_service")
     @patch("comicarr.rsscheck.db")
     @patch("comicarr.search.search_init")
     def test_triggers_search_for_wanted_chapters(self, mock_search_init, mock_db, mock_helpers):
@@ -101,7 +101,7 @@ class TestMangaCheck:
         assert call_kwargs[1]["booktype"] == "manga"
 
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
-    @patch("comicarr.rsscheck.helpers")
+    @patch("comicarr.rsscheck.series_service")
     @patch("comicarr.rsscheck.db")
     @patch("comicarr.search.search_init")
     def test_skips_already_downloaded_chapters(self, mock_search_init, mock_db, mock_helpers):
@@ -120,7 +120,7 @@ class TestMangaCheck:
         mock_search_init.assert_not_called()
 
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
-    @patch("comicarr.rsscheck.helpers")
+    @patch("comicarr.rsscheck.series_service")
     @patch("comicarr.rsscheck.db")
     @patch("comicarr.search.search_init")
     def test_handles_search_error_gracefully(self, mock_search_init, mock_db, mock_helpers):
@@ -141,7 +141,7 @@ class TestMangaCheck:
         assert mock_search_init.call_count == 2
 
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
-    @patch("comicarr.rsscheck.helpers")
+    @patch("comicarr.rsscheck.series_service")
     @patch("comicarr.rsscheck.db")
     @patch("comicarr.search.search_init")
     def test_skips_series_with_no_wanted_chapters(self, mock_search_init, mock_db, mock_helpers):
@@ -200,7 +200,10 @@ class TestMangaCheckRssdb:
         mock_db.select_all.side_effect = (
             [series_rows] + [chapters_by_series[row["ComicID"]] for row in series_rows] + [[]]
         )
-        with patch("comicarr.rsscheck.helpers") as mock_helpers, patch("comicarr.search.search_init", search_init):
+        with (
+            patch("comicarr.rsscheck.series_service") as mock_helpers,
+            patch("comicarr.search.search_init", search_init),
+        ):
             mock_helpers.issue_status.return_value = False
             mangaCheck()
 

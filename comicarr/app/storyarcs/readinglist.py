@@ -23,7 +23,8 @@ import os
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, helpers, logger
+from comicarr import db, logger
+from comicarr.app.common import dates as common_dates
 from comicarr.app.library import filers
 from comicarr.tables import annuals, comics, issues, readlist, storyarcs
 
@@ -117,7 +118,7 @@ class Readinglist(object):
 
                 ctrlval = {"IssueID": self.IssueID}
                 newval = {
-                    "DateAdded": helpers.today(),
+                    "DateAdded": common_dates.today(),
                     "Status": "Added",
                     "ComicID": rl["ComicID"],
                     "Issue_Number": comicissue,
@@ -143,7 +144,7 @@ class Readinglist(object):
             else:
                 NewVal = {"Status": "Read"}
 
-            NewVal["StatusChange"] = helpers.today()
+            NewVal["StatusChange"] = common_dates.today()
 
             CtrlVal = {"IssueID": IssueID}
             db.upsert("readlist", NewVal, CtrlVal)
@@ -158,7 +159,7 @@ class Readinglist(object):
                 NewVal = {"Status": "Added"}
             else:
                 NewVal = {"Status": "Read"}
-            NewVal["StatusChange"] = helpers.today()
+            NewVal["StatusChange"] = common_dates.today()
             CtrlVal = {"IssueArcID": IssueArcID}
             db.upsert("storyarcs", NewVal, CtrlVal)
             logger.info(self.module + " Marked " + issue["ComicName"] + " #" + str(issue["IssueNumber"]) + " as Read.")

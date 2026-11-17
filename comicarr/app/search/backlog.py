@@ -64,7 +64,7 @@ def _config_int(name: str, default: int) -> int:
 
 
 def _now_iso() -> str:
-    from comicarr.helpers import utctimestamp
+    from comicarr.app.common.dates import utctimestamp
 
     return str(int(utctimestamp()))
 
