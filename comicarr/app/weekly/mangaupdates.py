@@ -42,6 +42,7 @@ from urllib.parse import quote
 import requests
 
 import comicarr
+from comicarr.app.common.user_agent import app_user_agent
 from comicarr.app.core import logger
 
 API_BASE = "https://api.mangaupdates.com/v1"
@@ -143,8 +144,7 @@ def _request(method, path, *, params=None, body=None):
     wait = REQUEST_SPACING - (time.monotonic() - _last_request[0])
     if wait > 0:
         time.sleep(wait)
-    config = comicarr.CONFIG
-    headers = {"User-Agent": getattr(config, "CV_USER_AGENT", None) or "Comicarr", "Accept": "application/json"}
+    headers = {"User-Agent": app_user_agent(), "Accept": "application/json"}
     try:
         response = requests.request(
             method, API_BASE + path, params=params, json=body, headers=headers, timeout=REQUEST_TIMEOUT

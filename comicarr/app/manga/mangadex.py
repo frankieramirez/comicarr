@@ -33,6 +33,7 @@ import requests
 
 import comicarr
 from comicarr.app.common import series_kind
+from comicarr.app.common.user_agent import app_user_agent
 from comicarr.app.core import logger
 from comicarr.app.series.service import listLibrary
 
@@ -77,7 +78,7 @@ def _make_request(endpoint, params=None, method="GET"):
     _rate_limit()
 
     url = f"{MANGADEX_API_BASE}{endpoint}"
-    headers = {"User-Agent": comicarr.CONFIG.CV_USER_AGENT if comicarr.CONFIG else "Comicarr/1.0"}
+    headers = {"User-Agent": app_user_agent()}
 
     try:
         if method == "GET":
