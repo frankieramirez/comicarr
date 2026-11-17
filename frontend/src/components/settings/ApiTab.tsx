@@ -128,6 +128,7 @@ export function ApiTab({
               onClick={handleCopyApiKey}
               disabled={!displayedApiKey}
               title={t`Copy to clipboard`}
+              aria-label={t`Copy API key`}
             >
               <Copy className="h-4 w-4" />
             </Button>
@@ -138,6 +139,7 @@ export function ApiTab({
               onClick={handleRegenerateApiKey}
               disabled={generateApiKey.isPending}
               title={t`Regenerate API key`}
+              aria-label={t`Regenerate API key`}
             >
               <RefreshCw
                 className={`h-4 w-4 ${generateApiKey.isPending ? "animate-spin" : ""}`}

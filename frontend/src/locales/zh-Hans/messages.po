@@ -2978,6 +2978,10 @@ msgstr "已复制"
 msgid "Copy"
 msgstr "复制"
 
+#: src/components/settings/ApiTab.tsx
+msgid "Copy API key"
+msgstr "复制 API 密钥"
+
 #: src/components/layout/VersionChip.tsx
 msgid "Copy command"
 msgstr "复制命令"
@@ -3949,7 +3953,7 @@ msgstr "保存搜索顺序失败"
 
 #: src/pages/SettingsPage.tsx
 msgid "Failed to save settings"
-msgstr ""
+msgstr "无法保存设置"
 
 #: src/pages/ImportPage.tsx
 msgid "Failed to scan inbox: {error}"
@@ -5448,6 +5452,10 @@ msgstr "在系列中将期刊标记为待获取，Comicarr 会自动搜索它们
 msgid "Mark on shelf"
 msgstr "标记到书架"
 
+#: src/pages/IssueDetailPage.tsx
+msgid "Mark wanted"
+msgstr "标记为想要"
+
 #: src/components/queue/BulkActionBar.tsx
 msgid "Mark Wanted"
 msgstr "标记为待获取"
@@ -5973,6 +5981,10 @@ msgstr "没有剩余符合条件的缺少期刊可搜索。"
 #: src/pages/WantedPage.tsx
 msgid "No eligible wanted issues are ready to search."
 msgstr "没有符合条件的待获取刊物可以搜索。"
+
+#: src/pages/IssueDetailPage.tsx
+msgid "No file or release details yet."
+msgstr "暂无文件或发行详情。"
 
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "No folder at {path} inside the Comicarr container."
@@ -7941,6 +7953,7 @@ msgid "Search accepted — wanted issues will be processed."
 msgstr "搜索已接受 — 将处理待获取刊物。"
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/pages/IssueDetailPage.tsx
 msgid "Search accepted."
 msgstr "搜索已接受。"
 
@@ -8087,6 +8100,10 @@ msgstr "搜索缺少的期刊"
 #: src/components/ai/ChatActionCard.tsx
 msgid "Search not queued"
 msgstr "搜索未加入队列"
+
+#: src/pages/IssueDetailPage.tsx
+msgid "Search now"
+msgstr "立即搜索"
 
 #: src/components/queue/WantedPacingBanner.tsx
 msgid "Search now…"
@@ -9598,6 +9615,7 @@ msgid "Unable to requeue direct download: Unknown error"
 msgstr "无法重新排队直接下载：未知错误"
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/pages/IssueDetailPage.tsx
 #: src/pages/WantedPage.tsx
 msgid "Unable to start this search."
 msgstr "无法开始此搜索。"

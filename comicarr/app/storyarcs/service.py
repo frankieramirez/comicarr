@@ -409,6 +409,42 @@ def refresh_arc(arc_id):
     return {"success": True, "message": "Refreshing %s from ComicVine" % arc_row["StoryArc"]}
 
 
+def add_arc(params):
+    """Add a story arc found in arc search, in the background.
+
+    The arc search page posted here for a long time with no route behind it,
+    so adding an arc always failed (#1503).
+    """
+    cvarcid = str(params.get("cvarcid") or params.get("arcid") or "").strip()
+    name = str(params.get("storyarcname") or "").strip()
+    arclist = str(params.get("arclist") or "").strip()
+    if not cvarcid or not name:
+        return {"success": False, "error": "Story arc ID and name are required"}
+    if not arclist:
+        return {"success": False, "error": "ComicVine lists no issues for this story arc"}
+    try:
+        issues = int(params.get("storyarcissues") or 0)
+    except (TypeError, ValueError):
+        issues = 0
+
+    start_background_thread(
+        _add_story_arc,
+        kwargs={
+            "arcid": str(params.get("arcid") or cvarcid),
+            "cvarcid": cvarcid,
+            "storyarcname": name,
+            "storyarcissues": issues,
+            "arclist": arclist,
+            "storyarcyear": params.get("storyarcyear"),
+            "storyarcpublisher": params.get("storyarcpublisher"),
+            "desc": params.get("description"),
+            "image": params.get("image"),
+        },
+        name="StoryArcAdd",
+    )
+    return {"success": True, "message": "Adding %s from ComicVine" % name}
+
+
 def _read_get_wanted(StoryArcID, audit_identity):
     """Queue story arc issues as Wanted and add to search queue.
 

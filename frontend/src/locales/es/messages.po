@@ -2978,6 +2978,10 @@ msgstr "Copiado"
 msgid "Copy"
 msgstr "Copiar"
 
+#: src/components/settings/ApiTab.tsx
+msgid "Copy API key"
+msgstr "Copiar clave de API"
+
 #: src/components/layout/VersionChip.tsx
 msgid "Copy command"
 msgstr "Copiar comando"
@@ -3949,7 +3953,7 @@ msgstr "No se pudo guardar el orden de búsqueda"
 
 #: src/pages/SettingsPage.tsx
 msgid "Failed to save settings"
-msgstr ""
+msgstr "No se pudo guardar la configuración"
 
 #: src/pages/ImportPage.tsx
 msgid "Failed to scan inbox: {error}"
@@ -5448,6 +5452,10 @@ msgstr "Marca números como buscados desde una serie y Comicarr los buscará aut
 msgid "Mark on shelf"
 msgstr "Marcar en la estantería"
 
+#: src/pages/IssueDetailPage.tsx
+msgid "Mark wanted"
+msgstr "Marcar como buscado"
+
 #: src/components/queue/BulkActionBar.tsx
 msgid "Mark Wanted"
 msgstr "Marcar como Buscado"
@@ -5973,6 +5981,10 @@ msgstr "No quedan números faltantes aptos para buscar."
 #: src/pages/WantedPage.tsx
 msgid "No eligible wanted issues are ready to search."
 msgstr "No hay números buscados aptos listos para buscar."
+
+#: src/pages/IssueDetailPage.tsx
+msgid "No file or release details yet."
+msgstr "Todavía no hay detalles de archivo ni de lanzamiento."
 
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "No folder at {path} inside the Comicarr container."
@@ -7941,6 +7953,7 @@ msgid "Search accepted — wanted issues will be processed."
 msgstr "Búsqueda aceptada: se procesarán los números buscados."
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/pages/IssueDetailPage.tsx
 msgid "Search accepted."
 msgstr "Búsqueda aceptada."
 
@@ -8087,6 +8100,10 @@ msgstr "Buscar números faltantes"
 #: src/components/ai/ChatActionCard.tsx
 msgid "Search not queued"
 msgstr "Búsqueda no puesta en cola"
+
+#: src/pages/IssueDetailPage.tsx
+msgid "Search now"
+msgstr "Buscar ahora"
 
 #: src/components/queue/WantedPacingBanner.tsx
 msgid "Search now…"
@@ -9598,6 +9615,7 @@ msgid "Unable to requeue direct download: Unknown error"
 msgstr "No se pudo volver a poner en cola la descarga directa: error desconocido"
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/pages/IssueDetailPage.tsx
 #: src/pages/WantedPage.tsx
 msgid "Unable to start this search."
 msgstr "No se pudo iniciar esta búsqueda."

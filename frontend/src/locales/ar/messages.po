@@ -2978,6 +2978,10 @@ msgstr "تم النسخ"
 msgid "Copy"
 msgstr "نسخ"
 
+#: src/components/settings/ApiTab.tsx
+msgid "Copy API key"
+msgstr "نسخ مفتاح API"
+
 #: src/components/layout/VersionChip.tsx
 msgid "Copy command"
 msgstr "نسخ الأمر"
@@ -3949,7 +3953,7 @@ msgstr "فشل حفظ ترتيب البحث"
 
 #: src/pages/SettingsPage.tsx
 msgid "Failed to save settings"
-msgstr ""
+msgstr "تعذّر حفظ الإعدادات"
 
 #: src/pages/ImportPage.tsx
 msgid "Failed to scan inbox: {error}"
@@ -5448,6 +5452,10 @@ msgstr "ضع علامة «مطلوب» على أعداد من سلسلة وسي�
 msgid "Mark on shelf"
 msgstr "وضع على الرف"
 
+#: src/pages/IssueDetailPage.tsx
+msgid "Mark wanted"
+msgstr "وضع علامة مطلوب"
+
 #: src/components/queue/BulkActionBar.tsx
 msgid "Mark Wanted"
 msgstr "وسم كمطلوب"
@@ -5973,6 +5981,10 @@ msgstr "لا تتبقى أعداد ناقصة مؤهلة للبحث."
 #: src/pages/WantedPage.tsx
 msgid "No eligible wanted issues are ready to search."
 msgstr "لا توجد أعداد مطلوبة مؤهلة جاهزة للبحث."
+
+#: src/pages/IssueDetailPage.tsx
+msgid "No file or release details yet."
+msgstr "لا توجد تفاصيل ملف أو إصدار بعد."
 
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "No folder at {path} inside the Comicarr container."
@@ -7941,6 +7953,7 @@ msgid "Search accepted — wanted issues will be processed."
 msgstr "تم قبول البحث — ستُعالَج الأعداد المطلوبة."
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/pages/IssueDetailPage.tsx
 msgid "Search accepted."
 msgstr "تم قبول البحث."
 
@@ -8087,6 +8100,10 @@ msgstr "البحث عن الأعداد الناقصة"
 #: src/components/ai/ChatActionCard.tsx
 msgid "Search not queued"
 msgstr "لم يُضف البحث إلى قائمة الانتظار"
+
+#: src/pages/IssueDetailPage.tsx
+msgid "Search now"
+msgstr "ابحث الآن"
 
 #: src/components/queue/WantedPacingBanner.tsx
 msgid "Search now…"
@@ -9598,6 +9615,7 @@ msgid "Unable to requeue direct download: Unknown error"
 msgstr "تعذّرت إعادة إدراج التنزيل المباشر: خطأ غير معروف"
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/pages/IssueDetailPage.tsx
 #: src/pages/WantedPage.tsx
 msgid "Unable to start this search."
 msgstr "تعذّر بدء هذا البحث."

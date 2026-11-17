@@ -69,6 +69,18 @@ async def save_generated_arc(request: Request):
     return JSONResponse(content=result)
 
 
+@router.post("/storyarcs", dependencies=[Depends(require_session)])
+async def add_story_arc(request: Request):
+    """Add a story arc from arc search; the work runs in the background."""
+    body = await request.json()
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"detail": "Expected a JSON object"})
+    result = arc_service.add_arc(body)
+    if not result["success"]:
+        return JSONResponse(status_code=400, content={"detail": result.get("error")})
+    return result
+
+
 @router.get("/storyarcs", dependencies=[Depends(require_session)])
 def list_story_arcs(
     custom_only: bool = Query(False, alias="customOnly"),

@@ -278,7 +278,8 @@ target state — the rules above are the target state.
 `--text-muted` is for decorative separators (`/`, `·`) and 10px uppercase
 micro-labels. It sits at 2.95:1 in both themes — that parity is deliberate (the
 light value was tuned to the ratio dark already shipped). Real words use
-`--muted-foreground` (AA-safe in light at `oklch(0.552 …)`). Raising
+`--muted-foreground` (light `#5f6778`, at least 4.6:1 on every light surface up
+to `--surface-3`; dark `#8a92a5`, at least 5:1). Raising
 `--text-muted` itself to 4.5:1 would recolour every separator and is still a
 design decision, not a bug fix.
 

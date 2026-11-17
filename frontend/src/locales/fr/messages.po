@@ -2978,6 +2978,10 @@ msgstr "Copié"
 msgid "Copy"
 msgstr "Copier"
 
+#: src/components/settings/ApiTab.tsx
+msgid "Copy API key"
+msgstr "Copier la clé d'API"
+
 #: src/components/layout/VersionChip.tsx
 msgid "Copy command"
 msgstr "Copier la commande"
@@ -3949,7 +3953,7 @@ msgstr "Impossible d’enregistrer l’ordre de recherche"
 
 #: src/pages/SettingsPage.tsx
 msgid "Failed to save settings"
-msgstr ""
+msgstr "Impossible d'enregistrer les paramètres"
 
 #: src/pages/ImportPage.tsx
 msgid "Failed to scan inbox: {error}"
@@ -5448,6 +5452,10 @@ msgstr "Marquez des numéros comme recherchés depuis une série et Comicarr les
 msgid "Mark on shelf"
 msgstr "Marquer sur l'étagère"
 
+#: src/pages/IssueDetailPage.tsx
+msgid "Mark wanted"
+msgstr "Marquer comme recherché"
+
 #: src/components/queue/BulkActionBar.tsx
 msgid "Mark Wanted"
 msgstr "Marquer comme Recherché"
@@ -5973,6 +5981,10 @@ msgstr "Il ne reste aucun numéro manquant éligible à rechercher."
 #: src/pages/WantedPage.tsx
 msgid "No eligible wanted issues are ready to search."
 msgstr "Aucun numéro recherché éligible n’est prêt pour la recherche."
+
+#: src/pages/IssueDetailPage.tsx
+msgid "No file or release details yet."
+msgstr "Pas encore de détails de fichier ou de sortie."
 
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "No folder at {path} inside the Comicarr container."
@@ -7941,6 +7953,7 @@ msgid "Search accepted — wanted issues will be processed."
 msgstr "Recherche acceptée — les numéros recherchés seront traités."
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/pages/IssueDetailPage.tsx
 msgid "Search accepted."
 msgstr "Recherche acceptée."
 
@@ -8087,6 +8100,10 @@ msgstr "Rechercher les numéros manquants"
 #: src/components/ai/ChatActionCard.tsx
 msgid "Search not queued"
 msgstr "Recherche non mise en file"
+
+#: src/pages/IssueDetailPage.tsx
+msgid "Search now"
+msgstr "Rechercher maintenant"
 
 #: src/components/queue/WantedPacingBanner.tsx
 msgid "Search now…"
@@ -9598,6 +9615,7 @@ msgid "Unable to requeue direct download: Unknown error"
 msgstr "Impossible de remettre en file le téléchargement direct : erreur inconnue"
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/pages/IssueDetailPage.tsx
 #: src/pages/WantedPage.tsx
 msgid "Unable to start this search."
 msgstr "Impossible de lancer cette recherche."

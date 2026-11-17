@@ -1,9 +1,9 @@
 import { ph, plural, t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { formatNumber } from "@/lib/intl";
+import { formatBytes, formatNumber } from "@/lib/intl";
 import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Activity, LibraryBig } from "lucide-react";
+import { Activity, LibraryBig, Search, Star } from "lucide-react";
 import IssueStatusMenu from "@/components/series/IssueStatusMenu";
 import { SectionHeader } from "@/components/dashboard/DashboardPanel";
 import { ShelfSheet } from "@/components/shelf/ShelfSheet";
@@ -21,6 +21,8 @@ import {
 import { useState } from "react";
 import IssueStory, { IssueCauseActions } from "@/components/series/IssueStory";
 import { useSetIssueStatus } from "@/hooks/useSeries";
+import { useSearchWantedIssue } from "@/hooks/useQueue";
+import { getErrorMessage } from "@/lib/api";
 import { useSeriesShelf, useShelfEnabled } from "@/hooks/useShelf";
 import type { IssueMetadata } from "@/hooks/useIssueDetail";
 import { isNotFoundError } from "@/lib/api";
@@ -158,6 +160,24 @@ function Candidates({ details }: { details: IssueStoryDetails }) {
   );
 }
 
+/** "12.3 MB" for a byte count, the stored text otherwise. */
+function sizeLabel(value: string | number | null | undefined): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  const bytes = Number(value);
+  return Number.isFinite(bytes) && bytes > 0
+    ? formatBytes(bytes)
+    : String(value);
+}
+
+/** Issue states with nothing on disk that a search can still fix. */
+function searchable(status: string): boolean {
+  return status === "Wanted" || status === "Failed";
+}
+/** Issue states a user usually means to want when they open the page. */
+function wantable(status: string): boolean {
+  return status === "Skipped" || status === "Ignored";
+}
+
 function field(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === "") return "—";
   return String(value);
@@ -171,6 +191,7 @@ export default function IssueDetailPage() {
   const { data, isLoading, error, isError, refetch, isFetching } =
     useIssueDetail(comicId, issueId);
   const setIssueStatus = useSetIssueStatus();
+  const searchIssue = useSearchWantedIssue();
   const { addToast } = useToast();
   const band = useActivityBand(
     issueId ? { scope_type: "issue", scope_id: issueId } : {},
@@ -268,8 +289,14 @@ export default function IssueDetailPage() {
     .filter(Boolean)
     .join(" · ");
 
+  const rawStatus = String(issue.Status ?? issue.status ?? "");
+  const size = sizeLabel(issue.ComicSize);
+  // Rows with nothing to say are left out, so the column never reads as a
+  // list of dashes (#1507).
   const details: { label: string; value: ReactNode; mono?: boolean }[] = [
-    { label: t`Released`, value: field(releaseDate), mono: true },
+    ...(releaseDate
+      ? [{ label: t`Released`, value: field(releaseDate), mono: true }]
+      : []),
     ...(issue.DigitalDate && issue.DigitalDate !== releaseDate
       ? [
           {
@@ -279,9 +306,10 @@ export default function IssueDetailPage() {
           },
         ]
       : []),
-    ...(issue.ComicSize
-      ? [{ label: t`Size`, value: field(issue.ComicSize), mono: true }]
+    ...(location
+      ? [{ label: t`File on disk`, value: String(location), mono: true }]
       : []),
+    ...(size ? [{ label: t`Size`, value: size, mono: true }] : []),
     ...(issue.Arc ? [{ label: t`Story arc`, value: field(issue.Arc) }] : []),
   ];
 
@@ -374,6 +402,57 @@ export default function IssueDetailPage() {
             {issueId ? (
               <div className="flex shrink-0 flex-wrap items-center gap-2">
                 {cause && <IssueCauseActions cause={cause} label={title} />}
+                {!cause && searchable(rawStatus) ? (
+                  <Button
+                    type="button"
+                    size="toolbar"
+                    disabled={searchIssue.isPending}
+                    onClick={() =>
+                      searchIssue.mutate(issueId, {
+                        onSuccess: (result) =>
+                          addToast({
+                            type: result.success ? "info" : "error",
+                            message:
+                              result.message ||
+                              result.error ||
+                              (result.success
+                                ? t`Search accepted.`
+                                : t`Unable to start this search.`),
+                          }),
+                        onError: (err) =>
+                          addToast({
+                            type: "error",
+                            message: getErrorMessage(err),
+                          }),
+                      })
+                    }
+                  >
+                    <Search />
+                    <Trans>Search now</Trans>
+                  </Button>
+                ) : null}
+                {!cause && wantable(rawStatus) ? (
+                  <Button
+                    type="button"
+                    size="toolbar"
+                    disabled={setIssueStatus.isPending}
+                    onClick={() =>
+                      setIssueStatus.mutate(
+                        { issueId, status: "Wanted" },
+                        {
+                          onError: (statusError) =>
+                            addToast({
+                              type: "error",
+                              description: t`Failed to update status: ${ph({ message: statusError.message })}`,
+                            }),
+                        },
+                      )
+                    }
+                  >
+                    <Star />
+                    <Trans>Mark wanted</Trans>
+                  </Button>
+                ) : null}
                 {shelfEnabled && comicId ? (
                   <Button
                     type="button"
@@ -422,6 +501,11 @@ export default function IssueDetailPage() {
             className="min-w-0 lg:border-s lg:border-border-subtle lg:ps-8"
           >
             <SectionHeader title={t`Details`} />
+            {details.length === 0 && !story.data && (
+              <p className="py-1.5 text-[13px] text-foreground-2">
+                <Trans>No file or release details yet.</Trans>
+              </p>
+            )}
             <dl>
               {details.map((row) => (
                 <div
@@ -432,7 +516,7 @@ export default function IssueDetailPage() {
                   <dd
                     className={
                       row.mono
-                        ? "text-end font-mono text-xs leading-5"
+                        ? "min-w-0 break-all text-end font-mono text-xs leading-5"
                         : "text-end"
                     }
                   >
@@ -453,20 +537,6 @@ export default function IssueDetailPage() {
                   </dd>
                 </div>
               )}
-              <div className="flex items-baseline justify-between gap-4 py-1.5 text-[13px]">
-                <dt className="shrink-0 text-foreground-2">
-                  <Trans>File on disk</Trans>
-                </dt>
-                <dd
-                  className={
-                    location
-                      ? "min-w-0 break-all text-end font-mono text-xs leading-5"
-                      : "text-end text-muted-foreground"
-                  }
-                >
-                  {location ? location : "none"}
-                </dd>
-              </div>
             </dl>
             {story.data && <Candidates details={story.data} />}
             <div className="mt-6">
