@@ -245,7 +245,7 @@ class FileHandlers(object):
                             if self.comic["ComicVersion"] in dp:
                                 break
                         dir_fix.append(dp)
-                    except:
+                    except Exception:
                         pass
 
                 if len(dir_fix) > 0:

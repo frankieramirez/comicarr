@@ -18,11 +18,18 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
+import base64
+import os
+import re
 import zipfile
 from io import BytesIO
+from operator import itemgetter
 
 import rarfile
 import requests
+
+import comicarr
+from comicarr import logger
 
 try:
     from PIL import Image, ImageFile
@@ -33,14 +40,6 @@ except Exception:
     logger.warn("[WARNING] PIL is not available - it's used to resize images for notifications, and other things.")
     logger.warn("[WARNING] Using fallback method of URL / no image - install PIL with pip: pip install PIL")
     PIL_Found = False
-
-import base64
-import os
-import re
-from operator import itemgetter
-
-import comicarr
-from comicarr import logger
 
 
 def open_archive(location):

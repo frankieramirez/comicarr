@@ -28,6 +28,7 @@ import comicarr
 from comicarr import db, logger
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome, RunState
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.library import filers
 from comicarr.app.search import rss
 from comicarr.app.search.commands import SearchCommand, SearchCommandError
 from comicarr.app.search.routes import classify, route_health
@@ -1091,7 +1092,7 @@ def _process_search_command(command):
         comicid = None
         issueid = None
 
-    mofo = comicarr.filers.FileHandlers(
+    mofo = filers.FileHandlers(
         ComicID=comicid,
         IssueID=issueid,
         arcID=arcid,

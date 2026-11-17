@@ -24,6 +24,7 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr import db, helpers, logger
+from comicarr.app.library import filers
 from comicarr.tables import annuals, comics, issues, readlist, storyarcs
 
 
@@ -87,7 +88,7 @@ class Readinglist(object):
                         comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comicinfo["ComicLocation"])
                     )
                 else:
-                    ff = comicarr.filers.FileHandlers(ComicID=rl["ComicID"])
+                    ff = filers.FileHandlers(ComicID=rl["ComicID"])
                     secondary_folders = ff.secondary_folders(comicinfo["ComicLocation"])
 
                 if os.path.exists(os.path.join(secondary_folders, rl["Location"])):

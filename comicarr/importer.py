@@ -33,9 +33,10 @@ import sqlalchemy.exc
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, filechecker, filers, helpers, logger, mb, moveit, search, updater
+from comicarr import db, filechecker, helpers, logger, mb, search, updater
 from comicarr.app.common import series_kind
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.library import filers, moveit
 from comicarr.app.metadata import cv, series_metadata
 from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.tables import annuals, comics, issues
@@ -615,7 +616,7 @@ def addComictoDB(
                 ):
                     cloc_it.append(os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comlocation)))
                 else:
-                    ff = comicarr.filers.FileHandlers(comic=comic)
+                    ff = filers.FileHandlers(comic=comic)
                     cloc = ff.secondary_folders(comlocation)
                     if os.path.isfile(os.path.join(cloc, "cover.jpg")) is False:
                         cloc_it.append(cloc)
@@ -2535,7 +2536,7 @@ def image_it(comicid, latestissueid, comlocation, ComicImage):
             ):
                 cloc_it.append(os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comlocation)))
             else:
-                ff = comicarr.filers.FileHandlers(ComicID=comicid)
+                ff = filers.FileHandlers(ComicID=comicid)
                 cloc = ff.secondary_folders(comlocation)
                 if os.path.isfile(os.path.join(cloc, "cover.jpg")) is False:
                     cloc_it.append(cloc)

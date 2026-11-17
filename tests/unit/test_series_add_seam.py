@@ -88,10 +88,10 @@ def test_add_series_metadata_only_stores_paused_series_and_skipped_issues(librar
         MagicMock(json=lambda: {"status_code": 1, "results": [issue], "number_of_total_results": 1}),
     ]
     monkeypatch.setattr(
-        "comicarr.filers.FileHandlers.folder_create",
+        "comicarr.app.library.filers.FileHandlers.folder_create",
         lambda self: {"comlocation": str(tmp_path / "library" / "Example (2020)")},
     )
-    monkeypatch.setattr("comicarr.filers.FileHandlers.series_folder_collision_detection", lambda *a: None)
+    monkeypatch.setattr("comicarr.app.library.filers.FileHandlers.series_folder_collision_detection", lambda *a: None)
     search = MagicMock()
     monkeypatch.setattr("comicarr.search.searchforissue", search)
 

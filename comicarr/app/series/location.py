@@ -111,7 +111,7 @@ def default_series_location(series):
 
         return manga_series_location(series.get("ComicName"), _manga_destination())
 
-    from comicarr import filers
+    from comicarr.app.library import filers
 
     try:
         created = filers.FileHandlers(comic=dict(series)).folder_create()
