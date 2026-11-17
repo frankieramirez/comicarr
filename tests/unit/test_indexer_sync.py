@@ -37,7 +37,7 @@ PROWLARR_KEY = "prowlarr-own-key"
 
 @pytest.fixture
 def config(tmp_path, monkeypatch):
-    from comicarr import config as config_module
+    from comicarr.app.config import ini as config_module
     from comicarr.app.core import encrypted as encrypted_module
 
     config_path = tmp_path / "config.ini"

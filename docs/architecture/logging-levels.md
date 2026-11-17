@@ -138,7 +138,7 @@ three, and `GET /system/logs` carries them alongside the log lines. The restart
 half is the startup chain *re-run now*, not a replay of the boot resolution:
 the environment and the config file are read fresh, and only the startup
 argument is remembered, because it is the one input that cannot be re-read
-later. `record_startup_argument` captures it in `comicarr/config.py` before
+later. `record_startup_argument` captures it in `comicarr/app/config/ini.py` before
 `comicarr.LOG_LEVEL` is overwritten with the resolved level.
 
 `pinned` is true when the winner is a startup argument or `COMICARR_LOG_LEVEL`.

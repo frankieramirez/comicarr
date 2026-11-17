@@ -28,7 +28,7 @@ import comicarr
 if comicarr.LOG_LEVEL is None:
     comicarr.LOG_LEVEL = 0
 
-from comicarr.config import get_manga_destination
+from comicarr.app.config.ini import get_manga_destination
 
 
 class TestGetMangaDestination:

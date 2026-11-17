@@ -48,7 +48,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
-import comicarr.config
+import comicarr.app.config.ini
 from comicarr import rsscheckit, sabnzbd, weeklypullit
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import logger
@@ -504,7 +504,7 @@ def initialize(config_file):
             DDL_HEALTH_SCHEDULER, \
             EXT_SERVER
 
-        cc = comicarr.config.Config(config_file)
+        cc = comicarr.app.config.ini.Config(config_file)
         CONFIG = cc.read(startup=True)
 
         assert CONFIG is not None
@@ -558,7 +558,7 @@ def initialize(config_file):
             comicarr.MAINTENANCE = True
 
         if MAINTENANCE is False:
-            comicarr.config.ddl_creations()
+            comicarr.app.config.ini.ddl_creations()
 
             if LOGTYPE == "clog":
                 logprog = "Concurrent Rotational Log Handler"

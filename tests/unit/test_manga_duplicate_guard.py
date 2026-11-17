@@ -99,7 +99,7 @@ def _mal_details(**overrides):
 def _patch_add_side_effects(monkeypatch, tmp_path, *, md_details=None, mal_details=None, mal_to_md=MD_UUID):
     import comicarr.app.manga.mangadex as mangadex
     import comicarr.app.manga.myanimelist as myanimelist
-    from comicarr import config as comicarr_config
+    from comicarr.app.config import ini as comicarr_config
 
     monkeypatch.setattr(mangadex, "get_manga_details", lambda *a, **k: md_details or _md_details())
     monkeypatch.setattr(myanimelist, "get_manga_details", lambda *a, **k: mal_details or _mal_details())

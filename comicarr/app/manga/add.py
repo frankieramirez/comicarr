@@ -264,9 +264,9 @@ def add_mangadex(mangaid, imported=None, calledfrom=None, location=None):
     Returns:
         dict with status information
     """
+    from comicarr.app.config.ini import get_manga_destination
     from comicarr.app.manga import mangadex
     from comicarr.app.manga.duplicates import find_existing_manga_series
-    from comicarr.config import get_manga_destination
 
     logger.info("[MANGADEX] Adding manga with ID: %s" % mangaid)
 
@@ -425,9 +425,9 @@ def add_myanimelist(mangaid, imported=None, calledfrom=None, location=None):
     Returns:
         dict with status information
     """
+    from comicarr.app.config.ini import get_manga_destination
     from comicarr.app.manga import mangadex, myanimelist
     from comicarr.app.manga.duplicates import find_existing_manga_series
-    from comicarr.config import get_manga_destination
 
     logger.info("[MAL] Adding manga with ID: %s" % mangaid)
 

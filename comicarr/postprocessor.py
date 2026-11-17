@@ -49,6 +49,7 @@ from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common.placement import place
+from comicarr.app.config.ini import get_manga_destination
 from comicarr.app.core import db, logger
 from comicarr.app.core.tables import (
     annuals,
@@ -66,7 +67,6 @@ from comicarr.app.downloads.postprocess_pipeline import PostProcessItemDeps
 from comicarr.app.library import getimage
 from comicarr.app.manga.ledger import normalize_volume_number
 from comicarr.app.series import folder_rescan, watchlist_refresh
-from comicarr.config import get_manga_destination
 
 
 def format_scan_summary(filename, candidate_count, selected_items, annual_count, story_arc):

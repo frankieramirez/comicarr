@@ -26,6 +26,7 @@ import os
 import re
 import shutil
 import stat
+import sys
 import tempfile
 import threading
 from collections import OrderedDict
@@ -33,11 +34,11 @@ from operator import itemgetter
 from pathlib import Path
 
 import comicarr
-from comicarr import filechecker
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.config.log_level import record_startup_argument, resolve_startup_log_level
 from comicarr.app.config.registry import as_legacy_definitions
 from comicarr.app.core import db, encrypted, logger
+from comicarr.app.library import directories
 from comicarr.app.search import provider_config, prowlarr
 from comicarr.app.system import maintenance
 
@@ -211,12 +212,12 @@ class Config(object):
                 try:
                     CONFIG_VERSION = config.getint("General", "config_version")
                     OLDCONFIG_VERSION = CONFIG_VERSION
-                except:
+                except Exception:
                     CONFIG_VERSION = 0
                     OLDCONFIG_VERSION = 0
                 try:
                     MINIMALINI = config.getboolean("General", "minimal_ini")
-                except:
+                except Exception:
                     MINIMALINI = False
 
         self.CONFIG_VERSION = CONFIG_VERSION
@@ -257,25 +258,25 @@ class Config(object):
                                 config.remove_option(bv[0], bv[1].lower())
                             self.WRITE_THE_CONFIG = True
                         break
-                except:
+                except Exception:
                     pass
 
             if all([k != "CONFIG_VERSION", k != "MINIMAL_INI"]):
                 try:
                     if v[0] == str and any([value == "", value is None, len(value) == 0, value == "None"]):
                         value = v[2]
-                except:
+                except Exception:
                     value = v[2]
 
                 try:
                     if v[0] == bool:
                         value = self.argToBool(value)
-                except:
+                except Exception:
                     value = self.argToBool(v[2])
                 try:
                     if all([v[0] == int, str(value).isdigit()]):
                         value = int(value)
-                except:
+                except Exception:
                     value = v[2]
 
                 setattr(self, k, value)
@@ -591,7 +592,7 @@ class Config(object):
                 if all([self.RTORRENT_SSL is True, not self.RTORRENT_HOST.startswith("http")]):
                     self.RTORRENT_HOST = "https://" + self.RTORRENT_HOST
                     config.set("Rtorrent", "rtorrent_host", self.RTORRENT_HOST)
-            except:
+            except Exception:
                 pass
             config.remove_option("Rtorrent", "rtorrent_ssl")
             logger.info("Successfully removed oudated config entries.")
@@ -1117,17 +1118,17 @@ class Config(object):
                             value = default
                         else:
                             value = str(value)
-                    except:
+                    except Exception:
                         value = default
                 try:
                     if definition_type == bool:
                         value = self.argToBool(value)
-                except:
+                except Exception:
                     value = self.argToBool(default)
                 try:
                     if all([definition_type == int, str(value).isdigit()]):
                         value = int(value)
-                except:
+                except Exception:
                     value = default
 
                 if any([value is None, value == "None"]):
@@ -1635,7 +1636,7 @@ class Config(object):
                 "[FATAL] Could not create secure directory at %s. "
                 "Credential encryption will not work. Fix permissions and restart." % self.SECURE_DIR
             )
-            raise SystemExit(1)
+            raise SystemExit(1) from None
 
     def configure(self, update=False, startup=False):
 
@@ -1664,7 +1665,7 @@ class Config(object):
             if self.SAB_HOST.endswith("/"):
                 logger.fdebug("Auto-correcting trailing slash in SABnzbd url (not required)")
                 self.SAB_HOST = self.SAB_HOST[:-1]
-        except:
+        except Exception:
             pass
 
         if any([self.HTTP_ROOT is None, self.HTTP_ROOT == "/"]):
@@ -2281,7 +2282,7 @@ class Config(object):
         if self.PROVIDER_ORDER is not None:
             try:
                 PRO_ORDER = list(zip(*[iter(self.PROVIDER_ORDER.split(", "))] * 2, strict=False))
-            except:
+            except Exception:
                 PO = []
                 for k, v in self.PROVIDER_ORDER.items():
                     PO.append(k)
@@ -2539,7 +2540,7 @@ def ddl_creations():
         if comicarr.CONFIG.ENABLE_DDL is True:
             logger.info("Setting DDL Location set to : %s" % comicarr.CONFIG.DDL_LOCATION)
     else:
-        dcreate = filechecker.validateAndCreateDirectory(
+        dcreate = directories.validateAndCreateDirectory(
             comicarr.CONFIG.DDL_LOCATION, create=True, dmode="ddl location"
         )
         if all([dcreate is False, comicarr.CONFIG.ENABLE_DDL is True]):
@@ -2552,14 +2553,14 @@ def ddl_creations():
     if comicarr.CONFIG.ENABLE_DDL:
         mega_ddl_path = os.path.join(comicarr.CONFIG.DDL_LOCATION, "mega")
         html_cache_path = os.path.join(comicarr.CONFIG.CACHE_DIR, "html_cache")
-        mdp_create = filechecker.validateAndCreateDirectory(mega_ddl_path, create=True, dmode="ddl-mega location")
+        mdp_create = directories.validateAndCreateDirectory(mega_ddl_path, create=True, dmode="ddl-mega location")
         if mdp_create is False:
             logger.error(
                 "Unable to create temp download directory [%s] for DDL-External. You will not be able to view the progress of the download."
                 % mega_ddl_path
             )
 
-        hcp_create = filechecker.validateAndCreateDirectory(html_cache_path, create=True, dmode="html cache")
+        hcp_create = directories.validateAndCreateDirectory(html_cache_path, create=True, dmode="html cache")
         if hcp_create is False:
             logger.error(
                 "Unable to create html_cache folder within the cache folder location [%s]. DDL will not work until this is corrected."

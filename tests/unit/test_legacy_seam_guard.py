@@ -122,7 +122,7 @@ def test_router_importing_a_seamed_module_fails_even_from_a_seam_path(guard, tmp
 
 
 def test_infrastructure_and_package_globals_pass(guard, tmp_path, monkeypatch):
-    source = "import comicarr\nfrom comicarr import config\n\nX = comicarr.CONFIG\n"
+    source = "import comicarr\n\nX = comicarr.CONFIG\n"
     _tree(guard, monkeypatch, tmp_path, {"comicarr/app/opds/router.py": source})
     assert guard.main() == 0
 

@@ -134,7 +134,7 @@ def test_a_manga_added_to_a_chosen_folder_keeps_it_through_refresh(empty_library
     monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
     monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: _mal_details())
     monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: None)
-    monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: str(empty_library.tmp_path / "Manga"))
+    monkeypatch.setattr("comicarr.app.config.ini.get_manga_destination", lambda: str(empty_library.tmp_path / "Manga"))
     monkeypatch.setattr(metadata_service, "getImage", lambda *a, **k: {"status": "failed"})
     monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
     monkeypatch.setattr(series_service, "ComicSort", lambda **k: None)

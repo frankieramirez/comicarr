@@ -17,12 +17,12 @@ import requests
 
 import comicarr
 from comicarr import search
+from comicarr.app.config.ini import Config
 from comicarr.app.search import prowlarr
 from comicarr.app.search._release_identity import generate_id
 from comicarr.app.search.evaluation import EvaluationSession
 from comicarr.app.search.providers import effective_provider_plan
 from comicarr.app.system import service as system_service
-from comicarr.config import Config
 from tests.unit.test_system_domain import _make_test_ctx
 
 RESULTS = [

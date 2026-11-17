@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import comicarr
-from comicarr import config as config_module
+from comicarr.app.config import ini as config_module
 from comicarr.app.config.registry import REGISTRY
 
 

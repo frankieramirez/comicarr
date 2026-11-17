@@ -78,7 +78,7 @@ def test_unnamed_provider_uses_safe_identity_during_legacy_execution(monkeypatch
 
 
 def test_encrypted_provider_key_is_plaintext_only_in_runtime_plan(tmp_path, monkeypatch):
-    from comicarr import config as config_module
+    from comicarr.app.config import ini as config_module
     from comicarr.app.core import encrypted as encrypted_module
 
     secure_dir = tmp_path / "secure"

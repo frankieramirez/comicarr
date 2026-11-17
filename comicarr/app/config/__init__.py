@@ -11,7 +11,7 @@
 
 **Partial, and not yet wired in.** `registry.py` currently holds a 17-key
 sample -- the shapes that would break a naive entry type -- and nothing in the
-application imports it. `comicarr/config.py:_CONFIG_DEFINITIONS` remains the
+application imports it. `comicarr/app/config/ini.py:_CONFIG_DEFINITIONS` remains the
 live definition of all 411 keys until the bulk migration lands. Do not treat
 `REGISTRY` as complete or authoritative before then.
 """

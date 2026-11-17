@@ -23,7 +23,7 @@ import configparser
 
 import pytest
 
-from comicarr.config import _BAD_DEFINITIONS, _CONFIG_DEFINITIONS
+from comicarr.app.config.ini import _BAD_DEFINITIONS, _CONFIG_DEFINITIONS
 
 MYLAR3_CONFIG = """
 [General]
@@ -148,7 +148,7 @@ class TestDefineHandlesOnly3Tuples:
         assert wrong == {}, "_CONFIG_DEFINITIONS is no longer uniformly 3-tuples: %s" % wrong
 
     def test_define_unpacks_a_real_key(self):
-        from comicarr.config import Config
+        from comicarr.app.config.ini import Config
 
         key, definition_type, section, ini_key, default = Config._define(object.__new__(Config), "annuals_on")
 

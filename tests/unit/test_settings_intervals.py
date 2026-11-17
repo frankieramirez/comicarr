@@ -31,13 +31,13 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 import comicarr
-from comicarr.app.system import service as system_service
-from comicarr.config import (
+from comicarr.app.config.ini import (
     _CONFIG_DEFINITIONS,
     _PROVIDER_EXTRA_FIELDS,
     SCHEDULER_INTERVAL_MINIMUMS,
     clamp_scheduler_intervals,
 )
+from comicarr.app.system import service as system_service
 
 
 def _readable_config_keys():
@@ -110,7 +110,7 @@ class TestEveryAdvertisedKeyIsReal:
         """The actual failure mechanism: _define raises KeyError on an unknown key,
         apply_transaction catches BaseException and rolls the whole payload back, and
         update_config reports a persistence failure for settings that were fine."""
-        from comicarr.config import Config
+        from comicarr.app.config.ini import Config
 
         for key in sorted(set(system_service.WRITABLE_CONFIG_KEYS) - set(_PROVIDER_EXTRA_FIELDS)):
             try:

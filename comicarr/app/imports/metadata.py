@@ -151,9 +151,9 @@ def _comic_metadata(series_id, deadline):
 
 
 def _manga_metadata(series_id, deadline):
+    from comicarr.app.config.ini import get_manga_destination
     from comicarr.app.manga import mangadex, myanimelist
     from comicarr.app.manga.duplicates import find_existing_manga_series
-    from comicarr.config import get_manga_destination
 
     mal = series_kind.provider_of(series_id) is series_kind.SeriesProvider.MYANIMELIST
     details = myanimelist.get_manga_details(series_id) if mal else mangadex.get_manga_details(series_id)

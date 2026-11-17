@@ -1768,7 +1768,7 @@ class TestConfigRouter:
 
 def _make_real_config(tmp_path, monkeypatch):
     """Build a real Config with an isolated parser and no configure side effects."""
-    from comicarr import config as config_module
+    from comicarr.app.config import ini as config_module
     from comicarr.app.core import encrypted as encrypted_module
 
     config_path = tmp_path / "config.ini"
@@ -1804,7 +1804,7 @@ class TestConfigTransactions:
     )
     def test_ambiguous_flat_provider_count_uses_structural_width(self, config_version, entry_width, entry_count):
         """A 42-field legacy payload never shifts API keys into another column."""
-        from comicarr import config as config_module
+        from comicarr.app.config import ini as config_module
 
         entries = []
         for index in range(entry_count):
@@ -1849,7 +1849,7 @@ class TestConfigTransactions:
         `field == "1"`, so a legal-but-uncanonical spelling was a crash on one
         field and a silent skip on the other.
         """
-        from comicarr import config as config_module
+        from comicarr.app.config import ini as config_module
 
         parsed = config_module.parse_provider_extras(
             ", ".join(["Indexer", "https://indexer.test", stored, "secret", "5030", stored])
@@ -1861,7 +1861,7 @@ class TestConfigTransactions:
 
     def test_canonicalized_booleans_survive_serialization(self):
         """A round trip cannot reintroduce a spelling the search path rejects."""
-        from comicarr import config as config_module
+        from comicarr.app.config import ini as config_module
 
         serialized = config_module.serialize_provider_extras(
             [("Indexer", "https://indexer.test", True, "secret", "5030", "True", 201)]
@@ -1871,7 +1871,7 @@ class TestConfigTransactions:
         assert config_module.parse_provider_extras(serialized)[0][2] == "1"
 
     def test_config_read_encrypts_plaintext_provider_before_projection(self, tmp_path, monkeypatch):
-        from comicarr import config as config_module
+        from comicarr.app.config import ini as config_module
         from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
@@ -1910,7 +1910,7 @@ class TestConfigTransactions:
 
     def test_config_read_fails_closed_when_plaintext_provider_migration_cannot_replace(self, tmp_path, monkeypatch):
         """Startup never continues while a plaintext provider key remains on disk."""
-        from comicarr import config as config_module
+        from comicarr.app.config import ini as config_module
         from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
@@ -1936,7 +1936,7 @@ class TestConfigTransactions:
         cfg.provider_sequence.assert_not_called()
 
     def test_preupgrade_backup_never_copies_plaintext_provider_key(self, tmp_path, monkeypatch):
-        from comicarr import config as config_module
+        from comicarr.app.config import ini as config_module
         from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
@@ -1976,7 +1976,7 @@ class TestConfigTransactions:
         assert all("gAAAAA" in backup.read_text() for backup in backup_files)
 
     def test_startup_rejects_malformed_legacy_provider_token_without_rewrite(self, tmp_path, monkeypatch):
-        from comicarr import config as config_module
+        from comicarr.app.config import ini as config_module
         from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
@@ -2004,7 +2004,7 @@ class TestConfigTransactions:
     def test_startup_missing_provider_key_does_not_create_replacement_authority(self, tmp_path, monkeypatch):
         from cryptography.fernet import Fernet
 
-        from comicarr import config as config_module
+        from comicarr.app.config import ini as config_module
         from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
@@ -2044,7 +2044,7 @@ class TestConfigTransactions:
     def test_startup_missing_scalar_key_blocks_provider_and_backup_rewrites(self, tmp_path, monkeypatch):
         from cryptography.fernet import Fernet
 
-        from comicarr import config as config_module
+        from comicarr.app.config import ini as config_module
         from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
@@ -2089,7 +2089,7 @@ class TestConfigTransactions:
     def test_config_read_rejects_persisted_duplicate_provider_identity_before_projection(
         self, tmp_path, monkeypatch, torznab_name, torznab_id, error
     ):
-        from comicarr import config as config_module
+        from comicarr.app.config import ini as config_module
         from comicarr.app.core import encrypted as encrypted_module
 
         secure_dir = tmp_path / "secure"
