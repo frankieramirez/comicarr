@@ -59,7 +59,7 @@ the median.
 | `wanted` | Wanted API | `GET /api/wanted/series`, the Wanted page's first read | 500 ms |
 | `dashboard` | Dashboard API | The library, activity and upcoming panel reads, one after another | 500 ms |
 | `startup` | Startup to ready | From launching `Comicarr.py` until `/api/auth/check-setup` answers | 15 s |
-| `rescan` | Full library rescan | `forceRescan` for every series | 5 min |
+| `rescan` | Full library rescan | `folder_rescan.force_rescan` for every series | 5 min |
 | `weekly_pull_match` | Weekly pull match | `new_pullcheck` for this week's 500 pull rows | 60 s |
 | `release_evaluation` | Release evaluation | One `EvaluationSession` over 200 candidates for one issue | 2 s |
 | `schema_upgrade` | Schema upgrade | `upgrade_database` from the 0.2x row (`0003_library_chat`) to head, with the library's rows in it | 60 s |

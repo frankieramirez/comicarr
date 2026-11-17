@@ -14,6 +14,7 @@ from sqlalchemy import create_engine, select
 
 import comicarr
 from comicarr import updater
+from comicarr.app.series import folder_rescan
 from comicarr.tables import comics, issues, metadata
 
 
@@ -75,12 +76,12 @@ def test_rescan_keeps_left_behind_files_and_still_archives_missing_ones(monkeypa
     monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
     monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
     monkeypatch.setattr(
-        updater.filechecker,
+        folder_rescan.filechecker,
         "FileChecker",
         lambda **kwargs: SimpleNamespace(listFiles=lambda: {"comiccount": 0, "comiclist": []}),
     )
 
-    updater.forceRescan("18692")
+    folder_rescan.force_rescan("18692")
 
     with engine.connect() as conn:
         rows = {

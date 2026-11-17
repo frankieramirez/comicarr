@@ -7,7 +7,7 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""forceRescan rematches manga folders with BareNumberMode, not FileChecker."""
+"""force_rescan rematches manga folders with BareNumberMode, not FileChecker."""
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -17,6 +17,7 @@ from sqlalchemy import create_engine, select
 import comicarr
 from comicarr import updater
 from comicarr.app.manga.rescan import mark_parsed_files_downloaded
+from comicarr.app.series import folder_rescan
 from comicarr.tables import comics, issues, manga_volumes, metadata
 
 
@@ -83,12 +84,12 @@ def test_force_rescan_volume_bare_file_records_the_volume(monkeypatch, tmp_path)
     monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
     monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
     monkeypatch.setattr(
-        updater.filechecker,
+        folder_rescan.filechecker,
         "FileChecker",
         MagicMock(side_effect=AssertionError("manga forceRescan must not use FileChecker")),
     )
 
-    updater.forceRescan("md-naruto")
+    folder_rescan.force_rescan("md-naruto")
 
     with engine.connect() as conn:
         row = conn.execute(select(issues).where(issues.c.IssueID == "md-naruto-ch100")).mappings().one()
@@ -109,7 +110,7 @@ def test_force_rescan_empty_manga_folder_does_not_crash(monkeypatch, tmp_path):
     monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
     monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
 
-    updater.forceRescan("md-naruto")
+    folder_rescan.force_rescan("md-naruto")
 
     with engine.connect() as conn:
         row = conn.execute(select(issues).where(issues.c.IssueID == "md-naruto-ch100")).mappings().one()
@@ -133,12 +134,12 @@ def test_force_rescan_hands_an_old_volume_location_back_to_the_volume(monkeypatc
     monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
     monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
     monkeypatch.setattr(
-        updater.filechecker,
+        folder_rescan.filechecker,
         "FileChecker",
         MagicMock(side_effect=AssertionError("manga forceRescan must not use FileChecker")),
     )
 
-    updater.forceRescan("md-naruto")
+    folder_rescan.force_rescan("md-naruto")
 
     with engine.connect() as conn:
         row = conn.execute(select(issues).where(issues.c.IssueID == "md-naruto-ch100")).mappings().one()
@@ -254,12 +255,12 @@ def test_force_rescan_ignores_nested_leftover_cbr_when_root_is_cbz(monkeypatch, 
     monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
     monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
     monkeypatch.setattr(
-        updater.filechecker,
+        folder_rescan.filechecker,
         "FileChecker",
         MagicMock(side_effect=AssertionError("manga forceRescan must not use FileChecker")),
     )
 
-    updater.forceRescan("md-naruto")
+    folder_rescan.force_rescan("md-naruto")
 
     with engine.connect() as conn:
         row = conn.execute(select(issues).where(issues.c.IssueID == "md-naruto-ch100")).mappings().one()

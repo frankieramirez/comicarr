@@ -123,6 +123,10 @@ DEFERRED_ALLOWLIST = {
         "FileChecker lists and parses the files in a series folder; carried over when filers.py moved (#1417)",
         "#1422 moves filechecker under comicarr/app/",
     ),
+    ("comicarr/app/series/folder_rescan.py", "filechecker"): (
+        "FileChecker lists and parses the files in a series folder; carried over when forceRescan moved (#1459)",
+        "#1422 moves filechecker under comicarr/app/",
+    ),
     ("comicarr/app/search/evaluation.py", "filechecker"): ("FileChecker parses release names", DEFERRED),
     ("comicarr/app/search/interactive.py", "search"): ("interactive search drives search.py", DEFERRED),
     ("comicarr/app/search/service.py", "search"): ("searchforissue", DEFERRED),

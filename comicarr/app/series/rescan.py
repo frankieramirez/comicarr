@@ -9,9 +9,9 @@
 
 """Series rescan seam: re-read a series folder and reconcile issue status.
 
-The only module under ``comicarr/app/`` that reaches ``updater.forceRescan``
-(ADR-0005). The body still lives in ``comicarr/updater.py``; manga series are
-routed to ``app/manga/rescan.py`` from inside it.
+Other modules call ``rescan_series``. The body lives in
+``app/series/folder_rescan.py`` (moved from ``updater.forceRescan`` by #1459);
+manga series are routed to ``app/manga/rescan.py`` from inside it.
 """
 
 from __future__ import annotations
@@ -22,11 +22,11 @@ def rescan_series(comic_id: str, *, archive: str | None = None) -> None:
 
     Files found there become Downloaded (Archived when scanning ``archive``);
     Downloaded issues whose file is gone become Archived unless the series is
-    Paused. Raises whatever the legacy rescan raises.
+    Paused. Raises whatever the folder rescan raises.
     """
-    from comicarr import updater
+    from comicarr.app.series import folder_rescan
 
     if archive is None:
-        updater.forceRescan(comic_id)
+        folder_rescan.force_rescan(comic_id)
     else:
-        updater.forceRescan(comic_id, archive=archive)
+        folder_rescan.force_rescan(comic_id, archive=archive)

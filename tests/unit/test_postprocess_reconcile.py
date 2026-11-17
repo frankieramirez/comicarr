@@ -26,6 +26,7 @@ from comicarr.app.downloads.postprocess_pipeline import (
     PostProcessPlacedItem,
     PostProcessReconcileStage,
 )
+from comicarr.app.series import folder_rescan
 from comicarr.tables import annuals, comics, issues, metadata, snatched
 
 # Rewritten on every run by design; everything else must hold still.
@@ -77,7 +78,7 @@ def library(tmp_path, monkeypatch):
 
 
 def _stage():
-    return PostProcessReconcileStage(totals=updater.totals, foundsearch=updater.foundsearch)
+    return PostProcessReconcileStage(totals=folder_rescan.totals, foundsearch=updater.foundsearch)
 
 
 def _placed(tmp_path, name):

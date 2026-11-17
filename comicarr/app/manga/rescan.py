@@ -9,8 +9,8 @@
 
 """Rematch a manga series folder using BareNumberMode.
 
-``updater.forceRescan`` uses FileChecker and comic booktypes. Manga refresh
-calls forceRescan after add, so volume files must go through the manga parser.
+``folder_rescan.force_rescan`` uses FileChecker and comic booktypes. Manga refresh
+calls the rescan after add, so volume files must go through the manga parser.
 """
 
 import os

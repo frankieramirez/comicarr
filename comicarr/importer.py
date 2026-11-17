@@ -40,6 +40,7 @@ from comicarr.app.library import filers, moveit
 from comicarr.app.metadata import cv, series_metadata
 from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.app.search import mb
+from comicarr.app.series import rescan
 from comicarr.tables import annuals, comics, issues
 
 
@@ -837,7 +838,7 @@ def addComictoDB(
         statbefore = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
     logger.fdebug("issue: " + latestiss + " status before chk :" + str(statbefore["Status"]))
-    updater.forceRescan(comicid)
+    rescan.rescan_series(comicid)
 
     if not json_updated and comicarr.CONFIG.SERIES_METADATA_LOCAL is True:
         sm = series_metadata.metadata_Series(comicid, bulk=False, api=False)
@@ -1067,7 +1068,7 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
     On refresh, existing chapter rows keep their Status and DateAdded so
     Downloaded/Snatched/Wanted/etc. survive metadata updates; only new
     chapters get the default Status. Have is reset to 0 here and
-    recalculated by forceRescan after a refresh.
+    recalculated by the folder rescan after a refresh.
 
     Args:
         mangaid: The comic ID used in the database (e.g. 'md-xxx' or 'mal-xxx')
