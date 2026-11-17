@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.61.0
+
+### Minor Changes
+
+- 50a97bb: Manga series now show volumes and chapters side by side, so you can own volumes 1–20 as books and later chapters as single files.
+  
+  - A new **Volumes** tab lists every volume, the chapters it holds, and its file.
+  - On the **Chapters** tab, a chapter inside a volume you have reads **Covered · in vol N**, separate from a chapter you have as its own file. A new "In a volume" filter lists them, and a Vol column shows each chapter's volume.
+  - A coverage bar above the tabs runs from chapter 1 to the latest. It shows what you have, what's missing before your latest chapter, and what's wanted.
+  - MangaDex lists the chapters of only some volumes. For long series, many volumes have no chapter list. Comicarr now estimates those ranges from the volumes around them and marks them "estimated". A volume you have covers the chapters in its estimated range, and automatic search skips them. If an estimate is off, set the chapter that volume ends at, and the volumes around it adjust.
+  - In the default blended search mode, a missing chapter that falls inside a released volume is now left to that volume, including volumes with an estimated range. Before, chapters MangaDex files under no volume were searched one by one.
+- 6130327: You can now record the print copies you own. Turn on **Track print copies** in Settings → Interface. It is off by default.
+  
+  - Each issue on a series page, and each volume on a manga series' Volumes tab, gets a shelf mark. Click it to add a copy and note its variant, grade, what you paid, where you keep it, and anything else. Two covers of the same issue are two copies.
+  - Select several issues and choose **Mark on shelf** to add a whole run at once. A **Not on shelf** filter then shows the gaps.
+  - A new **Shelf** tab in the Library lists every copy. Search it by series, variant, storage or notes, see the total you paid, and export the list as CSV.
+  - Copies stay on your shelf when you remove a series, and attach to it again if you add it back.
+  
+  The shelf is a record only. It never changes an issue's status or what Comicarr searches for and downloads.
+
+### Patch Changes
+
+- 6234e92: "Import" on "A finished download was not found on disk" works now. These rows never saved where your usenet client put the download, so Import, and Import all, always failed with "No rows could be resolved". Comicarr now records the folder it expected. For rows already waiting, Import looks for the job by name in your SABnzbd or NZBGet folder and check folder. Fix the folder mapping between Comicarr and your client first, then Import picks them up.
+- ce2ed1b: Adding a manga series no longer creates a second, empty folder next to the one you already have. If your manga library has a folder named just for the title, such as "One Piece", Comicarr now uses it instead of creating "One Piece (1997)" beside it. If the formatted folder already exists, it is still used. To merge folders that were already doubled, change the series folder from its page and choose to move the files.
+- cebed9c: A manga volume file found by a library scan or a series rescan is now recorded as a volume, the same way a downloaded volume is. Before, a scan marked each chapter in that volume as its own download, so automatic search kept looking for the volume you already had. A volume file was also skipped completely when MangaDex lists no chapters for that volume, which happens for many long series.
+  
+  After your next rescan, the chapters inside a volume you own show as Covered, and the series' Have count includes them.
+- d4ab638: An RSS feed entry whose title is wrapped in square brackets, such as `[Series, Tome 1 - Title.cbz]`, no longer stops the RSS check. Before, one such entry ended every run with "list index out of range", so RSS grabbed nothing while it stayed in the feed. Comicarr now reads the title inside the brackets, skips any title it still can't read, and logs the cause when a scheduled job fails.
+- 92a7e65: Two crashes in ComicVine refreshes are fixed:
+  - With the ComicVine-only setting (`cv_only`) switched off, refreshing a series' issue list no longer fails.
+  - Writing `series.json` for a series with no known start year no longer stops the refresh. If you have set a corrected year for that series, it is used. Otherwise Comicarr skips the file for that series and logs a warning.
+
 ## 0.60.0
 
 ### Minor Changes
