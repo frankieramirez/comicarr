@@ -104,74 +104,141 @@ def _can_repoint_downloaded_location(directory, stored, filepath):
 
 
 def mark_parsed_files_downloaded(comic_id, files, *, directory=None):
-    """Mark matching chapter/volume rows Downloaded. Returns the mark count.
+    """Mark matching chapter rows Downloaded and record volume files. Returns the mark count.
+
+    A volume file (a volume number and no chapter number) is recorded in
+    ``manga_volumes`` as Downloaded (ADR-0004: volumes are not issues), the
+    same as post-processing does. The chapters it contains then read as
+    Covered, and the volume leaves the search frontier. A volume file is
+    recorded even when MangaDex lists no chapters for that volume, so it is
+    never dropped.
 
     Already-Downloaded rows keep their Status. Location is rewritten only
     for a same-stem extension change at the series root (e.g. metatag
     exported ``.cbr`` to ``.cbz``), or when the stored basename is gone
     there and the candidate exists there.
     """
+    from comicarr.app.manga import volumes as manga_volumes
+    from comicarr.app.manga.ledger import is_volume_target, normalize_volume_number
+
     all_issues = db.select_all(select(t_issues).where(t_issues.c.ComicID == comic_id))
-    if not all_issues:
-        return 0
     series_dir = _series_directory(comic_id, directory)
 
     chapter_lookup = {}
-    volume_lookup = {}
-    for issue in all_issues:
+    for issue in all_issues or ():
         ch = issue.get("ChapterNumber")
-        vol = issue.get("VolumeNumber")
         if ch not in (None, ""):
             try:
                 chapter_lookup[float(ch)] = issue
             except (TypeError, ValueError):
                 pass
-        if vol not in (None, ""):
-            try:
-                vol_key = int(float(vol))
-                volume_lookup.setdefault(vol_key, []).append(issue)
-            except (TypeError, ValueError):
-                pass
 
     count = 0
+    volume_files = {}
     for filepath, parsed in files:
         if not parsed:
             continue
         filename = os.path.basename(filepath)
-        matched = []
-        if parsed.get("chapter_number") is not None:
-            match = chapter_lookup.get(float(parsed["chapter_number"]))
-            if match:
-                matched = [match]
-        if not matched and parsed.get("volume_number") is not None:
-            matched = volume_lookup.get(int(parsed["volume_number"]), [])
-        for issue in matched:
-            if issue.get("Status") == "Downloaded":
-                if issue.get("Location") != filename and _can_repoint_downloaded_location(
-                    series_dir, issue.get("Location"), filepath
-                ):
-                    db.upsert(
-                        "issues",
-                        {"Location": filename},
-                        {"IssueID": issue["IssueID"]},
-                    )
-                    issue["Location"] = filename
-                    logger.fdebug("[MANGA-RESCAN] Updated location: %s -> %s" % (filename, issue["IssueID"]))
-                continue
-            db.upsert(
-                "issues",
-                {"Status": "Downloaded", "Location": filename},
-                {"IssueID": issue["IssueID"]},
-            )
-            issue["Status"] = "Downloaded"
-            issue["Location"] = filename
-            count += 1
-            logger.fdebug("[MANGA-RESCAN] Marked as downloaded: %s -> %s" % (filename, issue["IssueID"]))
+        chapter_number = parsed.get("chapter_number")
+        volume_number = normalize_volume_number(parsed.get("volume_number"))
+        if is_volume_target(chapter_number, volume_number):
+            volume_files.setdefault(volume_number, filename)
+            continue
+        if chapter_number is None:
+            continue
+        issue = chapter_lookup.get(float(chapter_number))
+        if not issue:
+            continue
+        if issue.get("Status") == "Downloaded":
+            if issue.get("Location") != filename and _can_repoint_downloaded_location(
+                series_dir, issue.get("Location"), filepath
+            ):
+                db.upsert(
+                    "issues",
+                    {"Location": filename},
+                    {"IssueID": issue["IssueID"]},
+                )
+                issue["Location"] = filename
+                logger.fdebug("[MANGA-RESCAN] Updated location: %s -> %s" % (filename, issue["IssueID"]))
+            continue
+        db.upsert(
+            "issues",
+            {"Status": "Downloaded", "Location": filename},
+            {"IssueID": issue["IssueID"]},
+        )
+        issue["Status"] = "Downloaded"
+        issue["Location"] = filename
+        count += 1
+        logger.fdebug("[MANGA-RESCAN] Marked as downloaded: %s -> %s" % (filename, issue["IssueID"]))
+
+    if volume_files:
+        recorded = manga_volumes.volume_states(comic_id)
+        for volume_number, filename in sorted(volume_files.items(), key=lambda item: _volume_sort_key(item[0])):
+            if recorded.get(volume_number) not in manga_volumes.COVERING:
+                count += 1
+            manga_volumes.record_volume(comic_id, volume_number, manga_volumes.DOWNLOADED, location=filename)
+            logger.fdebug("[MANGA-RESCAN] Volume %s is in the library: %s" % (volume_number, filename))
+        count += _release_chapters_held_by_volume_files(all_issues or (), volume_files.values())
 
     if count > 0:
-        have = db.select_all(select(t_issues).where(t_issues.c.ComicID == comic_id, t_issues.c.Status == "Downloaded"))
-        db.upsert("comics", {"Have": len(have)}, {"ComicID": comic_id})
+        db.upsert("comics", {"Have": owned_chapter_count(comic_id)}, {"ComicID": comic_id})
     return count
+
+
+def _release_chapters_held_by_volume_files(issues, volume_filenames):
+    """Hand chapters an older rescan marked Downloaded with a volume file back to their volume.
+
+    Older rescans stored a volume file as the Location of every
+    chapter row in that volume. Those chapters are not files of their own:
+    the volume now records the file, and they read as Covered through it.
+    A stored ``.cbr`` still matches a volume file re-exported as ``.cbz``.
+    Returns how many rows changed.
+    """
+    stems = {os.path.splitext(name)[0] for name in volume_filenames}
+    changed = 0
+    for issue in issues:
+        if issue.get("Status") != "Downloaded" or issue.get("ChapterNumber") in (None, ""):
+            continue
+        location = os.path.basename(issue.get("Location") or "")
+        if not location or os.path.splitext(location)[0] not in stems:
+            continue
+        # Keep an explicit Wanted decision readable; otherwise the policy
+        # default. Either way the owned volume covers the chapter.
+        status = "Wanted" if str(issue.get("AcquisitionIntent") or "").lower() == "wanted" else "Skipped"
+        db.upsert("issues", {"Status": status, "Location": None}, {"IssueID": issue["IssueID"]})
+        changed += 1
+        logger.fdebug(
+            "[MANGA-RESCAN] %s is covered by volume file %s, not a file of its own"
+            % (issue["IssueID"], issue.get("Location"))
+        )
+    return changed
+
+
+def owned_chapter_count(comic_id):
+    """Chapters the library can read: their own file, or inside an owned volume file."""
+    from comicarr.app.manga import volumes as manga_volumes
+    from comicarr.app.manga.ledger import normalize_volume_number
+
+    placed = manga_volumes.covering_volumes(manga_volumes.volume_states(comic_id))
+    rows = db.select_all(
+        select(t_issues.c.Status, t_issues.c.ChapterNumber, t_issues.c.VolumeNumber).where(
+            t_issues.c.ComicID == comic_id
+        )
+    )
+    have = 0
+    for row in rows or ():
+        if row.get("Status") == "Downloaded":
+            have += 1
+        elif row.get("ChapterNumber") not in (None, "") and normalize_volume_number(row.get("VolumeNumber")) in placed:
+            have += 1
+    return have
+
+
+def _volume_sort_key(number):
+    try:
+        return (0, float(number), "")
+    except (TypeError, ValueError):
+        return (1, 0.0, str(number))
 
 
 def rescan_manga_series(series, *, directory=None):
