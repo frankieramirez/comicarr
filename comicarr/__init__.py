@@ -57,7 +57,7 @@ from comicarr import (
 )
 from comicarr.app.search.queue import FairSearchQueue
 from comicarr.app.series import watchlist_refresh
-from comicarr.app.system import maintenance, versioncheckit
+from comicarr.app.system import maintenance, versioncheck, versioncheckit
 
 
 class ThreadSafeLock:
