@@ -84,8 +84,8 @@ def _fetch_volumes(volume_ids: list[str]) -> dict[str, dict] | None:
     return volumes
 
 
-def _failure(cause: str) -> dict:
-    return {"status": "failure", "source": SOURCE, "cause": cause}
+def _failure(cause: str, reason: str = "failed") -> dict:
+    return {"status": "failure", "source": SOURCE, "reason": reason, "cause": cause}
 
 
 def pull_week(weeknumber, year, midweek: str) -> dict:
@@ -94,7 +94,7 @@ def pull_week(weeknumber, year, midweek: str) -> dict:
     Returns the same result shape as ``locg.locg()``, plus ``source``.
     """
     if not is_available():
-        return _failure("No ComicVine API key is configured.")
+        return _failure("No ComicVine API key is configured.", "not_configured")
 
     start_date, end_date = week_bounds(midweek)
     logger.info("[PULL-LIST] Asking ComicVine for issues on sale %s to %s" % (start_date, end_date))
@@ -103,7 +103,7 @@ def pull_week(weeknumber, year, midweek: str) -> dict:
     if issues is None:
         return _failure("ComicVine did not return the week's releases.")
     if not issues:
-        return _failure("ComicVine lists no releases for %s to %s." % (start_date, end_date))
+        return _failure("ComicVine lists no releases for %s to %s." % (start_date, end_date), "no_releases")
 
     volume_ids = sorted({str(issue["volume"]["id"]) for issue in issues if (issue.get("volume") or {}).get("id")})
     volumes = _fetch_volumes(volume_ids)
@@ -141,7 +141,9 @@ def pull_week(weeknumber, year, midweek: str) -> dict:
         )
 
     if not pull:
-        return _failure("Every ComicVine release for %s to %s was filtered out." % (start_date, end_date))
+        return _failure(
+            "Every ComicVine release for %s to %s was filtered out." % (start_date, end_date), "filtered_out"
+        )
 
     locg.store_week(pull, weeknumber, year)
     return {"status": "success", "source": SOURCE, "count": len(pull), "weeknumber": weeknumber, "year": year}

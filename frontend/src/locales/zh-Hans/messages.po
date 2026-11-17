@@ -2632,6 +2632,18 @@ msgstr "漫画（Comic Vine）"
 msgid "ComicVine API key"
 msgstr "ComicVine API 密钥"
 
+#: src/components/releases/pullAttempts.ts
+msgid "ComicVine could not be reached."
+msgstr "无法访问 ComicVine。"
+
+#: src/components/releases/pullAttempts.ts
+msgid "ComicVine has no API key in Settings."
+msgstr "设置中没有 ComicVine 的 API 密钥。"
+
+#: src/components/releases/pullAttempts.ts
+msgid "ComicVine lists no comics for this week yet."
+msgstr "ComicVine 尚未列出本周的漫画。"
+
 #: src/components/releases/MyReleasesView.tsx
 msgid "Coming up"
 msgstr "即将发布"
@@ -3628,6 +3640,10 @@ msgstr "估算：MangaDex 未列出本卷包含的话"
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Event"
 msgstr "事件"
+
+#: src/components/releases/pullAttempts.ts
+msgid "Every ComicVine release this week is from a publisher you ignore."
+msgstr "本周 ComicVine 的所有新刊都来自你忽略的出版商。"
 
 #: src/lib/healthBand.ts
 msgid "every configured indexer is disabled"
@@ -5444,6 +5460,18 @@ msgstr "元数据仍来自 {provider}。"
 msgid "Metron"
 msgstr "Metron"
 
+#: src/components/releases/pullAttempts.ts
+msgid "Metron could not be reached."
+msgstr "无法访问 Metron。"
+
+#: src/components/releases/pullAttempts.ts
+msgid "Metron is not set up as a backup. Add your Metron login in Settings to use it."
+msgstr "Metron 尚未设置为备用来源。在设置中添加你的 Metron 登录信息即可使用。"
+
+#: src/components/releases/pullAttempts.ts
+msgid "Metron lists no comics for this week yet."
+msgstr "Metron 尚未列出本周的漫画。"
+
 #: src/components/settings/ApiTab.tsx
 msgid "Metron Password"
 msgstr "Metron 密码"
@@ -5674,10 +5702,6 @@ msgstr "需要你处理"
 #: src/components/layout/AppStatusBar.tsx
 msgid "Needs you: open the list"
 msgstr "需要你处理：打开列表"
-
-#: src/components/releases/IndustryReleasesView.tsx
-msgid "Neither Walksoftly nor ComicVine has this week's comics yet. Future weeks fill in as publishers announce them; try again later."
-msgstr "Walksoftly 和 ComicVine 都还没有本周的漫画。未来几周的内容会随出版商公布而补齐；请稍后再试。"
 
 #: src/lib/wantedAnnotation.ts
 msgid "never searched"
@@ -5916,6 +5940,10 @@ msgstr "没有待处理的导入"
 msgid "No providers enabled"
 msgstr "未启用任何提供方"
 
+#: src/components/releases/IndustryReleasesView.tsx
+msgid "No pull-list source has this week's comics yet. Future weeks fill in as publishers announce them; try again later."
+msgstr "目前还没有拉取来源提供本周的漫画。未来几周会随出版商公布而补全，请稍后再试。"
+
 #: src/pages/DiscoverPage.tsx
 msgid "No recommendations yet"
 msgstr "还没有推荐"
@@ -6066,6 +6094,10 @@ msgstr "还没有工作进程心跳。"
 #: src/components/settings/NotificationsTab.tsx
 msgid "None"
 msgstr "无"
+
+#: src/components/releases/MyReleasesView.tsx
+msgid "None of your series has a release date this week. Try Refresh releases later, or turn off Only my library to see this week's manga."
+msgstr "你的系列本周都没有发布日期。请稍后尝试“刷新新刊”，或关闭“仅我的书库”以查看本周的日漫。"
 
 #: src/pages/IssueDetailPage.tsx
 msgid "none yet"
@@ -9724,6 +9756,10 @@ msgstr "正在等待获取工作排空"
 #: src/components/activity/timeline/attentionStage.ts
 msgid "Waiting on your decision."
 msgstr "正在等待你的决定。"
+
+#: src/components/releases/pullAttempts.ts
+msgid "Walksoftly, the main pull-list source, could not be reached."
+msgstr "无法访问主要拉取来源 Walksoftly。"
 
 #: src/components/queue/upcomingColumns.tsx
 #: src/components/releases/IndustryReleasesView.tsx

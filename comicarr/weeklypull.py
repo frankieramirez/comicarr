@@ -57,27 +57,24 @@ def _weekly_pull_result(status, retry_hint=None, origin_error=False, cause=None,
     return result
 
 
-def _pull_from_comicvine(weeknumber, year):
-    """Fill one week from ComicVine after Walksoftly failed for it (#919)."""
-    from comicarr.app.weekly import cv_source
+def _pull_from_backup(weeknumber, year):
+    """Fill one week from Metron or ComicVine after Walksoftly failed for it (#919)."""
+    from comicarr.app.weekly import fallback
 
-    if not cv_source.is_available():
-        logger.info("[PULL-LIST] No ComicVine API key is configured, so there is no fallback pull-list source.")
-        return {"status": "failure"}
     try:
         midweek = configured.weekly_info(weeknumber, year)["midweek"]
-        result = cv_source.pull_week(weeknumber, year, midweek)
+        result = fallback.pull_week(weeknumber, year, midweek)
     except Exception as e:
-        logger.warn("[PULL-LIST] ComicVine fallback for week %s, %s failed: %s" % (weeknumber, year, e))
+        logger.warn("[PULL-LIST] Backup pull-list fetch for week %s, %s failed: %s" % (weeknumber, year, e))
         return {"status": "failure"}
     if result["status"] == "success":
         logger.info(
-            "[PULL-LIST] Walksoftly is unavailable, so the pull list for week %s, %s was filled from ComicVine (%s issues)."
-            % (weeknumber, year, result["count"])
+            "[PULL-LIST] Walksoftly is unavailable, so the pull list for week %s, %s was filled from %s (%s issues)."
+            % (weeknumber, year, result["source"], result["count"])
         )
     else:
         logger.warn(
-            "[PULL-LIST] ComicVine fallback for week %s, %s did not fill the pull list: %s"
+            "[PULL-LIST] No backup source filled the pull list for week %s, %s: %s"
             % (weeknumber, year, result.get("cause"))
         )
     return result
@@ -239,11 +236,11 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                     origin_error = False
                     cause = None
                 # The previous week has settled, so rows already saved for it
-                # beat a fresh ComicVine query. The current week is still
-                # gaining store dates, so ComicVine is asked first (#919).
+                # beat a fresh backup query. The current week is still
+                # gaining store dates, so the backup sources are asked first (#919).
                 has_saved_rows = _weekly_pull_has_data(weeknumber_mod, year_mod)
                 if not (x == 1 and has_saved_rows):
-                    fallback = _pull_from_comicvine(weeknumber_mod, year_mod)
+                    fallback = _pull_from_backup(weeknumber_mod, year_mod)
                     if fallback["status"] == "success":
                         source = fallback["source"]
                         new_pullcheck(weeknumber_mod, year_mod)

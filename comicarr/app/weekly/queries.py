@@ -9,7 +9,7 @@
 
 """SQLAlchemy Core projections owned by the weekly domain."""
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from comicarr.app.core import db
 from comicarr.app.core.tables import comics as t_comics
@@ -89,4 +89,15 @@ def get_library_manga():
         t_comics.c.AlternateSearch,
         t_comics.c.Status,
     ).where(t_comics.c.ContentType == "manga")
+    return db.select_all(stmt)
+
+
+def get_library_comics():
+    """Return every non-manga series with the name and year a release can match."""
+    stmt = select(
+        t_comics.c.ComicID,
+        t_comics.c.ComicName,
+        t_comics.c.DynamicComicName,
+        t_comics.c.ComicYear,
+    ).where(or_(t_comics.c.ContentType.is_(None), t_comics.c.ContentType != "manga"))
     return db.select_all(stmt)

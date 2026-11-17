@@ -381,8 +381,32 @@ describe("ReleasesPage", () => {
     renderIndustry();
 
     expect(
-      await screen.findByText(/Neither Walksoftly nor ComicVine has this week/),
+      await screen.findByText(/No pull-list source has this week's comics/),
     ).toBeTruthy();
+  });
+
+  it("says why each pull-list source left the week empty", async () => {
+    server.use(
+      http.get("/api/weekly", () =>
+        HttpResponse.json(
+          weeklyWeek([], {
+            source: "unavailable",
+            pull_attempts: [
+              { source: "walksoftly", reason: "failed" },
+              { source: "metron", reason: "not_configured" },
+              { source: "comicvine", reason: "no_releases" },
+            ],
+          }),
+        ),
+      ),
+    );
+    renderIndustry();
+
+    const reason = await screen.findByText(/Walksoftly, the main pull-list/);
+    expect(reason.textContent).toContain("Add your Metron login in Settings");
+    expect(reason.textContent).toContain(
+      "ComicVine lists no comics for this week yet.",
+    );
   });
 
   it("keeps weekly row keys unique when ComicID is missing", () => {
