@@ -1190,6 +1190,29 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
     return {"total": total, "issue_count": issue_count, "latest_chapter": latest_chapter}
 
 
+def _manga_series_folder(manga_dest, manga_name, manga_year):
+    """The library folder for a manga Series being added.
+
+    Uses the folder format ("$Series ($Year)" by default), unless that folder
+    does not exist yet and one named for the plain title does. Manga libraries
+    built by hand or by other tools usually use the plain title, and creating
+    the formatted folder beside it left two folders for one Series, with
+    Comicarr watching the empty one.
+    """
+    folder_format = comicarr.CONFIG.FOLDER_FORMAT or "$Series ($Year)"
+    formatted = helpers.filesafe(folder_format.replace("$Series", manga_name).replace("$Year", str(manga_year)))
+    root = os.path.normpath(os.path.abspath(manga_dest))
+    formatted_path = os.path.join(manga_dest, formatted)
+    checked_formatted = os.path.normpath(os.path.join(root, formatted))
+    plain_path = os.path.normpath(os.path.join(root, helpers.filesafe(manga_name)))
+    if not checked_formatted.startswith(root + os.sep) or not plain_path.startswith(root + os.sep):
+        return formatted_path
+    if plain_path != checked_formatted and not os.path.isdir(checked_formatted) and os.path.isdir(plain_path):
+        logger.info("[MANGA] Using the existing folder %s for %s" % (plain_path, manga_name))
+        return plain_path
+    return formatted_path
+
+
 def addMangaToDB(mangaid, imported=None, calledfrom=None, location=None):
     """
     Add a manga from MangaDex to the database.
@@ -1273,10 +1296,7 @@ def addMangaToDB(mangaid, imported=None, calledfrom=None, location=None):
 
     manga_dest = get_manga_destination()
     if manga_dest and not comlocation:
-        folder_format = comicarr.CONFIG.FOLDER_FORMAT or "$Series ($Year)"
-        folder_name = folder_format.replace("$Series", manga_name).replace("$Year", str(manga_year))
-        folder_name = helpers.filesafe(folder_name)
-        comlocation = os.path.join(manga_dest, folder_name)
+        comlocation = _manga_series_folder(manga_dest, manga_name, manga_year)
 
         if comicarr.CONFIG.CREATE_FOLDERS:
             checkdirectory = filechecker.validateAndCreateDirectory(comlocation, True)
@@ -1447,10 +1467,7 @@ def addMangaToDB_MAL(mangaid, imported=None, calledfrom=None, location=None):
 
     manga_dest = get_manga_destination()
     if manga_dest and not comlocation:
-        folder_format = comicarr.CONFIG.FOLDER_FORMAT or "$Series ($Year)"
-        folder_name = folder_format.replace("$Series", manga_name).replace("$Year", str(manga_year))
-        folder_name = helpers.filesafe(folder_name)
-        comlocation = os.path.join(manga_dest, folder_name)
+        comlocation = _manga_series_folder(manga_dest, manga_name, manga_year)
 
         if comicarr.CONFIG.CREATE_FOLDERS:
             checkdirectory = filechecker.validateAndCreateDirectory(comlocation, True)
