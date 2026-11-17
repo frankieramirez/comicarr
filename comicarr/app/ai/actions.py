@@ -23,9 +23,8 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 from sqlalchemy import select, update
 
 import comicarr
-from comicarr import db
-from comicarr.app.core import logger
-from comicarr.tables import annuals, comics, issues
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import annuals, comics, issues
 
 ACTION_PATTERNS = {
     "add_series": "Add a series to the watchlist (params: query = series name to search providers for)",

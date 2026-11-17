@@ -16,14 +16,14 @@ than direct DB access. This module covers auxiliary query needs.
 
 from sqlalchemy import func, select
 
-from comicarr import db
-from comicarr.db import get_engine
-from comicarr.tables import (
+from comicarr.app.core import db
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import (
     acquisition_run_items,
     acquisition_runs,
     jobhistory,
 )
-from comicarr.tables import (
+from comicarr.app.core.tables import (
     provider_searches as t_provider_searches,
 )
 

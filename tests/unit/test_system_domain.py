@@ -2290,8 +2290,8 @@ class TestConfigTransactions:
     def test_provider_projection_rolls_back_all_rows_when_later_upsert_fails(self, tmp_path, monkeypatch):
         from sqlalchemy import create_engine, select
 
-        from comicarr import db as db_module
-        from comicarr.tables import provider_searches
+        from comicarr.app.core import db as db_module
+        from comicarr.app.core.tables import provider_searches
 
         engine = create_engine("sqlite:///:memory:")
         provider_searches.create(engine)
@@ -2328,8 +2328,8 @@ class TestConfigTransactions:
     def test_provider_projection_tolerates_stale_rows_skips_32p_and_refreshes_identity(self, tmp_path, monkeypatch):
         from sqlalchemy import create_engine, select
 
-        from comicarr import db as db_module
-        from comicarr.tables import provider_searches
+        from comicarr.app.core import db as db_module
+        from comicarr.app.core.tables import provider_searches
 
         engine = create_engine("sqlite:///:memory:")
         provider_searches.create(engine)

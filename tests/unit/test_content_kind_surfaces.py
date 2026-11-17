@@ -16,14 +16,14 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import series_kind
 from comicarr.app.common.series_kind import manga_sql_clause
+from comicarr.app.core import db
 from comicarr.app.core.context import AppContext
+from comicarr.app.core.tables import comics, metadata
 from comicarr.app.dashboard import queries as dashboard_queries
 from comicarr.app.manga.sync import list_active_manga_series
 from comicarr.app.series import service as series_service
-from comicarr.tables import comics, metadata
 from tests.fakes import folder_request
 
 

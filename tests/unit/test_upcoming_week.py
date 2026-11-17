@@ -15,10 +15,10 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, issues, metadata, weekly
 from comicarr.app.storyarcs import router as arc_router
 from comicarr.app.storyarcs import service as arc_service
-from comicarr.tables import comics, issues, metadata, weekly
 
 
 @pytest.fixture

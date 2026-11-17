@@ -19,18 +19,17 @@ import os
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common import strings as common_strings
 from comicarr.app.common.series_names import dynamic_series_key
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import comics, issues
 from comicarr.app.library import directories
 from comicarr.app.metadata import service as metadata_service
 from comicarr.app.series import service as series_service
 from comicarr.app.series.add_activity import emit_add_activity
-from comicarr.tables import comics, issues
 
 
 def _refuse_duplicate_manga(attempted_id, existing):

@@ -16,7 +16,6 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import db
 from comicarr.app.activity import queries
 
 # The reason registry and the reconciliation entry points have no public
@@ -28,7 +27,8 @@ from comicarr.app.activity import queries
 from comicarr.app.attention import _policy as reasons
 from comicarr.app.attention import _reconciliation as band_reconcile
 from comicarr.app.attention import read
-from comicarr.tables import (
+from comicarr.app.core import db
+from comicarr.app.core.tables import (
     annuals,
     comics,
     failed,

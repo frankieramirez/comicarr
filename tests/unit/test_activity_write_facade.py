@@ -24,8 +24,8 @@ import pytest
 from sqlalchemy import func, select
 
 import comicarr
-from comicarr import db
-from comicarr.tables import activity_events, metadata
+from comicarr.app.core import db
+from comicarr.app.core.tables import activity_events, metadata
 
 
 @pytest.fixture
@@ -170,9 +170,7 @@ def test_record_activity_rolls_back_with_caller_transaction(activity_db, mock_ev
     mock_event_bus.publish_sync.assert_not_called()
 
 
-def test_record_activity_propagates_insert_failure_on_caller_conn(
-    activity_db, mock_event_bus, monkeypatch
-):
+def test_record_activity_propagates_insert_failure_on_caller_conn(activity_db, mock_event_bus, monkeypatch):
     """Co-commit insert failures must reach the caller, not be swallowed.
 
     The caller owns the transaction; a masked failure would poison it and
@@ -201,9 +199,7 @@ def test_record_activity_propagates_insert_failure_on_caller_conn(
     mock_event_bus.publish_sync.assert_not_called()
 
 
-def test_record_activity_swallows_insert_failure_on_owned_transaction(
-    activity_db, mock_event_bus, monkeypatch
-):
+def test_record_activity_swallows_insert_failure_on_owned_transaction(activity_db, mock_event_bus, monkeypatch):
     """Owned-transaction path stays best-effort: it rolls back and returns None."""
     from comicarr.app.activity import events
 

@@ -15,11 +15,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, insert, select
 
 import comicarr
+from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.security import require_session
+from comicarr.app.core.tables import annuals, comics, issues, metadata, physical_copies
 from comicarr.app.shelf import service
 from comicarr.app.shelf.router import router
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import annuals, comics, issues, metadata, physical_copies
 
 
 @pytest.fixture(autouse=True)

@@ -24,7 +24,6 @@ from collections.abc import Mapping
 import sqlalchemy
 
 import comicarr
-from comicarr import db
 from comicarr.app.acquisition.evidence import has_verified_library_file
 from comicarr.app.acquisition.models import AcquisitionIntent, Fulfillment
 from comicarr.app.acquisition.policy import (
@@ -37,12 +36,12 @@ from comicarr.app.common import series_kind
 from comicarr.app.common.filesystem import is_path_within_allowed_dirs
 from comicarr.app.common.library_roots import is_strict_library_descendant
 from comicarr.app.common.strings import filesafe
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import annuals, comics, issues, storyarcs, weekly
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.search.providers import effective_provider_plan, parse_provider_override
 from comicarr.app.series import location as series_locations
 from comicarr.app.series import queries as series_queries
-from comicarr.tables import annuals, comics, issues, storyarcs, weekly
 
 _COMIC_SCAN_START_LOCK = threading.Lock()
 _MANGA_SCAN_START_LOCK = threading.Lock()

@@ -20,11 +20,11 @@ from sqlalchemy import create_engine, select
 
 import comicarr
 from comicarr.app.core.context import AppContext
+from comicarr.app.core.tables import annuals, issues
 from comicarr.app.search import commands as search_commands
 from comicarr.app.series import add_workers
 from comicarr.app.series import queries as series_queries
 from comicarr.app.series import service as series_service
-from comicarr.tables import annuals, issues
 
 
 def _state_row(**overrides):

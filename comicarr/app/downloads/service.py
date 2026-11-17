@@ -23,10 +23,11 @@ import zipfile
 import rarfile
 
 import comicarr
-from comicarr import db, getcomics, nzbget, sabnzbd
+from comicarr import getcomics, nzbget, sabnzbd
 from comicarr.app.attention import Failure, ManualReview, record
 from comicarr.app.common.redaction import redacted_traceback
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import annuals, comics, ddl_info, issues, storyarcs, weekly
 from comicarr.app.downloads import postprocessing
 from comicarr.app.downloads import queries as dl_queries
 from comicarr.app.downloads.completed_path import resolve_completed_download_file
@@ -34,7 +35,6 @@ from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 from comicarr.app.series import refresh as series_refresh
 from comicarr.app.series import rescan as series_rescan
 from comicarr.downloaders import mediafire, mega, pixeldrain
-from comicarr.tables import annuals, comics, ddl_info, issues, storyarcs, weekly
 
 IN_PROGRESS_POLL_SECONDS = 5
 MONITOR_OUTAGE_BUDGET_SECONDS = 30 * 60

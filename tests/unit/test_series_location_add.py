@@ -15,12 +15,12 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
+from comicarr.app.core.tables import comics, metadata
 from comicarr.app.manga import add as manga_add
 from comicarr.app.metadata import service as metadata_service
 from comicarr.app.search import service as search_service
 from comicarr.app.series import add_workers
 from comicarr.app.series import service as series_service
-from comicarr.tables import comics, metadata
 
 
 def _config(tmp_path):
@@ -42,7 +42,7 @@ def _config(tmp_path):
 def empty_library(monkeypatch, tmp_path):
     engine = create_engine("sqlite://")
     metadata.create_all(engine)
-    monkeypatch.setattr(comicarr.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(comicarr.app.core.db, "get_engine", lambda: engine)
     config = _config(tmp_path)
     monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
     return SimpleNamespace(engine=engine, ctx=SimpleNamespace(config=config), tmp_path=tmp_path)

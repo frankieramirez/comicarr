@@ -26,9 +26,8 @@ import time
 
 from sqlalchemy import select
 
-from comicarr import db
-from comicarr.app.core import logger
-from comicarr.tables import comics
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import comics
 
 MAX_TILES = 48
 REFRESH_SECONDS = 3600

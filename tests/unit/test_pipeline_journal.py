@@ -19,10 +19,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 
 import comicarr
-from comicarr.app.downloads import journal
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.app.downloads import handoff
-from comicarr.tables import annuals, comics, issues, metadata, pipeline_journal, storyarcs
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import annuals, comics, issues, metadata, pipeline_journal, storyarcs
+from comicarr.app.downloads import handoff, journal
 
 
 @pytest.fixture(autouse=True)
@@ -65,7 +64,7 @@ def test_table_autocreated_on_fresh_db():
 
 
 def test_upsert_keys_registered():
-    from comicarr.tables import UPSERT_KEYS
+    from comicarr.app.core.tables import UPSERT_KEYS
 
     assert UPSERT_KEYS.get("pipeline_journal") == ["release_key"]
 

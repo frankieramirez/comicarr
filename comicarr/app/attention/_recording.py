@@ -87,7 +87,7 @@ def record(entry: Failure | ManualReview, *, conn=None) -> RecordOutcome:
     if conn is not None:
         return _record_on_connection(entry, conn)
 
-    from comicarr import db
+    from comicarr.app.core import db
 
     attempt = 0
     while attempt < 5:

@@ -30,8 +30,8 @@ from sqlalchemy import delete, exists, insert, select, update
 
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.core import logger
-from comicarr.db import get_engine
-from comicarr.tables import interactive_search_candidates, interactive_search_sessions
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import interactive_search_candidates, interactive_search_sessions
 
 SESSION_TTL_SECONDS = 10 * 60
 MAX_CANDIDATES = 200

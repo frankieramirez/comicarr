@@ -14,11 +14,11 @@ from types import SimpleNamespace
 
 from sqlalchemy import create_engine, func, select
 
+from comicarr.app.core.tables import annuals, comics, issues, storyarcs
 from comicarr.app.series import queries as series_queries
 from comicarr.app.series import router as series_router
 from comicarr.app.storyarcs import queries as arc_queries
 from comicarr.app.storyarcs import router as storyarcs_router
-from comicarr.tables import annuals, comics, issues, storyarcs
 
 
 def _engine(monkeypatch, *tables):

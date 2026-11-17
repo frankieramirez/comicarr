@@ -21,9 +21,9 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.series import folder_rescan, rescan
-from comicarr.tables import comics, issues, metadata
 
 
 def _config():
@@ -215,7 +215,7 @@ def test_a_manga_series_is_rematched_by_the_manga_rescan_not_filechecker(engine,
 
     rescan.rescan_series("md-naruto")
 
-    from comicarr.tables import manga_volumes
+    from comicarr.app.core.tables import manga_volumes
 
     with engine.connect() as conn:
         volume = conn.execute(select(manga_volumes)).mappings().one()

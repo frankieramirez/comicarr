@@ -9,16 +9,15 @@
 
 import datetime
 import json
-
-import pytest
 from types import SimpleNamespace
 
+import pytest
 from sqlalchemy import create_engine
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics
 from comicarr.app.metadata.series_metadata import metadata_Series
-from comicarr.tables import comics
 
 
 def _run_metadata(tmp_path, monkeypatch, *, year, latest=None):

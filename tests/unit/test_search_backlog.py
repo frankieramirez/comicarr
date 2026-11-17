@@ -18,6 +18,8 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import comics, issues, metadata, rss_search_seen
 from comicarr.app.search.backlog import (
     PASS_RSS_WANTED,
     PassBudget,
@@ -30,8 +32,6 @@ from comicarr.app.search.backlog import (
     rss_provider_lookup_key,
     try_acquire_pass,
 )
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, issues, metadata, rss_search_seen
 
 
 @pytest.fixture

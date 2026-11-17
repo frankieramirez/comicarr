@@ -10,8 +10,8 @@
 from sqlalchemy import create_engine, text
 
 from comicarr.app.core.schema import current_revision, upgrade_database
+from comicarr.app.core.tables import comics
 from comicarr.app.system.db_migrate import migrate
-from comicarr.tables import comics
 
 
 def _sqlite_url(path):

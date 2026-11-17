@@ -35,12 +35,8 @@ from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.attention import read as read_attention
 from comicarr.app.core.context import AppContext
-from comicarr.app.downloads import journal
-from comicarr.app.search import health
-from comicarr.app.search import service as search_service
-from comicarr.app.series import service as series_service
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import (
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import (
     acquisition_run_items,
     acquisition_runs,
     ai_activity_log,
@@ -49,6 +45,10 @@ from comicarr.tables import (
     metadata,
     pipeline_journal,
 )
+from comicarr.app.downloads import journal
+from comicarr.app.search import health
+from comicarr.app.search import service as search_service
+from comicarr.app.series import service as series_service
 
 FIXED_NOW = datetime.datetime(2026, 8, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
 

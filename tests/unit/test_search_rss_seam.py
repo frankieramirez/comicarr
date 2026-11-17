@@ -25,11 +25,11 @@ import comicarr
 import comicarr.search
 from comicarr import rsscheck
 from comicarr.app.common import dates as common_dates
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import comics, issues, metadata, rssdb
 from comicarr.app.manga import mangadex
 from comicarr.app.search import rss
 from comicarr.app.system import service as system_service
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, issues, metadata, rssdb
 
 # A newznab /rss response as an indexer returns it (trimmed to two items).
 NEWZNAB_RSS_FEED = b"""<?xml version="1.0" encoding="UTF-8"?>

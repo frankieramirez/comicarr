@@ -25,11 +25,10 @@ import feedparser as feedparser
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import numbers as common_numbers
-from comicarr.app.core import logger
-from comicarr.tables import annuals, comics, failed, issues, nzblog
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import annuals, comics, failed, issues, nzblog
 
 FAIL_REASON_RESEARCHING = "download_failed_researching"
 FAIL_REASON_NO_AUTO_HANDLING = "download_failed_no_auto_handling"

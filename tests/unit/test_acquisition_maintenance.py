@@ -23,8 +23,8 @@ from comicarr.app.acquisition.maintenance import (
     maintenance_retry_delay,
     refresh_runtime_state,
 )
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import (
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import (
     acquisition_maintenance,
     acquisition_maintenance_leases,
     acquisition_run_items,

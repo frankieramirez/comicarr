@@ -3,16 +3,14 @@
 import os
 import tempfile
 import threading
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import inspect, text
-
-import comicarr
-from unittest.mock import patch
-
 from sqlalchemy.exc import OperationalError
 
-from comicarr.db import (
+import comicarr
+from comicarr.app.core.db import (
     DBConnection,
     _convert_positional_to_named,
     _get_database_url,
@@ -23,7 +21,7 @@ from comicarr.db import (
     shutdown_engine,
     upsert,
 )
-from comicarr.tables import comics, issues, metadata
+from comicarr.app.core.tables import comics, issues, metadata
 
 
 @pytest.fixture(autouse=True)
@@ -122,9 +120,7 @@ class TestParamConversion:
         assert params == {}
 
     def test_question_mark_in_string_literal(self):
-        query, _ = _convert_positional_to_named(
-            "SELECT * FROM comics WHERE name = 'What?'"
-        )
+        query, _ = _convert_positional_to_named("SELECT * FROM comics WHERE name = 'What?'")
         # The ? inside quotes should NOT be converted
         assert "param_" not in query
         assert "'What?'" in query
@@ -398,12 +394,10 @@ class TestRetryExhaustion:
         engine = get_engine()
         metadata.create_all(engine)
 
-        with patch("comicarr.db.get_engine") as mock_engine:
+        with patch("comicarr.app.core.db.get_engine") as mock_engine:
             # Set up dialect so upsert() can determine the insert strategy
             mock_engine.return_value.dialect.name = "sqlite"
             ctx = mock_engine.return_value.begin.return_value.__enter__
-            ctx.return_value.execute.side_effect = OperationalError(
-                "database is locked", None, None
-            )
+            ctx.return_value.execute.side_effect = OperationalError("database is locked", None, None)
             with pytest.raises(OperationalError):
                 upsert("comics", {"ComicName": "Test"}, {"ComicID": "retry1"})

@@ -12,10 +12,10 @@
 import pytest
 from sqlalchemy import func, select
 
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import annuals, comics, issues, metadata, storyarcs, upcoming
 from comicarr.app.series import queries as series_queries
 from comicarr.search import searchforissue_checker
-from comicarr.tables import annuals, comics, issues, metadata, storyarcs, upcoming
 
 
 @pytest.fixture(autouse=True)

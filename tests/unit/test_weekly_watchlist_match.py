@@ -26,9 +26,9 @@ from sqlalchemy import create_engine, select
 
 import comicarr
 from comicarr.app.common import configured
+from comicarr.app.core.tables import comics, issues, metadata, upcoming
 from comicarr.app.series import add, refresh
 from comicarr.app.weekly import watchlist_match
-from comicarr.tables import comics, issues, metadata, upcoming
 
 WEEK = {"weeknumber": "10", "year": "2024"}
 
@@ -37,7 +37,7 @@ WEEK = {"weeknumber": "10", "year": "2024"}
 def engine(monkeypatch):
     eng = create_engine("sqlite://")
     metadata.create_all(eng)
-    monkeypatch.setattr(comicarr.db, "get_engine", lambda: eng)
+    monkeypatch.setattr(comicarr.app.core.db, "get_engine", lambda: eng)
     monkeypatch.setattr(comicarr, "PULLBYFILE", False, raising=False)
     monkeypatch.setattr(
         comicarr,

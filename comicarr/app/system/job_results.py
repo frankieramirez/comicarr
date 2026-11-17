@@ -27,9 +27,8 @@ import datetime
 from sqlalchemy import and_, func, select
 
 import comicarr
-from comicarr import db
-from comicarr.app.core import logger
-from comicarr.tables import acquisition_runs, activity_events, comics, importresults, weekly
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import acquisition_runs, activity_events, comics, importresults, weekly
 
 
 def _iso(timestamp) -> str | None:

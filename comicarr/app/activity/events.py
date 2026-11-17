@@ -35,9 +35,9 @@ import datetime
 from sqlalchemy import insert
 
 from comicarr.app.core import logger
+from comicarr.app.core.db import get_engine
 from comicarr.app.core.runtime import get_runtime_if_initialized
-from comicarr.db import get_engine
-from comicarr.tables import activity_events
+from comicarr.app.core.tables import activity_events
 
 ACTIVITIES = frozenset({"search", "grab", "download", "import", "refresh", "add", "tag", "status_change"})
 

@@ -18,10 +18,10 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import ddl_info, issues, metadata, nzblog, pipeline_journal
 from comicarr.app.downloads import journal, service
 from comicarr.app.downloads.ddl_commands import DDLCommand
-from comicarr.tables import ddl_info, issues, metadata, nzblog, pipeline_journal
 
 
 def _ago(minutes):

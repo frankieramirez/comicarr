@@ -24,8 +24,8 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
-from comicarr.tables import (
+from comicarr.app.core import db
+from comicarr.app.core.tables import (
     acquisition_run_items,
     activity_events,
     annuals,

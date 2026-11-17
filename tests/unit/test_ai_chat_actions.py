@@ -15,14 +15,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.ai import actions as chat_actions
 from comicarr.app.ai import chat_store
 from comicarr.app.ai.chat_service import stream_turn
 from comicarr.app.ai.router import router
+from comicarr.app.core import db
 from comicarr.app.core.context import get_context
 from comicarr.app.core.security import require_session
-from comicarr.tables import annuals, issues, metadata
+from comicarr.app.core.tables import annuals, issues, metadata
 
 
 @pytest.fixture

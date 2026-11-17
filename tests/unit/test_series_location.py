@@ -14,13 +14,13 @@ from types import SimpleNamespace
 import pytest
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import placement
+from comicarr.app.core import db
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import metadata
 from comicarr.app.imports import finalization
 from comicarr.app.series import location as series_location
 from comicarr.app.series import service as series_service
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import metadata
 
 WIZARD = "18692"
 OTHER = "160294"

@@ -32,9 +32,8 @@ from datetime import date, timedelta
 from sqlalchemy import delete, select
 
 import comicarr
-from comicarr import db
-from comicarr.app.core import logger
-from comicarr.tables import rss_search_seen, search_backlog_state
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import rss_search_seen, search_backlog_state
 
 PASS_RSS_WANTED = "rss_wanted"
 PASS_RSSDB = "rssdb"

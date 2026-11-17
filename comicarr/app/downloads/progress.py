@@ -26,10 +26,9 @@ import requests
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import pipeline_journal
 from comicarr.app.downloads import journal
-from comicarr.tables import pipeline_journal
 
 _TIMEOUT = 5
 _CACHE_SECONDS = 15

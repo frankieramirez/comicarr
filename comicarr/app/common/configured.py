@@ -15,14 +15,13 @@ shim (#1474); the globals they read move to ``AppContext`` in #1478.
 """
 
 import comicarr
-from comicarr import db
 from comicarr.app.common.dates import now
 from comicarr.app.common.dates import weekly_info as _weekly_info_impl
 from comicarr.app.common.filesystem import checkFolder as _checkFolder_impl
 from comicarr.app.common.numbers import issuedigits as _issuedigits_impl
 from comicarr.app.common.utilities import crc as _crc_impl
 from comicarr.app.common.utilities import log_that_exception as _log_that_exception_impl
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
 
 
 def issuedigits(issnum):

@@ -40,10 +40,9 @@ import uuid
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from comicarr import db
 from comicarr.app.common.dates import now
-from comicarr.app.core import logger
-from comicarr.tables import pipeline_journal
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import pipeline_journal
 
 RESERVED = "reserved"
 SNATCHED = "snatched"
@@ -503,8 +502,8 @@ def _library_holds_issue(conn, issueid):
     if issueid in (None, ""):
         return True
     from comicarr.app.acquisition.evidence import has_verified_library_file
+    from comicarr.app.core.tables import annuals, comics, issues, storyarcs
     from comicarr.app.series.location import retained_locations
-    from comicarr.tables import annuals, comics, issues, storyarcs
 
     issue_id = str(issueid)
 

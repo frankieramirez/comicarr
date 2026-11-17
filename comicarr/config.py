@@ -33,11 +33,11 @@ from operator import itemgetter
 from pathlib import Path
 
 import comicarr
-from comicarr import db, filechecker
+from comicarr import filechecker
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.config.log_level import record_startup_argument, resolve_startup_log_level
 from comicarr.app.config.registry import as_legacy_definitions
-from comicarr.app.core import encrypted, logger
+from comicarr.app.core import db, encrypted, logger
 from comicarr.app.search import provider_config, prowlarr
 from comicarr.app.system import maintenance
 
@@ -742,7 +742,7 @@ class Config(object):
                 from sqlalchemy import delete
                 from sqlalchemy import inspect as sa_inspect
 
-                from comicarr.tables import provider_searches
+                from comicarr.app.core.tables import provider_searches
 
                 inspector = sa_inspect(db.get_engine())
                 cols = inspector.get_columns("provider_searches")
@@ -2430,7 +2430,7 @@ class Config(object):
         """Reconcile the provider-search projection in one database transaction."""
         from sqlalchemy import select, update
 
-        from comicarr.tables import provider_searches
+        from comicarr.app.core.tables import provider_searches
 
         provider_order = self.PROVIDER_ORDER if provider_order is None else provider_order
         extra_newznabs = self.EXTRA_NEWZNABS if extra_newznabs is None else extra_newznabs

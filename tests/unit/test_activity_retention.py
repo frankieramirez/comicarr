@@ -21,9 +21,9 @@ from comicarr.app.activity.retention import (
     RETENTION_DAYS,
     purge_expired_activity_events,
 )
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import activity_events, metadata
 from comicarr.app.system import service as system_service
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import activity_events, metadata
 
 
 @pytest.fixture(autouse=True)

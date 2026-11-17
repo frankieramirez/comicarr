@@ -18,8 +18,8 @@ from sqlalchemy.exc import IntegrityError
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome, RunState
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.core import logger
-from comicarr.db import get_engine
-from comicarr.tables import acquisition_run_items, acquisition_runs
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import acquisition_run_items, acquisition_runs
 
 MAX_PAYLOAD_BYTES = 16 * 1024
 

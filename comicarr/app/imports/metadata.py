@@ -16,16 +16,16 @@ import requests
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common import strings as common_strings
 from comicarr.app.common.library_roots import is_strict_library_descendant
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, issues
 from comicarr.app.library import filers
 from comicarr.app.metadata import metron
 from comicarr.app.metadata.series_type import resolve_series_edition
-from comicarr.tables import comics, issues
 
 _ADD_LOCK = threading.Lock()
 _MAX_PAGES = 20

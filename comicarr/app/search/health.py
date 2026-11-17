@@ -16,12 +16,12 @@ import re
 import time
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.db import get_engine
 from comicarr.app.search import prowlarr, queries
 from comicarr.app.search.provider_config import provider_enabled
 from comicarr.app.search.providers import effective_provider_plan, enabled_provider_entries, ordered_provider_names
 from comicarr.app.search.routes import ROUTES, classify
-from comicarr.db import get_engine
 
 WORKER_PREFIX = "Worker: "
 ROUTE_PREFIX = "Acquisition Route: "

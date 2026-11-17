@@ -33,12 +33,13 @@ from sqlalchemy import Column, Integer, MetaData, Table, Text, func, or_, select
 from sqlalchemy.exc import OperationalError
 
 import comicarr
-from comicarr import db, filechecker, utorrent
+from comicarr import filechecker, utorrent
 from comicarr.app.common import configured as configured
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.common import strings as common_strings
 from comicarr.app.common import utilities as common_utilities
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import comics, rssdb
 from comicarr.app.search import service as search_service
 from comicarr.app.search.backlog import (
     get_rss_provider_lookup,
@@ -49,7 +50,6 @@ from comicarr.app.search.backlog import (
 from comicarr.app.search.provider_config import provider_enabled
 from comicarr.app.series import service as series_service
 from comicarr.cfscrape_compat import import_cfscrape
-from comicarr.tables import comics, rssdb
 from comicarr.torrent.clients import deluge as deluge
 from comicarr.torrent.clients import qbittorrent as qbittorrent
 from comicarr.torrent.clients import transmission
@@ -1583,12 +1583,12 @@ def mangaCheck():
     search_init call, and identical rssdb lookups inside the pass run once.
     """
     from comicarr import search
+    from comicarr.app.core.tables import comics as t_comics
+    from comicarr.app.core.tables import issues as t_issues
+    from comicarr.app.core.tables import manga_volumes as t_volumes
     from comicarr.app.manga.acquisition import search_plan_for_series
     from comicarr.app.manga.ledger import volume_id
     from comicarr.app.manga.sync import active_manga_clause
-    from comicarr.tables import comics as t_comics
-    from comicarr.tables import issues as t_issues
-    from comicarr.tables import manga_volumes as t_volumes
 
     logger.info("[MANGA-RSS] Starting manga blended-frontier search")
 
@@ -1721,9 +1721,9 @@ def mangadexNewChapterCheck():
     Callable from the scheduler or manually.
     """
     from comicarr.app.common import series_kind
+    from comicarr.app.core.tables import comics as t_comics
+    from comicarr.app.core.tables import issues as t_issues
     from comicarr.app.manga import mangadex
-    from comicarr.tables import comics as t_comics
-    from comicarr.tables import issues as t_issues
 
     logger.info("[MANGA-RSS] Starting MangaDex new-chapter check")
 

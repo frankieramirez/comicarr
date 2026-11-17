@@ -19,9 +19,9 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, issues, metadata, snatched, weekly
 from comicarr.app.downloads import snatch_record
-from comicarr.tables import comics, issues, metadata, snatched, weekly
 
 
 @pytest.fixture

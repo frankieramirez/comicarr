@@ -21,10 +21,9 @@ from comicarr.app.acquisition.maintenance import MaintenanceController, ensure_a
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.activity import queries as activity_queries
 from comicarr.app.attention import read as read_attention
-from comicarr.app.downloads import journal, postprocessing
-from comicarr.app.downloads import sab_reconcile
-from comicarr.db import get_engine
-from comicarr.tables import activity_events, issues
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import activity_events, issues
+from comicarr.app.downloads import journal, postprocessing, sab_reconcile
 from tests.mcp_harness import KEY, make_app, mcp_client, seed_library, teardown_library
 
 AUTH = {"Authorization": "Bearer " + KEY}

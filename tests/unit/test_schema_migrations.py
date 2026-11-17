@@ -25,7 +25,7 @@ from comicarr.app.core.schema import (
     current_revision,
     upgrade_database,
 )
-from comicarr.tables import comics, metadata
+from comicarr.app.core.tables import comics, metadata
 
 
 def test_classifier_identifies_a_fresh_database(tmp_path):

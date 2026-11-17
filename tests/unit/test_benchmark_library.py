@@ -16,8 +16,8 @@ import random
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import db
-from comicarr.tables import comics, issues, snatched, storyarcs
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, issues, snatched, storyarcs
 from tests.benchmark import __main__ as cli
 from tests.benchmark.library import BENCHMARK, generate, library_files, series_sizes
 

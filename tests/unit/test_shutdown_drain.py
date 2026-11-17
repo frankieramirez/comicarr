@@ -69,8 +69,10 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr.app.core.context import AppContext
+from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.events import EventBus
 from comicarr.app.core.runtime import RuntimeNotInitializedError
+from comicarr.app.core.tables import metadata, pipeline_journal
 from comicarr.app.core.workers import (
     BackgroundWorkerRegistry,
     start_background_thread,
@@ -78,8 +80,6 @@ from comicarr.app.core.workers import (
 )
 from comicarr.app.downloads import journal
 from comicarr.app.main import _drain_worker_pools, lifespan
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import metadata, pipeline_journal
 
 # ---------------------------------------------------------------------------
 # Fixtures

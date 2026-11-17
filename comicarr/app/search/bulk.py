@@ -20,14 +20,14 @@ from sqlalchemy import delete, insert, select, update
 
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome, RunState
 from comicarr.app.acquisition.runs import RunLedger
-from comicarr.app.search.commands import SearchCommand, dispatch_pending_search_commands
-from comicarr.tables import (
+from comicarr.app.core.tables import (
     acquisition_run_items,
     acquisition_runs,
     acquisition_search_previews,
     annuals,
     issues,
 )
+from comicarr.app.search.commands import SearchCommand, dispatch_pending_search_commands
 
 PREVIEW_TTL_SECONDS = 15 * 60
 MAX_SELECTION_BYTES = 256 * 1024

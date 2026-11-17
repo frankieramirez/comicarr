@@ -17,12 +17,11 @@ import os
 
 from sqlalchemy import select
 
-from comicarr import db
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import comics as t_comics
+from comicarr.app.core.tables import issues as t_issues
 from comicarr.app.imports.scanutil import COMIC_EXTENSIONS
 from comicarr.app.manga.parse import parse_in_series_context
-from comicarr.tables import comics as t_comics
-from comicarr.tables import issues as t_issues
 
 MANGA_EXTENSIONS = COMIC_EXTENSIONS
 

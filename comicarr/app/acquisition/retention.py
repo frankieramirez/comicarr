@@ -24,19 +24,19 @@ from sqlalchemy import and_, delete, exists, func, or_, select, true
 
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.core import logger
-from comicarr.app.downloads.journal import (
-    FAILED,
-    MANUAL_REVIEW,
-    POST_PROCESSED,
-    RESOLVED_STATUSES,
-)
-from comicarr.db import get_engine
-from comicarr.tables import (
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import (
     acquisition_maintenance_events,
     acquisition_run_items,
     acquisition_runs,
     ai_activity_log,
     pipeline_journal,
+)
+from comicarr.app.downloads.journal import (
+    FAILED,
+    MANUAL_REVIEW,
+    POST_PROCESSED,
+    RESOLVED_STATUSES,
 )
 
 DELETE_BATCH_SIZE = 500

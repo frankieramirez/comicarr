@@ -1838,8 +1838,8 @@ class FileChecker(object):
         if all([comicarr.CONFIG.ENABLE_TORRENTS is True, self.pp_mode is True]):
             from sqlalchemy import and_, or_, select
 
-            from comicarr import db
-            from comicarr.tables import issues, snatched
+            from comicarr.app.core import db
+            from comicarr.app.core.tables import issues, snatched
 
             pp_crclist = []
             stmt = (

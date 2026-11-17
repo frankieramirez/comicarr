@@ -21,14 +21,14 @@ import shlex
 from sqlalchemy import bindparam, func, select, update
 
 import comicarr
-from comicarr import db, filechecker
+from comicarr import filechecker
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common import utilities as common_utilities
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import annuals, comics, issues
 from comicarr.app.library import directories, filers
-from comicarr.tables import annuals, comics, issues
 
 
 def _bulk_update_issue_rows(table, rows, fields):

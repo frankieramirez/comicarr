@@ -19,13 +19,13 @@ import json
 
 from sqlalchemy import and_, func, or_, select
 
-from comicarr import db
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.attention import read
+from comicarr.app.core import db
 from comicarr.app.core.database import paginated_query
+from comicarr.app.core.tables import acquisition_run_items, activity_events, pipeline_journal
 from comicarr.app.downloads.journal import OPEN_STAGES, load_payload
 from comicarr.app.downloads.sab_reconcile import retry_postprocess_eligible
-from comicarr.tables import acquisition_run_items, activity_events, pipeline_journal
 
 TIMELINE_LIMIT_MIN = 1
 TIMELINE_LIMIT_MAX = 100

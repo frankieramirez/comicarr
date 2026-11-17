@@ -16,7 +16,7 @@ import pytest
 from sqlalchemy import create_engine, text
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
 from comicarr.app.core.schema import upgrade_database
 from tests.benchmark import __main__ as cli
 from tests.benchmark.library import Spec, generate

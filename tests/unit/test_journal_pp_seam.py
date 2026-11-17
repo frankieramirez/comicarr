@@ -37,10 +37,10 @@ from sqlalchemy import insert, select
 import comicarr
 from comicarr import postprocessor
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import comics, ddl_info, issues, metadata, pipeline_journal
 from comicarr.app.downloads import journal, postprocessing, service
 from comicarr.app.downloads.postprocess_pipeline import _JOURNAL, PostProcessRun, process_manga_download
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, ddl_info, issues, metadata, pipeline_journal
 from tests.conftest import placement_result
 from tests.fakes import folder_request
 
@@ -733,7 +733,7 @@ def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path
     FULL. Chapter 1's source file is already gone (moved on the first pass) so
     it does not re-match/double-import; only the unmoved chapters get
     processed, and the run then terminalizes the shared row exactly once."""
-    from comicarr.tables import nzblog
+    from comicarr.app.core.tables import nzblog
 
     comicid = "mc4"
     rkey = "mc4|ddl"
@@ -819,7 +819,7 @@ def test_manga_multichapter_terminalizes_once_after_full_loop(tmp_path, monkeypa
     """P2-6 happy path: when the full chapter loop completes, the shared
     release_key reaches `post_processed` exactly once and every matched
     chapter's nzblog row is deleted (U9 atomic co-commit preserved)."""
-    from comicarr.tables import nzblog
+    from comicarr.app.core.tables import nzblog
 
     comicid = "mc2"
     rkey = "mc2|ddl"

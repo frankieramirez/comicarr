@@ -16,7 +16,8 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, metadata
 from comicarr.app.manga import add as manga_add
 from comicarr.app.manga.duplicates import find_existing_manga_series
 from comicarr.app.metadata import service as metadata_service
@@ -24,7 +25,6 @@ from comicarr.app.search.service import add_manga
 from comicarr.app.series import comic_add
 from comicarr.app.series import service as series_service
 from comicarr.app.series.service import listLibrary
-from comicarr.tables import comics, metadata
 
 MD_UUID = "aaaaaaaa-bbbb-cccc-dddd-onepiece01"
 MAL_ID = "13"

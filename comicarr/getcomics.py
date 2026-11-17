@@ -33,7 +33,6 @@ import requests
 from bs4 import BeautifulSoup
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import configured as configured
 from comicarr.app.common.remote_artifacts import (
     ensure_path_within_directory,
@@ -42,7 +41,7 @@ from comicarr.app.common.remote_artifacts import (
     safe_remote_filename,
     write_chunks_atomically,
 )
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 from comicarr.app.search import diagnostics as search_diagnostics
 from comicarr.app.search import service as search_service

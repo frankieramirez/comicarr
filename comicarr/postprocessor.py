@@ -44,20 +44,13 @@ from dataclasses import dataclass
 from sqlalchemy import Integer, and_, func, inspect, or_, select
 
 import comicarr
-from comicarr import db, filechecker, weeklypull
+from comicarr import filechecker, weeklypull
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common.placement import place
-from comicarr.app.core import logger
-from comicarr.app.downloads import service as downloads_service
-from comicarr.app.downloads import snatch_record
-from comicarr.app.downloads.postprocess_pipeline import PostProcessItemDeps
-from comicarr.app.library import getimage
-from comicarr.app.manga.ledger import normalize_volume_number
-from comicarr.app.series import folder_rescan, watchlist_refresh
-from comicarr.config import get_manga_destination
-from comicarr.tables import (
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import (
     annuals,
     comics,
     issues,
@@ -67,6 +60,13 @@ from comicarr.tables import (
     storyarcs,
     weekly,
 )
+from comicarr.app.downloads import service as downloads_service
+from comicarr.app.downloads import snatch_record
+from comicarr.app.downloads.postprocess_pipeline import PostProcessItemDeps
+from comicarr.app.library import getimage
+from comicarr.app.manga.ledger import normalize_volume_number
+from comicarr.app.series import folder_rescan, watchlist_refresh
+from comicarr.config import get_manga_destination
 
 
 def format_scan_summary(filename, candidate_count, selected_items, annual_count, story_arc):

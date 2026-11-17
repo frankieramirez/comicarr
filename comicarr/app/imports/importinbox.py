@@ -31,11 +31,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import comics
 from comicarr.app.imports.scanutil import COMIC_EXTENSIONS, name_similarity, normalize_title
 from comicarr.app.manga import manga_parser
-from comicarr.tables import comics
 
 INBOX_SCAN_STATUS = None
 INBOX_SCAN_PROGRESS = {

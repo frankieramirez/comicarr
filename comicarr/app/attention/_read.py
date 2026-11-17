@@ -11,12 +11,12 @@
 
 from sqlalchemy import and_, or_, select, union
 
-from comicarr import db
 from comicarr.app.attention._grouping import build_groups
 from comicarr.app.attention._policy import TROUBLE_STAGES, actionable_reason_condition
 from comicarr.app.attention.contracts import AttentionView, Scope
+from comicarr.app.core import db
+from comicarr.app.core.tables import annuals, issues, pipeline_journal
 from comicarr.app.downloads.journal import RESOLVED_STATUSES
-from comicarr.tables import annuals, issues, pipeline_journal
 
 SCOPE_TYPES = frozenset({"issue", "annual", "series"})
 

@@ -21,8 +21,7 @@ import requests
 from PIL import Image
 
 import comicarr
-from comicarr import db
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.library import filers, getimage
 from comicarr.app.metadata import cv
@@ -83,8 +82,8 @@ def get_comic_info(ctx, comic_id):
     """Get comic metadata from database."""
     from sqlalchemy import select
 
-    from comicarr import db
-    from comicarr.tables import comics as t_comics
+    from comicarr.app.core import db
+    from comicarr.app.core.tables import comics as t_comics
 
     stmt = select(t_comics).where(t_comics.c.ComicID == comic_id)
     results = db.select_all(stmt)
@@ -97,9 +96,9 @@ def get_issue_info(ctx, issue_id):
     """Get issue metadata from database (regular issues, then active annuals)."""
     from sqlalchemy import select
 
-    from comicarr import db
-    from comicarr.tables import annuals as t_annuals
-    from comicarr.tables import issues as t_issues
+    from comicarr.app.core import db
+    from comicarr.app.core.tables import annuals as t_annuals
+    from comicarr.app.core.tables import issues as t_issues
 
     stmt = select(t_issues).where(t_issues.c.IssueID == issue_id)
     results = db.select_all(stmt)
@@ -162,8 +161,8 @@ def get_artwork(ctx, comic_id):
 
     from sqlalchemy import select
 
-    from comicarr import db
-    from comicarr.tables import comics as t_comics
+    from comicarr.app.core import db
+    from comicarr.app.core.tables import comics as t_comics
 
     comic = db.select_all(select(t_comics).where(t_comics.c.ComicID == comic_id))
     if not comic:

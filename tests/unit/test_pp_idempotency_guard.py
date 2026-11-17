@@ -40,10 +40,10 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import metadata, pipeline_journal
 from comicarr.app.downloads import journal, postprocessing, service
 from comicarr.app.downloads.postprocess_pipeline import _JOURNAL
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import metadata, pipeline_journal
 from tests.fakes import folder_request
 
 

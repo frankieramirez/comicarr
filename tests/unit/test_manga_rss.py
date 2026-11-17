@@ -21,9 +21,9 @@ import pytest
 from sqlalchemy import event
 
 import comicarr
-from comicarr.db import get_engine, shutdown_engine
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import comics, metadata, rssdb
 from comicarr.rsscheck import mangaCheck, mangadexNewChapterCheck, nzbdbsearch
-from comicarr.tables import comics, metadata, rssdb
 
 # ---------------------------------------------------------------------------
 # Shared fixtures

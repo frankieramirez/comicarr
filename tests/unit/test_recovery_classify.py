@@ -28,9 +28,9 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import annuals, ddl_info, issues, metadata, nzblog, pipeline_journal
 from comicarr.app.downloads import journal, recovery_classify
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import annuals, ddl_info, issues, metadata, nzblog, pipeline_journal
 
 # nzblog has handed out synthetic one-off IssueIDs 900000..900999 (#1261).
 ISSUED_HIGHCOUNT = 900999
@@ -531,7 +531,7 @@ def test_placement_true_when_issue_status_downloaded_or_post_processed():
 
 
 def test_placement_true_for_annual_with_location():
-    from comicarr.tables import annuals
+    from comicarr.app.core.tables import annuals
 
     with get_engine().begin() as conn:
         conn.execute(annuals.insert().values(IssueID="P6", Status="Snatched", Location="Ann 2024.cbz"))
@@ -540,7 +540,7 @@ def test_placement_true_for_annual_with_location():
 
 
 def test_placement_for_story_arc_obligation_uses_storyarcs_row():
-    from comicarr.tables import storyarcs
+    from comicarr.app.core.tables import storyarcs
 
     with get_engine().begin() as conn:
         conn.execute(storyarcs.insert().values(IssueArcID="P7", StoryArc="Arc", Status="Downloaded"))
@@ -628,7 +628,7 @@ def test_reopen_candidate_false_for_non_terminal_stage():
 
 
 def test_reopen_candidate_story_arc_scoped_to_storyarcs_row():
-    from comicarr.tables import storyarcs
+    from comicarr.app.core.tables import storyarcs
 
     with get_engine().begin() as conn:
         conn.execute(storyarcs.insert().values(IssueArcID="R10", StoryArc="Arc", Status="Wanted", Location=None))

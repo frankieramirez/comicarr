@@ -17,14 +17,14 @@ import datetime
 
 from sqlalchemy import delete, func, or_, select, update
 
-from comicarr import db
+from comicarr.app.core import db
 from comicarr.app.core.database import paginated_query as _paginated_query
-from comicarr.tables import annuals as t_annuals
-from comicarr.tables import comics as t_comics
-from comicarr.tables import ddl_info as t_ddl_info
-from comicarr.tables import failed as t_failed
-from comicarr.tables import issues as t_issues
-from comicarr.tables import snatched as t_snatched
+from comicarr.app.core.tables import annuals as t_annuals
+from comicarr.app.core.tables import comics as t_comics
+from comicarr.app.core.tables import ddl_info as t_ddl_info
+from comicarr.app.core.tables import failed as t_failed
+from comicarr.app.core.tables import issues as t_issues
+from comicarr.app.core.tables import snatched as t_snatched
 
 
 def _apply_activity_filters(stmt, status_column, search=None, status=None, search_columns=()):

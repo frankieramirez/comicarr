@@ -26,8 +26,7 @@ import threading
 import sqlalchemy as sa
 
 import comicarr
-from comicarr import db
-from comicarr.app.core import encrypted, logger
+from comicarr.app.core import db, encrypted, logger
 from comicarr.app.system import maintenance
 
 _migration_lock = threading.Lock()
@@ -538,7 +537,7 @@ def _verify_migration(source_db_path):
                     logger.warn("[MIGRATION][VERIFY] Could not verify %s: %s" % (table, e))
 
             try:
-                from comicarr.tables import comics, issues
+                from comicarr.app.core.tables import comics, issues
 
                 orphans = (
                     sa.select(sa.func.count())

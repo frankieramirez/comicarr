@@ -21,6 +21,8 @@ import comicarr
 from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS, RunLedger
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import annuals, comics, issues, metadata
 from comicarr.app.search import service
 from comicarr.app.search.commands import (
     SearchCommand,
@@ -31,8 +33,6 @@ from comicarr.app.search.commands import (
 )
 from comicarr.app.search.queue import FairSearchQueue
 from comicarr.app.series import queries as series_queries
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import annuals, comics, issues, metadata
 
 
 @pytest.fixture

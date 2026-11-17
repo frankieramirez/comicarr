@@ -15,13 +15,13 @@ Uses SQLAlchemy Core via the existing db module.
 
 from sqlalchemy import Integer, and_, case, cast, delete, func, literal, or_, select, update
 
-from comicarr import db
-from comicarr.tables import annuals as t_annuals
-from comicarr.tables import comics as t_comics
-from comicarr.tables import issues as t_issues
-from comicarr.tables import readlist as t_readlist
-from comicarr.tables import storyarcs as t_storyarcs
-from comicarr.tables import weekly as t_weekly
+from comicarr.app.core import db
+from comicarr.app.core.tables import annuals as t_annuals
+from comicarr.app.core.tables import comics as t_comics
+from comicarr.app.core.tables import issues as t_issues
+from comicarr.app.core.tables import readlist as t_readlist
+from comicarr.app.core.tables import storyarcs as t_storyarcs
+from comicarr.app.core.tables import weekly as t_weekly
 
 
 def _year_expr():

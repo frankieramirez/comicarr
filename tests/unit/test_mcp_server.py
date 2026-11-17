@@ -237,8 +237,8 @@ async def test_the_endpoint_serves_again_after_its_lifespan_restarts(app):
 
 
 def _add_series(**row):
-    from comicarr.db import get_engine
-    from comicarr.tables import comics
+    from comicarr.app.core.db import get_engine
+    from comicarr.app.core.tables import comics
 
     with get_engine().begin() as conn:
         conn.execute(comics.insert().values(**row))

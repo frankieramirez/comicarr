@@ -22,6 +22,7 @@ import csv
 import datetime
 import glob
 import hashlib
+import importlib
 import itertools
 import json
 import locale
@@ -58,6 +59,11 @@ from comicarr.app.series import service as series_service
 from comicarr.app.series import watchlist_refresh
 from comicarr.app.system import maintenance, versioncheck, versioncheckit
 from comicarr.app.system import service as system_service
+
+# Landed Alembic revision 0001 runs ``from comicarr.tables import metadata``, and a
+# landed revision can never be edited. Keep that import path working after the
+# move to app/core (tests/unit/test_landed_revision_imports.py pins it).
+sys.modules.setdefault("comicarr.tables", importlib.import_module("comicarr.app.core.tables"))
 
 
 class ThreadSafeLock:
@@ -1505,7 +1511,7 @@ def sql_db():
     Callers must use SQLAlchemy text() for raw SQL and call .close()
     when finished, or preferably use this as a context manager.
     """
-    from comicarr.db import get_engine
+    from comicarr.app.core.db import get_engine
 
     return get_engine().connect()
 
@@ -1556,7 +1562,7 @@ _PRE_UNIQUE_MIGRATION_BACKUP = "comicarr.db.pre-unique-migration.bak"
 
 def _build_upsert_unique_constraints():
     """Map allowlisted tables to (key_cols from UPSERT_KEYS, constraint name)."""
-    from comicarr.tables import UPSERT_KEYS
+    from comicarr.app.core.tables import UPSERT_KEYS
 
     constraints = {}
     for table_name, constraint_name in _UPSERT_UNIQUE_CONSTRAINT_NAMES.items():

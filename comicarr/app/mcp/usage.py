@@ -18,8 +18,7 @@ each name is written at most once per :data:`WRITE_EVERY_SECONDS` per process.
 import threading
 import time
 
-from comicarr import db
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
 
 WRITE_EVERY_SECONDS = 3600
 

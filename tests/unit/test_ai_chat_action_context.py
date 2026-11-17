@@ -13,10 +13,10 @@ import pytest
 from sqlalchemy import update
 
 import comicarr
-from comicarr import db
 from comicarr.app.ai import chat_store
-from comicarr.tables import ai_chat_messages as messages
-from comicarr.tables import metadata
+from comicarr.app.core import db
+from comicarr.app.core.tables import ai_chat_messages as messages
+from comicarr.app.core.tables import metadata
 
 
 @pytest.fixture

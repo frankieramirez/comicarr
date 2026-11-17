@@ -449,7 +449,7 @@ def _collect_runtime(ctx) -> dict[str, Any]:
 
     dialect = "unknown"
     try:
-        from comicarr.db import get_engine
+        from comicarr.app.core.db import get_engine
 
         engine = get_engine()
         name = str(getattr(getattr(engine, "dialect", None), "name", "") or "").lower()
@@ -612,7 +612,7 @@ def _acquisition_torrent(snapshot: Mapping[str, Any]) -> dict[str, str]:
 
 def _collect_database(ctx) -> tuple[Optional[dict[str, Any]], Optional[str]]:
     try:
-        from comicarr.db import get_engine
+        from comicarr.app.core.db import get_engine
 
         engine = get_engine()
     except Exception:
@@ -635,7 +635,7 @@ def _collect_database(ctx) -> tuple[Optional[dict[str, Any]], Optional[str]]:
 def _acquisition_schema(conn) -> tuple[str, int]:
     try:
         from comicarr.app.acquisition.maintenance import SCHEMA_COMPONENT, SCHEMA_VERSION
-        from comicarr.tables import acquisition_schema_versions
+        from comicarr.app.core.tables import acquisition_schema_versions
 
         row = conn.execute(
             select(func.max(acquisition_schema_versions.c.version)).where(
@@ -658,7 +658,7 @@ def _acquisition_schema(conn) -> tuple[str, int]:
 
 def _count_buckets(conn) -> dict[str, str]:
     from comicarr.app.activity.queries import IN_FLIGHT_ITEM_STATES, OPEN_STAGES
-    from comicarr.tables import acquisition_run_items, annuals, comics, issues, pipeline_journal
+    from comicarr.app.core.tables import acquisition_run_items, annuals, comics, issues, pipeline_journal
 
     def count(stmt) -> int:
         value = conn.execute(stmt).scalar()
@@ -697,8 +697,8 @@ def _collect_health(
     ctx, snapshot: Mapping[str, Any], generated_at: datetime
 ) -> tuple[Optional[dict[str, Any]], Optional[str]]:
     try:
+        from comicarr.app.core.db import get_engine
         from comicarr.app.search.health import get_search_health
-        from comicarr.db import get_engine
 
         config = getattr(ctx, "config", None)
         if config is None:
@@ -845,8 +845,8 @@ def _project_scheduler(ctx) -> dict[str, str]:
 
 def _job_history_status(job_key: str) -> Optional[str]:
     try:
-        from comicarr import db as db_mod
-        from comicarr.tables import jobhistory
+        from comicarr.app.core import db as db_mod
+        from comicarr.app.core.tables import jobhistory
 
         row = db_mod.select_one(select(jobhistory.c.Status).where(jobhistory.c.JobName == job_key))
         if not row:

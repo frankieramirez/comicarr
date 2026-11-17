@@ -21,6 +21,8 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import metadata, nzblog, pipeline_journal
 from comicarr.app.downloads import journal
 from comicarr.app.downloads._postprocess_completion import complete
 from comicarr.app.downloads.postprocess_pipeline import (
@@ -30,8 +32,6 @@ from comicarr.app.downloads.postprocess_pipeline import (
     PostProcessNotification,
     PostProcessNotifyStage,
 )
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import metadata, nzblog, pipeline_journal
 
 # ---------------------------------------------------------------------------
 # cleanup

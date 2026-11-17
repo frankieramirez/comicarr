@@ -20,12 +20,12 @@ from sqlalchemy import create_engine, select
 import comicarr
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import COOKIE_NAME, require_session
+from comicarr.app.core.tables import interactive_search_sessions, metadata
 from comicarr.app.search import interactive, progress
 from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import ReleaseCandidateEvaluation
 from comicarr.app.search.interactive_sessions import create_session, read_server_candidate, read_session
 from comicarr.app.search.router import router
-from comicarr.tables import interactive_search_sessions, metadata
 
 
 def _collect_evaluations(monkeypatch, session, evaluations):

@@ -15,9 +15,9 @@ from sqlalchemy import create_engine, event, insert, text
 from sqlalchemy import inspect as sa_inspect
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import ddl_info, metadata, snatched
 from comicarr.app.downloads import queries, router, service
-from comicarr.tables import ddl_info, metadata, snatched
 
 
 @pytest.fixture
@@ -214,7 +214,7 @@ def test_unpaginated_service_preserves_filters_and_array_shape(monkeypatch):
 def test_legacy_ddl_schema_migration_adds_column_before_activity_index(tmp_path, monkeypatch):
     """A pre-activity database gets the indexed column before the index is built."""
     engine = create_engine(f"sqlite:///{tmp_path / 'legacy-activity.db'}")
-    monkeypatch.setattr(comicarr.db, "_engine", engine)
+    monkeypatch.setattr(comicarr.app.core.db, "_engine", engine)
     monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
     with engine.begin() as conn:
         metadata.create_all(conn)
@@ -249,4 +249,4 @@ def test_legacy_ddl_schema_migration_adds_column_before_activity_index(tmp_path,
     assert column_add < index_create
 
     engine.dispose()
-    monkeypatch.setattr(comicarr.db, "_engine", None)
+    monkeypatch.setattr(comicarr.app.core.db, "_engine", None)

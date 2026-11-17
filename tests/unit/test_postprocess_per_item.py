@@ -24,6 +24,8 @@ from sqlalchemy import insert, select
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.common.placement import PlacementError, Purpose, place
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import annuals, comics, issues, metadata, nzblog, pipeline_journal, storyarcs
 from comicarr.app.downloads import journal, postprocessing
 from comicarr.app.downloads.postprocess_pipeline import (
     ABORTED,
@@ -38,8 +40,6 @@ from comicarr.app.downloads.postprocess_pipeline import (
     process_manga_download,
 )
 from comicarr.app.system import service as system_service
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import annuals, comics, issues, metadata, nzblog, pipeline_journal, storyarcs
 
 
 class Config:

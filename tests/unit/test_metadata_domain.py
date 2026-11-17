@@ -149,7 +149,7 @@ class TestGetSeriesImage:
 
 
 class TestGetComicInfo:
-    @patch("comicarr.db")
+    @patch("comicarr.app.core.db")
     def test_returns_comic_data(self, mock_db):
         """get_comic_info returns comic data when found."""
         ctx = _make_test_ctx()
@@ -158,7 +158,7 @@ class TestGetComicInfo:
         result = metadata_service.get_comic_info(ctx, "123")
         assert result["ComicName"] == "Batman"
 
-    @patch("comicarr.db")
+    @patch("comicarr.app.core.db")
     def test_returns_none_when_not_found(self, mock_db):
         """get_comic_info returns None when comic not found."""
         ctx = _make_test_ctx()
@@ -169,7 +169,7 @@ class TestGetComicInfo:
 
 
 class TestGetIssueInfo:
-    @patch("comicarr.db")
+    @patch("comicarr.app.core.db")
     def test_returns_issue_data(self, mock_db):
         """get_issue_info returns issue data when found."""
         ctx = _make_test_ctx()
@@ -179,7 +179,7 @@ class TestGetIssueInfo:
         assert result["Issue_Number"] == "1"
         mock_db.select_all.assert_called_once()
 
-    @patch("comicarr.db")
+    @patch("comicarr.app.core.db")
     def test_falls_back_to_active_annuals(self, mock_db):
         """Annual rows linked from series detail resolve through the same API."""
         ctx = _make_test_ctx()
@@ -193,7 +193,7 @@ class TestGetIssueInfo:
         assert result["Issue_Number"] == "Annual 1"
         assert mock_db.select_all.call_count == 2
 
-    @patch("comicarr.db")
+    @patch("comicarr.app.core.db")
     def test_returns_none_when_missing_from_issues_and_annuals(self, mock_db):
         """Unknown identifiers return None after both table lookups."""
         ctx = _make_test_ctx()
@@ -265,7 +265,7 @@ class TestGetArtwork:
         ctx = _make_test_ctx()
         ctx.config.CACHE_DIR = str(tmp_path)
 
-        with patch("comicarr.db") as mock_db:
+        with patch("comicarr.app.core.db") as mock_db:
             result = metadata_service.get_artwork(ctx, comic_id)
             assert result is None
             mock_db.select_all.assert_not_called()
@@ -305,7 +305,7 @@ class TestGetArtwork:
         assert result == str(cache_file)
 
     @patch("comicarr.app.metadata.image_fetch.requests.get")
-    @patch("comicarr.db")
+    @patch("comicarr.app.core.db")
     def test_mangadex_url_fallback_writes_cache_server_side(self, mock_db, mock_get, tmp_path):
         """Cache miss fetches MangaDex server-side; the browser never hotlinks."""
         ctx = _make_test_ctx()
@@ -328,7 +328,7 @@ class TestGetArtwork:
         assert mock_get.call_args.args[0] == "https://uploads.mangadex.org/covers/uuid/cover.jpg"
 
     @patch("comicarr.app.metadata.image_fetch.requests.get")
-    @patch("comicarr.db")
+    @patch("comicarr.app.core.db")
     def test_ssrf_url_does_not_call_network(self, mock_db, mock_get, tmp_path):
         """Loopback / evil hosts must not trigger requests.get; returns None."""
         ctx = _make_test_ctx()
@@ -346,7 +346,7 @@ class TestGetArtwork:
         mock_get.assert_not_called()
 
     @patch("comicarr.app.metadata.image_fetch.requests.get")
-    @patch("comicarr.db")
+    @patch("comicarr.app.core.db")
     def test_allowlisted_fetch_writes_cache(self, mock_db, mock_get, tmp_path):
         """Allowlisted ComicVine host is fetched and written under CACHE_DIR."""
         ctx = _make_test_ctx()
@@ -374,7 +374,7 @@ class TestGetArtwork:
         assert call_kwargs.get("stream") is True
 
     @patch("comicarr.app.metadata.image_fetch.requests.get")
-    @patch("comicarr.db")
+    @patch("comicarr.app.core.db")
     def test_allowlisted_metron_host(self, mock_db, mock_get, tmp_path):
         """static.metron.cloud is allowed for cover fetches."""
         ctx = _make_test_ctx()

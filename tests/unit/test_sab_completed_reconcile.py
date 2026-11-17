@@ -19,11 +19,11 @@ import requests
 from sqlalchemy import select
 
 import comicarr
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import issues, metadata, nzblog, pipeline_journal
 from comicarr.app.downloads import journal, recovery_classify, sab_reconcile
 from comicarr.app.downloads.sab_reconcile import RetryPostProcessError
-from comicarr.db import get_engine, shutdown_engine
 from comicarr.sabnzbd import match_completed_slot, normalize_release_name
-from comicarr.tables import issues, metadata, nzblog, pipeline_journal
 
 
 @pytest.fixture(autouse=True)

@@ -16,11 +16,11 @@ from types import SimpleNamespace
 import pytest
 
 import comicarr
-from comicarr import db
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema, maintenance_retry_delay
 from comicarr.app.attention import Failure, ManualReview
+from comicarr.app.core import db
+from comicarr.app.core.tables import metadata
 from comicarr.app.downloads import journal, service
-from comicarr.tables import metadata
 
 
 @pytest.fixture

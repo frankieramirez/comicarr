@@ -42,8 +42,7 @@ from sqlalchemy.engine import make_url
 import comicarr
 from alembic import command
 from comicarr import config as config_module
-from comicarr import db
-from comicarr.app.core import runtime
+from comicarr.app.core import db, runtime
 from comicarr.app.core.schema import (
     DatabaseState,
     alembic_config,
@@ -375,8 +374,8 @@ class Install:
     def import_mylar3(self):
         """Run the Mylar3 import as Settings does, minus the background fence."""
 
-        from comicarr.app.system import migration
         from comicarr.app.acquisition.maintenance import get_reconciliation_status
+        from comicarr.app.system import migration
 
         assert migration.Mylar3Migration(str(self.source_dir)).execute() is True
         return get_reconciliation_status(self.engine)["state"]

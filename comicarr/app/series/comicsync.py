@@ -33,13 +33,12 @@ import traceback
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import series_kind
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import comics
 from comicarr.app.imports.scanutil import COMIC_EXTENSIONS, find_best_match, normalize_title
 from comicarr.app.series.add import add_series
 from comicarr.app.series.rescan import rescan_series
-from comicarr.tables import comics
 
 COMIC_SCAN_STATUS = None
 COMIC_SCAN_PROGRESS = {

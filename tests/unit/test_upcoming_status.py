@@ -15,10 +15,10 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import annuals, comics, issues, metadata, weekly
 from comicarr.app.series import queries as series_queries
 from comicarr.app.storyarcs import queries as arc_queries
-from comicarr.tables import annuals, comics, issues, metadata, weekly
 
 
 @pytest.fixture

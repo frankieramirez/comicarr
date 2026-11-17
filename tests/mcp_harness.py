@@ -18,10 +18,10 @@ from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 
 import comicarr
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import annuals, comics, issues, metadata
 from comicarr.app.main import create_app
 from comicarr.app.system.service import login_rate_limiter
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import annuals, comics, issues, metadata
 
 KEY = "mcp-test-key-0123456789abcdef"
 CLIENT_IP = "127.0.0.1"

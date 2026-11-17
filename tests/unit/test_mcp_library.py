@@ -13,12 +13,12 @@
 import pytest
 from sqlalchemy import func, select
 
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import activity_events, annuals, comics, issues
 from comicarr.app.series import add as series_add
 from comicarr.app.series import add_workers, comic_add
 from comicarr.app.series import location as series_location
 from comicarr.app.series import service as series_service
-from comicarr.db import get_engine
-from comicarr.tables import activity_events, annuals, comics, issues
 from tests.mcp_harness import KEY, make_app, mcp_client, seed_library, teardown_library
 
 AUTH = {"Authorization": "Bearer " + KEY}

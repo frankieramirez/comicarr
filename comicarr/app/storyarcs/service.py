@@ -22,17 +22,16 @@ import time
 import requests
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import configured as configured
 from comicarr.app.common import placement
 from comicarr.app.common import strings as common_strings
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import comics, issues, storyarcs
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.library import filers
 from comicarr.app.metadata import cv
 from comicarr.app.storyarcs import queries as arc_queries
 from comicarr.app.storyarcs import service as storyarcs_service
-from comicarr.tables import comics, issues, storyarcs
 
 ALLOWED_ARC_STATUSES = {"Wanted", "Read", "Skipped"}
 
@@ -1017,7 +1016,7 @@ def _attach_progress(rows):
 def _finished_at(issue_ids):
     from sqlalchemy import func, select
 
-    from comicarr.tables import activity_events
+    from comicarr.app.core.tables import activity_events
 
     try:
         found = db.select_all(

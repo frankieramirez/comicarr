@@ -15,8 +15,8 @@ import datetime
 import pytest
 from sqlalchemy import insert
 
-from comicarr.db import get_engine
-from comicarr.tables import acquisition_run_items, activity_events, ddl_info, pipeline_journal, snatched
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import acquisition_run_items, activity_events, ddl_info, pipeline_journal, snatched
 from tests.mcp_harness import KEY, LEGACY, MODERN, make_app, mcp_client, seed_library, teardown_library
 
 AUTH = "Bearer " + KEY

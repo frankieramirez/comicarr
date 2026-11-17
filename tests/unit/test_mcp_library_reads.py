@@ -13,9 +13,9 @@
 import pytest
 
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import activity_events, annuals, issues
 from comicarr.app.search import search_history
-from comicarr.db import get_engine
-from comicarr.tables import activity_events, annuals, issues
 from tests.mcp_harness import KEY, make_app, mcp_client, seed_library, teardown_library
 
 AUTH = {"Authorization": "Bearer " + KEY}

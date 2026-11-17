@@ -16,11 +16,11 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
 from comicarr.app.core.context import AppContext
+from comicarr.app.core.tables import comics, metadata
 from comicarr.app.series import router as series_router
 from comicarr.app.series import service as series_service
-from comicarr.tables import comics, metadata
 
 
 @pytest.fixture
@@ -52,9 +52,7 @@ def _ctx():
 
 
 def test_override_survives_a_restart_and_appears_on_the_series_detail(query_db):
-    result = series_service.update_provider_override(
-        _ctx(), "wizard", [" MagIndex ", "MagIndex"], ["DDL(GetComics)"]
-    )
+    result = series_service.update_provider_override(_ctx(), "wizard", [" MagIndex ", "MagIndex"], ["DDL(GetComics)"])
     assert result == {"success": True, "provider_override": {"order": ["MagIndex"], "exclude": ["DDL(GetComics)"]}}
 
     db.shutdown_engine()

@@ -11,7 +11,7 @@
 
 from sqlalchemy import func, select
 
-from comicarr import db
+from comicarr.app.core import db
 
 
 def paginated_query(stmt, limit=None, offset=None):

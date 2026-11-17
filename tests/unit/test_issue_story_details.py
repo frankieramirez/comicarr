@@ -16,11 +16,12 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db, search
+from comicarr import search
+from comicarr.app.core import db
+from comicarr.app.core.tables import activity_events, issues, metadata, pipeline_journal
 from comicarr.app.search import search_history
 from comicarr.app.search.evaluation import EvaluationSession
 from comicarr.app.series import issue_story
-from comicarr.tables import activity_events, issues, metadata, pipeline_journal
 
 
 @pytest.fixture

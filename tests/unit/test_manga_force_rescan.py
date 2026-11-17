@@ -15,9 +15,9 @@ from unittest.mock import MagicMock
 from sqlalchemy import create_engine, select
 
 import comicarr
+from comicarr.app.core.tables import comics, issues, manga_volumes, metadata
 from comicarr.app.manga.rescan import mark_parsed_files_downloaded
 from comicarr.app.series import folder_rescan
-from comicarr.tables import comics, issues, manga_volumes, metadata
 
 
 def _config():

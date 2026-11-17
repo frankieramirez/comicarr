@@ -33,7 +33,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 
 from comicarr.app.core.schema import current_revision, upgrade_database
-from comicarr.tables import UPSERT_KEYS, metadata
+from comicarr.app.core.tables import UPSERT_KEYS, metadata
 
 
 def _mask_password(url):

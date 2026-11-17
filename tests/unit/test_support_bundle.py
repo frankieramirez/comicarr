@@ -30,10 +30,10 @@ from sqlalchemy import insert
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.core.context import AppContext
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import annuals, comics, issues, metadata
 from comicarr.app.system import support_bundle as sb
 from comicarr.app.system.support_bundle_contract import read_contract_bytes
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import annuals, comics, issues, metadata
 
 FIXED_CLOCK = datetime(2026, 8, 9, 12, 0, 0, tzinfo=timezone.utc)
 

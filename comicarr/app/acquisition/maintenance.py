@@ -20,8 +20,8 @@ from sqlalchemy.exc import IntegrityError
 
 import comicarr
 from comicarr.app.core import logger
-from comicarr.db import get_engine
-from comicarr.tables import (
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import (
     acquisition_canary_permits,
     acquisition_maintenance,
     acquisition_maintenance_events,

@@ -13,8 +13,8 @@
 import pytest
 from sqlalchemy import select, update
 
-from comicarr.db import get_engine
-from comicarr.tables import activity_events, comics, issues
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import activity_events, comics, issues
 from tests.mcp_harness import KEY, make_app, mcp_client, seed_library, teardown_library
 
 WRITES = {

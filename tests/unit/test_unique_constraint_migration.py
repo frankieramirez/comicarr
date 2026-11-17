@@ -20,8 +20,8 @@ from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 import comicarr
-from comicarr import db
-from comicarr.tables import UPSERT_KEYS, metadata
+from comicarr.app.core import db
+from comicarr.app.core.tables import UPSERT_KEYS, metadata
 
 EXPECTED_CONSTRAINTS = {
     "issues": (["IssueID"], "uq_issues_issueid"),
@@ -625,9 +625,7 @@ def test_library_quality_dedup_keeps_older_downloaded_with_location(legacy_engin
     _run_migration(legacy_engine)
 
     with legacy_engine.connect() as conn:
-        rows = conn.execute(
-            text("SELECT ComicName, Status, Location FROM issues WHERE IssueID = 'issue-1'")
-        ).all()
+        rows = conn.execute(text("SELECT ComicName, Status, Location FROM issues WHERE IssueID = 'issue-1'")).all()
         assert len(rows) == 1
         assert rows[0] == ("complete", "Downloaded", "/library/issue-1.cbz")
 

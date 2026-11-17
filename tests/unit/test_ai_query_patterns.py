@@ -12,9 +12,9 @@
 import pytest
 
 import comicarr
-from comicarr import db
 from comicarr.app.ai.query_patterns import execute_pattern
-from comicarr.tables import comics, metadata
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, metadata
 
 
 @pytest.fixture

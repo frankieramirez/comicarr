@@ -16,8 +16,8 @@ from sqlalchemy import insert, select
 from sqlalchemy.exc import OperationalError
 
 import comicarr
-from comicarr import db
-from comicarr.tables import failed, issues, metadata, pipeline_journal
+from comicarr.app.core import db
+from comicarr.app.core.tables import failed, issues, metadata, pipeline_journal
 
 
 @pytest.fixture(autouse=True)

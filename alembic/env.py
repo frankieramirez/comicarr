@@ -11,9 +11,9 @@
 
 from alembic import context
 from comicarr.app.core import logger
+from comicarr.app.core.db import get_engine
 from comicarr.app.core.schema import autogenerate_include_object, compare_column_type
-from comicarr.db import get_engine
-from comicarr.tables import metadata
+from comicarr.app.core.tables import metadata
 
 config = context.config
 target_metadata = metadata

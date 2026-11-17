@@ -25,13 +25,12 @@ from typing import Any
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import dates as common_dates
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import annuals, comics, issues, storyarcs, weekly
+from comicarr.app.core.tables import nzblog as nzblog_tbl
 from comicarr.app.manga import volumes as manga_volumes
 from comicarr.app.manga.ledger import volume_number_from_id
-from comicarr.tables import annuals, comics, issues, storyarcs, weekly
-from comicarr.tables import nzblog as nzblog_tbl
 
 
 def record_release_link(

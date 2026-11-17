@@ -25,10 +25,10 @@ from sqlalchemy.engine import make_url
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.core.context import AppContext
+from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.schema import upgrade_database
+from comicarr.app.core.tables import annuals, comics, issues
 from comicarr.app.system import support_bundle as sb
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import annuals, comics, issues
 
 pytestmark = pytest.mark.slow
 

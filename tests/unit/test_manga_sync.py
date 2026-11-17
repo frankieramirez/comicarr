@@ -16,9 +16,9 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.manga.sync import empty_ledger_series, heal_empty_ledgers, list_active_manga_series
-from comicarr.tables import comics, issues, metadata
 
 
 @pytest.fixture

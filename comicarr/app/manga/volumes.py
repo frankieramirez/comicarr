@@ -23,9 +23,9 @@ from sqlalchemy import and_, insert, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import manga_volumes
 from comicarr.app.manga.ledger import normalize_volume_number, volume_id
-from comicarr.tables import manga_volumes
 
 SNATCHED = "Snatched"
 DOWNLOADED = "Downloaded"
