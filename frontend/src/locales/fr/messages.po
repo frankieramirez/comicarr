@@ -2322,6 +2322,10 @@ msgstr "La requête de chat a échoué."
 msgid "Check for updates"
 msgstr "Rechercher des mises à jour"
 
+#: src/lib/setupSteps.ts
+msgid "Check indexers"
+msgstr "Vérifier les indexeurs"
+
 #: src/components/settings/AboutTab.tsx
 msgid "Check now"
 msgstr "Vérifier maintenant"
@@ -2329,6 +2333,10 @@ msgstr "Vérifier maintenant"
 #: src/lib/updateGuidance.ts
 msgid "Check out the release tag {tag}, then restart Comicarr. Do not git pull a branch — branches are not the release line."
 msgstr "Faites un checkout du tag de version {tag}, puis redémarrez Comicarr. Ne faites pas de git pull sur une branche : les branches ne sont pas la ligne de versions."
+
+#: src/lib/setupSteps.ts
+msgid "Check the download client"
+msgstr "Vérifier le client de téléchargement"
 
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Checking and handing off…"
@@ -7626,10 +7634,6 @@ msgstr "Enregistré (saisissez-en un nouveau pour le changer)"
 msgid "Saved conversations appear here."
 msgstr "Les conversations enregistrées apparaissent ici."
 
-#: src/lib/setupSteps.ts
-msgid "Saved. Checking that {label} answers…"
-msgstr "Enregistré. Vérification que {label} répond…"
-
 #: src/components/series/SeriesContentKind.tsx
 msgid "Saving content kind"
 msgstr "Enregistrement du type de contenu"
@@ -8353,6 +8357,10 @@ msgstr "Changer le statut des numéros sélectionnés"
 #: src/pages/LoginPage.tsx
 msgid "Set up your first account to unlock the library."
 msgstr "Créez votre premier compte pour déverrouiller la bibliothèque."
+
+#: src/lib/setupSteps.ts
+msgid "Set up. Waiting for its first connection check, which runs within a few minutes."
+msgstr "Configuré. En attente de son premier test de connexion, lancé dans quelques minutes."
 
 #: src/components/activity/health/HealthView.tsx
 #: src/components/layout/AppSidebar.tsx

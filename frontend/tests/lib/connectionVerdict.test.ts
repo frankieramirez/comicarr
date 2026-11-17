@@ -116,7 +116,8 @@ describe("setup steps and the health band wait for a real answer", () => {
     expect(steps[2].done).toBe(false);
     expect(steps[3]).toMatchObject({
       done: false,
-      detail: "Saved. Checking that SABnzbd answers…",
+      detail:
+        "Set up. Waiting for its first connection check, which runs within a few minutes.",
     });
 
     const texts = band(connections).signals.map((s) => s.text);

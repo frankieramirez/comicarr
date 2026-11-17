@@ -54,10 +54,11 @@ function connectionStep(
           : t`${label} did not answer its connection check.`,
       };
     }
-    case "unchecked": {
-      const label = verdict.rows[0].label;
-      return { done: false, detail: t`Saved. Checking that ${label} answers…` };
-    }
+    case "unchecked":
+      return {
+        done: false,
+        detail: t`Set up. Waiting for its first connection check, which runs within a few minutes.`,
+      };
   }
 }
 
@@ -115,7 +116,10 @@ export function setupSteps({
         ? t`Prowlarr, a Newznab or Torznab indexer, or GetComics.`
         : indexer.detail,
       done: !missing.has("indexer") && indexer.done,
-      fix: { label: t`Add an indexer`, to: SETTINGS_INDEXERS },
+      fix: {
+        label: missing.has("indexer") ? t`Add an indexer` : t`Check indexers`,
+        to: SETTINGS_INDEXERS,
+      },
     },
     {
       key: "client",
@@ -124,7 +128,12 @@ export function setupSteps({
         ? t`SABnzbd, NZBGet, qBittorrent, or another client.`
         : client.detail,
       done: !missing.has("client") && client.done,
-      fix: { label: t`Add a download client`, to: SETTINGS_CLIENTS },
+      fix: {
+        label: missing.has("client")
+          ? t`Add a download client`
+          : t`Check the download client`,
+        to: SETTINGS_CLIENTS,
+      },
     },
   ];
 }

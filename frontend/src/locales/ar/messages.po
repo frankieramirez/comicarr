@@ -2322,6 +2322,10 @@ msgstr "فشل طلب الدردشة."
 msgid "Check for updates"
 msgstr "التحقق من وجود تحديثات"
 
+#: src/lib/setupSteps.ts
+msgid "Check indexers"
+msgstr "افحص المفهرسات"
+
 #: src/components/settings/AboutTab.tsx
 msgid "Check now"
 msgstr "تحقق الآن"
@@ -2329,6 +2333,10 @@ msgstr "تحقق الآن"
 #: src/lib/updateGuidance.ts
 msgid "Check out the release tag {tag}, then restart Comicarr. Do not git pull a branch — branches are not the release line."
 msgstr "انتقل إلى وسم الإصدار {tag}، ثم أعد تشغيل Comicarr. لا تنفّذ git pull على فرع — الفروع ليست خط الإصدار."
+
+#: src/lib/setupSteps.ts
+msgid "Check the download client"
+msgstr "افحص عميل التنزيل"
 
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Checking and handing off…"
@@ -7626,10 +7634,6 @@ msgstr "تم الحفظ (أدخل قيمة جديدة لتغييرها)"
 msgid "Saved conversations appear here."
 msgstr "تظهر المحادثات المحفوظة هنا."
 
-#: src/lib/setupSteps.ts
-msgid "Saved. Checking that {label} answers…"
-msgstr "تم الحفظ. جارٍ التحقق من استجابة {label}…"
-
 #: src/components/series/SeriesContentKind.tsx
 msgid "Saving content kind"
 msgstr "جارٍ حفظ نوع المحتوى"
@@ -8353,6 +8357,10 @@ msgstr "ضبط الحالة للأعداد المحددة"
 #: src/pages/LoginPage.tsx
 msgid "Set up your first account to unlock the library."
 msgstr "أنشئ حسابك الأول لفتح المكتبة."
+
+#: src/lib/setupSteps.ts
+msgid "Set up. Waiting for its first connection check, which runs within a few minutes."
+msgstr "تم الإعداد. في انتظار أول فحص للاتصال، ويجري خلال دقائق."
 
 #: src/components/activity/health/HealthView.tsx
 #: src/components/layout/AppSidebar.tsx
