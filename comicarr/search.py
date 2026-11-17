@@ -435,6 +435,9 @@ def _search_init(
     from comicarr.app.manga.ledger import is_volume_target
 
     manga_volume_terms = {}
+    # Generated chapter queries ("<series> c002", "<series> chapter 002")
+    # already carry their number, so each is searched once as-is.
+    manga_chapter_terms = frozenset()
     manga_volume_target = content_type == "manga" and is_volume_target(chapter_number, volume_number)
     if content_type == "manga":
         logger.fdebug("[SEARCH-MANGA] Manga content detected for %s" % ComicName)
@@ -448,6 +451,7 @@ def _search_init(
         if not manga_volume_target:
             manga_terms = _build_manga_search_terms(ComicName, chapter_number, volume_number)
             if manga_terms:
+                manga_chapter_terms = frozenset(manga_terms)
                 manga_alt_str = "##".join(manga_terms)
                 logger.fdebug("[SEARCH-MANGA] Generated %d search variations: %s" % (len(manga_terms), manga_terms))
                 if AlternateSearch and AlternateSearch != "None":
@@ -802,6 +806,7 @@ def _search_init(
                     "smode": smode,
                     "allow_packs": allow_packs,
                     "manga_volume_terms": manga_volume_terms,
+                    "manga_chapter_terms": manga_chapter_terms,
                     "evaluator": evaluator,
                     "findit": findit,
                 }
@@ -812,6 +817,12 @@ def _search_init(
                 if prov_label and prov_label not in providers_tried:
                     providers_tried.append(prov_label)
                 for xx in altnames:
+                    if tmp_cmloopit != cmloopit and _numbered_manga_term(
+                        xx["ComicName"], manga_volume_terms, manga_chapter_terms
+                    ):
+                        # A volume or chapter query is the same on every
+                        # padding pass; it already ran on this provider's first.
+                        continue
                     logger.fdebug("comicname searched for: %s" % xx["ComicName"])
                     if all([findit["status"] is False, not provider_blocked]):
                         if xx["ComicName"] not in names_tried:
@@ -1121,6 +1132,7 @@ def NZB_SEARCH(
     ignore_booktype=False,
     smode=None,
     manga_volume_terms=None,
+    manga_chapter_terms=None,
     evaluator=None,
 ):
     evaluator = evaluator or EvaluationSession()
@@ -1323,6 +1335,13 @@ def NZB_SEARCH(
             comsearch = comsrc
             issdig = ""
             mod_isssearch = ""
+        elif IssueNumber is not None and ComicName in (manga_chapter_terms or ()):
+            # Manga CHAPTER target. comsrc is already "<series> c002" or
+            # "<series> chapter 002"; padding passes would append the number
+            # again ("<series> c002 02"), which matches nothing.
+            comsearch = comsrc
+            issdig = ""
+            mod_isssearch = str(isssearch)
         elif IssueNumber is not None:
             if cmloopit == 3:
                 comsearch = comsrc + "%2000" + str(isssearch)
@@ -4152,6 +4171,7 @@ def search_the_matrix(scarios):
         smode=scarios["smode"],
         allow_packs=scarios.get("allow_packs"),
         manga_volume_terms=scarios.get("manga_volume_terms"),
+        manga_chapter_terms=scarios.get("manga_chapter_terms"),
         evaluator=scarios.get("evaluator"),
     )
 
@@ -4278,6 +4298,11 @@ def _build_manga_search_terms(series_name, chapter_num, volume_num):
     if is_volume_target(chapter_num, volume_num):
         return search_terms_for_target(series_name, {"kind": "volume", "number": volume_num})
     return search_terms_for_target(series_name, {"kind": "chapter", "number": chapter_num})
+
+
+def _numbered_manga_term(name, manga_volume_terms, manga_chapter_terms):
+    """Whether a query name is a generated manga volume or chapter term."""
+    return name in (manga_volume_terms or ()) or name in (manga_chapter_terms or ())
 
 
 def manga_volume_altnames(altnames, volume_num):
