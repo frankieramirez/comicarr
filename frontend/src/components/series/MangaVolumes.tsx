@@ -206,12 +206,10 @@ export function MangaVolumeList({
               key={key}
               type="button"
               aria-pressed={filter === key}
-              aria-label={`${label} ${counts[key]}`}
               onClick={() => setFilter(key)}
               className={SEGMENTED_ITEM}
             >
-              {label}
-              <span className="mono-meta">{counts[key]}</span>
+              {label} <span className="mono-meta">{counts[key]}</span>
             </button>
           ))}
         </div>
