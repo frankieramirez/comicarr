@@ -13,16 +13,15 @@ import queue
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from comicarr import importer
 from comicarr.app.search.service import add_manga
-from comicarr.app.series import add_activity
-from comicarr.importer import addvialist
+from comicarr.app.series import add_activity, add_workers
+from comicarr.app.series.add_workers import run_mass_add_queue
 
 
 def test_add_manga_queues_prefixed_mangadex_id_and_returns_immediately():
     ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=True, MAL_ENABLED=False, MAL_CLIENT_ID=None))
     with (
-        patch("comicarr.importer.importer_thread") as mock_thread,
+        patch("comicarr.app.series.add_workers.queue_series_adds") as mock_thread,
         patch("comicarr.app.manga.mangadex.get_manga_details", return_value=None),
     ):
         result = add_manga(ctx, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
@@ -38,7 +37,7 @@ def test_add_manga_queues_prefixed_mangadex_id_and_returns_immediately():
 def test_add_manga_keeps_mal_prefix_and_does_not_call_add_on_the_request_thread():
     ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=False, MAL_ENABLED=True, MAL_CLIENT_ID="client"))
     with (
-        patch("comicarr.importer.importer_thread") as mock_thread,
+        patch("comicarr.app.series.add_workers.queue_series_adds") as mock_thread,
         patch("comicarr.app.manga.add.add_myanimelist") as add_mal,
         patch("comicarr.app.manga.add.add_mangadex") as add_md,
     ):
@@ -53,7 +52,7 @@ def test_add_manga_keeps_mal_prefix_and_does_not_call_add_on_the_request_thread(
 
 def test_add_manga_does_not_queue_when_manga_integration_is_off():
     ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=False, MAL_ENABLED=False, MAL_CLIENT_ID=None))
-    with patch("comicarr.importer.importer_thread") as mock_thread:
+    with patch("comicarr.app.series.add_workers.queue_series_adds") as mock_thread:
         result = add_manga(ctx, "md-abc")
 
     assert result["success"] is False
@@ -67,11 +66,11 @@ def test_addvialist_narrates_add_failed_when_importer_raises():
     series_queue.put("exit")
 
     with (
-        patch("comicarr.importer.addComictoDB", side_effect=RuntimeError("rate limited")),
-        patch("comicarr.importer.time.sleep"),
-        patch.object(importer, "emit_add_activity") as emit,
+        patch("comicarr.app.series.comic_add.add_comic", side_effect=RuntimeError("rate limited")),
+        patch("comicarr.app.series.add_workers.time.sleep"),
+        patch.object(add_workers, "emit_add_activity") as emit,
     ):
-        addvialist(series_queue, issue_queue)
+        run_mass_add_queue(series_queue, issue_queue)
 
     emit.assert_called_once_with("failed", "md-onepiece", comicname="One Piece", reason_detail="rate limited")
 

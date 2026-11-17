@@ -1235,7 +1235,7 @@ def test_manga_add_failure_is_narrated_in_activity(recorded, monkeypatch):
     """An add MangaDex cannot answer tells the operator why, through the activity channel."""
     from comicarr.app.search.service import add_manga
 
-    monkeypatch.setattr("comicarr.importer.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("comicarr.app.series.add_workers.time.sleep", lambda _seconds: None)
     monkeypatch.setattr(comicarr, "ADD_LIST", queue.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "ISSUE_WATCH_LIST", queue.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "MASS_ADD", None, raising=False)

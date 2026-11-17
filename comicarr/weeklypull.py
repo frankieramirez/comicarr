@@ -32,8 +32,9 @@ import sqlalchemy
 from sqlalchemy import and_, delete, select, text, update
 
 import comicarr
-from comicarr import db, helpers, importer, logger
+from comicarr import db, helpers, logger
 from comicarr.app.search import mb
+from comicarr.app.series import add_workers, comic_add
 from comicarr.app.storyarcs import readinglist
 from comicarr.app.weekly import locg, watchlist_match
 from comicarr.tables import annuals, comics, futureupcoming, issues, weekly
@@ -1466,7 +1467,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                         "[SHIZZLE-WHIZZLE] Now queueing to refresh : %s (%s)" % (comicname, seriesyear)
                                     )
                                     try:
-                                        importer.refresh_thread(watch)
+                                        add_workers.queue_refreshes(watch)
                                     except Exception:
                                         pass
 
@@ -1592,7 +1593,7 @@ def mass_publishers(publishers, weeknumber, year):
     if len(watch) > 0:
         logger.info("[SHIZZLE-WHIZZLE] Now queueing to mass add %s new series to your watchlist" % len(watch))
         try:
-            importer.importer_thread(watch)
+            add_workers.queue_series_adds(watch)
         except Exception:
             pass
 
@@ -2065,7 +2066,7 @@ def future_check_add(comicid, serinfo, chkthewanted=None, theissdate=None):
     latestissueinfo = []
     latestissueinfo.append({"latestdate": ser["IssueDate"], "latestiss": ser["IssueNumber"]})
     logger.fdebug("sending latestissueinfo from future as : " + str(latestissueinfo))
-    chktheadd = importer.addComictoDB(
+    chktheadd = comic_add.add_comic(
         comicid, "no", chkwant=chkthewanted, latestissueinfo=latestissueinfo, calledfrom="futurecheck"
     )
 

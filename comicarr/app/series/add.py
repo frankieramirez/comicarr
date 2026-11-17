@@ -9,10 +9,10 @@
 
 """Series add seam: add a series from its metadata provider, or queue it.
 
-The only door from ``comicarr/app/`` into the legacy ``comicarr/importer.py``
-(Series add, see ``CONTEXT.md``), per ADR-0005 and section 2 of
-``docs/architecture/foundations-plan.md``. Behavior is unchanged; the bodies
-still live in ``importer.py``.
+Other modules add a series (Series add, see ``CONTEXT.md``) through here. The
+comic add lives in ``app/series/comic_add.py``, the manga add in
+``app/manga/add.py`` and the worker queues in ``app/series/add_workers.py``,
+all moved from ``comicarr/importer.py`` (#1463, #1464).
 
 The three worker queues are the mass-add queue (``queue_series_adds``), the
 issue-want queue that the mass-add worker drains after its adds
@@ -26,19 +26,19 @@ from typing import Any
 
 
 def add_series(comic_id: str, *, metadata_only: bool = False, calledfrom: str | None = None) -> Any:
-    """Add or update ``comic_id`` now, through ``importer.addComictoDB``.
+    """Add or update ``comic_id`` now, through ``comic_add.add_comic``.
 
     ``metadata_only`` stores the series and its issues unmonitored, without
     searching or placing files. ``calledfrom`` is the legacy caller tag;
     ``"maintenance"`` (the database import) skips the post-add searches.
-    Returns whatever ``addComictoDB`` returns: usually a dict carrying
+    Returns whatever ``add_comic`` returns: usually a dict carrying
     ``status``, but legacy paths return a string or ``None``.
     """
-    from comicarr import importer
+    from comicarr.app.series import comic_add
 
     if calledfrom is None:
-        return importer.addComictoDB(comic_id, metadata_only=metadata_only)
-    return importer.addComictoDB(comic_id, metadata_only=metadata_only, calledfrom=calledfrom)
+        return comic_add.add_comic(comic_id, metadata_only=metadata_only)
+    return comic_add.add_comic(comic_id, metadata_only=metadata_only, calledfrom=calledfrom)
 
 
 def add_manga(comic_id: str) -> Any:
@@ -62,81 +62,83 @@ def update_issue_data(
     calledfrom: str | None = None,
     serieslast_updated: str | None = None,
 ) -> Any:
-    """Re-read a series' issue list from its source, through ``importer.updateissuedata``.
+    """Re-read a series' issue list from its source, through ``comic_add.update_issue_data``.
 
     The pull-list match calls it with ``calledfrom="weeklycheck"`` when a
     pulled issue is not in the series yet; the refresh worker passes the
     series' ``serieslast_updated``.
     """
-    from comicarr import importer
+    from comicarr.app.series import comic_add
 
     if serieslast_updated is None:
-        return importer.updateissuedata(comic_id, comic_name, calledfrom=calledfrom)
-    return importer.updateissuedata(comic_id, comic_name, calledfrom=calledfrom, serieslast_updated=serieslast_updated)
+        return comic_add.update_issue_data(comic_id, comic_name, calledfrom=calledfrom)
+    return comic_add.update_issue_data(
+        comic_id, comic_name, calledfrom=calledfrom, serieslast_updated=serieslast_updated
+    )
 
 
 def reload_series(comic_id: str, mismatch: Any = None, **legacy_kwargs: Any) -> Any:
-    """Re-run the add for a series being refreshed, through ``importer.addComictoDB``.
+    """Re-run the add for a series being refreshed, through ``comic_add.add_comic``.
 
-    ``legacy_kwargs`` are the refresh job's ``addComictoDB`` arguments
+    ``legacy_kwargs`` are the refresh job's ``add_comic`` arguments
     (``calledfrom``, ``annload``, ``csyear``, ``fixed_type``) passed through
-    unchanged until the add moves under ``comicarr/app/`` (#1464).
+    unchanged.
     """
-    from comicarr import importer
+    from comicarr.app.series import comic_add
 
-    return importer.addComictoDB(comic_id, mismatch, **legacy_kwargs)
+    return comic_add.add_comic(comic_id, mismatch, **legacy_kwargs)
 
 
 def store_issue_rows(issuedata: Any, *, nostatus: Any, serieslast_updated: str | None = None) -> Any:
-    """Write a refreshed series' issue rows, through ``importer.issue_collection``."""
-    from comicarr import importer
+    """Write a refreshed series' issue rows, through ``comic_add.store_issue_rows``."""
+    from comicarr.app.series import comic_add
 
-    return importer.issue_collection(issuedata, nostatus=nostatus, serieslast_updated=serieslast_updated)
+    return comic_add.store_issue_rows(issuedata, nostatus=nostatus, serieslast_updated=serieslast_updated)
 
 
 def add_manual_annual(**legacy_kwargs: Any) -> Any:
-    """Add or refresh a series' annuals, through ``importer.manualAnnual``."""
-    from comicarr import importer
+    """Add or refresh a series' annuals, through ``comic_add.add_manual_annual``."""
+    from comicarr.app.series import comic_add
 
-    return importer.manualAnnual(**legacy_kwargs)
+    return comic_add.add_manual_annual(**legacy_kwargs)
 
 
 def refresh_worker_should_retire(refresh_queue: Any) -> bool:
     """Whether the refresh worker may stop: its queue is empty under the producer lock."""
-    from comicarr import importer
+    from comicarr.app.series import add_workers
 
-    return importer.refresh_worker_should_retire(refresh_queue)
+    return add_workers.refresh_worker_should_retire(refresh_queue)
 
 
 def queue_series_adds(series: Sequence[Mapping[str, Any]]) -> None:
     """Put each series dict on the mass-add queue and start its worker if idle.
 
     Each dict carries ``comicid``, ``comicname`` and ``seriesyear``, and
-    optionally ``location``. Delegates to ``importer.importer_thread``.
+    optionally ``location``. Delegates to ``add_workers.queue_series_adds``.
     """
-    from comicarr import importer
+    from comicarr.app.series import add_workers
 
-    importer.importer_thread(list(series))
+    add_workers.queue_series_adds(list(series))
 
 
 def queue_issue_wants(issue_ids: Sequence[str]) -> None:
     """Queue issues to be marked Wanted once the mass-add worker drains its adds.
 
-    Delegates to ``importer.issue_watcher_thread``, which does not start the
+    Delegates to ``add_workers.queue_issue_wants``, which does not start the
     worker itself.
     """
-    from comicarr import importer
+    from comicarr.app.series import add_workers
 
-    importer.issue_watcher_thread(list(issue_ids))
+    add_workers.queue_issue_wants(list(issue_ids))
 
 
 def refresh_series(series: Sequence[Mapping[str, Any]]) -> str | None:
     """Record a refresh run for each series dict and hand it to the refresh worker.
 
-    Delegates to ``importer.refresh_thread``. Returns the run id, or ``None``
+    Delegates to ``add_workers.queue_refreshes``. Returns the run id, or ``None``
     when ``series`` is empty. Raises what the handoff raises, such as
     ``MaintenanceBlocked``.
     """
-    from comicarr import importer
+    from comicarr.app.series import add_workers
 
-    return importer.refresh_thread(list(series))
+    return add_workers.queue_refreshes(list(series))

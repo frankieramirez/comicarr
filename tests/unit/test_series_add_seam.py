@@ -9,7 +9,7 @@
 
 """Characterization tests for Series add behind ``app/series/add.py`` (#1209).
 
-They pin what ``importer.addComictoDB``, ``addMangaToDB``, ``addMangaToDB_MAL``
+They pin what ``comic_add.add_comic``, ``addMangaToDB``, ``addMangaToDB_MAL``
 and the worker queues do today when ``comicarr/app/`` calls them through
 ``comicarr.app.series.add``. ComicVine, MangaDex and MyAnimeList are faked;
 nothing touches the network. They describe current behavior, not intended
@@ -24,11 +24,12 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import db, importer
+from comicarr import db
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.manga import add as manga_add
 from comicarr.app.series import add as series_add
+from comicarr.app.series import add_workers, comic_add
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import comics, issues, metadata
 
@@ -107,8 +108,8 @@ def test_add_series_metadata_only_stores_paused_series_and_skipped_issues(librar
 def test_add_series_provider_failure_is_reported_as_failed(library, monkeypatch):
     get_comic = MagicMock(return_value=None)
     emit = MagicMock()
-    monkeypatch.setattr(importer.cv, "getComic", get_comic)
-    monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+    monkeypatch.setattr(comic_add.cv, "getComic", get_comic)
+    monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
     monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", emit)
 
     result = series_add.add_series("999")
@@ -129,8 +130,8 @@ def test_add_series_provider_failure_is_reported_as_failed(library, monkeypatch)
 def test_refresh_provider_failure_of_a_library_series_is_not_a_failed_add(library, monkeypatch):
     with db.get_engine().begin() as conn:
         conn.execute(comics.insert(), {"ComicID": "998", "ComicName": "Saga", "Status": "Active"})
-    monkeypatch.setattr(importer.cv, "getComic", MagicMock(return_value=None))
-    monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+    monkeypatch.setattr(comic_add.cv, "getComic", MagicMock(return_value=None))
+    monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
     emit = MagicMock()
     monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", emit)
 
@@ -154,8 +155,8 @@ def test_refresh_provider_failure_of_a_library_series_is_not_a_failed_add(librar
 def test_refresh_provider_failure_keeps_a_paused_series_name_and_status(library, monkeypatch):
     with db.get_engine().begin() as conn:
         conn.execute(comics.insert(), {"ComicID": "997", "ComicName": "Paper Girls", "Status": "Paused"})
-    monkeypatch.setattr(importer.cv, "getComic", MagicMock(return_value=None))
-    monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+    monkeypatch.setattr(comic_add.cv, "getComic", MagicMock(return_value=None))
+    monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
     emit = MagicMock()
     monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", emit)
 
@@ -210,8 +211,8 @@ def test_add_manga_adds_series_from_its_provider(library, tmp_path, monkeypatch,
     )
     monkeypatch.setattr(mangadex, "find_by_mal_id", lambda *a, **k: None)
     monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: 0)
-    monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: None)
-    monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+    monkeypatch.setattr(comic_add.helpers, "getImage", lambda *a, **k: None)
+    monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
     monkeypatch.setattr(comicarr_config, "get_manga_destination", lambda: str(tmp_path / "manga"))
 
     result = series_add.add_manga(comic_id)
@@ -239,9 +240,9 @@ def acquisition_ledger(tmp_path, monkeypatch):
 def test_refresh_series_records_run_then_hands_it_to_the_refresh_queue(acquisition_ledger, monkeypatch):
     refresh_queue = queue.Queue()
     start_worker = MagicMock()
-    monkeypatch.setattr(importer, "_mass_add_runtime_context", lambda: None)
+    monkeypatch.setattr(add_workers, "_mass_add_runtime_context", lambda: None)
     monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
-    monkeypatch.setattr(importer, "_start_refresh_worker", start_worker)
+    monkeypatch.setattr(add_workers, "_start_refresh_worker", start_worker)
 
     run_id = series_add.refresh_series([{"comicid": 160294, "comicname": "Absolute Batman", "seriesyear": "2024"}])
 
@@ -262,7 +263,7 @@ def test_queue_series_adds_and_issue_wants_feed_the_mass_add_worker(monkeypatch)
     add_list = queue.Queue()
     issue_watch_list = queue.Queue()
     running = SimpleNamespace(is_alive=lambda: True)
-    monkeypatch.setattr(importer, "_mass_add_runtime_context", lambda: None)
+    monkeypatch.setattr(add_workers, "_mass_add_runtime_context", lambda: None)
     monkeypatch.setattr(comicarr, "ADD_LIST", add_list)
     monkeypatch.setattr(comicarr, "ISSUE_WATCH_LIST", issue_watch_list)
     monkeypatch.setattr(comicarr, "MASS_ADD", running, raising=False)

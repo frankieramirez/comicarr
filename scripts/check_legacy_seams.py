@@ -31,7 +31,7 @@ layer under ``comicarr/app/mcp/``, imports no root module outside
 Infrastructure, seam or not.
 
 The scan is an AST walk, so function-local and relative imports count. It also
-counts attribute access through the package (``comicarr.importer.addComictoDB``
+counts attribute access through the package (``comicarr.weeklypull.pullit``
 after a bare ``import comicarr``), which is how several services reach legacy
 code without an import statement naming the module.
 
@@ -75,7 +75,6 @@ SEAMS = {
     "weeklypullit": frozenset({"comicarr/app/weekly/pull.py"}),
     "rsscheck": frozenset({"comicarr/app/search/rss.py"}),
     "rsscheckit": frozenset({"comicarr/app/search/rss.py"}),
-    "importer": frozenset({"comicarr/app/series/add.py"}),
     "postprocessor": frozenset({"comicarr/app/downloads/postprocessing.py"}),
 }
 
@@ -115,6 +114,14 @@ DEFERRED_ALLOWLIST = {
     ("comicarr/app/library/filers.py", "filechecker"): (
         "FileChecker lists and parses the files in a series folder; carried over when filers.py moved (#1417)",
         "#1422 moves filechecker under comicarr/app/",
+    ),
+    ("comicarr/app/series/comic_add.py", "filechecker"): (
+        "FileChecker matches existing files to a new series; carried over when addComictoDB moved (#1464)",
+        "#1422 moves filechecker under comicarr/app/",
+    ),
+    ("comicarr/app/series/comic_add.py", "search"): (
+        "searchforissue and searchIssueIDList search the wanted issues of a new series; carried over when addComictoDB moved (#1464)",
+        "#1422 moves search under comicarr/app/",
     ),
     ("comicarr/app/series/folder_rescan.py", "filechecker"): (
         "FileChecker lists and parses the files in a series folder; carried over when forceRescan moved (#1459)",
@@ -184,7 +191,7 @@ def _crossings(path: Path, rel: str, root_modules: frozenset[str]) -> list[tuple
             if module is not None:
                 found.append((node.lineno, module))
             elif dotted == PACKAGE:
-                # ``from comicarr import importer`` and ``from ... import importer``
+                # ``from comicarr import weeklypull`` and ``from ... import weeklypull``
                 found.extend((node.lineno, a.name) for a in node.names if a.name in root_modules)
         elif isinstance(node, ast.Import):
             for alias in node.names:
@@ -197,7 +204,7 @@ def _crossings(path: Path, rel: str, root_modules: frozenset[str]) -> list[tuple
             and node.value.id == PACKAGE
             and node.attr in root_modules
         ):
-            # ``import comicarr`` then ``comicarr.importer.addComictoDB(...)``
+            # ``import comicarr`` then ``comicarr.weeklypull.pullit(...)``
             found.append((node.lineno, node.attr))
     return found
 

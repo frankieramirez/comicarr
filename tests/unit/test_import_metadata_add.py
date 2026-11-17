@@ -14,7 +14,8 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import db, importer
+from comicarr import db
+from comicarr.app.series import comic_add
 from comicarr.tables import comics, issues
 
 
@@ -72,7 +73,7 @@ def test_metadata_only_add_is_unmonitored_and_never_acquires_or_places_files(met
     monkeypatch.setattr("comicarr.app.series.folder_rescan.force_rescan", rescan)
     monkeypatch.setattr("comicarr.app.library.moveit.movefiles", move)
 
-    result = importer.addComictoDB("4050-123", metadata_only=True)
+    result = comic_add.add_comic("4050-123", metadata_only=True)
 
     assert result == {"status": "complete", "comicid": "123", "comicname": "Example", "added": True}
     assert db.select_one(select(comics).where(comics.c.ComicID == "123"))["Status"] == "Paused"
@@ -90,14 +91,14 @@ def test_provider_failure_writes_nothing_and_retry_succeeds(metadata_environment
         RuntimeError("provider unavailable"),
     ]
     with pytest.raises(RuntimeError, match="provider unavailable"):
-        importer.addComictoDB("123", metadata_only=True)
+        comic_add.add_comic("123", metadata_only=True)
     assert db.select_all(select(comics)) == []
     assert db.select_all(select(issues)) == []
     session.get.side_effect = [
         MagicMock(json=lambda: {"status_code": 1, "results": volume}),
         MagicMock(json=lambda: {"status_code": 1, "results": [issue], "number_of_total_results": 1}),
     ]
-    assert importer.addComictoDB("123", metadata_only=True)["status"] == "complete"
+    assert comic_add.add_comic("123", metadata_only=True)["status"] == "complete"
 
 
 def test_partial_metadata_commit_failure_rolls_back_and_can_retry(metadata_environment, monkeypatch):
@@ -111,7 +112,7 @@ def test_partial_metadata_commit_failure_rolls_back_and_can_retry(metadata_envir
 
     monkeypatch.setattr(db, "upsert_conn", fail_series_write)
     with pytest.raises(RuntimeError, match="database full"):
-        importer.addComictoDB("123", metadata_only=True)
+        comic_add.add_comic("123", metadata_only=True)
     assert db.select_all(select(comics)) == []
     assert db.select_all(select(issues)) == []
     monkeypatch.setattr(db, "upsert_conn", write)
@@ -119,14 +120,14 @@ def test_partial_metadata_commit_failure_rolls_back_and_can_retry(metadata_envir
         MagicMock(json=lambda: {"status_code": 1, "results": volume}),
         MagicMock(json=lambda: {"status_code": 1, "results": [issue], "number_of_total_results": 1}),
     ]
-    assert importer.addComictoDB("123", metadata_only=True)["status"] == "complete"
+    assert comic_add.add_comic("123", metadata_only=True)["status"] == "complete"
 
 
 def test_repeat_add_reuses_metadata_and_does_not_change_monitoring(metadata_environment):
     _, session, _, _ = metadata_environment
-    importer.addComictoDB("123", metadata_only=True)
+    comic_add.add_comic("123", metadata_only=True)
     db.upsert("comics", {"Status": "Active"}, {"ComicID": "123"})
-    result = importer.addComictoDB("4050-123", metadata_only=True)
+    result = comic_add.add_comic("4050-123", metadata_only=True)
     assert result["added"] is False
     assert result["comicid"] == "123"
     assert session.get.call_count == 2
@@ -138,12 +139,12 @@ def test_metron_mapping_is_canonical_or_refused_before_writes(metadata_environme
     _, session, _, _ = metadata_environment
     monkeypatch.setattr("comicarr.app.metadata.metron.get_cv_id", lambda _: mapped)
     if mapped:
-        result = importer.addComictoDB("metron-789", metadata_only=True)
+        result = comic_add.add_comic("metron-789", metadata_only=True)
         assert result["comicid"] == "123"
         assert db.select_one(select(issues))["ComicID"] == "123"
     else:
         with pytest.raises(ValueError, match="no ComicVine mapping"):
-            importer.addComictoDB("metron-789", metadata_only=True)
+            comic_add.add_comic("metron-789", metadata_only=True)
         session.get.assert_not_called()
         assert db.select_all(select(comics)) == []
 
@@ -168,7 +169,7 @@ def test_incomplete_or_incorrect_provider_roster_is_refused(metadata_environment
         ),
     ]
     with pytest.raises(ValueError):
-        importer.addComictoDB("123", metadata_only=True)
+        comic_add.add_comic("123", metadata_only=True)
     assert db.select_all(select(comics)) == []
     assert db.select_all(select(issues)) == []
 
@@ -176,7 +177,7 @@ def test_incomplete_or_incorrect_provider_roster_is_refused(metadata_environment
 def test_issue_owned_by_another_series_is_never_repointed(metadata_environment):
     db.upsert("issues", {"ComicID": "other", "Status": "Downloaded", "Location": "existing.cbz"}, {"IssueID": "456"})
     with pytest.raises(ValueError, match="another series"):
-        importer.addComictoDB("123", metadata_only=True)
+        comic_add.add_comic("123", metadata_only=True)
     assert db.select_one(select(issues))["ComicID"] == "other"
     assert db.select_one(select(issues))["Location"] == "existing.cbz"
     assert db.select_all(select(comics)) == []
@@ -184,7 +185,7 @@ def test_issue_owned_by_another_series_is_never_repointed(metadata_environment):
 
 def test_active_failed_placeholder_is_retried(metadata_environment):
     db.upsert("comics", {"ComicName": "Fetch failed, try refreshing. (123)", "Status": "Active"}, {"ComicID": "123"})
-    result = importer.addComictoDB("123", metadata_only=True)
+    result = comic_add.add_comic("123", metadata_only=True)
     assert result["status"] == "complete"
     assert db.select_one(select(comics))["Status"] == "Paused"
 
@@ -231,7 +232,7 @@ def test_mangadex_metadata_add_is_unmonitored_without_placeholder_issues(metadat
     )
     monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: str(tmp_path / "library"))
     comicarr.CONFIG.FOLDER_FORMAT = "$Series ($Year)"
-    result = importer.addComictoDB("md-abc", metadata_only=True)
+    result = comic_add.add_comic("md-abc", metadata_only=True)
     assert result["comicid"] == "md-abc"
     assert db.select_one(select(comics))["Status"] == "Paused"
     assert db.select_one(select(issues))["IssueID"] == "md-abc-ch1"
@@ -250,7 +251,7 @@ def test_mal_metadata_requires_exact_chapter_source(metadata_environment, monkey
     resolve = MagicMock(return_value=None)
     monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", resolve)
     with pytest.raises(ValueError, match="verified MangaDex"):
-        importer.addComictoDB("mal-13", metadata_only=True)
+        comic_add.add_comic("mal-13", metadata_only=True)
     assert resolve.call_args.kwargs["allow_title_match"] is False
     assert db.select_all(select(comics)) == []
 
@@ -307,7 +308,7 @@ def test_missing_series_requires_confirmation_and_auto_never_adds(pending_import
 @pytest.mark.parametrize("result", [None, {"status": "incomplete"}, {"status": "complete", "comicid": "999"}])
 def test_failed_metadata_completion_leaves_files_pending(pending_import, monkeypatch, result):
     finalization, ctx, source, _, importresults = pending_import
-    monkeypatch.setattr(importer, "addComictoDB", lambda *args, **kwargs: result)
+    monkeypatch.setattr(comic_add, "add_comic", lambda *args, **kwargs: result)
     with pytest.raises(finalization.ImportFinalizationError, match="Example") as error:
         finalization.finalize_manual_match(ctx, ["pending"], "123", series_name="Example", add_missing=True)
     assert error.value.phase == "series"
@@ -361,7 +362,7 @@ def test_concurrent_repeated_submission_places_once(pending_import):
 
 def test_retry_does_not_repoint_an_existing_library_file(pending_import):
     finalization, ctx, source, _, importresults = pending_import
-    importer.addComictoDB("123", metadata_only=True)
+    comic_add.add_comic("123", metadata_only=True)
     series = db.select_one(select(comics))
     from pathlib import Path
 
@@ -489,7 +490,8 @@ def test_exact_lookup_add_and_reopened_retry_preserve_readiness(pending_import, 
     ctx.config.COMICVINE_API = comicarr.CONFIG.COMICVINE_API
     ctx.config.CV_VERIFY = True
     monkeypatch.setattr(
-        "comicarr.app.search.mb.listLibrary", lambda: {row["ComicID"]: row["Status"] for row in db.select_all(select(comics))}
+        "comicarr.app.search.mb.listLibrary",
+        lambda: {row["ComicID"]: row["Status"] for row in db.select_all(select(comics))},
     )
     monkeypatch.setattr(
         "comicarr.app.search.mb.findComic", MagicMock(side_effect=AssertionError("Exact query must not fuzzy-search"))

@@ -114,7 +114,7 @@ _Avoid_: Facade (reserved for the retired legacy `PostProcessor` class), wrapper
 
 ## Series add
 
-Creating a Series in the library from a metadata provider, and refreshing it later. This is what the legacy `importer.py` does. It is unrelated to the Import Inbox and Manual import finalization, which deal with files.
+Creating a Series in the library from a metadata provider, and refreshing it later. This is what `app/series/comic_add.py` and `app/manga/add.py` do (the legacy `importer.py` before #1464). It is unrelated to the Import Inbox and Manual import finalization, which deal with files.
 
 _Avoid_: Import (for adding a Series)
 

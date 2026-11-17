@@ -13,8 +13,8 @@
 import pytest
 from sqlalchemy import func, select
 
-from comicarr import importer
 from comicarr.app.series import add as series_add
+from comicarr.app.series import add_workers, comic_add
 from comicarr.app.series import location as series_location
 from comicarr.db import get_engine
 from comicarr.tables import activity_events, annuals, comics, issues
@@ -64,7 +64,7 @@ def providers(monkeypatch):
         for watch in series:
             if watch.get("want"):
                 wanted.append(watch["comicid"])
-                importer.markSeriesWanted(watch["comicid"])
+                comic_add.mark_series_wanted(watch["comicid"])
 
     monkeypatch.setattr(series_add, "queue_series_adds", queue_adds)
     monkeypatch.setattr(series_add, "refresh_series", lambda watch: refreshed.extend(w["comicid"] for w in watch))
@@ -199,14 +199,14 @@ def test_the_mass_add_worker_marks_a_series_wanted_right_after_an_add_that_carri
     import queue
 
     calls = []
-    monkeypatch.setattr(importer, "addComictoDB", lambda comicid, **_k: calls.append(("add", comicid)))
-    monkeypatch.setattr(importer, "markSeriesWanted", lambda comicid: calls.append(("want", comicid)))
-    monkeypatch.setattr(importer, "emit_add_activity", lambda *_a, **_k: None)
-    monkeypatch.setattr(importer.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(comic_add, "add_comic", lambda comicid, **_k: calls.append(("add", comicid)))
+    monkeypatch.setattr(comic_add, "mark_series_wanted", lambda comicid: calls.append(("want", comicid)))
+    monkeypatch.setattr(add_workers, "emit_add_activity", lambda *_a, **_k: None)
+    monkeypatch.setattr(add_workers.time, "sleep", lambda _s: None)
     series_queue, want_queue = queue.Queue(), queue.Queue()
     series_queue.put({"comicid": "4050-1001", "comicname": None, "seriesyear": None, "want": True})
     series_queue.put({"comicid": "1002", "comicname": None, "seriesyear": None})
-    importer.addvialist(series_queue, want_queue)
+    add_workers.run_mass_add_queue(series_queue, want_queue)
     assert calls == [("add", "4050-1001"), ("want", "1001"), ("add", "1002")]
 
 
@@ -219,8 +219,8 @@ def test_a_retry_that_fails_again_keeps_the_failed_fetch_marker(monkeypatch):
     from comicarr.app.series import queries as series_queries
 
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(IMP_PATHS=False), raising=False)
-    monkeypatch.setattr(importer.cv, "getComic", lambda *_a, **_k: None)
-    monkeypatch.setattr(importer.helpers, "ComicSort", lambda *_a, **_k: None)
+    monkeypatch.setattr(comic_add.cv, "getComic", lambda *_a, **_k: None)
+    monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda *_a, **_k: None)
     for _attempt in range(2):
-        assert importer.addComictoDB("4321")["status"] == "incomplete"
+        assert comic_add.add_comic("4321")["status"] == "incomplete"
         assert series_queries.is_failed_add_placeholder("4321")

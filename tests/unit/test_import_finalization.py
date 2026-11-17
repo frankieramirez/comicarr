@@ -202,7 +202,7 @@ def test_missing_manga_is_added_only_after_preflight(tmp_path):
             },
         ),
         patch(
-            "comicarr.importer.addComictoDB",
+            "comicarr.app.series.comic_add.add_comic",
             return_value={"status": "complete", "comicid": "mal-123", "comicname": "Berserk"},
         ) as add,
         patch.object(finalization.import_queries, "get_new_series_issue_id", return_value="mal-123-ch1"),

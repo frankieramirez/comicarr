@@ -16,10 +16,9 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import importer
 from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
-from comicarr.app.series import add, folder_rescan, watchlist_refresh
+from comicarr.app.series import add, add_workers, folder_rescan, watchlist_refresh
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import issues, metadata
 
@@ -105,9 +104,9 @@ def test_idle_refresh_worker_cannot_retire_across_concurrent_enqueue():
 
     def attempt_retirement():
         started.set()
-        result.append(importer.refresh_worker_should_retire(refresh_queue))
+        result.append(add_workers.refresh_worker_should_retire(refresh_queue))
 
-    with importer._REFRESH_WORKER_LOCK:
+    with add_workers._REFRESH_WORKER_LOCK:
         worker = threading.Thread(target=attempt_retirement)
         worker.start()
         assert started.wait(timeout=1)
@@ -128,7 +127,7 @@ def test_refresh_thread_persists_before_queue_handoff(monkeypatch, acquisition_l
     refresh_queue = InspectingQueue()
     monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
 
-    importer.refresh_thread(
+    add_workers.queue_refreshes(
         [{"comicid": "160294", "comicname": "Absolute Batman", "seriesyear": "2024"}],
         ledger=acquisition_ledger,
         run_id="refresh-run",
@@ -147,7 +146,7 @@ def test_active_maintenance_blocks_refresh_handoff_but_keeps_obligation(monkeypa
     controller.acquire_fence("owner", "repair-1", reason="repair apply")
 
     with pytest.raises(MaintenanceBlocked):
-        importer.refresh_thread(
+        add_workers.queue_refreshes(
             [{"comicid": "160294", "comicname": "Absolute Batman", "seriesyear": "2024"}],
             ledger=acquisition_ledger,
             run_id="refresh-blocked",
@@ -172,7 +171,7 @@ def test_refresh_replay_resets_running_item_without_count_inflation(monkeypatch,
     refresh_queue = queue.Queue()
     monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
 
-    replayed = importer.replay_refresh_obligations(ledger=acquisition_ledger, start_worker=False)
+    replayed = add_workers.replay_refresh_obligations(ledger=acquisition_ledger, start_worker=False)
 
     assert replayed == 1
     assert refresh_queue.get_nowait()["run_id"] == "refresh-replay"
@@ -183,7 +182,7 @@ def test_refresh_replay_resets_running_item_without_count_inflation(monkeypatch,
 def test_refresh_replay_preserves_weekly_mode_arguments(monkeypatch, acquisition_ledger):
     refresh_queue = queue.Queue()
     monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
-    importer.refresh_thread(
+    add_workers.queue_refreshes(
         {
             "r_mode": "updateissuedata",
             "comicid": "160294",
@@ -200,7 +199,7 @@ def test_refresh_replay_preserves_weekly_mode_arguments(monkeypatch, acquisition
     refresh_queue.get_nowait()
     acquisition_ledger.claim_item("refresh-weekly", "series", "160294")
 
-    importer.replay_refresh_obligations(ledger=acquisition_ledger, start_worker=False)
+    add_workers.replay_refresh_obligations(ledger=acquisition_ledger, start_worker=False)
 
     replayed = refresh_queue.get_nowait()
     assert replayed["run_id"] == "refresh-weekly"
@@ -214,7 +213,7 @@ def test_import_lock_requeues_refresh_before_durable_claim(monkeypatch, acquisit
     monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
     monkeypatch.setattr(comicarr, "IMPORTLOCK", True)
     monkeypatch.setattr(watchlist_refresh.time, "sleep", lambda _seconds: None)
-    importer.refresh_thread(
+    add_workers.queue_refreshes(
         [{"comicid": "160294", "comicname": "Absolute Batman", "seriesyear": "2024"}],
         ledger=acquisition_ledger,
         run_id="refresh-import-lock",
@@ -243,7 +242,7 @@ def test_durable_refresh_failure_does_not_kill_following_item(monkeypatch, acqui
     monkeypatch.setattr(watchlist_refresh.time, "sleep", lambda _seconds: None)
     update = MagicMock(side_effect=[RuntimeError("metadata provider failed"), None])
     monkeypatch.setattr(watchlist_refresh, "refresh_series_list", update)
-    importer.refresh_thread(
+    add_workers.queue_refreshes(
         [
             {"comicid": "1", "comicname": "Broken Series", "seriesyear": "2024"},
             {"comicid": "2", "comicname": "Current Series", "seriesyear": "2026"},

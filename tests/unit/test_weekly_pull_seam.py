@@ -98,7 +98,7 @@ def _patch_match(monkeypatch, *, autowant, listed):
     monkeypatch.setattr(weeklypull.watchlist_match, "upcoming_update", upcoming_update, raising=False)
     monkeypatch.setattr(weeklypull.watchlist_match, "latest_update", MagicMock(), raising=False)
     refresh_thread = MagicMock()
-    monkeypatch.setattr(weeklypull.importer, "refresh_thread", refresh_thread, raising=False)
+    monkeypatch.setattr(weeklypull.add_workers, "queue_refreshes", refresh_thread)
     # new_pullcheck logs and swallows per-row errors; surface them instead.
     swallowed = MagicMock()
     monkeypatch.setattr(weeklypull.helpers, "log_that_exception", swallowed)

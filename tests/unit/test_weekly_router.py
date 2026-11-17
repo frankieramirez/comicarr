@@ -223,8 +223,8 @@ def _pull_row(engine, **values):
 
 
 def test_add_from_week_adds_the_series_before_wanting_its_issue(monkeypatch, weekly_db):
-    from comicarr import importer
     from comicarr.app.search import service as search_service
+    from comicarr.app.series import add_workers
 
     events = []
     monkeypatch.setattr(
@@ -232,7 +232,7 @@ def test_add_from_week_adds_the_series_before_wanting_its_issue(monkeypatch, wee
         "add_comic",
         lambda ctx, comic_id, folder=None: events.append(("add", comic_id)) or {"success": True, "comicid": comic_id},
     )
-    monkeypatch.setattr(importer, "issue_watcher_thread", lambda ids: events.append(("want", ids)))
+    monkeypatch.setattr(add_workers, "queue_issue_wants", lambda ids: events.append(("want", ids)))
     rowid = _pull_row(weekly_db)
 
     result = weekly_service.add_from_week(None, rowid, want=True)

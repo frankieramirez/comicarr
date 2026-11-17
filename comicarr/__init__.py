@@ -807,12 +807,12 @@ def launch_browser(host, port, root):
 
 def replay_acquisition_obligations(ctx=None):
     """Restore durable search and refresh commands before workers start."""
-    from comicarr import importer as importer_module
     from comicarr.app.search.commands import replay_search_obligations
+    from comicarr.app.series import add_workers
 
     search_queue = ctx.search_queue if ctx is not None else SEARCH_QUEUE
     search_count = replay_search_obligations(work_queue=search_queue)
-    refresh_count = importer_module.replay_refresh_obligations(start_worker=True)
+    refresh_count = add_workers.replay_refresh_obligations(start_worker=True)
     if search_count or refresh_count:
         logger.info("[ACQUISITION] Replayed %s search and %s refresh obligations" % (search_count, refresh_count))
     return {"search": search_count, "refresh": refresh_count}
