@@ -17,7 +17,7 @@ from sqlalchemy import create_engine, select
 import comicarr
 from comicarr import updater
 from comicarr.app.manga.rescan import mark_parsed_files_downloaded
-from comicarr.tables import comics, issues, metadata
+from comicarr.tables import comics, issues, manga_volumes, metadata
 
 
 def _config():
@@ -68,7 +68,13 @@ def _seed_manga(engine, tmp_path, *, bare_mode="volumes", status="Wanted", locat
         conn.execute(issues.insert(), issue_row)
 
 
-def test_force_rescan_volume_bare_file_marks_chapters_in_that_volume(monkeypatch, tmp_path):
+def _volume_rows(engine):
+    with engine.connect() as conn:
+        return {row["VolumeNumber"]: dict(row) for row in conn.execute(select(manga_volumes)).mappings()}
+
+
+def test_force_rescan_volume_bare_file_records_the_volume(monkeypatch, tmp_path):
+    """A volume file is a volume (ADR-0004), recorded like post-processing records it."""
     (tmp_path / "Naruto 12.cbr").write_bytes(b"cbz")
     engine = create_engine("sqlite://")
     metadata.create_all(engine)
@@ -86,8 +92,14 @@ def test_force_rescan_volume_bare_file_marks_chapters_in_that_volume(monkeypatch
 
     with engine.connect() as conn:
         row = conn.execute(select(issues).where(issues.c.IssueID == "md-naruto-ch100")).mappings().one()
-    assert row["Status"] == "Downloaded"
-    assert row["Location"] == "Naruto 12.cbr"
+        comic = conn.execute(select(comics).where(comics.c.ComicID == "md-naruto")).mappings().one()
+    volume = _volume_rows(engine)["12"]
+    assert volume["Status"] == "Downloaded"
+    assert volume["Location"] == "Naruto 12.cbr"
+    # The chapter is not a file of its own: it reads Covered through volume 12.
+    assert row["Status"] == "Wanted"
+    assert row["Location"] is None
+    assert comic["Have"] == 1
 
 
 def test_force_rescan_empty_manga_folder_does_not_crash(monkeypatch, tmp_path):
@@ -104,8 +116,8 @@ def test_force_rescan_empty_manga_folder_does_not_crash(monkeypatch, tmp_path):
     assert row["Status"] == "Wanted"
 
 
-def test_force_rescan_repoints_location_when_cbr_became_cbz(monkeypatch, tmp_path):
-    """Metatag exports .cbr to .cbz; an already-Downloaded row must follow the file."""
+def test_force_rescan_hands_an_old_volume_location_back_to_the_volume(monkeypatch, tmp_path):
+    """An older rescan stored the volume file on the chapter; metatag later made it .cbz."""
     (tmp_path / "Naruto 12.cbz").write_bytes(b"cbz")
     engine = create_engine("sqlite://")
     metadata.create_all(engine)
@@ -131,8 +143,11 @@ def test_force_rescan_repoints_location_when_cbr_became_cbz(monkeypatch, tmp_pat
     with engine.connect() as conn:
         row = conn.execute(select(issues).where(issues.c.IssueID == "md-naruto-ch100")).mappings().one()
         comic = conn.execute(select(comics).where(comics.c.ComicID == "md-naruto")).mappings().one()
-    assert row["Status"] == "Downloaded"
-    assert row["Location"] == "Naruto 12.cbz"
+    volume = _volume_rows(engine)["12"]
+    assert volume["Status"] == "Downloaded"
+    assert volume["Location"] == "Naruto 12.cbz"
+    assert row["Status"] == "Skipped"
+    assert row["Location"] is None
     assert comic["Have"] == 1
 
 
@@ -210,13 +225,14 @@ def test_mark_parsed_files_downloaded_keeps_chapter_location_when_volume_pack_ma
         ],
     )
 
-    assert count == 0
+    assert count == 1
     with engine.connect() as conn:
         row = conn.execute(select(issues).where(issues.c.IssueID == "md-naruto-ch100")).mappings().one()
         comic = conn.execute(select(comics).where(comics.c.ComicID == "md-naruto")).mappings().one()
     assert row["Status"] == "Downloaded"
     assert row["Location"] == "Naruto c100.cbz"
     assert comic["Have"] == 1
+    assert _volume_rows(engine)["12"]["Location"] == "Naruto v12.cbz"
 
 
 def test_force_rescan_ignores_nested_leftover_cbr_when_root_is_cbz(monkeypatch, tmp_path):
@@ -248,6 +264,59 @@ def test_force_rescan_ignores_nested_leftover_cbr_when_root_is_cbz(monkeypatch, 
     with engine.connect() as conn:
         row = conn.execute(select(issues).where(issues.c.IssueID == "md-naruto-ch100")).mappings().one()
         comic = conn.execute(select(comics).where(comics.c.ComicID == "md-naruto")).mappings().one()
-    assert row["Status"] == "Downloaded"
-    assert row["Location"] == "Naruto 12.cbz"
+    volume = _volume_rows(engine)["12"]
+    assert volume["Location"] == "Naruto 12.cbz"
+    assert row["Status"] == "Skipped"
+    assert row["Location"] is None
     assert comic["Have"] == 1
+
+
+def test_volume_file_with_no_listed_chapters_is_recorded_not_dropped(monkeypatch, tmp_path):
+    """MangaDex lists no chapters for many volumes; their files must still count."""
+    engine = create_engine("sqlite://")
+    metadata.create_all(engine)
+    _seed_manga(engine, tmp_path)
+    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+
+    count = mark_parsed_files_downloaded(
+        "md-naruto",
+        [(str(tmp_path / "Naruto v30.cbz"), {"chapter_number": None, "volume_number": 30})],
+        directory=str(tmp_path),
+    )
+
+    assert count == 1
+    volume = _volume_rows(engine)["30"]
+    assert volume["Status"] == "Downloaded"
+    assert volume["Location"] == "Naruto v30.cbz"
+
+
+def test_rescanned_volume_leaves_the_search_frontier(monkeypatch, tmp_path):
+    """Before, a rescanned volume was owned only through its chapters, so blended search kept looking for it."""
+    from comicarr.app.manga.acquisition import search_plan_for_series
+    from comicarr.app.manga.volumes import volume_states
+
+    engine = create_engine("sqlite://")
+    metadata.create_all(engine)
+    _seed_manga(engine, tmp_path)
+    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+
+    mark_parsed_files_downloaded(
+        "md-naruto",
+        [(str(tmp_path / "Naruto v12.cbz"), {"chapter_number": None, "volume_number": 12})],
+        directory=str(tmp_path),
+    )
+
+    with engine.connect() as conn:
+        rows = [dict(row) for row in conn.execute(select(issues)).mappings()]
+    assert search_plan_for_series({"MonitorMode": "blended"}, rows, volume_states("md-naruto")) == []
+
+
+def test_rescan_twice_counts_a_volume_once(monkeypatch, tmp_path):
+    engine = create_engine("sqlite://")
+    metadata.create_all(engine)
+    _seed_manga(engine, tmp_path)
+    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    files = [(str(tmp_path / "Naruto v12.cbz"), {"chapter_number": None, "volume_number": 12})]
+
+    assert mark_parsed_files_downloaded("md-naruto", files, directory=str(tmp_path)) == 1
+    assert mark_parsed_files_downloaded("md-naruto", files, directory=str(tmp_path)) == 0

@@ -215,10 +215,15 @@ def test_a_manga_series_is_rematched_by_the_manga_rescan_not_filechecker(engine,
 
     rescan.rescan_series("md-naruto")
 
+    from comicarr.tables import manga_volumes
+
     with engine.connect() as conn:
-        row = conn.execute(select(issues).where(issues.c.IssueID == "md-naruto-ch100")).mappings().one()
-    assert row["Status"] == "Downloaded"
-    assert row["Location"] == "Naruto 12.cbz"
+        volume = conn.execute(select(manga_volumes)).mappings().one()
+    # The manga parser read the bare number as volume 12 and recorded the
+    # volume (ADR-0004); FileChecker would have matched it as an issue.
+    assert volume["VolumeNumber"] == "12"
+    assert volume["Status"] == "Downloaded"
+    assert volume["Location"] == "Naruto 12.cbz"
 
 
 def test_the_seam_passes_archive_only_when_given(monkeypatch):
