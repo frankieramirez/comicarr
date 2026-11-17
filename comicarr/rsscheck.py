@@ -717,8 +717,13 @@ def rssdbupdate(feeddata, i, type):
 
         seriesname = None
         issuenumber = None
-        flc = filechecker.FileChecker(file=tmp_title)
-        filelist = flc.listFiles()
+        try:
+            filelist = filechecker.FileChecker(file=tmp_title).listFiles()
+        except Exception as e:
+            # One title the parser cannot read must not abort the whole RSS
+            # run (#1441): cache it without a series name and move on.
+            logger.warn("[RSS] Could not parse feed title %r; caching it without a series name: %s" % (tmp_title, e))
+            filelist = {"series_name": None, "issue_number": None}
         if (
             all([filelist["series_name"] != "", filelist["series_name"] is not None])
             and filelist["issue_number"] != "-"
