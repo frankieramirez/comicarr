@@ -156,10 +156,31 @@ def _downstream_readiness(config, route):
     if needs_path:
         path_ready = _path_ready(configured)
     elif post_processing and downloader in path_keys:
-        path_ready = _path_ready(getattr(config, path_keys[downloader], None))
+        path_ready = _torrent_pickup_ready(config, getattr(config, path_keys[downloader], None))
     else:
         path_ready = True
     return client, client_ready, path_ready, restart_safe
+
+
+def _torrent_pickup_ready(config, client_save_path):
+    """Whether Comicarr can read what a torrent client finishes, or None if unknown.
+
+    A client's save path (``QBITTORRENT_FOLDER`` and friends) is a path on the
+    client's side. It is often absent inside Comicarr's container, so it says
+    nothing about Comicarr. The folder Comicarr reads is ``CHECK_FOLDER`` when
+    the Folder Monitor is on; otherwise a save path that also exists here
+    counts, and anything else is unknown rather than not ready.
+    """
+    check_folder = getattr(config, "CHECK_FOLDER", None)
+    if _setting_text(check_folder):
+        return _path_ready(check_folder)
+    if _setting_text(client_save_path) and _path_ready(client_save_path):
+        return True
+    return None
+
+
+def _setting_text(value):
+    return isinstance(value, str) and value.strip() not in ("", "None")
 
 
 def _route_enabled(config, route):
@@ -263,7 +284,8 @@ def build_route_readiness(
             )
         enabled = _route_enabled(config, route)
         client, client_ready, path_ready, restart_safe = _downstream_readiness(config, route)
-        downstream_ready = client_ready and path_ready
+        # None means Comicarr cannot tell, which does not block the route.
+        downstream_ready = client_ready and path_ready is not False
         route_blocks = []
         route_names = {name.lower() for name in names[route]}
         for site_key, site in active_blocks.items():
@@ -300,7 +322,7 @@ def build_route_readiness(
             reason = "unsupported_restart_correlation"
         elif not client_ready:
             reason = "client_not_ready"
-        elif not path_ready:
+        elif path_ready is False:
             reason = "path_not_ready"
         elif all_blocked:
             reason = "providers_temporarily_blocked"

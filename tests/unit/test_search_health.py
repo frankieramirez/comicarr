@@ -216,6 +216,45 @@ def test_restart_safe_client_still_requires_a_mapped_postprocessing_path(tmp_pat
     assert routes["nzb"]["reason"] == "path_not_ready"
 
 
+def _qbit(tmp_path, **overrides):
+    tmp_path.mkdir(exist_ok=True)
+    values = {
+        "POST_PROCESSING": True,
+        "QBITTORRENT_HOST": "https://qbit.test",
+        "QBITTORRENT_FOLDER": "/client-side/downloads/comics",
+    }
+    values.update(overrides)
+    return health.build_route_readiness(_config(tmp_path, **values))["torrent"]
+
+
+def test_a_client_side_save_path_missing_here_is_unknown_not_a_block(tmp_path):
+    """qBittorrent's save path is a path on the client, often absent in Comicarr's container."""
+    route = _qbit(tmp_path)
+
+    assert route["path_ready"] is None
+    assert route["ready"] is True
+    assert route["reason"] == "ready"
+
+
+def test_torrent_pickup_follows_the_folder_monitor_when_it_is_on(tmp_path):
+    watched = tmp_path / "watched"
+    watched.mkdir()
+
+    assert _qbit(tmp_path / "a", CHECK_FOLDER=str(watched))["path_ready"] is True
+
+    missing = _qbit(tmp_path / "b", CHECK_FOLDER=str(tmp_path / "gone"))
+    assert missing["path_ready"] is False
+    assert missing["ready"] is False
+    assert missing["reason"] == "path_not_ready"
+
+
+def test_a_save_path_comicarr_can_see_counts_as_ready(tmp_path):
+    shared = tmp_path / "shared"
+    shared.mkdir()
+
+    assert _qbit(tmp_path / "a", QBITTORRENT_FOLDER=str(shared))["path_ready"] is True
+
+
 def test_maintenance_blocks_handoff_without_hiding_route_configuration(tmp_path):
     routes = health.build_route_readiness(
         _config(tmp_path),

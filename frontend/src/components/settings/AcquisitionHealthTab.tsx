@@ -256,8 +256,14 @@ function RouteCard({
           </dt>
           <dd className="mt-0.5">
             <HealthStatus
-              label={health.path_ready ? t`ready` : t`not ready`}
-              tone={toneForBoolean(health.path_ready)}
+              label={
+                health.path_ready === null
+                  ? t`unknown`
+                  : health.path_ready
+                    ? t`ready`
+                    : t`not ready`
+              }
+              tone={toneForBoolean(health.path_ready ?? undefined)}
             />
           </dd>
         </div>
