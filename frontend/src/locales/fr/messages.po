@@ -682,6 +682,10 @@ msgstr "{first}–{last} sur plus de {total} histoires"
 msgid "{first}, {second} and {third}"
 msgstr "{first}, {second} et {third}"
 
+#: src/lib/healthBand.ts
+msgid "{firstLabel} set up, not checked yet"
+msgstr "{firstLabel} configuré, pas encore vérifié"
+
 #: src/pages/ImportPage.tsx
 msgid "{groupCount} · {fileCount} awaiting review"
 msgstr "{groupCount} · {fileCount} à vérifier"
@@ -743,6 +747,14 @@ msgstr "{issues} manquants dans {series} séries"
 msgid "{label} — {activity} {status}"
 msgstr "{label} — {activity} {status}"
 
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer its connection check."
+msgstr "{label} n’a pas répondu au test de connexion."
+
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer: {result}"
+msgstr "{label} n’a pas répondu : {result}"
+
 #: src/components/activity/health/HealthView.tsx
 msgid "{label} didn't start."
 msgstr "{label} n’a pas démarré."
@@ -754,6 +766,14 @@ msgstr "{label} pour {file}"
 #: src/components/activity/timeline/sentences.ts
 msgid "{label} needs attention"
 msgstr "{label} nécessite une attention"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering"
+msgstr "{label} ne répond pas"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering — {result}"
+msgstr "{label} ne répond pas — {result}"
 
 #: src/components/dashboard/DashboardPanel.tsx
 msgid "{label} unavailable"
@@ -2302,6 +2322,10 @@ msgstr "La requête de chat a échoué."
 msgid "Check for updates"
 msgstr "Rechercher des mises à jour"
 
+#: src/lib/setupSteps.ts
+msgid "Check indexers"
+msgstr "Vérifier les indexeurs"
+
 #: src/components/settings/AboutTab.tsx
 msgid "Check now"
 msgstr "Vérifier maintenant"
@@ -2309,6 +2333,10 @@ msgstr "Vérifier maintenant"
 #: src/lib/updateGuidance.ts
 msgid "Check out the release tag {tag}, then restart Comicarr. Do not git pull a branch — branches are not the release line."
 msgstr "Faites un checkout du tag de version {tag}, puis redémarrez Comicarr. Ne faites pas de git pull sur une branche : les branches ne sont pas la ligne de versions."
+
+#: src/lib/setupSteps.ts
+msgid "Check the download client"
+msgstr "Vérifier le client de téléchargement"
 
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Checking and handing off…"
@@ -2831,6 +2859,7 @@ msgstr "Vérification de la connexion"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Connection test failed"
 msgstr "Le test de connexion a échoué"
 
@@ -4667,6 +4696,10 @@ msgid "Indexer {index}"
 msgstr "Indexeur {index}"
 
 #: src/components/settings/SearchProviderEditor.tsx
+msgid "Indexer answered"
+msgstr "L’indexeur a répondu"
+
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Indexer API key"
 msgstr "Clé d’API de l’indexeur"
 
@@ -4685,6 +4718,10 @@ msgstr "URL de l’indexeur"
 #: src/pages/SettingsPage.tsx
 msgid "Indexers and search"
 msgstr "Indexeurs et recherche"
+
+#: src/lib/healthBand.ts
+msgid "Indexers set up, not checked yet"
+msgstr "Indexeurs configurés, pas encore vérifiés"
 
 #: src/lib/healthRows.ts
 msgid "Indexers, {live} of {total}"
@@ -8353,6 +8390,10 @@ msgstr "Changer le statut des numéros sélectionnés"
 msgid "Set up your first account to unlock the library."
 msgstr "Créez votre premier compte pour déverrouiller la bibliothèque."
 
+#: src/lib/setupSteps.ts
+msgid "Set up. Waiting for its first connection check, which runs within a few minutes."
+msgstr "Configuré. En attente de son premier test de connexion, lancé dans quelques minutes."
+
 #: src/components/activity/health/HealthView.tsx
 #: src/components/layout/AppSidebar.tsx
 #: src/components/layout/CommandPalette.tsx
@@ -8818,6 +8859,14 @@ msgstr "Tester la connexion"
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Test Connection"
 msgstr "Tester la connexion"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test indexer {index}"
+msgstr "Tester l’indexeur {index}"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test Torznab indexer {index}"
+msgstr "Tester l’indexeur Torznab {index}"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx

@@ -682,6 +682,10 @@ msgstr "{first}–{last} von über {total} Geschichten"
 msgid "{first}, {second} and {third}"
 msgstr "{first}, {second} und {third}"
 
+#: src/lib/healthBand.ts
+msgid "{firstLabel} set up, not checked yet"
+msgstr "{firstLabel} eingerichtet, noch nicht geprüft"
+
 #: src/pages/ImportPage.tsx
 msgid "{groupCount} · {fileCount} awaiting review"
 msgstr "{groupCount} · {fileCount} warten auf Prüfung"
@@ -743,6 +747,14 @@ msgstr "{issues} fehlen in {series} Serien"
 msgid "{label} — {activity} {status}"
 msgstr "{label} – {activity} {status}"
 
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer its connection check."
+msgstr "{label} hat auf die Verbindungsprüfung nicht geantwortet."
+
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer: {result}"
+msgstr "{label} hat nicht geantwortet: {result}"
+
 #: src/components/activity/health/HealthView.tsx
 msgid "{label} didn't start."
 msgstr "{label} wurde nicht gestartet."
@@ -754,6 +766,14 @@ msgstr "{label} für {file}"
 #: src/components/activity/timeline/sentences.ts
 msgid "{label} needs attention"
 msgstr "{label} braucht Aufmerksamkeit"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering"
+msgstr "{label} antwortet nicht"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering — {result}"
+msgstr "{label} antwortet nicht — {result}"
 
 #: src/components/dashboard/DashboardPanel.tsx
 msgid "{label} unavailable"
@@ -2302,6 +2322,10 @@ msgstr "Chat-Anfrage fehlgeschlagen."
 msgid "Check for updates"
 msgstr "Nach Updates suchen"
 
+#: src/lib/setupSteps.ts
+msgid "Check indexers"
+msgstr "Indexer prüfen"
+
 #: src/components/settings/AboutTab.tsx
 msgid "Check now"
 msgstr "Jetzt prüfen"
@@ -2309,6 +2333,10 @@ msgstr "Jetzt prüfen"
 #: src/lib/updateGuidance.ts
 msgid "Check out the release tag {tag}, then restart Comicarr. Do not git pull a branch — branches are not the release line."
 msgstr "Checke den Versions-Tag {tag} aus und starte Comicarr neu. Führe kein git pull auf einem Branch aus – Branches sind nicht die Versionslinie."
+
+#: src/lib/setupSteps.ts
+msgid "Check the download client"
+msgstr "Download-Client prüfen"
 
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Checking and handing off…"
@@ -2831,6 +2859,7 @@ msgstr "Verbindungsprüfung"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Connection test failed"
 msgstr "Verbindungstest fehlgeschlagen"
 
@@ -4667,6 +4696,10 @@ msgid "Indexer {index}"
 msgstr "Indexer {index}"
 
 #: src/components/settings/SearchProviderEditor.tsx
+msgid "Indexer answered"
+msgstr "Indexer hat geantwortet"
+
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Indexer API key"
 msgstr "API-Schlüssel des Indexers"
 
@@ -4685,6 +4718,10 @@ msgstr "Indexer-URL"
 #: src/pages/SettingsPage.tsx
 msgid "Indexers and search"
 msgstr "Indexer und Suche"
+
+#: src/lib/healthBand.ts
+msgid "Indexers set up, not checked yet"
+msgstr "Indexer eingerichtet, noch nicht geprüft"
 
 #: src/lib/healthRows.ts
 msgid "Indexers, {live} of {total}"
@@ -8353,6 +8390,10 @@ msgstr "Status der ausgewählten Ausgaben setzen"
 msgid "Set up your first account to unlock the library."
 msgstr "Richte dein erstes Konto ein, um die Bibliothek freizuschalten."
 
+#: src/lib/setupSteps.ts
+msgid "Set up. Waiting for its first connection check, which runs within a few minutes."
+msgstr "Eingerichtet. Wartet auf die erste Verbindungsprüfung, die in wenigen Minuten läuft."
+
 #: src/components/activity/health/HealthView.tsx
 #: src/components/layout/AppSidebar.tsx
 #: src/components/layout/CommandPalette.tsx
@@ -8818,6 +8859,14 @@ msgstr "Verbindung testen"
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Test Connection"
 msgstr "Verbindung testen"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test indexer {index}"
+msgstr "Indexer {index} testen"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test Torznab indexer {index}"
+msgstr "Torznab-Indexer {index} testen"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx

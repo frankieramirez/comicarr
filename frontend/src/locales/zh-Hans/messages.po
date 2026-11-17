@@ -682,6 +682,10 @@ msgstr "第 {first}–{last} 条，共 {total}+ 条记录"
 msgid "{first}, {second} and {third}"
 msgstr "{first}、{second}和{third}"
 
+#: src/lib/healthBand.ts
+msgid "{firstLabel} set up, not checked yet"
+msgstr "{firstLabel} 已设置，尚未检查"
+
 #: src/pages/ImportPage.tsx
 msgid "{groupCount} · {fileCount} awaiting review"
 msgstr "{groupCount} · {fileCount} 待审核"
@@ -743,6 +747,14 @@ msgstr "{series} 个系列中缺少 {issues} 期"
 msgid "{label} — {activity} {status}"
 msgstr "{label} — {activity} {status}"
 
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer its connection check."
+msgstr "{label} 未响应连接检查。"
+
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer: {result}"
+msgstr "{label} 未响应：{result}"
+
 #: src/components/activity/health/HealthView.tsx
 msgid "{label} didn't start."
 msgstr "{label} 未能启动。"
@@ -754,6 +766,14 @@ msgstr "{file} 的 {label}"
 #: src/components/activity/timeline/sentences.ts
 msgid "{label} needs attention"
 msgstr "{label} 需要关注"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering"
+msgstr "{label} 无响应"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering — {result}"
+msgstr "{label} 无响应 — {result}"
 
 #: src/components/dashboard/DashboardPanel.tsx
 msgid "{label} unavailable"
@@ -2302,6 +2322,10 @@ msgstr "聊天请求失败。"
 msgid "Check for updates"
 msgstr "检查更新"
 
+#: src/lib/setupSteps.ts
+msgid "Check indexers"
+msgstr "检查索引器"
+
 #: src/components/settings/AboutTab.tsx
 msgid "Check now"
 msgstr "立即检查"
@@ -2309,6 +2333,10 @@ msgstr "立即检查"
 #: src/lib/updateGuidance.ts
 msgid "Check out the release tag {tag}, then restart Comicarr. Do not git pull a branch — branches are not the release line."
 msgstr "签出发布标签 {tag}，然后重启 Comicarr。不要对分支执行 git pull — 分支不是发布线。"
+
+#: src/lib/setupSteps.ts
+msgid "Check the download client"
+msgstr "检查下载客户端"
 
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Checking and handing off…"
@@ -2831,6 +2859,7 @@ msgstr "连接检查"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Connection test failed"
 msgstr "连接测试失败"
 
@@ -4667,6 +4696,10 @@ msgid "Indexer {index}"
 msgstr "索引器 {index}"
 
 #: src/components/settings/SearchProviderEditor.tsx
+msgid "Indexer answered"
+msgstr "索引器已响应"
+
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Indexer API key"
 msgstr "索引器 API 密钥"
 
@@ -4685,6 +4718,10 @@ msgstr "索引器 URL"
 #: src/pages/SettingsPage.tsx
 msgid "Indexers and search"
 msgstr "索引器与搜索"
+
+#: src/lib/healthBand.ts
+msgid "Indexers set up, not checked yet"
+msgstr "索引器已设置，尚未检查"
 
 #: src/lib/healthRows.ts
 msgid "Indexers, {live} of {total}"
@@ -8353,6 +8390,10 @@ msgstr "为所选期刊设置状态"
 msgid "Set up your first account to unlock the library."
 msgstr "创建你的第一个账户以解锁书库。"
 
+#: src/lib/setupSteps.ts
+msgid "Set up. Waiting for its first connection check, which runs within a few minutes."
+msgstr "已设置。正在等待首次连接检查，几分钟内就会运行。"
+
 #: src/components/activity/health/HealthView.tsx
 #: src/components/layout/AppSidebar.tsx
 #: src/components/layout/CommandPalette.tsx
@@ -8818,6 +8859,14 @@ msgstr "测试连接"
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Test Connection"
 msgstr "测试连接"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test indexer {index}"
+msgstr "测试索引器 {index}"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test Torznab indexer {index}"
+msgstr "测试 Torznab 索引器 {index}"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx

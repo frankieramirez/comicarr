@@ -11,6 +11,11 @@ import {
   SETTINGS_INDEXERS,
   type SearchBlocker,
 } from "@/lib/searchBlockers";
+import {
+  connectionVerdict,
+  type ConnectionVerdict,
+} from "@/lib/connectionVerdict";
+import type { ConnectionCheck } from "@/hooks/useAcquisitionHealth";
 
 export interface SetupStep {
   key: "library" | "comicvine" | "indexer" | "client";
@@ -27,18 +32,61 @@ function isSet(path: string | undefined | null): path is string {
   return value !== "" && value.toLowerCase() !== "none";
 }
 
+/**
+ * A configured indexer or client counts as done only once it has answered a
+ * connection check. Before that the step stays open and says so, and a failed
+ * check shows its reason, so "Ready" is never shown for a host nobody reached.
+ */
+function connectionStep(
+  verdict: ConnectionVerdict,
+  ready: string,
+): { done: boolean; detail: string } {
+  switch (verdict.state) {
+    case "none":
+    case "ok":
+      return { done: true, detail: ready };
+    case "failed": {
+      const { label, result } = verdict.row;
+      return {
+        done: false,
+        detail: result
+          ? t`${label} did not answer: ${result}`
+          : t`${label} did not answer its connection check.`,
+      };
+    }
+    case "unchecked":
+      return {
+        done: false,
+        detail: t`Set up. Waiting for its first connection check, which runs within a few minutes.`,
+      };
+  }
+}
+
 export function setupSteps({
   config,
   blockers,
+  connections,
 }: {
   config: Config | undefined;
   blockers: SearchBlocker[];
+  /** The last connection checks; leave out to judge by configuration alone. */
+  connections?: ConnectionCheck[];
 }): SetupStep[] {
   const library = config?.destination_dir;
   // A manga-only install never asks ComicVine anything.
   const comicvineNeeded = config?.comicvine_enabled !== false;
   const comicvineDone = !comicvineNeeded || Boolean(config?.comicvine_api_set);
   const missing = new Set(blockers.map((blocker) => blocker.key));
+  const indexer = connectionStep(
+    connections
+      ? connectionVerdict(connections, "indexers")
+      : { state: "none" },
+    t`Ready to search`,
+  );
+  const client = connectionStep(
+    connections ? connectionVerdict(connections, "client") : { state: "none" },
+    t`Ready to download`,
+  );
 
   return [
     {
@@ -66,18 +114,26 @@ export function setupSteps({
       title: t`Indexer`,
       detail: missing.has("indexer")
         ? t`Prowlarr, a Newznab or Torznab indexer, or GetComics.`
-        : t`Ready to search`,
-      done: !missing.has("indexer"),
-      fix: { label: t`Add an indexer`, to: SETTINGS_INDEXERS },
+        : indexer.detail,
+      done: !missing.has("indexer") && indexer.done,
+      fix: {
+        label: missing.has("indexer") ? t`Add an indexer` : t`Check indexers`,
+        to: SETTINGS_INDEXERS,
+      },
     },
     {
       key: "client",
       title: t`Download client`,
       detail: missing.has("client")
         ? t`SABnzbd, NZBGet, qBittorrent, or another client.`
-        : t`Ready to download`,
-      done: !missing.has("client"),
-      fix: { label: t`Add a download client`, to: SETTINGS_CLIENTS },
+        : client.detail,
+      done: !missing.has("client") && client.done,
+      fix: {
+        label: missing.has("client")
+          ? t`Add a download client`
+          : t`Check the download client`,
+        to: SETTINGS_CLIENTS,
+      },
     },
   ];
 }

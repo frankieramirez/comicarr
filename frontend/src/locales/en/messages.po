@@ -681,6 +681,10 @@ msgstr "{first}–{last} of {total}+ stories"
 msgid "{first}, {second} and {third}"
 msgstr "{first}, {second} and {third}"
 
+#: src/lib/healthBand.ts
+msgid "{firstLabel} set up, not checked yet"
+msgstr "{firstLabel} set up, not checked yet"
+
 #: src/pages/ImportPage.tsx
 msgid "{groupCount} · {fileCount} awaiting review"
 msgstr "{groupCount} · {fileCount} awaiting review"
@@ -742,6 +746,14 @@ msgstr "{issues} missing in {series} series"
 msgid "{label} — {activity} {status}"
 msgstr "{label} — {activity} {status}"
 
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer its connection check."
+msgstr "{label} did not answer its connection check."
+
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer: {result}"
+msgstr "{label} did not answer: {result}"
+
 #: src/components/activity/health/HealthView.tsx
 msgid "{label} didn't start."
 msgstr "{label} didn't start."
@@ -753,6 +765,14 @@ msgstr "{label} for {file}"
 #: src/components/activity/timeline/sentences.ts
 msgid "{label} needs attention"
 msgstr "{label} needs attention"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering"
+msgstr "{label} not answering"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering — {result}"
+msgstr "{label} not answering — {result}"
 
 #: src/components/dashboard/DashboardPanel.tsx
 msgid "{label} unavailable"
@@ -2301,6 +2321,10 @@ msgstr "Chat request failed."
 msgid "Check for updates"
 msgstr "Check for updates"
 
+#: src/lib/setupSteps.ts
+msgid "Check indexers"
+msgstr "Check indexers"
+
 #: src/components/settings/AboutTab.tsx
 msgid "Check now"
 msgstr "Check now"
@@ -2308,6 +2332,10 @@ msgstr "Check now"
 #: src/lib/updateGuidance.ts
 msgid "Check out the release tag {tag}, then restart Comicarr. Do not git pull a branch — branches are not the release line."
 msgstr "Check out the release tag {tag}, then restart Comicarr. Do not git pull a branch — branches are not the release line."
+
+#: src/lib/setupSteps.ts
+msgid "Check the download client"
+msgstr "Check the download client"
 
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Checking and handing off…"
@@ -2830,6 +2858,7 @@ msgstr "Connection check"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Connection test failed"
 msgstr "Connection test failed"
 
@@ -4666,6 +4695,10 @@ msgid "Indexer {index}"
 msgstr "Indexer {index}"
 
 #: src/components/settings/SearchProviderEditor.tsx
+msgid "Indexer answered"
+msgstr "Indexer answered"
+
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Indexer API key"
 msgstr "Indexer API key"
 
@@ -4684,6 +4717,10 @@ msgstr "Indexer URL"
 #: src/pages/SettingsPage.tsx
 msgid "Indexers and search"
 msgstr "Indexers and search"
+
+#: src/lib/healthBand.ts
+msgid "Indexers set up, not checked yet"
+msgstr "Indexers set up, not checked yet"
 
 #: src/lib/healthRows.ts
 msgid "Indexers, {live} of {total}"
@@ -8352,6 +8389,10 @@ msgstr "Set status on selected issues"
 msgid "Set up your first account to unlock the library."
 msgstr "Set up your first account to unlock the library."
 
+#: src/lib/setupSteps.ts
+msgid "Set up. Waiting for its first connection check, which runs within a few minutes."
+msgstr "Set up. Waiting for its first connection check, which runs within a few minutes."
+
 #: src/components/activity/health/HealthView.tsx
 #: src/components/layout/AppSidebar.tsx
 #: src/components/layout/CommandPalette.tsx
@@ -8817,6 +8858,14 @@ msgstr "Test connection"
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Test Connection"
 msgstr "Test Connection"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test indexer {index}"
+msgstr "Test indexer {index}"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test Torznab indexer {index}"
+msgstr "Test Torznab indexer {index}"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx

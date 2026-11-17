@@ -360,6 +360,22 @@ def _probe_indexers(config) -> Probe:
     )
 
 
+def check_indexer(kind, host, api_key, verify=True, name=None) -> dict:
+    """Ask one Newznab or Torznab indexer for its caps, before or after saving.
+
+    Settings uses this for the per-indexer Test button, so an indexer can be
+    checked as it is entered instead of being taken on trust.
+    """
+    url = _text(host).rstrip("/")
+    label = _text(name) or ("Newznab indexer" if kind == "newznab" else "Torznab indexer")
+    if kind == "newznab" and not url.endswith("api"):
+        url += "/api"
+    ok, latency, error = _probe_one_indexer(None, label, url, _text(api_key), verify)
+    if ok:
+        return {"success": True, "latency_ms": latency}
+    return {"success": False, "latency_ms": latency, "error": _scrub(error or label, _text(api_key))}
+
+
 # ── metadata sources ────────────────────────────────────────────────────────
 
 

@@ -682,6 +682,10 @@ msgstr "{first}–{last} من {total}+ قصة"
 msgid "{first}, {second} and {third}"
 msgstr "{first} و{second} و{third}"
 
+#: src/lib/healthBand.ts
+msgid "{firstLabel} set up, not checked yet"
+msgstr "تم إعداد {firstLabel}، ولم يُفحص بعد"
+
 #: src/pages/ImportPage.tsx
 msgid "{groupCount} · {fileCount} awaiting review"
 msgstr "{groupCount} · {fileCount} بانتظار المراجعة"
@@ -743,6 +747,14 @@ msgstr "{issues} ناقصة في {series} سلسلة"
 msgid "{label} — {activity} {status}"
 msgstr "{label} — {activity} {status}"
 
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer its connection check."
+msgstr "لم يستجب {label} لفحص الاتصال."
+
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer: {result}"
+msgstr "لم يستجب {label}: {result}"
+
 #: src/components/activity/health/HealthView.tsx
 msgid "{label} didn't start."
 msgstr "لم يبدأ {label}."
@@ -754,6 +766,14 @@ msgstr "{label} لـ {file}"
 #: src/components/activity/timeline/sentences.ts
 msgid "{label} needs attention"
 msgstr "{label} يحتاج إلى انتباه"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering"
+msgstr "{label} لا يستجيب"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering — {result}"
+msgstr "{label} لا يستجيب — {result}"
 
 #: src/components/dashboard/DashboardPanel.tsx
 msgid "{label} unavailable"
@@ -2302,6 +2322,10 @@ msgstr "فشل طلب الدردشة."
 msgid "Check for updates"
 msgstr "التحقق من وجود تحديثات"
 
+#: src/lib/setupSteps.ts
+msgid "Check indexers"
+msgstr "افحص المفهرسات"
+
 #: src/components/settings/AboutTab.tsx
 msgid "Check now"
 msgstr "تحقق الآن"
@@ -2309,6 +2333,10 @@ msgstr "تحقق الآن"
 #: src/lib/updateGuidance.ts
 msgid "Check out the release tag {tag}, then restart Comicarr. Do not git pull a branch — branches are not the release line."
 msgstr "انتقل إلى وسم الإصدار {tag}، ثم أعد تشغيل Comicarr. لا تنفّذ git pull على فرع — الفروع ليست خط الإصدار."
+
+#: src/lib/setupSteps.ts
+msgid "Check the download client"
+msgstr "افحص عميل التنزيل"
 
 #: src/components/releases/ReleaseReviewSheet.tsx
 msgid "Checking and handing off…"
@@ -2831,6 +2859,7 @@ msgstr "فحص الاتصال"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Connection test failed"
 msgstr "فشل اختبار الاتصال"
 
@@ -4667,6 +4696,10 @@ msgid "Indexer {index}"
 msgstr "المفهرس {index}"
 
 #: src/components/settings/SearchProviderEditor.tsx
+msgid "Indexer answered"
+msgstr "استجاب المفهرس"
+
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Indexer API key"
 msgstr "مفتاح API للمفهرس"
 
@@ -4685,6 +4718,10 @@ msgstr "عنوان URL للمفهرس"
 #: src/pages/SettingsPage.tsx
 msgid "Indexers and search"
 msgstr "المفهرسات والبحث"
+
+#: src/lib/healthBand.ts
+msgid "Indexers set up, not checked yet"
+msgstr "تم إعداد المفهرسات، ولم تُفحص بعد"
 
 #: src/lib/healthRows.ts
 msgid "Indexers, {live} of {total}"
@@ -8353,6 +8390,10 @@ msgstr "ضبط الحالة للأعداد المحددة"
 msgid "Set up your first account to unlock the library."
 msgstr "أنشئ حسابك الأول لفتح المكتبة."
 
+#: src/lib/setupSteps.ts
+msgid "Set up. Waiting for its first connection check, which runs within a few minutes."
+msgstr "تم الإعداد. في انتظار أول فحص للاتصال، ويجري خلال دقائق."
+
 #: src/components/activity/health/HealthView.tsx
 #: src/components/layout/AppSidebar.tsx
 #: src/components/layout/CommandPalette.tsx
@@ -8818,6 +8859,14 @@ msgstr "اختبار الاتصال"
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Test Connection"
 msgstr "اختبار الاتصال"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test indexer {index}"
+msgstr "اختبار المفهرس {index}"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test Torznab indexer {index}"
+msgstr "اختبار مفهرس Torznab {index}"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx
