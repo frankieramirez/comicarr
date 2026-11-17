@@ -69,7 +69,7 @@ def test_arcs_with_null_manual_are_listed_opened_and_counted():
 
 def test_search_uses_the_null_safe_update_for_story_arcs():
     source = Path(comicarr.__file__).with_name("search.py").read_text()
-    assert "UPDATE storyarcs SET DateAdded=? WHERE IssueID=? AND DateAdded IS NULL" in source
+    assert "update(storyarcs)" in source and "storyarcs.c.DateAdded.is_(None)" in source
 
 
 def test_migration_removes_only_rows_that_belong_to_no_arc(tmp_path):

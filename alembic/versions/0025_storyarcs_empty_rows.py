@@ -30,7 +30,20 @@ depends_on = None
 def upgrade():
     if "storyarcs" not in set(sa.inspect(op.get_bind()).get_table_names()):
         return
-    op.execute(sa.text("DELETE FROM storyarcs WHERE StoryArcID IS NULL AND IssueArcID IS NULL AND ComicName IS NULL"))
+    storyarcs = sa.table(
+        "storyarcs",
+        sa.column("StoryArcID"),
+        sa.column("IssueArcID"),
+        sa.column("ComicName"),
+    )
+    # Core quotes the mixed-case column names, which PostgreSQL needs.
+    op.execute(
+        sa.delete(storyarcs).where(
+            storyarcs.c.StoryArcID.is_(None),
+            storyarcs.c.IssueArcID.is_(None),
+            storyarcs.c.ComicName.is_(None),
+        )
+    )
 
 
 def downgrade():
