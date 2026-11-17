@@ -223,7 +223,7 @@ class TestImportSelectedManga:
             {"series_name": "One Piece", "matched": True, "match": {"comicid": "md-100"}},
         ]
 
-        with patch("comicarr.importer.addMangaToDB") as mock_import:
+        with patch("comicarr.app.manga.add.add_mangadex") as mock_import:
             result = mangasync.import_selected_manga(["md-100"], "12345")
 
         assert result["success"] is True
@@ -236,7 +236,7 @@ class TestImportSelectedManga:
             {"series_name": "Bleach", "matched": True, "match": {"comicid": "mal-200"}},
         ]
 
-        with patch("comicarr.importer.addMangaToDB_MAL") as mock_import:
+        with patch("comicarr.app.manga.add.add_myanimelist") as mock_import:
             result = mangasync.import_selected_manga(["mal-200"], "12345")
 
         assert result["success"] is True
@@ -263,7 +263,7 @@ class TestImportSelectedManga:
             {"series_name": "Test", "matched": True, "match": {"comicid": "md-100"}},
         ]
 
-        with patch("comicarr.importer.addMangaToDB"):
+        with patch("comicarr.app.manga.add.add_mangadex"):
             mangasync.import_selected_manga(["md-100"], "12345")
 
         assert mangasync.MANGA_SCAN_RESULTS is None
@@ -276,7 +276,7 @@ class TestImportSelectedManga:
         ]
 
         with patch(
-            "comicarr.importer.addMangaToDB_MAL",
+            "comicarr.app.manga.add.add_myanimelist",
             return_value={"status": "duplicate", "comicid": "md-100", "error": "already tracked as md-100"},
         ):
             result = mangasync.import_selected_manga(["mal-13"], "12345")

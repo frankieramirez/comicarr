@@ -27,6 +27,7 @@ import comicarr
 from comicarr import db, importer
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.manga import add as manga_add
 from comicarr.app.series import add as series_add
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import comics, issues, metadata
@@ -208,7 +209,7 @@ def test_add_manga_adds_series_from_its_provider(library, tmp_path, monkeypatch,
         },
     )
     monkeypatch.setattr(mangadex, "find_by_mal_id", lambda *a, **k: None)
-    monkeypatch.setattr(importer, "_populate_manga_chapters", lambda *a, **k: 0)
+    monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: 0)
     monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: None)
     monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
     monkeypatch.setattr(comicarr_config, "get_manga_destination", lambda: str(tmp_path / "manga"))

@@ -17,6 +17,7 @@ from sqlalchemy import create_engine, select
 
 import comicarr
 from comicarr import importer
+from comicarr.app.manga import add as manga_add
 from comicarr.app.series import folder_rescan, watchlist_refresh
 from comicarr.tables import comics, issues, metadata
 
@@ -25,7 +26,7 @@ class TestAddComictoDBMangaRouting:
     """Defect 2a: addComictoDB must route mal-/md- IDs to the manga importer, not ComicVine."""
 
     @patch("comicarr.importer.cv.getComic")
-    @patch("comicarr.importer.addMangaToDB_MAL")
+    @patch("comicarr.app.manga.add.add_myanimelist")
     def test_mal_id_routes_to_mal_importer(self, mock_mal, mock_getcomic):
         sentinel = {"status": "complete", "comicid": "mal-161890"}
         mock_mal.return_value = sentinel
@@ -37,7 +38,7 @@ class TestAddComictoDBMangaRouting:
         mock_getcomic.assert_not_called()
 
     @patch("comicarr.importer.cv.getComic")
-    @patch("comicarr.importer.addMangaToDB")
+    @patch("comicarr.app.manga.add.add_mangadex")
     def test_md_id_routes_to_mangadex_importer(self, mock_md, mock_getcomic):
         sentinel = {"status": "complete", "comicid": "md-abc"}
         mock_md.return_value = sentinel
@@ -347,10 +348,10 @@ class TestMangaCoverCachePath:
         monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: "uuid-1")
         monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: None)
         monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: {"status": getimage_status})
-        monkeypatch.setattr(importer, "_populate_manga_chapters", lambda *a, **k: None)
+        monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
         monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
 
-        importer.addMangaToDB_MAL("mal-13")
+        manga_add.add_myanimelist("mal-13")
 
         with engine.connect() as conn:
             return conn.execute(select(comics).where(comics.c.ComicID == "mal-13")).mappings().one()
@@ -408,7 +409,7 @@ class TestMangaRefreshPreservesLibraryState:
         monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
         monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: None)
 
-        result = importer.addMangaToDB_MAL("mal-13")
+        result = manga_add.add_myanimelist("mal-13")
 
         assert result["status"] == "incomplete"
         with engine.connect() as conn:
@@ -422,7 +423,7 @@ class TestMangaRefreshPreservesLibraryState:
         monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
         monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: None)
 
-        result = importer.addMangaToDB_MAL("mal-999")
+        result = manga_add.add_myanimelist("mal-999")
 
         assert result["status"] == "incomplete"
         with engine.connect() as conn:
@@ -447,10 +448,10 @@ class TestMangaRefreshPreservesLibraryState:
         monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: None)
         monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: str(tmp_path / "manga-dest"))
         monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: {"status": "failed"})
-        monkeypatch.setattr(importer, "_populate_manga_chapters", lambda *a, **k: None)
+        monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
         monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
 
-        importer.addMangaToDB_MAL("mal-13")
+        manga_add.add_myanimelist("mal-13")
 
         with engine.connect() as conn:
             row = conn.execute(select(comics).where(comics.c.ComicID == "mal-13")).mappings().one()
@@ -473,7 +474,7 @@ class TestMangaRefreshPreservesLibraryState:
         )
         monkeypatch.setattr("comicarr.app.manga.mangadex.get_total_chapter_count", lambda _id: 1)
 
-        importer._populate_manga_chapters(
+        manga_add._populate_manga_chapters(
             "mal-13",
             "One Piece",
             mangadex_uuid="uuid-1",
@@ -526,16 +527,16 @@ class TestMangaRefreshPreservesContentKind:
         )
         monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: None)
         monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: {"status": "failed"})
-        monkeypatch.setattr(importer, "_populate_manga_chapters", lambda *a, **k: None)
+        monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
         monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
 
         if provider == "mangadex":
             monkeypatch.setattr("comicarr.app.manga.mangadex.get_manga_details", lambda _id: _mal_details())
-            importer.addMangaToDB(comic_id)
+            manga_add.add_mangadex(comic_id)
         else:
             monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: _mal_details())
             monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: "uuid-1")
-            importer.addMangaToDB_MAL(comic_id)
+            manga_add.add_myanimelist(comic_id)
 
         with engine.connect() as conn:
             row = conn.execute(select(comics).where(comics.c.ComicID == comic_id)).mappings().one()

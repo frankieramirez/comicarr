@@ -201,7 +201,7 @@ def test_the_mass_add_worker_marks_a_series_wanted_right_after_an_add_that_carri
     calls = []
     monkeypatch.setattr(importer, "addComictoDB", lambda comicid, **_k: calls.append(("add", comicid)))
     monkeypatch.setattr(importer, "markSeriesWanted", lambda comicid: calls.append(("want", comicid)))
-    monkeypatch.setattr(importer, "_emit_add_activity", lambda *_a, **_k: None, raising=False)
+    monkeypatch.setattr(importer, "emit_add_activity", lambda *_a, **_k: None)
     monkeypatch.setattr(importer.time, "sleep", lambda _s: None)
     series_queue, want_queue = queue.Queue(), queue.Queue()
     series_queue.put({"comicid": "4050-1001", "comicname": None, "seriesyear": None, "want": True})
