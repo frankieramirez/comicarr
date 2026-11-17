@@ -9,7 +9,7 @@
 
 """Characterization tests for series refresh behind ``app/series/refresh.py`` (#1207).
 
-They pin what ``updater.dbUpdate`` does today when ``comicarr/app/`` calls it,
+They pin what ``watchlist_refresh.refresh_series_list`` does today when ``comicarr/app/`` calls it,
 with the metadata provider (``importer.addComictoDB``) and the file rescan
 faked. They describe current behavior, not intended behavior.
 """
@@ -21,9 +21,9 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import importer, updater
+from comicarr import importer
 from comicarr.app.downloads import service as downloads_service
-from comicarr.app.series import folder_rescan
+from comicarr.app.series import folder_rescan, watchlist_refresh
 from comicarr.app.series import refresh as series_refresh
 from comicarr.tables import annuals, comics, issues, metadata
 
@@ -107,7 +107,7 @@ def _issues_by_id(eng, comic_id):
 
 def test_seam_delegates_to_db_update(monkeypatch):
     db_update = MagicMock(return_value="refreshed")
-    monkeypatch.setattr(updater, "dbUpdate", db_update)
+    monkeypatch.setattr(watchlist_refresh, "refresh_series_list", db_update)
 
     assert series_refresh.refresh_series_metadata(("100",), calledfrom="dupechk") == "refreshed"
 
@@ -219,7 +219,7 @@ def test_several_ids_with_refresh_tag_refresh_every_series(engine, fakes, monkey
     _insert_comic(engine, ComicID="mal-2", ContentType="manga")
     fakes.add.return_value = {"status": "complete"}
     sleep = MagicMock()
-    monkeypatch.setattr(updater.time, "sleep", sleep)
+    monkeypatch.setattr(watchlist_refresh.time, "sleep", sleep)
 
     series_refresh.refresh_series_metadata(["mal-1", "mal-2"], calledfrom="refresh")
 
@@ -236,7 +236,7 @@ def test_scheduled_pass_still_refreshes_one_series_per_tick(engine, fakes, monke
     _insert_comic(engine, ComicID="mal-2", ContentType="manga")
     fakes.add.return_value = {"status": "complete"}
 
-    updater.dbUpdate(ComicIDList=["mal-1", "mal-2"], sched=True)
+    watchlist_refresh.refresh_series_list(ComicIDList=["mal-1", "mal-2"], sched=True)
 
     assert fakes.add.call_count == 1
 

@@ -68,7 +68,6 @@ ROOT_MODULES: dict[str, int] = {
     "sabnzbd": 1422,
     "search": 1422,
     "tables": 1423,
-    "updater": 1420,
     "utorrent": 1421,
     "weeklypull": 1421,
     "weeklypullit": 1421,

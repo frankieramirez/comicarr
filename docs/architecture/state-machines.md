@@ -106,10 +106,10 @@ The two registered legacy machines carry the most history:
 
 - `issue_status` is written from about 60 sites. The Wanted-or-Skipped
   decision for a new issue is copied about seven times across `importer.py`
-  and `updater.py`. In the weekly upcoming update, any status outside five
+  and the modules split out of the old `updater.py`. In the weekly upcoming update, any status outside five
   named ones is rewritten to Skipped, which includes Ignored
-  (`updater.py:972-1001`, *read*).
-- `series_status`: Error is written by `updater.py:1218` and read back as
+  (`watchlist_match.upcoming_update`, *read*).
+- `series_status`: Error is written by `snatch_record.no_searchresults` and read back as
   Loading. The Continuing-or-Ended rule is derived in three places. The
   series header shows Continuing for a series in Loading or Error
   (`frontend/src/pages/SeriesDetailPage.tsx:837-846`, *read*).
@@ -213,7 +213,7 @@ can cover it.
    in the owning module, register them, generate the frontend unions.
 4. `acquisition_repair_runs.state`. Put the state predicate in the UPDATE.
 5. `issue_status` writers. Route the copied Wanted-or-Skipped decision
-   through one function. This is the largest and waits on the `updater.py`
-   seam.
+   through one function. This is the largest and waits on the `importer.py`
+   move (#1464).
 6. Frontend ladders. Point `ActivityPage`, `releaseState` and
    `wantedColumns` at generated types so an unknown state is a compile error.

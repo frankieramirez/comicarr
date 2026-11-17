@@ -9,10 +9,8 @@
 
 """Series refresh seam: re-pull series metadata from its provider.
 
-The only door from ``comicarr/app/`` into the refresh job in the legacy
-``comicarr/updater.py`` (``dbUpdate`` and friends), per ADR-0005 and section 2
-of ``docs/architecture/foundations-plan.md``. Behavior is unchanged; the body
-still lives in ``updater.py``.
+Other modules refresh a series through here. The refresh job itself lives in
+``app/series/watchlist_refresh.py`` (moved from ``updater.dbUpdate`` by #1462).
 """
 
 from __future__ import annotations
@@ -22,12 +20,12 @@ from typing import Any
 
 
 def refresh_series_metadata(comic_ids: Sequence[str], *, calledfrom: str | None = None) -> Any:
-    """Refresh the named series now, through ``updater.dbUpdate``.
+    """Refresh the named series now, through ``refresh_series_list``.
 
-    ``calledfrom`` is the legacy caller tag ``dbUpdate`` branches on
-    (``"dupechk"``, ``"refresh"``, ``"weekly"``, ...). Returns what
-    ``dbUpdate`` returns; the pull-list match reads it for ``"weekly"``.
+    ``calledfrom`` is the legacy caller tag the refresh job branches on
+    (``"dupechk"``, ``"refresh"``, ``"weekly"``, ...). Returns what the job
+    returns; the pull-list match reads it for ``"weekly"``.
     """
-    from comicarr import updater
+    from comicarr.app.series import watchlist_refresh
 
-    return updater.dbUpdate(ComicIDList=list(comic_ids), calledfrom=calledfrom)
+    return watchlist_refresh.refresh_series_list(ComicIDList=list(comic_ids), calledfrom=calledfrom)

@@ -53,10 +53,10 @@ from comicarr import (
     logger,
     rsscheckit,
     sabnzbd,
-    updater,
     weeklypullit,
 )
 from comicarr.app.search.queue import FairSearchQueue
+from comicarr.app.series import watchlist_refresh
 from comicarr.app.system import maintenance, versioncheckit
 
 
@@ -954,7 +954,7 @@ def start(ctx):
     with INIT_LOCK:
         if _INITIALIZED:
             UPDATER_SCHEDULER = _add_recurring_job(
-                func=updater.watchlist_updater,
+                func=watchlist_refresh.run_scheduled_refresh,
                 id="dbupdater",
                 next_run_time=datetime.datetime.utcnow(),
                 name="DB Updater",

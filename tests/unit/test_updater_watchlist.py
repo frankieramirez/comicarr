@@ -16,10 +16,10 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import importer, updater
+from comicarr import importer
 from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
-from comicarr.app.series import folder_rescan
+from comicarr.app.series import add, folder_rescan, watchlist_refresh
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import issues, metadata
 
@@ -46,7 +46,7 @@ def test_bulk_issue_update_persists_issue_location(monkeypatch):
     with engine.begin() as conn:
         conn.execute(issues.insert(), {"IssueID": "issue-1", "Status": "Wanted"})
 
-    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(watchlist_refresh.db, "get_engine", lambda: engine)
 
     folder_rescan._bulk_update_issue_rows(
         issues,
@@ -87,10 +87,10 @@ def test_refresh_worker_survives_legacy_missing_year_payload(monkeypatch):
     refresh_queue.put({"comicid": "2", "comicname": "Current Series", "seriesyear": "2026"})
     refresh_queue.put("exit")
     update = MagicMock()
-    monkeypatch.setattr(updater, "dbUpdate", update)
-    monkeypatch.setattr(updater.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(watchlist_refresh, "refresh_series_list", update)
+    monkeypatch.setattr(watchlist_refresh.time, "sleep", lambda _seconds: None)
 
-    updater.addvialist(refresh_queue, maintenance=_OpenMaintenance())
+    watchlist_refresh.run_refresh_queue(refresh_queue, maintenance=_OpenMaintenance())
 
     assert update.call_args_list == [
         call(["1"], calledfrom="refresh"),
@@ -213,7 +213,7 @@ def test_import_lock_requeues_refresh_before_durable_claim(monkeypatch, acquisit
     refresh_queue = queue.Queue()
     monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
     monkeypatch.setattr(comicarr, "IMPORTLOCK", True)
-    monkeypatch.setattr(updater.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(watchlist_refresh.time, "sleep", lambda _seconds: None)
     importer.refresh_thread(
         [{"comicid": "160294", "comicname": "Absolute Batman", "seriesyear": "2024"}],
         ledger=acquisition_ledger,
@@ -229,7 +229,7 @@ def test_import_lock_requeues_refresh_before_durable_claim(monkeypatch, acquisit
 
     monkeypatch.setattr(refresh_queue, "put", stop_before_requeued_item)
 
-    updater.addvialist(refresh_queue, ledger=acquisition_ledger)
+    watchlist_refresh.run_refresh_queue(refresh_queue, ledger=acquisition_ledger)
 
     item = acquisition_ledger.get_item("refresh-import-lock", "series", "160294")
     assert item["state"] == "accepted"
@@ -240,9 +240,9 @@ def test_durable_refresh_failure_does_not_kill_following_item(monkeypatch, acqui
     refresh_queue = queue.Queue()
     monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
     monkeypatch.setattr(comicarr, "IMPORTLOCK", False)
-    monkeypatch.setattr(updater.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(watchlist_refresh.time, "sleep", lambda _seconds: None)
     update = MagicMock(side_effect=[RuntimeError("metadata provider failed"), None])
-    monkeypatch.setattr(updater, "dbUpdate", update)
+    monkeypatch.setattr(watchlist_refresh, "refresh_series_list", update)
     importer.refresh_thread(
         [
             {"comicid": "1", "comicname": "Broken Series", "seriesyear": "2024"},
@@ -255,7 +255,7 @@ def test_durable_refresh_failure_does_not_kill_following_item(monkeypatch, acqui
     )
     refresh_queue.put("exit")
 
-    updater.addvialist(refresh_queue, ledger=acquisition_ledger)
+    watchlist_refresh.run_refresh_queue(refresh_queue, ledger=acquisition_ledger)
 
     failed = acquisition_ledger.get_item("refresh-poison", "series", "1")
     succeeded = acquisition_ledger.get_item("refresh-poison", "series", "2")
@@ -275,9 +275,9 @@ def _configure_updater(monkeypatch, *, annuals_on, rows, cv_results):
     monkeypatch.setattr(comicarr, "DB_BACKFILL", False)
     monkeypatch.setattr(comicarr, "UPDATER_STATUS", "Waiting")
     monkeypatch.setattr(comicarr, "REFRESH_QUEUE", SimpleNamespace(queue=[]))
-    monkeypatch.setattr(comicarr, "importer", SimpleNamespace(refresh_thread=refresh_thread))
+    monkeypatch.setattr(add, "refresh_series", refresh_thread)
     monkeypatch.setattr(
-        updater,
+        watchlist_refresh,
         "cv",
         SimpleNamespace(
             getComic=lambda **_kwargs: {
@@ -287,11 +287,11 @@ def _configure_updater(monkeypatch, *, annuals_on, rows, cv_results):
             }
         ),
     )
-    monkeypatch.setattr(updater.db, "select_one", MagicMock(return_value=None))
-    monkeypatch.setattr(updater.db, "select_all", MagicMock(return_value=rows))
-    monkeypatch.setattr(updater.db, "upsert", MagicMock())
-    monkeypatch.setattr(updater.helpers, "job_management", MagicMock())
-    monkeypatch.setattr(updater.helpers, "utctimestamp", MagicMock(return_value="now"))
+    monkeypatch.setattr(watchlist_refresh.db, "select_one", MagicMock(return_value=None))
+    monkeypatch.setattr(watchlist_refresh.db, "select_all", MagicMock(return_value=rows))
+    monkeypatch.setattr(watchlist_refresh.db, "upsert", MagicMock())
+    monkeypatch.setattr(watchlist_refresh.helpers, "job_management", MagicMock())
+    monkeypatch.setattr(watchlist_refresh.helpers, "utctimestamp", MagicMock(return_value="now"))
     return refresh_thread
 
 
@@ -325,7 +325,7 @@ def test_watchlist_updater_skips_non_comicvine_series_ids(monkeypatch):
         ],
     )
 
-    updater.watchlist_updater()
+    watchlist_refresh.run_scheduled_refresh()
 
     refresh_thread.assert_called_once_with([{"comicid": 123, "comicname": "Comic Series", "seriesyear": "2026"}])
 
@@ -348,10 +348,10 @@ def test_watchlist_updater_keeps_annual_release_lookup_id_as_text(monkeypatch):
         ],
     )
 
-    updater.watchlist_updater()
+    watchlist_refresh.run_scheduled_refresh()
 
     refresh_thread.assert_called_once_with([{"comicid": 456, "comicname": None, "seriesyear": "2026"}])
-    annual_lookup = updater.db.select_one.call_args.args[0]
+    annual_lookup = watchlist_refresh.db.select_one.call_args.args[0]
     release_id = next(iter(annual_lookup.compile().params.values()))
     assert release_id == "456"
     assert isinstance(release_id, str)

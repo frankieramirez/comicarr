@@ -29,7 +29,7 @@ def guard():
     sys.modules.pop(spec.name, None)
 
 
-ROOT_MODULES = ("updater", "search", "getimage", "logger", "db")
+ROOT_MODULES = ("importer", "search", "getimage", "logger", "db")
 
 
 def _tree(guard, monkeypatch, tmp_path, files, foundations=None, router=None, deferred=None):
@@ -76,12 +76,14 @@ def test_router_allowlist_is_empty(guard):
 @pytest.mark.parametrize(
     "source",
     [
-        pytest.param("from comicarr import updater\n", id="top-level from-import"),
-        pytest.param("import comicarr.updater\n", id="top-level import"),
-        pytest.param("from comicarr.updater import forceRescan\n", id="from submodule"),
-        pytest.param("def f():\n    from comicarr import updater\n    updater.forceRescan(1)\n", id="function-local"),
-        pytest.param("from ... import updater\n", id="relative"),
-        pytest.param("import comicarr\n\ndef f():\n    comicarr.updater.forceRescan(1)\n", id="attribute access"),
+        pytest.param("from comicarr import importer\n", id="top-level from-import"),
+        pytest.param("import comicarr.importer\n", id="top-level import"),
+        pytest.param("from comicarr.importer import addComictoDB\n", id="from submodule"),
+        pytest.param(
+            "def f():\n    from comicarr import importer\n    importer.addComictoDB(1)\n", id="function-local"
+        ),
+        pytest.param("from ... import importer\n", id="relative"),
+        pytest.param("import comicarr\n\ndef f():\n    comicarr.importer.addComictoDB(1)\n", id="attribute access"),
     ],
 )
 def test_foundations_crossing_outside_its_seam_fails(guard, tmp_path, monkeypatch, source):
@@ -90,7 +92,7 @@ def test_foundations_crossing_outside_its_seam_fails(guard, tmp_path, monkeypatc
 
 
 def test_seam_module_may_import_its_legacy_module(guard, tmp_path, monkeypatch):
-    _tree(guard, monkeypatch, tmp_path, {"comicarr/app/series/rescan.py": "from comicarr import updater\n"})
+    _tree(guard, monkeypatch, tmp_path, {"comicarr/app/series/add.py": "from comicarr import importer\n"})
     assert guard.main() == 0
 
 
@@ -115,8 +117,8 @@ def test_router_importing_a_seamed_module_fails_even_from_a_seam_path(guard, tmp
         guard,
         monkeypatch,
         tmp_path,
-        {"comicarr/app/series/router.py": "from comicarr import updater\n"},
-        foundations={("comicarr/app/series/router.py", "updater"): ("r", "t")},
+        {"comicarr/app/series/router.py": "from comicarr import importer\n"},
+        foundations={("comicarr/app/series/router.py", "importer"): ("r", "t")},
     )
     assert guard.main() == 1
 

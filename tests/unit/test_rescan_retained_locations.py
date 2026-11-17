@@ -13,7 +13,6 @@ from types import SimpleNamespace
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import updater
 from comicarr.app.series import folder_rescan
 from comicarr.tables import comics, issues, metadata
 
@@ -73,7 +72,7 @@ def test_rescan_keeps_left_behind_files_and_still_archives_missing_ones(monkeypa
                 },
             )
 
-    monkeypatch.setattr(updater.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
     monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
     monkeypatch.setattr(
         folder_rescan.filechecker,

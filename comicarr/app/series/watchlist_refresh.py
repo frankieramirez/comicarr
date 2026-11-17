@@ -1,21 +1,21 @@
-#  Copyright (C) 2012–2024 Mylar3 contributors
 #  Copyright (C) 2025–2026 Comicarr contributors
 #
 #  This file is part of Comicarr.
-#  Originally based on Mylar3 (https://github.com/mylar3/mylar3).
 #
 #  Comicarr is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
-#
-#  Comicarr is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
+
+"""Series refresh: re-read watched series from their source and keep statuses.
+
+Moved from ``comicarr/updater.py`` (#1462). ``refresh_series_list`` is the
+old ``dbUpdate``, ``run_refresh_queue`` the old ``addvialist`` worker, and
+``run_scheduled_refresh`` the old ``watchlist_updater`` job. Other modules
+call ``app/series/refresh.py``; the parts of the add this still needs go
+through ``app/series/add.py``.
+"""
+
 import calendar
 import datetime
 import operator
@@ -31,7 +31,7 @@ import comicarr
 from comicarr import db, helpers, logger
 from comicarr.app.common import series_kind
 from comicarr.app.metadata import cv, series_metadata
-from comicarr.app.series import rescan
+from comicarr.app.series import add, rescan
 from comicarr.tables import (
     annuals,
     comics,
@@ -40,7 +40,7 @@ from comicarr.tables import (
 )
 
 
-def addvialist(queue, ledger=None, maintenance=None):
+def run_refresh_queue(queue, ledger=None, maintenance=None):
     from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController, maintenance_retry_delay
     from comicarr.app.acquisition.models import ItemOutcome
     from comicarr.app.acquisition.runs import RunLedger
@@ -50,9 +50,7 @@ def addvialist(queue, ledger=None, maintenance=None):
         try:
             item = queue.get(timeout=1)
         except queue_module.Empty:
-            from comicarr import importer
-
-            if importer.refresh_worker_should_retire(queue):
+            if add.refresh_worker_should_retire(queue):
                 break
             continue
 
@@ -111,7 +109,7 @@ def addvialist(queue, ledger=None, maintenance=None):
                         % (comicname, display_year, comicid)
                     )
                     worker_maintenance.assert_lease_current(lease)
-                    comicarr.importer.updateissuedata(
+                    add.update_issue_data(
                         comicid,
                         comicname,
                         calledfrom=values["calledfrom"],
@@ -123,9 +121,9 @@ def addvialist(queue, ledger=None, maintenance=None):
                         % (values["manual_comicid"], comicname, display_year, comicid)
                     )
                     worker_maintenance.assert_lease_current(lease)
-                    comicarr.importer.manualAnnual(
-                        values["manual_comicid"],
-                        comicname,
+                    add.add_manual_annual(
+                        manual_comicid=values["manual_comicid"],
+                        comicname=comicname,
                         comicyear=seriesyear,
                         comicid=comicid,
                         forceadd=True,
@@ -137,7 +135,7 @@ def addvialist(queue, ledger=None, maintenance=None):
                         % (queue.qsize() + 1, comicname, display_year, comicid)
                     )
                     worker_maintenance.assert_lease_current(lease)
-                    dbUpdate([comicid], calledfrom="refresh")
+                    refresh_series_list([comicid], calledfrom="refresh")
             if command_ledger and run_id:
                 command_ledger.record_outcome(run_id, "series", comicid, ItemOutcome.SUCCEEDED)
         except Exception as e:
@@ -159,7 +157,7 @@ def addvialist(queue, ledger=None, maintenance=None):
     return False
 
 
-def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
+def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
     if comicarr.IMPORTLOCK:
         logger.info("Import is currently running - deferring this until the next scheduled run sequence.")
         return
@@ -325,7 +323,7 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
 
         mismatch = "no"
         if series_kind.provider_of(ComicID) in series_kind.MANGA_PROVIDERS or series_kind.is_manga(comic):
-            chkstatus = comicarr.importer.addComictoDB(ComicID, mismatch)
+            chkstatus = add.reload_series(ComicID, mismatch)
             if chkstatus["status"] != "complete":
                 logger.warn(
                     "There was an error when refreshing this series - Make sure directories are writable/exist, and check the logs for any errors/problems."
@@ -429,7 +427,7 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                         last_issuedate = lastissuedate["ReleaseDate"]
 
                 if not whack:
-                    chkstatus = comicarr.importer.addComictoDB(
+                    chkstatus = add.reload_series(
                         ComicID, mismatch, calledfrom="dbupdate", annload=annload, csyear=csyear, fixed_type=fixed_type
                     )
                     if chkstatus["status"] == "complete":
@@ -437,11 +435,9 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                         with db.get_engine().begin() as conn:
                             conn.execute(issues.delete().where(issues.c.ComicID == ComicID))
                             conn.execute(annuals.delete().where(annuals.c.ComicID == ComicID))
-                        comicarr.importer.issue_collection(
-                            chkstatus["issuedata"], nostatus="True", serieslast_updated=lastupdated
-                        )
+                        add.store_issue_rows(chkstatus["issuedata"], nostatus="True", serieslast_updated=lastupdated)
                         if chkstatus["anndata"] is not None:
-                            comicarr.importer.manualAnnual(annchk=chkstatus["anndata"])
+                            add.add_manual_annual(annchk=chkstatus["anndata"])
                     else:
                         logger.warn(
                             "There was an error when refreshing this series - Make sure directories are writable/exist, and check the logs for any errors/problems."
@@ -742,10 +738,10 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                         sm.update_metadata()
 
                 else:
-                    chkstatus = comicarr.importer.addComictoDB(ComicID, mismatch, annload=annload, csyear=csyear)
+                    chkstatus = add.reload_series(ComicID, mismatch, annload=annload, csyear=csyear)
 
             else:
-                chkstatus = comicarr.importer.addComictoDB(ComicID, mismatch)
+                chkstatus = add.reload_series(ComicID, mismatch)
 
         cnt += 1
         if calledfrom == "refresh":
@@ -770,7 +766,7 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
     logger.fdebug("Update complete")
 
 
-def watchlist_updater(calledfrom=None, sched=False):
+def run_scheduled_refresh(calledfrom=None, sched=False):
 
     last_date = None
     last_run = None
@@ -931,7 +927,7 @@ def watchlist_updater(calledfrom=None, sched=False):
                 ["ComicID" not in row["ComicName"], row["Status"] != "Loading", row["ComicName"] is not None]
             ):
                 library[row["ReleaseComicID"]] = {"comicid": row["ComicID"], "status": row["Status"]}
-        except:
+        except Exception:
             pass
 
     if len(popthecheck) > 0:
@@ -1006,7 +1002,7 @@ def watchlist_updater(calledfrom=None, sched=False):
     if len(watch) > 0:
         logger.info("[SHIZZLE-WHIZZLE] Now queueing to refresh %s series" % (len(watch)))
         try:
-            comicarr.importer.refresh_thread(watch)
+            add.refresh_series(watch)
         except Exception:
             pass
 

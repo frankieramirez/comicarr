@@ -44,14 +44,14 @@ from dataclasses import dataclass
 from sqlalchemy import Integer, and_, func, inspect, or_, select
 
 import comicarr
-from comicarr import db, filechecker, helpers, logger, updater, weeklypull
+from comicarr import db, filechecker, helpers, logger, weeklypull
 from comicarr.app.common import series_kind
 from comicarr.app.common.placement import place
 from comicarr.app.downloads import snatch_record
 from comicarr.app.downloads.postprocess_pipeline import PostProcessItemDeps
 from comicarr.app.library import getimage
 from comicarr.app.manga.ledger import normalize_volume_number
-from comicarr.app.series import folder_rescan
+from comicarr.app.series import folder_rescan, watchlist_refresh
 from comicarr.config import get_manga_destination
 from comicarr.tables import (
     annuals,
@@ -2737,7 +2737,7 @@ def pipeline_deps():
         extract_cover=getimage.extract_image,
         manga_destination=get_manga_destination,
         settle=wait_until_settled,
-        refresh_series=updater.dbUpdate,
+        refresh_series=watchlist_refresh.refresh_series_list,
     )
 
 
