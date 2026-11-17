@@ -2244,6 +2244,7 @@ def _cdh_manual_review_kwargs(item, nzstat, known_nzb_id, status):
             "comicid": ident["comicid"],
             "nzo_id": known_nzb_id,
             "nzstat_status": status,
+            "nzb_folder": nzstat.get("expected_folder") if isinstance(nzstat, dict) else None,
         },
         "issue_id": ident["issueid"],
         "provider": ident["provider"],

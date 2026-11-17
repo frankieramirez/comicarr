@@ -64,6 +64,11 @@ class _RuntimeResolutionEffects:
             )
         return removed
 
+    def locate_job_folder(self, nzb_name):
+        from comicarr.app.downloads import sab_reconcile
+
+        return sab_reconcile.locate_job_folder(nzb_name)
+
     def stop_wanting(self, issue_id, actor, *, entity_type=None):
         from comicarr.app.series import queries as series_queries
 
@@ -253,6 +258,9 @@ def _import(row, key, *, source, effects):
     source = source or ImportSource()
     name = source.nzb_name or payload.get("nzb_name") or payload.get("nzbname") or row.get("nzbname")
     folder = source.nzb_folder or payload.get("nzb_folder")
+    if name and not folder:
+        locate = getattr(effects, "locate_job_folder", None)
+        folder = locate(name) if locate is not None else None
     if not name or not folder:
         return _failure(key, "missing_import_source", "Missing nzb_name or nzb_folder for import")
     outcome = effects.enqueue_import(
