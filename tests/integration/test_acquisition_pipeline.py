@@ -18,12 +18,13 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, importer
+from comicarr import db
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.core.context import AppContext
 from comicarr.app.downloads import handoff, journal, postprocessing, recovery
+from comicarr.app.manga import add as manga_add
 from comicarr.app.series import service as series_service
 from comicarr.tables import (
     acquisition_run_items,
@@ -1131,7 +1132,7 @@ def test_mangadex_ledger_sync_heals_an_empty_ledger(recorded):
 
 def test_mal_sourced_series_reaches_the_library(recorded):
     """MAL supplies the metadata, MangaDex the chapters, and a chapter grab lands in the series."""
-    result = importer.addMangaToDB_MAL(MAL_COMIC_ID)
+    result = manga_add.add_myanimelist(MAL_COMIC_ID)
 
     assert result["status"] == "complete"
     series = pipeline.series_row(MAL_COMIC_ID)
@@ -1145,7 +1146,7 @@ def test_mal_sourced_series_reaches_the_library(recorded):
 
 
 def test_manga_chapter_is_placed_in_its_series_folder(recorded):
-    assert importer.addMangaToDB(MD_COMIC_ID)["status"] == "complete"
+    assert manga_add.add_mangadex(MD_COMIC_ID)["status"] == "complete"
 
     assert _grab_chapter(recorded, MD_COMIC_ID, 3).status == "processed"
 
@@ -1160,9 +1161,9 @@ def test_manga_chapter_is_placed_in_its_series_folder(recorded):
 
 def test_manga_duplicate_guard_refuses_the_same_work_from_mal(recorded):
     """A MangaDex series whose MAL link is 49017 blocks adding MAL 49017 a second time."""
-    assert importer.addMangaToDB(MD_COMIC_ID)["status"] == "complete"
+    assert manga_add.add_mangadex(MD_COMIC_ID)["status"] == "complete"
 
-    refused = importer.addMangaToDB_MAL(MAL_COMIC_ID)
+    refused = manga_add.add_myanimelist(MAL_COMIC_ID)
 
     assert refused["status"] == "duplicate"
     assert refused["comicid"] == MD_COMIC_ID
@@ -1176,7 +1177,7 @@ def test_manga_duplicate_guard_refuses_the_same_work_from_mal(recorded):
 
 def test_manga_second_release_of_an_owned_chapter_is_not_sent(recorded):
     """Once a chapter is in the library, another release of it never reaches the client."""
-    assert importer.addMangaToDB(MD_COMIC_ID)["status"] == "complete"
+    assert manga_add.add_mangadex(MD_COMIC_ID)["status"] == "complete"
     assert _grab_chapter(recorded, MD_COMIC_ID, 3).status == "processed"
     placed = _assert_chapter_in_library(MD_COMIC_ID, 3)
     jobs_before = dict(recorded.sab.jobs)
@@ -1200,7 +1201,7 @@ def test_manga_rss_grabs_and_places_a_wanted_chapter(recorded, monkeypatch):
     monkeypatch.setattr(comicarr.CONFIG, "NEWZNAB", True)
     monkeypatch.setattr(comicarr.CONFIG, "EXTRA_NEWZNABS", [indexer.config_entry()])
     monkeypatch.setattr(comicarr.CONFIG, "ENABLE_RSS", True)
-    assert importer.addMangaToDB(MD_COMIC_ID)["status"] == "complete"
+    assert manga_add.add_mangadex(MD_COMIC_ID)["status"] == "complete"
     with db.get_engine().begin() as conn:
         conn.execute(comics.update().where(comics.c.ComicID == MD_COMIC_ID).values(MonitorMode="chapters"))
     issue_id = pipeline.want_recorded_chapter(MD_COMIC_ID, 3)

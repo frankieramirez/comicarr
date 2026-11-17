@@ -17,6 +17,7 @@ from sqlalchemy import create_engine, select
 
 import comicarr
 from comicarr import db, importer
+from comicarr.app.manga import add as manga_add
 from comicarr.app.manga.duplicates import find_existing_manga_series
 from comicarr.app.search.service import add_manga
 from comicarr.app.series.service import listLibrary
@@ -100,7 +101,7 @@ def _patch_add_side_effects(monkeypatch, tmp_path, *, md_details=None, mal_detai
     monkeypatch.setattr(mangadex, "get_manga_details", lambda *a, **k: md_details or _md_details())
     monkeypatch.setattr(myanimelist, "get_manga_details", lambda *a, **k: mal_details or _mal_details())
     monkeypatch.setattr(mangadex, "find_by_mal_id", lambda *a, **k: mal_to_md)
-    monkeypatch.setattr(importer, "_populate_manga_chapters", lambda *a, **k: 0)
+    monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: 0)
     monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: None)
     monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
     monkeypatch.setattr(comicarr_config, "get_manga_destination", lambda: str(tmp_path))
@@ -150,7 +151,7 @@ def test_find_existing_ignores_the_same_comic_id(manga_db):
 def test_mangadex_add_stores_mal_id(manga_db, monkeypatch, tmp_path):
     _patch_add_side_effects(monkeypatch, tmp_path)
 
-    result = importer.addMangaToDB("md-" + MD_UUID)
+    result = manga_add.add_mangadex("md-" + MD_UUID)
 
     assert result["status"] == "complete"
     row = _row(manga_db, "md-" + MD_UUID)
@@ -169,7 +170,7 @@ def test_adding_mal_id_is_refused_when_mangadex_row_has_that_mal_id(manga_db, mo
     )
     _patch_add_side_effects(monkeypatch, tmp_path)
 
-    result = importer.addMangaToDB_MAL("mal-" + MAL_ID)
+    result = manga_add.add_myanimelist("mal-" + MAL_ID)
 
     assert result["status"] == "duplicate"
     assert result["comicid"] == "md-" + MD_UUID
@@ -188,7 +189,7 @@ def test_adding_mangadex_id_is_refused_when_mal_row_has_that_uuid(manga_db, monk
     )
     _patch_add_side_effects(monkeypatch, tmp_path)
 
-    result = importer.addMangaToDB("md-" + MD_UUID)
+    result = manga_add.add_mangadex("md-" + MD_UUID)
 
     assert result["status"] == "duplicate"
     assert result["comicid"] == "mal-" + MAL_ID
@@ -207,7 +208,7 @@ def test_refreshing_an_existing_series_is_not_refused(manga_db, monkeypatch, tmp
     )
     _patch_add_side_effects(monkeypatch, tmp_path)
 
-    result = importer.addMangaToDB("md-" + MD_UUID)
+    result = manga_add.add_mangadex("md-" + MD_UUID)
 
     assert result["status"] == "complete"
     row = _row(manga_db, "md-" + MD_UUID)
@@ -337,7 +338,7 @@ def test_mal_add_does_not_refuse_a_fuzzy_mangadex_title_match(manga_db, monkeypa
 
     monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", fake_find)
 
-    result = importer.addMangaToDB_MAL("mal-" + MAL_ID)
+    result = manga_add.add_myanimelist("mal-" + MAL_ID)
 
     assert result["status"] == "complete"
     assert result["comicid"] == "mal-" + MAL_ID

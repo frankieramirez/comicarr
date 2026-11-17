@@ -30,6 +30,7 @@ from sqlalchemy import create_engine, select
 
 import comicarr
 from comicarr import rsscheck
+from comicarr.app.manga import add as manga_add
 from comicarr.tables import comics, metadata
 from tests.fakes import folder_request
 
@@ -200,12 +201,12 @@ class TestMangaDexAddRecordsItsId:
                 "alt_titles": [],
             },
         )
-        monkeypatch.setattr(importer, "_populate_manga_chapters", lambda *a, **k: 0)
+        monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: 0)
         monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: None)
         monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
         monkeypatch.setattr(comicarr_config, "get_manga_destination", lambda: str(tmp_path))
 
-        importer.addMangaToDB("md-uuid-42")
+        manga_add.add_mangadex("md-uuid-42")
 
         with engine.connect() as conn:
             row = conn.execute(select(comics).where(comics.c.ComicID == "md-uuid-42")).mappings().fetchone()

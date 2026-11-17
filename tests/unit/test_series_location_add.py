@@ -16,6 +16,7 @@ from sqlalchemy import create_engine, select
 
 import comicarr
 from comicarr import importer
+from comicarr.app.manga import add as manga_add
 from comicarr.app.search import service as search_service
 from comicarr.app.series import service as series_service
 from comicarr.tables import comics, metadata
@@ -132,11 +133,11 @@ def test_a_manga_added_to_a_chosen_folder_keeps_it_through_refresh(empty_library
     monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: None)
     monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: str(empty_library.tmp_path / "Manga"))
     monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: {"status": "failed"})
-    monkeypatch.setattr(importer, "_populate_manga_chapters", lambda *a, **k: None)
+    monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
     monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
 
-    importer.addMangaToDB_MAL("mal-13", location=chosen)
-    importer.addMangaToDB_MAL("mal-13")
+    manga_add.add_myanimelist("mal-13", location=chosen)
+    manga_add.add_myanimelist("mal-13")
 
     with empty_library.engine.connect() as conn:
         row = conn.execute(select(comics).where(comics.c.ComicID == "mal-13")).mappings().one()

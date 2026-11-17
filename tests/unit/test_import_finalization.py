@@ -117,7 +117,7 @@ def test_preflight_rejects_missing_records_before_adding_manga():
 
     with (
         patch.object(finalization.import_queries, "get_import_rows", return_value=[]),
-        patch("comicarr.importer.addMangaToDB_MAL") as add_manga,
+        patch("comicarr.app.manga.add.add_myanimelist") as add_manga,
     ):
         with pytest.raises(finalization.ImportFinalizationError, match="Missing import record") as exc_info:
             finalization.finalize_manual_match(ctx, ["imp-1"], "mal-123")

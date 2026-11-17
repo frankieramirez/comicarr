@@ -103,8 +103,8 @@ def test_heal_empty_ledgers_reruns_add_for_md_and_mal():
     ]
     with (
         patch("comicarr.app.manga.sync.empty_ledger_series", return_value=series),
-        patch("comicarr.importer.addMangaToDB") as add_md,
-        patch("comicarr.importer.addMangaToDB_MAL") as add_mal,
+        patch("comicarr.app.manga.add.add_mangadex") as add_md,
+        patch("comicarr.app.manga.add.add_myanimelist") as add_mal,
     ):
         assert heal_empty_ledgers() == 2
     add_md.assert_called_once_with("md-empty")

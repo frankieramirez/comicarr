@@ -152,15 +152,15 @@ class TestMangaDexMalMatching:
 
 
 class TestMangaChapterFallback:
-    @patch("comicarr.importer.db")
+    @patch("comicarr.app.manga.add.db")
     @patch("comicarr.CONFIG")
     def test_mal_total_creates_only_missing_placeholder_chapters(self, mock_config, mock_db):
-        from comicarr import importer
+        from comicarr.app.manga import add as manga_add
 
         mock_config.MANGADEX_LANGUAGES = "en"
         mock_db.select_all.return_value = [{"Int_IssueNumber": 1000, "ChapterNumber": "1.0", "Issue_Number": "1.0"}]
 
-        result = importer._populate_manga_chapters(
+        result = manga_add._populate_manga_chapters(
             "mal-13",
             "One Piece",
             mangadex_uuid=None,

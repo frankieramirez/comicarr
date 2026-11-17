@@ -44,15 +44,15 @@ def add_series(comic_id: str, *, metadata_only: bool = False, calledfrom: str | 
 def add_manga(comic_id: str) -> Any:
     """Add or update the manga ``comic_id`` now, from its provider.
 
-    MyAnimeList ids go through ``importer.addMangaToDB_MAL``; everything else
-    through ``importer.addMangaToDB`` (MangaDex).
+    MyAnimeList ids go through ``app/manga/add.add_myanimelist``; everything
+    else through ``add_mangadex`` (MangaDex).
     """
-    from comicarr import importer
     from comicarr.app.common import series_kind
+    from comicarr.app.manga import add as manga_add
 
     if series_kind.provider_of(comic_id) is series_kind.SeriesProvider.MYANIMELIST:
-        return importer.addMangaToDB_MAL(comic_id)
-    return importer.addMangaToDB(comic_id)
+        return manga_add.add_myanimelist(comic_id)
+    return manga_add.add_mangadex(comic_id)
 
 
 def update_issue_data(

@@ -15,6 +15,7 @@ from unittest.mock import patch
 
 from comicarr import importer
 from comicarr.app.search.service import add_manga
+from comicarr.app.series import add_activity
 from comicarr.importer import addvialist
 
 
@@ -38,8 +39,8 @@ def test_add_manga_keeps_mal_prefix_and_does_not_call_add_on_the_request_thread(
     ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=False, MAL_ENABLED=True, MAL_CLIENT_ID="client"))
     with (
         patch("comicarr.importer.importer_thread") as mock_thread,
-        patch("comicarr.importer.addMangaToDB_MAL") as add_mal,
-        patch("comicarr.importer.addMangaToDB") as add_md,
+        patch("comicarr.app.manga.add.add_myanimelist") as add_mal,
+        patch("comicarr.app.manga.add.add_mangadex") as add_md,
     ):
         result = add_manga(ctx, "mal-13")
 
@@ -68,7 +69,7 @@ def test_addvialist_narrates_add_failed_when_importer_raises():
     with (
         patch("comicarr.importer.addComictoDB", side_effect=RuntimeError("rate limited")),
         patch("comicarr.importer.time.sleep"),
-        patch.object(importer, "_emit_add_activity") as emit,
+        patch.object(importer, "emit_add_activity") as emit,
     ):
         addvialist(series_queue, issue_queue)
 
@@ -77,7 +78,7 @@ def test_addvialist_narrates_add_failed_when_importer_raises():
 
 def test_emit_add_activity_drives_the_series_activity_facade():
     with patch("comicarr.app.activity.producers.emit_series_activity") as emit:
-        importer._emit_add_activity("failed", "md-onepiece", comicname="One Piece", reason_detail="boom")
+        add_activity.emit_add_activity("failed", "md-onepiece", comicname="One Piece", reason_detail="boom")
 
     emit.assert_called_once_with(
         "add",
