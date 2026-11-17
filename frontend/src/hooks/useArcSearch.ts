@@ -92,6 +92,9 @@ interface AddArcParams {
   storyarcissues: number;
   arclist: string;
   cvarcid: string;
+  storyarcpublisher?: string | null;
+  description?: string | null;
+  image?: string | null;
 }
 
 export function useAddStoryArc(): UseMutationResult<

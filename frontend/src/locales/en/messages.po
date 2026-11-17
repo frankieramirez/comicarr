@@ -2977,6 +2977,10 @@ msgstr "Copied"
 msgid "Copy"
 msgstr "Copy"
 
+#: src/components/settings/ApiTab.tsx
+msgid "Copy API key"
+msgstr "Copy API key"
+
 #: src/components/layout/VersionChip.tsx
 msgid "Copy command"
 msgstr "Copy command"
@@ -5447,6 +5451,10 @@ msgstr "Mark issues as wanted from a series and Comicarr will search for them au
 msgid "Mark on shelf"
 msgstr "Mark on shelf"
 
+#: src/pages/IssueDetailPage.tsx
+msgid "Mark wanted"
+msgstr "Mark wanted"
+
 #: src/components/queue/BulkActionBar.tsx
 msgid "Mark Wanted"
 msgstr "Mark Wanted"
@@ -5972,6 +5980,10 @@ msgstr "No eligible missing issues remain to search."
 #: src/pages/WantedPage.tsx
 msgid "No eligible wanted issues are ready to search."
 msgstr "No eligible wanted issues are ready to search."
+
+#: src/pages/IssueDetailPage.tsx
+msgid "No file or release details yet."
+msgstr "No file or release details yet."
 
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "No folder at {path} inside the Comicarr container."
@@ -7940,6 +7952,7 @@ msgid "Search accepted — wanted issues will be processed."
 msgstr "Search accepted — wanted issues will be processed."
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/pages/IssueDetailPage.tsx
 msgid "Search accepted."
 msgstr "Search accepted."
 
@@ -8086,6 +8099,10 @@ msgstr "Search missing issues"
 #: src/components/ai/ChatActionCard.tsx
 msgid "Search not queued"
 msgstr "Search not queued"
+
+#: src/pages/IssueDetailPage.tsx
+msgid "Search now"
+msgstr "Search now"
 
 #: src/components/queue/WantedPacingBanner.tsx
 msgid "Search now…"
@@ -9597,6 +9614,7 @@ msgid "Unable to requeue direct download: Unknown error"
 msgstr "Unable to requeue direct download: Unknown error"
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/pages/IssueDetailPage.tsx
 #: src/pages/WantedPage.tsx
 msgid "Unable to start this search."
 msgstr "Unable to start this search."

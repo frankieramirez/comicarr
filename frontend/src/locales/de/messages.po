@@ -2978,6 +2978,10 @@ msgstr "Kopiert"
 msgid "Copy"
 msgstr "Kopieren"
 
+#: src/components/settings/ApiTab.tsx
+msgid "Copy API key"
+msgstr "API-Schlüssel kopieren"
+
 #: src/components/layout/VersionChip.tsx
 msgid "Copy command"
 msgstr "Befehl kopieren"
@@ -3949,7 +3953,7 @@ msgstr "Suchreihenfolge konnte nicht gespeichert werden"
 
 #: src/pages/SettingsPage.tsx
 msgid "Failed to save settings"
-msgstr ""
+msgstr "Einstellungen konnten nicht gespeichert werden"
 
 #: src/pages/ImportPage.tsx
 msgid "Failed to scan inbox: {error}"
@@ -5448,6 +5452,10 @@ msgstr "Markiere Ausgaben in einer Serie als gesucht, und Comicarr sucht sie aut
 msgid "Mark on shelf"
 msgstr "Im Regal vermerken"
 
+#: src/pages/IssueDetailPage.tsx
+msgid "Mark wanted"
+msgstr "Als gesucht markieren"
+
 #: src/components/queue/BulkActionBar.tsx
 msgid "Mark Wanted"
 msgstr "Als Gesucht markieren"
@@ -5973,6 +5981,10 @@ msgstr "Es sind keine infrage kommenden fehlenden Ausgaben mehr zu suchen."
 #: src/pages/WantedPage.tsx
 msgid "No eligible wanted issues are ready to search."
 msgstr "Keine infrage kommenden gesuchten Ausgaben sind bereit zur Suche."
+
+#: src/pages/IssueDetailPage.tsx
+msgid "No file or release details yet."
+msgstr "Noch keine Datei- oder Release-Details."
 
 #: src/components/onboarding/OnboardingDialog.tsx
 msgid "No folder at {path} inside the Comicarr container."
@@ -7941,6 +7953,7 @@ msgid "Search accepted — wanted issues will be processed."
 msgstr "Suche angenommen – gesuchte Ausgaben werden bearbeitet."
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/pages/IssueDetailPage.tsx
 msgid "Search accepted."
 msgstr "Suche angenommen."
 
@@ -8087,6 +8100,10 @@ msgstr "Fehlende Ausgaben suchen"
 #: src/components/ai/ChatActionCard.tsx
 msgid "Search not queued"
 msgstr "Suche nicht eingereiht"
+
+#: src/pages/IssueDetailPage.tsx
+msgid "Search now"
+msgstr "Jetzt suchen"
 
 #: src/components/queue/WantedPacingBanner.tsx
 msgid "Search now…"
@@ -9598,6 +9615,7 @@ msgid "Unable to requeue direct download: Unknown error"
 msgstr "Direkter Download konnte nicht erneut eingereiht werden: unbekannter Fehler"
 
 #: src/components/queue/WantedBySeries.tsx
+#: src/pages/IssueDetailPage.tsx
 #: src/pages/WantedPage.tsx
 msgid "Unable to start this search."
 msgstr "Diese Suche konnte nicht gestartet werden."

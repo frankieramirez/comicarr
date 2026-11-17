@@ -28,6 +28,9 @@ export default function ArcSearchResultCard({
         storyarcissues: parseInt(result.issues, 10) || 0,
         arclist: result.arclist || "",
         cvarcid: result.cvarcid,
+        storyarcpublisher: result.publisher,
+        description: result.description,
+        image: result.image,
       },
       {
         onSuccess: () => {

@@ -116,6 +116,52 @@ describe("IssueDetailPage", () => {
     );
   });
 
+  it("offers the next step that fits the issue's state (#1507)", async () => {
+    const renderIssue = () =>
+      render(
+        <Routes>
+          <Route
+            path="/library/:comicId/issue/:issueId"
+            element={<IssueDetailPage />}
+          />
+        </Routes>,
+        { route: "/library/series-9/issue/issue-23", useMemoryRouter: true },
+      );
+    renderIssue();
+    expect(
+      await screen.findByRole("button", { name: "Search now" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Mark wanted" })).toBeNull();
+  });
+
+  it("leaves out empty detail rows and offers Mark wanted for a skipped issue", async () => {
+    server.use(
+      http.get("/api/metadata/issue/:issueId", () =>
+        HttpResponse.json({
+          ...issuePayload,
+          Status: "Skipped",
+          ReleaseDate: null,
+          IssueDate: null,
+          Location: null,
+        }),
+      ),
+    );
+    render(
+      <Routes>
+        <Route
+          path="/library/:comicId/issue/:issueId"
+          element={<IssueDetailPage />}
+        />
+      </Routes>,
+      { route: "/library/series-9/issue/issue-23", useMemoryRouter: true },
+    );
+    expect(
+      await screen.findByRole("button", { name: "Mark wanted" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("File on disk")).toBeNull();
+    expect(screen.queryByText("Released")).toBeNull();
+  });
+
   it("shows a clear not-found state for unknown issue ids", async () => {
     render(
       <Routes>
