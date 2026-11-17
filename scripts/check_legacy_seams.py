@@ -114,13 +114,11 @@ DEFERRED_ALLOWLIST = {
     ("comicarr/app/downloads/service.py", "nzbget"): ("NZBGet client", DEFERRED),
     ("comicarr/app/downloads/service.py", "sabnzbd"): ("SABnzbd client", DEFERRED),
     ("comicarr/app/downloads/service.py", "search"): ("FailedMark and searchforissue for retries", DEFERRED),
-    ("comicarr/app/imports/finalization.py", "cmtag"): ("tags placed files (cmtag.run)", DEFERRED),
     ("comicarr/app/imports/finalization.py", "filechecker"): ("validateAndCreateDirectory", DEFERRED),
     ("comicarr/app/library/filers.py", "filechecker"): (
         "FileChecker lists and parses the files in a series folder; carried over when filers.py moved (#1417)",
         "#1422 moves filechecker under comicarr/app/",
     ),
-    ("comicarr/app/metadata/service.py", "cmtag"): ("tags files (cmtag.run)", DEFERRED),
     ("comicarr/app/search/evaluation.py", "filechecker"): ("FileChecker parses release names", DEFERRED),
     ("comicarr/app/search/interactive.py", "search"): ("interactive search drives search.py", DEFERRED),
     ("comicarr/app/search/service.py", "search"): ("searchforissue", DEFERRED),

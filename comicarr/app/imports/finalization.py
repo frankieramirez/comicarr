@@ -407,8 +407,8 @@ def _tag_imported_files(pending: _PendingTagging) -> None:
             continue
         filepath = placed_by_source.get(source_path, source_path)
         try:
-            from comicarr import cmtag
             from comicarr.app.metadata import service as metadata_service
+            from comicarr.app.metadata import tagging
 
             series_arguments = metadata_service.cmtag_series_arguments(
                 issue_id,
@@ -417,7 +417,7 @@ def _tag_imported_files(pending: _PendingTagging) -> None:
                 pending.series.get("ComicYear"),
                 pending.series.get("AgeRating"),
             )
-            metaresponse = cmtag.run(
+            metaresponse = tagging.run(
                 os.path.dirname(filepath),
                 issueid=issue_id,
                 filename=filepath,

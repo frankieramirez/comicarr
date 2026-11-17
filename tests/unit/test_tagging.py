@@ -25,7 +25,7 @@ from unittest.mock import patch
 
 import pytest
 
-from comicarr import cmtag
+from comicarr.app.metadata import tagging as cmtag
 from comicarr.app.metadata import comicinfo
 
 ISSUE = {

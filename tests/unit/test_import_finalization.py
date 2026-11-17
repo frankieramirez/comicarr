@@ -1064,7 +1064,7 @@ class TestWriteMetadataOnImport:
                 "comicarr.app.series.rescan.rescan_series",
                 side_effect=lambda *_args, **_kwargs: events.append("rescan"),
             ),
-            patch("comicarr.cmtag.run", side_effect=tagger) as mock_cmtag,
+            patch("comicarr.app.metadata.tagging.run", side_effect=tagger) as mock_cmtag,
         ):
             result = finalization.finalize_manual_match(
                 _ctx(
@@ -1178,7 +1178,7 @@ class TestWriteMetadataOnImport:
                 "comicarr.app.series.rescan.rescan_series",
                 side_effect=lambda *_args, **_kwargs: events.append("rescan"),
             ) as force_rescan,
-            patch("comicarr.cmtag.run", return_value=str(tagged)) as mock_cmtag,
+            patch("comicarr.app.metadata.tagging.run", return_value=str(tagged)) as mock_cmtag,
         ):
             result = finalization.finalize_manual_match(
                 _ctx(move=True, file_opts="copy", metadata=True, enable_meta=True),
@@ -1274,7 +1274,7 @@ class TestWriteMetadataOnImport:
             _environment([_row("imp-1", source, issue_number="1")], target_directory),
             patch.object(finalization.import_queries, "get_issue_id", return_value="cv-1"),
             patch("comicarr.app.series.rescan.rescan_series") as force_rescan,
-            patch("comicarr.cmtag.run", return_value=str(tagged)),
+            patch("comicarr.app.metadata.tagging.run", return_value=str(tagged)),
         ):
             finalization.finalize_manual_match(
                 _ctx(move=False, metadata=True, enable_meta=True),
@@ -1304,7 +1304,7 @@ class TestWriteMetadataOnImport:
             _environment([_row("imp-1", source, issue_number="1")], target_directory),
             patch.object(finalization.import_queries, "get_issue_id", return_value="cv-1"),
             patch("comicarr.app.series.rescan.rescan_series"),
-            patch("comicarr.cmtag.run", return_value=str(tagged)),
+            patch("comicarr.app.metadata.tagging.run", return_value=str(tagged)),
         ):
             result = finalization.finalize_manual_match(
                 _ctx(move=True, file_opts="copy", metadata=True, enable_meta=True),

@@ -1,3 +1,22 @@
+#  Copyright (C) 2012–2024 Mylar3 contributors
+#  Copyright (C) 2025–2026 Comicarr contributors
+#
+#  This file is part of Comicarr.
+#  Originally based on Mylar3 (https://github.com/mylar3/mylar3).
+#
+#  Comicarr is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  Comicarr is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
+
 """Tag a placed comic with ComicInfo.xml and ComicBookLover data.
 
 The archive work lives in ``comicarr.app.metadata.comicinfo``; this module
@@ -12,7 +31,8 @@ import sys
 import tempfile
 
 import comicarr
-from comicarr import filechecker, logger
+from comicarr import logger
+from comicarr.app.library import directories
 from comicarr.app.metadata import comicinfo
 from comicarr.app.notifications import service as notifiers
 
@@ -41,7 +61,7 @@ def restore_tagged_file_mode(path, original_mode, module=""):
     beside it, and nothing logs the change.
 
     ENFORCE_PERMS is the configured owner of file modes, so when it is on this
-    defers to filechecker.setperms() exactly as the six other placement sites
+    defers to directories.setperms() exactly as the six other placement sites
     do. When it is off the user has asked for modes to be left alone -- which
     means left alone, not quietly reduced -- so the pre-tag mode is restored.
 
@@ -55,7 +75,7 @@ def restore_tagged_file_mode(path, original_mode, module=""):
         # ImportError, and killed post-processing AFTER the tag had already
         # succeeded -- losing the rest of the job to a cosmetic step.
         try:
-            applied = filechecker.setperms(path)
+            applied = directories.setperms(path)
         except Exception as e:
             logger.warn("%s Unable to enforce permissions on %s [%s]" % (module, path, e))
             return False
