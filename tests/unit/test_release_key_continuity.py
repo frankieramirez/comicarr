@@ -9,7 +9,7 @@
 
 """P0-1 — release_key single-derivation invariant (cross-seam continuity).
 
-These tests drive the REAL snatch path (updater.foundsearch + updater.nzblog)
+These tests drive the REAL snatch path (snatch_record.foundsearch + snatch_record.nzblog)
 and the REAL downloaded path (service.cdh_monitor for NZB, service.worker_main
 for torrent) for the SAME simulated snatch, and assert the journal `snatched`
 row and the journal `downloaded` row share ONE release_key / ONE row (the
@@ -33,9 +33,8 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import updater
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
-from comicarr.app.downloads import journal, recovery, service
+from comicarr.app.downloads import journal, recovery, service, snatch_record
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import comics, issues, metadata, nzblog, pipeline_journal, snatched
 
@@ -90,8 +89,8 @@ def test_nzb_snatch_and_downloaded_share_one_release_key_one_row():
     _seed()
     # REAL snatch seam: nzblog() then foundsearch() — provider here is the
     # RSS-stripped tmpprov (search.py:1678).
-    updater.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzb.su")
-    updater.foundsearch("C1", "I1", mode="want", provider="nzb.su [RSS]", nzbname="Saga.001.cbz")
+    snatch_record.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzb.su")
+    snatch_record.foundsearch("C1", "I1", mode="want", provider="nzb.su [RSS]", nzbname="Saga.001.cbz")
 
     snatch_rows = _rows(pipeline_journal)
     assert len(snatch_rows) == 1
@@ -128,8 +127,8 @@ def test_nzb_snatch_and_downloaded_share_one_release_key_one_row():
 
 def test_torrent_snatch_and_downloaded_share_one_release_key_one_row(monkeypatch):
     _seed(comicid="C2", issueid="I2")
-    updater.nzblog("I2", "Some.Torrent.cbr", "Saga", id="torid", prov="torznab")
-    updater.foundsearch(
+    snatch_record.nzblog("I2", "Some.Torrent.cbr", "Saga", id="torid", prov="torznab")
+    snatch_record.foundsearch(
         "C2", "I2", mode="want", provider="torznab [RSS]", hash="deadbeefhash", nzbname="Some.Torrent.cbr"
     )
 
@@ -179,9 +178,9 @@ def test_anchor_reconstruction_key_matches_runtime_downloaded_key():
     downloaded seam would derive — no phantom second row."""
     _seed()
     # Snatch committed durably but the strictly-last journal write was lost.
-    updater.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzb.su")
+    snatch_record.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzb.su")
     with patch.object(journal, "record_transition", side_effect=RuntimeError("crash")):
-        updater.foundsearch("C1", "I1", mode="want", provider="nzb.su", nzbname="Saga.001.cbz")
+        snatch_record.foundsearch("C1", "I1", mode="want", provider="nzb.su", nzbname="Saga.001.cbz")
     assert _rows(pipeline_journal) == []
 
     reconstructed = recovery._reconstruct_anchors()
@@ -219,9 +218,9 @@ def test_completed_item_is_not_reconstructed():
     Post-Processed sibling; nzblog deleted on PP success. Anchor
     reconstruction must NOT rebuild it."""
     _seed()
-    updater.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzb.su")
+    snatch_record.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzb.su")
     with patch.object(journal, "record_transition", side_effect=RuntimeError("crash")):
-        updater.foundsearch("C1", "I1", mode="want", provider="nzb.su", nzbname="Saga.001.cbz")
+        snatch_record.foundsearch("C1", "I1", mode="want", provider="nzb.su", nzbname="Saga.001.cbz")
 
     # Completed: Post-Processed sibling row added, nzblog removed (PP success).
     with get_engine().begin() as conn:

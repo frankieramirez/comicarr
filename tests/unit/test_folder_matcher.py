@@ -254,7 +254,7 @@ def _arc_row(**overrides):
 
 def _processed(folder):
     with (
-        patch("comicarr.updater.foundsearch"),
+        patch("comicarr.app.downloads.snatch_record.foundsearch"),
         patch("comicarr.app.notifications.service"),
     ):
         return folder_request.process("Manual Run", folder)

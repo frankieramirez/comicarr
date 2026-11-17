@@ -36,6 +36,7 @@ import comicarr
 from comicarr import db, filechecker, helpers, logger, search, updater
 from comicarr.app.common import series_kind
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.downloads import snatch_record
 from comicarr.app.library import filers, moveit
 from comicarr.app.metadata import cv, series_metadata
 from comicarr.app.metadata.series_type import resolve_series_edition
@@ -1976,7 +1977,7 @@ def updateissuedata(
                             ordtot = 0
                         if ordtot == 0:
                             logger.error("This has no issue # for me to get - Either a Graphic Novel or one-shot.")
-                            updater.no_searchresults(comicid)
+                            snatch_record.no_searchresults(comicid)
                             return {"status": "failure"}
                 elif all(["[" in issnum, "]" in issnum]):
                     issnum_tmp = issnum.find("[")

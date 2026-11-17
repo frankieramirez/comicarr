@@ -9,8 +9,8 @@
 
 """The database reconciliation stage that follows a placed file.
 
-These run the stage against a real schema, with the legacy updater
-collaborators it calls by default, so a second run proves the writes converge
+These run the stage against a real schema, with the real bookkeeping
+functions it calls by default, so a second run proves the writes converge
 rather than that a mock was called twice.
 """
 
@@ -18,7 +18,8 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import db, updater
+from comicarr import db
+from comicarr.app.downloads import snatch_record
 from comicarr.app.downloads.postprocess_pipeline import (
     ANNUAL,
     ISSUE,
@@ -78,7 +79,7 @@ def library(tmp_path, monkeypatch):
 
 
 def _stage():
-    return PostProcessReconcileStage(totals=folder_rescan.totals, foundsearch=updater.foundsearch)
+    return PostProcessReconcileStage(totals=folder_rescan.totals, foundsearch=snatch_record.foundsearch)
 
 
 def _placed(tmp_path, name):

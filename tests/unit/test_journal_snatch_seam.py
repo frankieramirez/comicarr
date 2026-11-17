@@ -9,8 +9,8 @@
 
 """U2 — snatch-seam journal transition tests.
 
-Covers the NZB/torrent snatch seam (updater.foundsearch `down is None`
-branch + updater.nzblog) and the DDL snatch seam (service.ddl_downloader
+Covers the NZB/torrent snatch seam (snatch_record.foundsearch `down is None`
+branch + snatch_record.nzblog) and the DDL snatch seam (service.ddl_downloader
 :773). The contract under test:
 
   * NZB/torrent: the journal `snatched` write is a SEPARATE transaction
@@ -29,9 +29,8 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import updater
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
-from comicarr.app.downloads import handoff, journal, service
+from comicarr.app.downloads import handoff, journal, service, snatch_record
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import comics, ddl_info, issues, metadata, nzblog, pipeline_journal, snatched
 
@@ -99,8 +98,8 @@ def test_nzb_happy_path_journal_after_snatch_and_nzblog():
     _seed_standard_issue()
     # Snatch seam ordering as it is everywhere in the codebase: nzblog() then
     # foundsearch() (search.py:1679/1707, service.py:1169/1170).
-    updater.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzbprov")
-    updater.foundsearch("C1", "I1", mode="want", provider="nzbprov", nzbname="Saga.001.cbz")
+    snatch_record.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzbprov")
+    snatch_record.foundsearch("C1", "I1", mode="want", provider="nzbprov", nzbname="Saga.001.cbz")
 
     # Durable snatch landed.
     snat = _rows(snatched)
@@ -278,13 +277,13 @@ def test_nzb_journal_write_is_strictly_last_separate_txn():
     snatched/nzblog upserts have committed (AE1). We assert this by failing
     the journal write: snatched + nzblog must still be durably present."""
     _seed_standard_issue()
-    updater.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzbprov")
+    snatch_record.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzbprov")
 
     boom = RuntimeError("journal down")
     with patch.object(journal, "record_transition", side_effect=boom):
         # Must NOT raise out of foundsearch — a journal failure cannot abort
         # the snatch (the write is separate-LAST, not bundled).
-        updater.foundsearch("C1", "I1", mode="want", provider="nzbprov", nzbname="Saga.001.cbz")
+        snatch_record.foundsearch("C1", "I1", mode="want", provider="nzbprov", nzbname="Saga.001.cbz")
 
     # snatched + nzblog committed independently and survived the journal fail.
     assert len(_rows(snatched)) == 1
@@ -301,9 +300,9 @@ def test_nzb_journal_write_is_strictly_last_separate_txn():
 
 def test_torrent_autosnatch_hash_in_payload_for_u6_rebuild():
     _seed_standard_issue(comicid="C2", issueid="I2")
-    updater.nzblog("I2", "Some.Torrent", "Saga", id="torid", prov="torznab")
+    snatch_record.nzblog("I2", "Some.Torrent", "Saga", id="torid", prov="torznab")
     # Mirrors service.py:1170 — torrent auto-snatch passes hash=.
-    updater.foundsearch("C2", "I2", mode="want", provider="torznab", hash="abc123hash")
+    snatch_record.foundsearch("C2", "I2", mode="want", provider="torznab", hash="abc123hash")
 
     rkey = journal.release_key("I2", "torznab", nzbname=None, hash="abc123hash")
     jr = _journal_row(rkey)
@@ -322,8 +321,8 @@ def test_oneoff_uses_collision_resistant_discriminant():
     """A synthetic-HIGHCOUNT one-off (pullwant) keys on a collision-resistant
     discriminant so two distinct one-offs cannot coalesce; the journal row is
     authoritative for these (nzblog-presence advisory only — plan)."""
-    updater.nzblog(None, "Oneoff.A.cbz", "PullComic", prov="nzbprov", oneoff=True)
-    updater.foundsearch(
+    snatch_record.nzblog(None, "Oneoff.A.cbz", "PullComic", prov="nzbprov", oneoff=True)
+    snatch_record.foundsearch(
         "C9",
         comicarr.CONFIG.HIGHCOUNT,
         mode="pullwant",
@@ -349,9 +348,9 @@ def test_crash_in_residual_window_leaves_reconstructable_state():
     be able to reconstruct ONLY when there is no Downloaded/Post-Processed
     sibling snatched row AND nzblog is still present."""
     _seed_standard_issue()
-    updater.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzbprov")
+    snatch_record.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzbprov")
     with patch.object(journal, "record_transition", side_effect=RuntimeError("crash")):
-        updater.foundsearch("C1", "I1", mode="want", provider="nzbprov", nzbname="Saga.001.cbz")
+        snatch_record.foundsearch("C1", "I1", mode="want", provider="nzbprov", nzbname="Saga.001.cbz")
 
     # The exact data conditions U6's anchor reconstruction keys on:
     assert _rows(pipeline_journal) == []  # journal row missing (the window)
@@ -374,9 +373,9 @@ def test_completed_item_is_not_reconstructed():
     IssueID,Status,Provider) alongside a Post-Processed sibling. U6 must NOT
     reconstruct it — assert the sibling-present condition holds."""
     _seed_standard_issue()
-    updater.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzbprov")
+    snatch_record.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzbprov")
     with patch.object(journal, "record_transition", side_effect=RuntimeError("crash")):
-        updater.foundsearch("C1", "I1", mode="want", provider="nzbprov", nzbname="Saga.001.cbz")
+        snatch_record.foundsearch("C1", "I1", mode="want", provider="nzbprov", nzbname="Saga.001.cbz")
 
     # Simulate the item having since completed: a Post-Processed sibling row
     # exists for the same (IssueID, Provider).
@@ -568,8 +567,8 @@ def test_ddl_maintenance_fence_retains_durable_queued_command(monkeypatch):
 def test_worker_main_not_found_marks_failed_not_silent_drop(monkeypatch, capture_logs):
     _seed_standard_issue(comicid="CT", issueid="IT")
     # The torrent was journaled `snatched` by the foundsearch snatch seam.
-    updater.nzblog("IT", "T.cbr", "Saga", id="tid", prov="torznab")
-    updater.foundsearch("CT", "IT", mode="want", provider="torznab", hash="hh", nzbname="T.cbr")
+    snatch_record.nzblog("IT", "T.cbr", "Saga", id="tid", prov="torznab")
+    snatch_record.foundsearch("CT", "IT", mode="want", provider="torznab", hash="hh", nzbname="T.cbr")
     snatched_rows = _rows(pipeline_journal)
     assert len(snatched_rows) == 1
     assert snatched_rows[0]["stage"] == "snatched"
@@ -603,11 +602,11 @@ def test_nzb_journal_retry_cap_failure_logs_and_keeps_snatch(capture_logs):
     from sqlalchemy.exc import OperationalError
 
     _seed_standard_issue()
-    updater.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzbprov")
+    snatch_record.nzblog("I1", "Saga.001.cbz", "Saga", id="nzbid-1", prov="nzbprov")
 
     cap_err = OperationalError("locked retries exhausted", None, None)
     with patch.object(journal, "record_transition", side_effect=cap_err):
-        updater.foundsearch("C1", "I1", mode="want", provider="nzbprov", nzbname="Saga.001.cbz")
+        snatch_record.foundsearch("C1", "I1", mode="want", provider="nzbprov", nzbname="Saga.001.cbz")
 
     # Loud error logged, snatch state intact, no journal row.
     assert "Journal snatched transition failed" in capture_logs.text

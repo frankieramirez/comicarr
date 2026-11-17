@@ -44,7 +44,7 @@ from sqlalchemy import or_, select
 from urllib3.util.retry import Retry
 
 import comicarr
-from comicarr import db, failed, filechecker, getcomics, helpers, logger, nzbget, rsscheck, sabnzbd, updater
+from comicarr import db, failed, filechecker, getcomics, helpers, logger, nzbget, rsscheck, sabnzbd
 from comicarr.app.common import series_kind
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.common.remote_artifacts import (
@@ -53,7 +53,7 @@ from comicarr.app.common.remote_artifacts import (
     write_chunks_atomically,
 )
 from comicarr.app.core.workers import submit_background_future
-from comicarr.app.downloads import handoff
+from comicarr.app.downloads import handoff, snatch_record
 from comicarr.app.notifications import service as notifiers
 from comicarr.app.search import diagnostics as search_diagnostics
 from comicarr.app.search import failures as search_failures
@@ -1802,7 +1802,7 @@ def verification(verified_matches, is_info):
                     logger.fdebug("Did not find issueid_info")
 
                 for isid in issinfo["issues"]:
-                    updater.nzblog(
+                    snatch_record.nzblog(
                         isid["issueid"],
                         nzbname,
                         is_info["ComicName"],
@@ -1812,7 +1812,7 @@ def verification(verified_matches, is_info):
                         prov=is_info["nzbprov"],
                         oneoff=is_info["oneoff"],
                     )
-                    updater.foundsearch(
+                    snatch_record.foundsearch(
                         is_info["ComicID"],
                         isid["issueid"],
                         mode=is_info["smode"],
@@ -1849,7 +1849,7 @@ def verification(verified_matches, is_info):
                 )
                 if "[RSS]" in tmpprov:
                     tmpprov = re.sub(r"\[RSS\]", "", tmpprov).strip()
-                updater.nzblog(
+                snatch_record.nzblog(
                     is_info["IssueID"],
                     nzbname,
                     is_info["ComicName"],
@@ -1866,7 +1866,7 @@ def verification(verified_matches, is_info):
                 )
                 if "[RSS]" in tmpprov:
                     tmpprov = re.sub(r"\[RSS\]", "", tmpprov).strip()
-                updater.nzblog(
+                snatch_record.nzblog(
                     is_info["IssueID"],
                     nzbname,
                     is_info["ComicName"],
@@ -1877,7 +1877,7 @@ def verification(verified_matches, is_info):
                     alt_nzbname=alt_nzbname,
                     oneoff=is_info["oneoff"],
                 )
-            updater.foundsearch(
+            snatch_record.foundsearch(
                 is_info["ComicID"],
                 is_info["IssueID"],
                 mode=is_info["smode"],
@@ -3864,7 +3864,7 @@ def searcher(
             )
             if "[RSS]" in tmpprov:
                 tmpprov = re.sub(r"\[RSS\]", "", tmpprov).strip()
-            updater.nzblog(
+            snatch_record.nzblog(
                 IssueID,
                 nzbname,
                 ComicName,
@@ -3881,7 +3881,7 @@ def searcher(
             )
             if "[RSS]" in tmpprov:
                 tmpprov = re.sub(r"\[RSS\]", "", tmpprov).strip()
-            updater.nzblog(
+            snatch_record.nzblog(
                 IssueID,
                 nzbname,
                 ComicName,

@@ -32,7 +32,6 @@ from comicarr.app.downloads import journal, recovery_classify
 from comicarr.db import get_engine, shutdown_engine
 from comicarr.tables import annuals, ddl_info, issues, metadata, nzblog, pipeline_journal
 
-
 # nzblog has handed out synthetic one-off IssueIDs 900000..900999 (#1261).
 ISSUED_HIGHCOUNT = 900999
 
@@ -721,7 +720,7 @@ def test_oneoff_with_no_issues_row_is_not_a_done_signal():
 
 
 def _imported_annual(issueid="1099556", provider="nzbgeek", status="Downloaded"):
-    """An imported annual, written exactly as updater.foundsearch writes one.
+    """An imported annual, written exactly as snatch_record.foundsearch writes one.
 
     mode='want_ann' upserts Status onto *annuals*, never onto *issues*, so an
     issues-only done-signal lookup cannot see this row. The nzblog row is

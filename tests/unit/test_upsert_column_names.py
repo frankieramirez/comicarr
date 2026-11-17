@@ -19,7 +19,8 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import db, updater
+from comicarr import db
+from comicarr.app.downloads import snatch_record
 from comicarr.tables import comics, issues, metadata, snatched, weekly
 
 
@@ -65,7 +66,7 @@ def test_snatching_an_issue_on_the_pull_list_marks_the_pull_row(fresh_db, monkey
     record_transition = MagicMock()
     monkeypatch.setattr("comicarr.app.downloads.journal.record_transition", record_transition)
 
-    updater.foundsearch("160294", "1194150", provider="nzbgeek", nzbname="Absolute.Batman.024")
+    snatch_record.foundsearch("160294", "1194150", provider="nzbgeek", nzbname="Absolute.Batman.024")
 
     assert _pull_row()["STATUS"] == "Snatched"
     assert record_transition.called
@@ -75,7 +76,7 @@ def test_snatching_an_issue_on_the_pull_list_marks_the_pull_row(fresh_db, monkey
 def test_downloading_a_snatched_pull_issue_marks_the_pull_row(fresh_db):
     _seed_pull_issue(fresh_db, "Snatched")
 
-    updater.foundsearch("160294", "1194150", down="PP", provider="nzbgeek")
+    snatch_record.foundsearch("160294", "1194150", down="PP", provider="nzbgeek")
 
     assert _pull_row()["STATUS"] == "Downloaded"
 

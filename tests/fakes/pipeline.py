@@ -34,9 +34,9 @@ import zipfile
 from types import SimpleNamespace
 
 import comicarr
-from comicarr import nzbget, sabnzbd, updater
+from comicarr import nzbget, sabnzbd
 from comicarr.app.core.context import AppContext
-from comicarr.app.downloads import handoff, journal, postprocessing, service
+from comicarr.app.downloads import handoff, journal, postprocessing, service, snatch_record
 from comicarr.app.series import service as series_service
 from comicarr.config import _CONFIG_DEFINITIONS, Config
 from tests.fakes.nntp import nzb_document
@@ -166,9 +166,9 @@ def _hand_off(route, send, name, *, issueid=None, comicid=None, series=None):
     # search.py queues the monitor item inside searcher(), then records the
     # grab. A failure while recording does not take the queued item back, so
     # it is kept on the item for the test to look at rather than raised.
-    updater.nzblog(issueid, name, series, id=INDEXER_ID, prov=INDEXER)
+    snatch_record.nzblog(issueid, name, series, id=INDEXER_ID, prov=INDEXER)
     try:
-        updater.foundsearch(
+        snatch_record.foundsearch(
             comicid,
             issueid,
             mode="want",

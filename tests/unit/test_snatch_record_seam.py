@@ -9,7 +9,7 @@
 
 """Characterization tests for snatch bookkeeping (#1206).
 
-Pins what ``updater.nzblog`` and ``updater.foundsearch`` write today, reached
+Pins what ``snatch_record.nzblog`` and ``snatch_record.foundsearch`` write today, reached
 through the ``comicarr.app.downloads.snatch_record`` seam where its shape
 allows and directly where the case needs story-arc arguments the seam does not
 take yet. Each case asserts the rows written and the status set.
@@ -22,7 +22,6 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import updater
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.downloads import journal, service, snatch_record
 from comicarr.db import get_engine, shutdown_engine
@@ -113,8 +112,8 @@ def test_annual_snatch_marks_the_annual_row():
         ReleaseComicName="Saga Annual",
     )
 
-    updater.nzblog("A1", "Saga.Annual.001.cbz", "Saga", id="nzb-2", prov="nzbprov")
-    updater.foundsearch("C1", "A1", mode="want_ann", provider="nzbprov", nzbname="Saga.Annual.001.cbz")
+    snatch_record.nzblog("A1", "Saga.Annual.001.cbz", "Saga", id="nzb-2", prov="nzbprov")
+    snatch_record.foundsearch("C1", "A1", mode="want_ann", provider="nzbprov", nzbname="Saga.Annual.001.cbz")
 
     assert _rows(annuals)[0]["Status"] == "Snatched"
     assert _rows(issues) == []
@@ -170,10 +169,10 @@ def test_story_arc_one_off_snatch_keys_on_the_arc_issue():
         Status="Wanted",
     )
 
-    link = updater.nzblog(
+    link = snatch_record.nzblog(
         None, "Nova.023.cbz", "Nova", SARC="War of Kings", IssueArcID="IA7", prov="nzbprov", oneoff=True
     )
-    updater.foundsearch(
+    snatch_record.foundsearch(
         "C9", None, mode="story_arc", provider="nzbprov", SARC="War of Kings", IssueArcID="IA7", nzbname="Nova.023.cbz"
     )
 
