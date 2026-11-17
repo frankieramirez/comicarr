@@ -76,6 +76,7 @@ DEPENDENT_TABLES = [
     "storyarcs",
     "oneoffhistory",
     "manga_volumes",
+    "physical_copies",
 ]
 
 ALL_TABLES = INDEPENDENT_TABLES + DEPENDENT_TABLES

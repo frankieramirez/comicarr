@@ -110,3 +110,11 @@ export type {
   ErrorBoundaryProps,
   ErrorBoundaryState,
 } from "./components";
+
+export type {
+  ShelfCopy,
+  ShelfCopyFields,
+  ShelfCopyPage,
+  ShelfItem,
+  SeriesShelf,
+} from "./shelf";

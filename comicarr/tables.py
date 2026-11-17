@@ -836,6 +836,32 @@ manga_volumes = Table(
     Index("ix_manga_volumes_comic", "ComicID"),
 )
 
+# A print copy the operator owns or wants: one row per physical book, so two
+# covers of one issue are two rows. It points at an issue, an annual or a manga
+# volume number but has no foreign key: removing a series deletes its issue
+# rows, and the copy keeps its snapshot (SeriesName, ItemLabel, CoverURL) so the
+# shelf survives. Nothing in search or post-processing reads this table.
+physical_copies = Table(
+    "physical_copies",
+    metadata,
+    Column("CopyID", String(36), primary_key=True),
+    Column("ComicID", String(255), nullable=False),
+    Column("ItemID", String(255)),
+    Column("VolumeNumber", String(32)),
+    Column("SeriesName", Text),
+    Column("ItemLabel", Text),
+    Column("CoverURL", Text),
+    Column("VariantName", Text),
+    Column("Grade", String(32)),
+    Column("PaidCents", Integer),
+    Column("Storage", Text),
+    Column("Notes", Text),
+    Column("created_at", String(40), nullable=False),
+    Column("updated_at", String(40), nullable=False),
+    Index("ix_physical_copies_comic", "ComicID"),
+    Index("ix_physical_copies_item", "ItemID"),
+)
+
 search_backlog_state = Table(
     "search_backlog_state",
     metadata,

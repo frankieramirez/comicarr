@@ -70,6 +70,13 @@ export function InterfaceTab({
           }
           helpText={t`Show your library's covers behind the sign-in form. Anyone who can reach the sign-in page sees them. Series rated adult are always left out; unrated series can appear.`}
         />
+        <SettingField
+          label={t`Track print copies`}
+          type="checkbox"
+          checked={formData.shelf_enabled}
+          onChange={(checked) => onChange("shelf_enabled", checked as boolean)}
+          helpText={t`Record the physical books you own. Adds a shelf mark to issues and volumes, and a Shelf tab to the Library. It never changes what Comicarr searches for or downloads.`}
+        />
       </SettingGroup>
     </div>
   );
