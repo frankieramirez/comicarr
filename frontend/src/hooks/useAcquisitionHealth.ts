@@ -39,7 +39,8 @@ export interface AcquisitionRouteHealth {
   blocked_provider_count?: number;
   downstream?: string | null;
   client_ready?: boolean;
-  path_ready?: boolean;
+  /** null: Comicarr cannot see the client's folder, so it cannot tell. */
+  path_ready?: boolean | null;
   downstream_ready?: boolean;
   restart_safe?: boolean;
   ready?: boolean;
