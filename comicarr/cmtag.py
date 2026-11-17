@@ -211,7 +211,8 @@ def comicvine_issue(issueid):
     """The ComicVine issue record and its series' publisher, or (None, None)."""
     from sqlalchemy import select
 
-    from comicarr import cv, db
+    from comicarr import db
+    from comicarr.app.metadata import cv
     from comicarr.tables import comics
 
     dom = cv.pulldetails(None, "single_issue", issueid=issueid)

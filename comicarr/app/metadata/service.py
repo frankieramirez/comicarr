@@ -23,6 +23,7 @@ from PIL import Image
 import comicarr
 from comicarr import db, getimage, logger
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.metadata import cv
 from comicarr.app.series import rescan as series_rescan
 
 
@@ -657,7 +658,7 @@ def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
 
     issuetag = None
     if any([filelocation == "None", filelocation is None]):
-        issue_data = comicarr.cv.getComic(None, "single_issue", IssueID)
+        issue_data = cv.getComic(None, "single_issue", IssueID)
         IssueImage = getimage.retrieve_image(issue_data["image"])
         metadata_info = {"metadata_source": "ComicVine", "metadata_type": None}
         return {

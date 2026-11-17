@@ -22,7 +22,8 @@ them unchanged.
 import datetime
 
 import comicarr
-from comicarr import cv, locg, logger
+from comicarr import locg, logger
+from comicarr.app.metadata import cv
 from comicarr.helpers import ignored_publisher_check
 
 SOURCE = "comicvine"

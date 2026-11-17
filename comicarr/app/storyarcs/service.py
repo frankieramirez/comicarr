@@ -25,6 +25,7 @@ import comicarr
 from comicarr import db, helpers, logger
 from comicarr.app.common import placement
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.metadata import cv
 from comicarr.app.storyarcs import queries as arc_queries
 from comicarr.tables import comics, issues, storyarcs
 
@@ -729,7 +730,7 @@ def _add_story_arc(
                             f.write(chunk)
                             f.flush()
 
-    arc_results = comicarr.cv.getComic(comicid=None, rtype="issue", arcid=arcid, arclist=arclist)
+    arc_results = cv.getComic(comicid=None, rtype="issue", arcid=arcid, arclist=arclist)
     logger.fdebug("%s Arcresults: %s" % (module, arc_results))
     logger.fdebug("%s Arclist: %s" % (module, arclist))
     if len(arc_results) > 0:
@@ -824,7 +825,7 @@ def _add_story_arc(
                 }
             )
             n += 1
-        comicid_results = comicarr.cv.getComic(comicid=None, rtype="comicyears", comicidlist=cidlist)
+        comicid_results = cv.getComic(comicid=None, rtype="comicyears", comicidlist=cidlist)
         logger.fdebug("%s Initiating issue updating - just the info" % module)
 
         for AD in issuedata:

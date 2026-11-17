@@ -14,7 +14,7 @@ import pytest
 
 @pytest.mark.parametrize("issue_count, expected_type", [(1, "TPB"), (12, "Print")])
 def test_cv_helper_uses_known_count_for_book_deck(issue_count, expected_type):
-    from comicarr.cv import get_imprint_volume_and_booktype
+    from comicarr.app.metadata.cv import get_imprint_volume_and_booktype
 
     result = get_imprint_volume_and_booktype(
         False,
@@ -31,7 +31,7 @@ def test_cv_helper_uses_known_count_for_book_deck(issue_count, expected_type):
 
 
 def test_get_comic_info_passes_count_and_deck_to_cv_resolver():
-    from comicarr.cv import GetComicInfo
+    from comicarr.app.metadata.cv import GetComicInfo
 
     dom = parseString(
         """

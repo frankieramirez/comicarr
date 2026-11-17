@@ -9,17 +9,19 @@
 
 import datetime
 import json
+
+import pytest
 from types import SimpleNamespace
 
 from sqlalchemy import create_engine
 
 import comicarr
 from comicarr import db
-from comicarr.series_metadata import metadata_Series
+from comicarr.app.metadata.series_metadata import metadata_Series
 from comicarr.tables import comics
 
 
-def _run_metadata(tmp_path, monkeypatch, *, year):
+def _run_metadata(tmp_path, monkeypatch, *, year, latest=None):
     engine = create_engine("sqlite://")
     comics.create(engine)
     with engine.begin() as conn:
@@ -34,7 +36,7 @@ def _run_metadata(tmp_path, monkeypatch, *, year):
                 "ComicVersion": None,
                 "Description": "A single issue with no edition clues.",
                 "DescriptionEdit": None,
-                "LatestDate": f"{year}-01-01",
+                "LatestDate": latest or f"{year}-01-01",
                 "NewPublish": False,
                 "Collects": "None",
                 "Type": "Print",
@@ -70,3 +72,8 @@ def test_default_volume_does_not_suppress_past_year_one_shot_fallback(tmp_path, 
 
     assert metadata["booktype"] == "One-Shot"
     assert metadata["volume"] == 1
+
+
+def test_a_series_with_no_start_year_writes_no_series_json(tmp_path, monkeypatch):
+    with pytest.raises(FileNotFoundError):
+        _run_metadata(tmp_path, monkeypatch, year="0000", latest="2020-01-01")

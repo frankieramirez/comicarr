@@ -34,6 +34,7 @@ from comicarr import db, filechecker, helpers, logger
 from comicarr.app.common import series_kind
 from comicarr.app.manga import volumes as manga_volumes
 from comicarr.app.manga.ledger import volume_number_from_id
+from comicarr.app.metadata import cv, series_metadata
 from comicarr.tables import (
     annuals,
     comics,
@@ -746,7 +747,7 @@ def dbUpdate(ComicIDList=None, calledfrom=None, sched=False):
                     forceRescan(ComicID)
 
                     if not calledfrom == "json_api" and comicarr.CONFIG.SERIES_METADATA_LOCAL is True:
-                        sm = comicarr.series_metadata.metadata_Series(ComicID, bulk=False, api=False)
+                        sm = series_metadata.metadata_Series(ComicID, bulk=False, api=False)
                         sm.update_metadata()
 
                 else:
@@ -2807,7 +2808,7 @@ def watchlist_updater(calledfrom=None, sched=False):
     logger.info("[BACKFILL-UPDATE] last date set to : %s" % last_date)
 
     try:
-        update_list = comicarr.cv.getComic(comicid=None, rtype="db_updater", dateinfo=last_date)
+        update_list = cv.getComic(comicid=None, rtype="db_updater", dateinfo=last_date)
         if update_list is False:
             logger.warn(
                 "[BACKFILL-UPDATE] CV is having problems atm. Deferring backfill"

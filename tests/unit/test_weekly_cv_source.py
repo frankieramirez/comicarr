@@ -282,7 +282,7 @@ def test_an_exception_in_the_fallback_does_not_escape_pullit(walksoftly_down, mo
 
 def test_current_week_answers_expire_before_the_next_pull_run(cv_config):
     """A cached Sunday answer must not hide store dates ComicVine adds by Wednesday."""
-    from comicarr import cv
+    from comicarr.app.metadata import cv
 
     cv_config.CV_CACHE_TTL_SEARCH = 86400
     cv_config.CV_CACHE_TTL_METADATA = 604800

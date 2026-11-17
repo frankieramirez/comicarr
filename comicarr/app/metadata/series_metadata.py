@@ -25,26 +25,23 @@ import re
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, filechecker, helpers, logger, updater
+from comicarr import db, helpers, logger
+from comicarr.app.library.directories import validateAndCreateDirectory
 from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.tables import comics
 
 
 class metadata_Series(object):
-    def __init__(self, comicidlist, bulk=False, api=False, refreshSeries=False):
+    def __init__(self, comicidlist, bulk=False, api=False):
         self.comiclist = comicidlist
         if type(comicidlist) is not list:
             self.comiclist = [comicidlist]
 
         self.bulk = bulk
         self.api = api
-        self.refreshSeries = refreshSeries
 
     def update_metadata(self):
         for cid in self.comiclist:
-            if self.refreshSeries is True:
-                updater.dbUpdate(cid, calledfrom="json_api")
-
             with db.get_engine().connect() as conn:
                 stmt = select(comics).where(comics.c.ComicID == cid)
                 row = conn.execute(stmt).first()
@@ -54,7 +51,7 @@ class metadata_Series(object):
                 description_load = None
                 if not os.path.exists(comic["ComicLocation"]) and comicarr.CONFIG.CREATE_FOLDERS is True:
                     try:
-                        checkdirectory = filechecker.validateAndCreateDirectory(comic["ComicLocation"], True)
+                        checkdirectory = validateAndCreateDirectory(comic["ComicLocation"], True)
                     except Exception as e:
                         logger.warn(
                             "[%s] Unable to create series directory @ %s. Aborting updating of series.json"
@@ -152,12 +149,17 @@ class metadata_Series(object):
                     else:
                         comicVol = int(re.sub("[^0-9]", "", comicVol).strip())
 
+                csyear = comic["Corrected_SeriesYear"]
+
                 if any([comic["ComicYear"] is None, comic["ComicYear"] == "0000", comic["ComicYear"][-1:] == "-"]):
-                    SeriesYear = int(issued["firstdate"][:4])
+                    # The inherited code read an undefined name here and crashed.
+                    # Without a start year there is nothing honest to write.
+                    if csyear is None:
+                        logger.warn("[SERIES-JSON] %s has no start year; series.json not written" % cid)
+                        continue
+                    SeriesYear = int(csyear)
                 else:
                     SeriesYear = int(comic["ComicYear"])
-
-                csyear = comic["Corrected_SeriesYear"]
 
                 if any([SeriesYear > int(datetime.datetime.now().year) + 1, SeriesYear == 2099]) and csyear is not None:
                     logger.info(
