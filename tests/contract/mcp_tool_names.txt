@@ -1,4 +1,5 @@
 add_series
+add_shelf_copy
 cancel_in_flight
 find_series
 get_issue_story
@@ -13,6 +14,7 @@ list_download_queue
 list_in_flight
 list_issues
 list_series
+list_shelf_copies
 list_wanted
 pause_series
 refresh_series
@@ -23,3 +25,4 @@ retry_search_run
 search_issue
 search_missing
 set_issue_status
+set_shelf_copy

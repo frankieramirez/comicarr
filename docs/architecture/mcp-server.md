@@ -111,6 +111,7 @@ Decision: [ticket](https://github.com/frankieramirez/comicarr/issues/1247).
 | `get_system_health` | Indexers, download clients and background jobs | `search.service.get_health`, `system.connections`, the jobs list |
 | `find_series` | A series on the metadata providers, before adding it | `search.service.find_comic`, `find_manga` |
 | `get_search_run` | Progress and outcome of a search | the search runs service |
+| `list_shelf_copies` | Print copies on the shelf, owned or wishlisted | `shelf.service.list_copies` |
 
 - Tools only. No resources or prompts in 1.0.
 - Paging: `limit` (default 25, maximum 100) and `offset`. Every list result
@@ -135,6 +136,8 @@ Decision: [ticket](https://github.com/frankieramirez/comicarr/issues/1248).
 | `retry_post_processing` | Retries post-processing of one download by `release_key` | |
 | `resolve_attention` | Resolves a needs-attention item | destructive |
 | `cancel_in_flight` | Cancels a queued or running download or search | destructive |
+| `add_shelf_copy` | Records one print copy of an issue, annual or manga volume | |
+| `set_shelf_copy` | Changes a print copy's state, grade, price, storage or notes | idempotent |
 
 - Never exposed: deleting a series or files, clearing history, settings and
   provider writes, API key regeneration, shutdown and restart, migration,
@@ -173,6 +176,9 @@ Decision: [ticket](https://github.com/frankieramirez/comicarr/issues/1248).
   `stop_wanting` through `attention.resolve`, never `import`, which takes a
   folder. `cancel_in_flight` passes `actor` to the run item's
   `search.cancelled` row; a cancelled download's row carries no actor yet.
+- The shelf writes (`add_shelf_copy`, `set_shelf_copy`) start no acquisition
+  and change no issue status, so they write no Activity row and are allowed
+  during maintenance. There is no tool to remove a copy.
 - Writes that would start acquisition during maintenance return
   `maintenance`; `retry_post_processing` returns `busy` when the processing
   lock is held.

@@ -81,6 +81,513 @@
   },
   {
     "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Record one print copy of an issue, an annual or a manga volume as owned or wishlisted. Each call adds a new copy, so two covers of one issue are two calls. It never changes the issue's status or what Comicarr searches for.",
+    "inputSchema": {
+      "properties": {
+        "barcode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "UPC, EAN or ISBN digits.",
+          "title": "Barcode"
+        },
+        "bought_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bought From"
+        },
+        "bought_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "YYYY-MM-DD.",
+          "title": "Bought On"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ISO 4217 code, such as USD.",
+          "title": "Currency"
+        },
+        "estimate_cents": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The operator's own estimate, in cents.",
+          "title": "Estimate Cents"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "enum": [
+                "single",
+                "tpb",
+                "hc",
+                "omnibus",
+                "tankobon",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Defaults from the series type.",
+          "title": "Format"
+        },
+        "grade": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "0.5 to 10, such as 9.4.",
+          "title": "Grade"
+        },
+        "grade_service": {
+          "anyOf": [
+            {
+              "enum": [
+                "raw",
+                "cgc",
+                "cbcs",
+                "pgx"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grade Service"
+        },
+        "item_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The issue or annual id; leave out for a volume.",
+          "title": "Item Id"
+        },
+        "item_kind": {
+          "description": "issue, annual, or volume for a manga volume.",
+          "enum": [
+            "issue",
+            "annual",
+            "volume"
+          ],
+          "title": "Item Kind",
+          "type": "string"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "paid_cents": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Price paid, in cents.",
+          "title": "Paid Cents"
+        },
+        "printing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Such as 1st printing.",
+          "title": "Printing"
+        },
+        "series_id": {
+          "description": "Comicarr's series id, from list_series.",
+          "minLength": 1,
+          "title": "Series Id",
+          "type": "string"
+        },
+        "state": {
+          "default": "owned",
+          "description": "owned or wishlist.",
+          "enum": [
+            "owned",
+            "wishlist"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "storage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where the copy is kept, such as a box name.",
+          "title": "Storage"
+        },
+        "variant_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Such as 1:25 virgin.",
+          "title": "Variant Name"
+        },
+        "volume_number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The manga volume number, such as 12.",
+          "title": "Volume Number"
+        }
+      },
+      "required": [
+        "series_id",
+        "item_kind"
+      ],
+      "title": "add_shelf_copyArguments",
+      "type": "object"
+    },
+    "name": "add_shelf_copy",
+    "outputSchema": {
+      "description": "One print copy. Display only: it never changes what Comicarr searches for.",
+      "properties": {
+        "barcode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Barcode"
+        },
+        "bought_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bought From"
+        },
+        "bought_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bought On"
+        },
+        "copy_id": {
+          "title": "Copy Id",
+          "type": "string"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Currency"
+        },
+        "estimate_cents": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The operator's own estimate, never a market price.",
+          "title": "Estimate Cents"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Format"
+        },
+        "grade": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Grade"
+        },
+        "grade_service": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Grade Service"
+        },
+        "item_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Issue or annual id; null for a manga volume.",
+          "title": "Item Id"
+        },
+        "item_kind": {
+          "enum": [
+            "issue",
+            "annual",
+            "volume"
+          ],
+          "title": "Item Kind",
+          "type": "string"
+        },
+        "item_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Item Label"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Notes"
+        },
+        "paid_cents": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Paid Cents"
+        },
+        "printing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Printing"
+        },
+        "series_id": {
+          "title": "Series Id",
+          "type": "string"
+        },
+        "series_in_library": {
+          "description": "False once the series was removed; the copy stays on the shelf.",
+          "title": "Series In Library",
+          "type": "boolean"
+        },
+        "series_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Current name, or the name saved when the copy was added.",
+          "title": "Series Name"
+        },
+        "state": {
+          "enum": [
+            "owned",
+            "wishlist"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "storage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Storage"
+        },
+        "variant_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Variant Name"
+        },
+        "volume_number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Manga volume number; null for an issue or annual.",
+          "title": "Volume Number"
+        }
+      },
+      "required": [
+        "copy_id",
+        "series_id",
+        "series_name",
+        "series_in_library",
+        "item_kind",
+        "item_id",
+        "volume_number",
+        "item_label",
+        "state",
+        "format",
+        "variant_name",
+        "printing",
+        "grade_service",
+        "grade",
+        "paid_cents",
+        "estimate_cents",
+        "currency",
+        "bought_on",
+        "bought_from",
+        "storage",
+        "barcode",
+        "notes"
+      ],
+      "title": "ShelfCopy",
+      "type": "object"
+    },
+    "title": "Add shelf copy"
+  },
+  {
+    "annotations": {
       "destructiveHint": true,
       "idempotentHint": false,
       "openWorldHint": false,
@@ -3399,6 +3906,400 @@
       "openWorldHint": false,
       "readOnlyHint": true
     },
+    "description": "List the print copies on the operator's shelf, owned or on the wishlist. Filter by series, state, item kind, storage place or text.",
+    "inputSchema": {
+      "properties": {
+        "item_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "issue",
+                "annual",
+                "volume"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "issue, annual or volume.",
+          "title": "Item Kind"
+        },
+        "limit": {
+          "default": 25,
+          "description": "Page size, 1 to 100.",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Items to skip before this page.",
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "series_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only this series' copies.",
+          "title": "Series Id"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "enum": [
+                "owned",
+                "wishlist"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "owned or wishlist.",
+          "title": "State"
+        },
+        "storage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Exact storage place, such as a box name.",
+          "title": "Storage"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Part of the series name, label, variant or notes.",
+          "title": "Text"
+        }
+      },
+      "title": "list_shelf_copiesArguments",
+      "type": "object"
+    },
+    "name": "list_shelf_copies",
+    "outputSchema": {
+      "$defs": {
+        "ShelfCopy": {
+          "description": "One print copy. Display only: it never changes what Comicarr searches for.",
+          "properties": {
+            "barcode": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Barcode"
+            },
+            "bought_from": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bought From"
+            },
+            "bought_on": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bought On"
+            },
+            "copy_id": {
+              "title": "Copy Id",
+              "type": "string"
+            },
+            "currency": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Currency"
+            },
+            "estimate_cents": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The operator's own estimate, never a market price.",
+              "title": "Estimate Cents"
+            },
+            "format": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Format"
+            },
+            "grade": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Grade"
+            },
+            "grade_service": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Grade Service"
+            },
+            "item_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Issue or annual id; null for a manga volume.",
+              "title": "Item Id"
+            },
+            "item_kind": {
+              "enum": [
+                "issue",
+                "annual",
+                "volume"
+              ],
+              "title": "Item Kind",
+              "type": "string"
+            },
+            "item_label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Item Label"
+            },
+            "notes": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Notes"
+            },
+            "paid_cents": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Paid Cents"
+            },
+            "printing": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Printing"
+            },
+            "series_id": {
+              "title": "Series Id",
+              "type": "string"
+            },
+            "series_in_library": {
+              "description": "False once the series was removed; the copy stays on the shelf.",
+              "title": "Series In Library",
+              "type": "boolean"
+            },
+            "series_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Current name, or the name saved when the copy was added.",
+              "title": "Series Name"
+            },
+            "state": {
+              "enum": [
+                "owned",
+                "wishlist"
+              ],
+              "title": "State",
+              "type": "string"
+            },
+            "storage": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Storage"
+            },
+            "variant_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Variant Name"
+            },
+            "volume_number": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Manga volume number; null for an issue or annual.",
+              "title": "Volume Number"
+            }
+          },
+          "required": [
+            "copy_id",
+            "series_id",
+            "series_name",
+            "series_in_library",
+            "item_kind",
+            "item_id",
+            "volume_number",
+            "item_label",
+            "state",
+            "format",
+            "variant_name",
+            "printing",
+            "grade_service",
+            "grade",
+            "paid_cents",
+            "estimate_cents",
+            "currency",
+            "bought_on",
+            "bought_from",
+            "storage",
+            "barcode",
+            "notes"
+          ],
+          "title": "ShelfCopy",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "copies": {
+          "items": {
+            "$ref": "#/$defs/ShelfCopy"
+          },
+          "title": "Copies",
+          "type": "array"
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Offset of the next page; null on the last page.",
+          "title": "Next Offset"
+        },
+        "total": {
+          "description": "Items matching the filters, across all pages.",
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "next_offset",
+        "copies"
+      ],
+      "title": "ShelfCopyPage",
+      "type": "object"
+    },
+    "title": "List shelf copies"
+  },
+  {
+    "annotations": {
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
     "description": "What is missing: Wanted issues one by one, or grouped by series with how many were searched and not found, are being searched, or are waiting.",
     "inputSchema": {
       "properties": {
@@ -4370,5 +5271,472 @@
       "type": "object"
     },
     "title": "Set issue status"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false
+    },
+    "description": "Change fields on one shelf copy, such as moving it from the wishlist to owned, or setting its grade, price or storage. Fields left out stay as they are; an empty string clears a text field.",
+    "inputSchema": {
+      "properties": {
+        "barcode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Barcode"
+        },
+        "bought_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bought From"
+        },
+        "bought_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "YYYY-MM-DD.",
+          "title": "Bought On"
+        },
+        "copy_id": {
+          "description": "The copy id, from list_shelf_copies or add_shelf_copy.",
+          "minLength": 1,
+          "title": "Copy Id",
+          "type": "string"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Currency"
+        },
+        "estimate_cents": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Estimate Cents"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "enum": [
+                "single",
+                "tpb",
+                "hc",
+                "omnibus",
+                "tankobon",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Format"
+        },
+        "grade": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grade"
+        },
+        "grade_service": {
+          "anyOf": [
+            {
+              "enum": [
+                "raw",
+                "cgc",
+                "cbcs",
+                "pgx"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grade Service"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "paid_cents": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paid Cents"
+        },
+        "printing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Printing"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "enum": [
+                "owned",
+                "wishlist"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State"
+        },
+        "storage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Storage"
+        },
+        "variant_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Name"
+        }
+      },
+      "required": [
+        "copy_id"
+      ],
+      "title": "set_shelf_copyArguments",
+      "type": "object"
+    },
+    "name": "set_shelf_copy",
+    "outputSchema": {
+      "description": "One print copy. Display only: it never changes what Comicarr searches for.",
+      "properties": {
+        "barcode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Barcode"
+        },
+        "bought_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bought From"
+        },
+        "bought_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bought On"
+        },
+        "copy_id": {
+          "title": "Copy Id",
+          "type": "string"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Currency"
+        },
+        "estimate_cents": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The operator's own estimate, never a market price.",
+          "title": "Estimate Cents"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Format"
+        },
+        "grade": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Grade"
+        },
+        "grade_service": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Grade Service"
+        },
+        "item_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Issue or annual id; null for a manga volume.",
+          "title": "Item Id"
+        },
+        "item_kind": {
+          "enum": [
+            "issue",
+            "annual",
+            "volume"
+          ],
+          "title": "Item Kind",
+          "type": "string"
+        },
+        "item_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Item Label"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Notes"
+        },
+        "paid_cents": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Paid Cents"
+        },
+        "printing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Printing"
+        },
+        "series_id": {
+          "title": "Series Id",
+          "type": "string"
+        },
+        "series_in_library": {
+          "description": "False once the series was removed; the copy stays on the shelf.",
+          "title": "Series In Library",
+          "type": "boolean"
+        },
+        "series_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Current name, or the name saved when the copy was added.",
+          "title": "Series Name"
+        },
+        "state": {
+          "enum": [
+            "owned",
+            "wishlist"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "storage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Storage"
+        },
+        "variant_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Variant Name"
+        },
+        "volume_number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Manga volume number; null for an issue or annual.",
+          "title": "Volume Number"
+        }
+      },
+      "required": [
+        "copy_id",
+        "series_id",
+        "series_name",
+        "series_in_library",
+        "item_kind",
+        "item_id",
+        "volume_number",
+        "item_label",
+        "state",
+        "format",
+        "variant_name",
+        "printing",
+        "grade_service",
+        "grade",
+        "paid_cents",
+        "estimate_cents",
+        "currency",
+        "bought_on",
+        "bought_from",
+        "storage",
+        "barcode",
+        "notes"
+      ],
+      "title": "ShelfCopy",
+      "type": "object"
+    },
+    "title": "Set shelf copy"
   }
 ]

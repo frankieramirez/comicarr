@@ -38,6 +38,7 @@ from tests.mcp_harness import (
 ERAS = [pytest.param("legacy", LEGACY, id=LEGACY), pytest.param(MODERN, MODERN, id=MODERN)]
 
 CALLS = {
+    "list_shelf_copies": ({"state": "owned"}, lambda page: page["total"] == 0 and page["copies"] == []),
     "list_series": ({"kind": "manga"}, lambda page: [s["series_id"] for s in page["series"]] == ["md-abc"]),
     "get_series": ({"series_id": "1001"}, lambda out: out["name"] == "Saga" and out["counts"]["issues"] == 2),
     "list_issues": (
@@ -62,6 +63,11 @@ CALLS = {
 EXPECTED_READ_ERRORS = {"get_search_run"}
 
 WRITE_CALLS = {
+    "add_shelf_copy": (
+        {"series_id": "1001", "item_kind": "issue", "item_id": "5002", "grade_service": "cgc", "grade": "9.8"},
+        lambda out: out["state"] == "owned" and out["grade"] == "9.8" and out["format"] == "single",
+    ),
+    "set_shelf_copy": ({"copy_id": "nope", "state": "wishlist"}, lambda out: out["code"] == "not_found"),
     "set_issue_status": ({"issue_id": "5001", "status": "wanted"}, lambda out: out["status"] == "Wanted"),
     "pause_series": ({"series_id": "1001"}, lambda out: out["status"] == "Paused"),
     "resume_series": ({"series_id": "1001"}, lambda out: out["status"] == "Active"),
@@ -82,6 +88,7 @@ WRITE_CALLS = {
     "cancel_in_flight": ({"kind": "journal", "release_key": "nope"}, lambda out: out["code"] == "not_found"),
 }
 EXPECTED_ERRORS = {
+    "set_shelf_copy",
     "retry_search_run",
     "refresh_series",
     "retry_post_processing",
