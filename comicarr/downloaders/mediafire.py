@@ -26,14 +26,13 @@ from email.message import Message
 import requests
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.common.remote_artifacts import (
     resolve_remote_artifact_path,
     safe_remote_filename,
     write_chunks_atomically,
 )
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
 
 
 class MediaFire(object):

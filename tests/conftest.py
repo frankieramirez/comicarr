@@ -3,8 +3,8 @@ Global pytest fixtures and configuration for Comicarr tests.
 """
 
 import os
-import sys
 import sqlite3
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -264,9 +264,9 @@ def mock_db_connection(temp_db):
     """
     Create a mock database connection using the temp database.
 
-    This patches comicarr.db.DBConnection to use the temp database.
+    This patches comicarr.app.core.db.DBConnection to use the temp database.
     """
-    with patch("comicarr.db.DBConnection") as mock_class:
+    with patch("comicarr.app.core.db.DBConnection") as mock_class:
         # Create a real connection to the temp db
         conn = sqlite3.connect(temp_db)
         conn.row_factory = sqlite3.Row

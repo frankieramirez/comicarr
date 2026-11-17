@@ -17,10 +17,10 @@ import requests
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import acquisition_runs, activity_events, comics, importresults, metadata, weekly
 from comicarr.app.system import connections, job_results
 from comicarr.app.system import router as system_router
-from comicarr.tables import acquisition_runs, activity_events, comics, importresults, metadata, weekly
 
 T0 = datetime.datetime(2026, 11, 12, 6, 0, tzinfo=datetime.timezone.utc)
 

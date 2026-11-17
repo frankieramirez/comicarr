@@ -15,10 +15,10 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import metadata, rss_search_seen
 from comicarr.app.search.backlog import PASS_RSS_WANTED
 from comicarr.app.series import wanted_pacing
-from comicarr.tables import metadata, rss_search_seen
 
 NOW = 1_800_000_000.0
 

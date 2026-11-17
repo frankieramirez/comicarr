@@ -19,10 +19,10 @@ from sqlalchemy import insert, select
 import comicarr
 from comicarr import failed as failed_mod
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import metadata, pipeline_journal
 from comicarr.app.downloads import journal, postprocess_pipeline, postprocessing
 from comicarr.app.search import commands
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import metadata, pipeline_journal
 
 
 @pytest.fixture(autouse=True)

@@ -125,10 +125,10 @@ def manga_volume_for_issue(issueid):
     # preserves that ordering.
     from sqlalchemy import select
 
-    from comicarr import db
     from comicarr.app.common import series_kind
+    from comicarr.app.core import db
+    from comicarr.app.core.tables import comics, issues
     from comicarr.app.manga import ledger
-    from comicarr.tables import comics, issues
 
     try:
         row = db.select_one(
@@ -231,9 +231,9 @@ def comicvine_issue(issueid):
     """The ComicVine issue record and its series' publisher, or (None, None)."""
     from sqlalchemy import select
 
-    from comicarr import db
+    from comicarr.app.core import db
+    from comicarr.app.core.tables import comics
     from comicarr.app.metadata import cv
-    from comicarr.tables import comics
 
     dom = cv.pulldetails(None, "single_issue", issueid=issueid)
     if not isinstance(dom, dict):

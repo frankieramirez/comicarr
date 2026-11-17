@@ -17,11 +17,11 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, issues, metadata, weekly
 from comicarr.app.storyarcs import service as storyarcs_service
 from comicarr.app.weekly import router
 from comicarr.app.weekly import service as weekly_service
-from comicarr.tables import comics, issues, metadata, weekly
 
 # Saturday of %U week 41, 2026 (Sunday 2026-10-11 to Saturday 2026-10-17).
 TODAY = datetime.date(2026, 10, 17)

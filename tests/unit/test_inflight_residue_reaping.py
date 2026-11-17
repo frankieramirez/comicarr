@@ -26,8 +26,8 @@ import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS, RunLedger
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import acquisition_run_items, metadata
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import acquisition_run_items, metadata
 
 
 @pytest.fixture(autouse=True)
@@ -173,8 +173,7 @@ def test_schema_v7_cancels_residue_that_predates_the_bound(tmp_path, monkeypatch
 
     with get_engine().connect() as conn:
         rows = {
-            row["entity_id"]: dict(row)
-            for row in (r._mapping for r in conn.execute(select(acquisition_run_items)))
+            row["entity_id"]: dict(row) for row in (r._mapping for r in conn.execute(select(acquisition_run_items)))
         }
 
     assert rows["stranded-1"]["state"] == ItemOutcome.CANCELLED.value

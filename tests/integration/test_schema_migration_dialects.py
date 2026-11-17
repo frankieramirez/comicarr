@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from alembic import command
 from comicarr.app.acquisition.maintenance import CONTROL_ID, RECONCILIATION_CONTROL_ID
 from comicarr.app.core.schema import MigrationStateError, alembic_config, current_revision, upgrade_database
-from comicarr.tables import (
+from comicarr.app.core.tables import (
     acquisition_maintenance,
     acquisition_reconciliation,
     annuals,

@@ -19,10 +19,10 @@ from sqlalchemy import insert
 
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import jobhistory, weekly
 from comicarr.app.search import mb
 from comicarr.app.weekly import service as weekly_service
-from comicarr.db import get_engine
-from comicarr.tables import jobhistory, weekly
 from tests.mcp_harness import KEY, LEGACY, MODERN, make_app, mcp_client, seed_library, teardown_library
 
 AUTH = "Bearer " + KEY

@@ -44,7 +44,7 @@ from sqlalchemy import or_, select
 from urllib3.util.retry import Retry
 
 import comicarr
-from comicarr import db, failed, filechecker, getcomics, nzbget, rsscheck, sabnzbd
+from comicarr import failed, filechecker, getcomics, nzbget, rsscheck, sabnzbd
 from comicarr.app.common import configured as configured
 from comicarr.app.common import series_kind
 from comicarr.app.common import strings as common_strings
@@ -54,8 +54,16 @@ from comicarr.app.common.remote_artifacts import (
     safe_remote_filename,
     write_chunks_atomically,
 )
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
 from comicarr.app.core import security as core_security
+from comicarr.app.core.tables import (
+    annuals,
+    comics,
+    issues,
+    provider_searches,
+    storyarcs,
+    weekly,
+)
 from comicarr.app.core.workers import submit_background_future
 from comicarr.app.downloads import handoff, snatch_record
 from comicarr.app.downloads import service as downloads_service
@@ -78,14 +86,6 @@ from comicarr.app.search.provider_config import provider_enabled, split_newznab_
 from comicarr.app.series import service as series_service
 from comicarr.app.system import service as system_service
 from comicarr.downloaders import external_server as exs
-from comicarr.tables import (
-    annuals,
-    comics,
-    issues,
-    provider_searches,
-    storyarcs,
-    weekly,
-)
 from comicarr.torrent import monitor as torrent_monitor
 
 _search_executor = None

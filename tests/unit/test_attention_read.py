@@ -16,8 +16,8 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
-from comicarr.tables import metadata, pipeline_journal
+from comicarr.app.core import db
+from comicarr.app.core.tables import metadata, pipeline_journal
 
 
 @pytest.fixture

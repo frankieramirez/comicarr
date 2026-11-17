@@ -28,9 +28,9 @@ from sqlalchemy import create_engine, event
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from comicarr import db  # noqa: E402
+from comicarr.app.core import db
+from comicarr.app.core.tables import importresults  # noqa: E402
 from comicarr.app.series import queries  # noqa: E402
-from comicarr.tables import importresults  # noqa: E402
 
 
 def warm_caches(read):

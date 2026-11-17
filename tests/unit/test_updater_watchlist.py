@@ -19,10 +19,10 @@ import comicarr
 from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.common import dates as common_dates
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import issues, metadata
 from comicarr.app.series import add, add_workers, folder_rescan, watchlist_refresh
 from comicarr.app.system import service as system_service
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import issues, metadata
 
 
 class _LeaseContext:

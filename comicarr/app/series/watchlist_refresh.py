@@ -28,20 +28,19 @@ from collections.abc import Mapping
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
-from comicarr.app.core import logger
-from comicarr.app.metadata import cv, series_metadata
-from comicarr.app.series import add, rescan
-from comicarr.app.series import service as series_service
-from comicarr.app.system import service as system_service
-from comicarr.tables import (
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import (
     annuals,
     comics,
     issues,
     jobhistory,
 )
+from comicarr.app.metadata import cv, series_metadata
+from comicarr.app.series import add, rescan
+from comicarr.app.series import service as series_service
+from comicarr.app.system import service as system_service
 
 
 def run_refresh_queue(queue, ledger=None, maintenance=None):

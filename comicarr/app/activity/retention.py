@@ -21,8 +21,8 @@ from sqlalchemy import delete
 
 from comicarr.app.common.dates import normalize_utc_datetime
 from comicarr.app.core import logger
-from comicarr.db import get_engine
-from comicarr.tables import activity_events
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import activity_events
 
 RETENTION_DAYS = 90
 JOB_ID = "activity_retention"

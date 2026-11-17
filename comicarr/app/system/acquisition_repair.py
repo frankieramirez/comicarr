@@ -36,8 +36,7 @@ from sqlalchemy.exc import OperationalError
 from comicarr.app.acquisition.evidence import has_verified_library_file
 from comicarr.app.acquisition.maintenance import MaintenanceConflict, MaintenanceController
 from comicarr.app.acquisition.models import AcquisitionIntent, Fulfillment
-from comicarr.app.series.location import retained_locations
-from comicarr.tables import (
+from comicarr.app.core.tables import (
     acquisition_canary_permits,
     acquisition_repair_canaries,
     acquisition_repair_events,
@@ -53,6 +52,7 @@ from comicarr.tables import (
     pipeline_journal,
     snatched,
 )
+from comicarr.app.series.location import retained_locations
 
 MAX_JSON_BYTES = 256 * 1024
 MAX_REASON_LENGTH = 255

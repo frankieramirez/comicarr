@@ -18,15 +18,12 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.core import db
 from comicarr.app.core.context import AppContext
-from comicarr.app.downloads import handoff, journal, postprocessing, recovery
-from comicarr.app.manga import add as manga_add
-from comicarr.app.series import service as series_service
-from comicarr.tables import (
+from comicarr.app.core.tables import (
     acquisition_run_items,
     acquisition_runs,
     comics,
@@ -36,6 +33,9 @@ from comicarr.tables import (
     pipeline_journal,
     snatched,
 )
+from comicarr.app.downloads import handoff, journal, postprocessing, recovery
+from comicarr.app.manga import add as manga_add
+from comicarr.app.series import service as series_service
 from tests.fakes import manga as manga_fake
 from tests.fakes import pipeline
 from tests.fakes import sabnzbd as sab_fake
@@ -826,7 +826,7 @@ def manga(sab, tmp_path, monkeypatch):
 
 
 def _manga_series():
-    from comicarr.tables import comics as t_comics
+    from comicarr.app.core.tables import comics as t_comics
 
     return db.select_one(select(t_comics).where(t_comics.c.ComicID == pipeline.MANGA_ID))
 
@@ -1193,8 +1193,8 @@ def test_manga_second_release_of_an_owned_chapter_is_not_sent(recorded):
 
 def test_manga_rss_grabs_and_places_a_wanted_chapter(recorded, monkeypatch):
     """The scheduled manga RSS pass matches an rssdb row, hands it to SABnzbd, and it lands."""
+    from comicarr.app.core.tables import rssdb
     from comicarr.rsscheck import mangaCheck
-    from comicarr.tables import rssdb
     from tests.fakes.newznab import FakeNewznab
 
     indexer = FakeNewznab().install(monkeypatch)

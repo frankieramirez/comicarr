@@ -22,10 +22,9 @@ import re
 
 from sqlalchemy import func, select
 
-from comicarr import db
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import activity_events, annuals, issues, pipeline_journal
 from comicarr.app.search import search_history
-from comicarr.tables import activity_events, annuals, issues, pipeline_journal
 
 LOG_LINES = 8
 _LOG_STAMP = re.compile(r"^(\d{2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2}:\d{2})")

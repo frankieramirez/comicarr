@@ -39,9 +39,9 @@ from sqlalchemy import insert
 import comicarr
 from comicarr import postprocessor
 from comicarr.app.common.placement import OnExisting, PlacementError, Purpose
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.downloads import postprocess_pipeline
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, issues, metadata
 from tests.fakes import folder_request
 
 
@@ -288,7 +288,7 @@ class TestStoryArcDirectoryPlacement:
 
     @pytest.fixture
     def arc(self, library, tmp_path):
-        from comicarr.tables import storyarcs
+        from comicarr.app.core.tables import storyarcs
 
         arc_root = tmp_path / "arcs"
         arc_root.mkdir()
@@ -428,7 +428,7 @@ class TestOneOffAndGrabBagPlacement:
 
     def test_a_one_off_story_arc_grab_reads_the_arc_volume(self, library, monkeypatch, tmp_path):
         """storyarcs has no ComicVersion column; the arc's Volume labels the tag (#1296)."""
-        from comicarr.tables import storyarcs
+        from comicarr.app.core.tables import storyarcs
 
         arc_root = tmp_path / "arcs"
         arc_root.mkdir()

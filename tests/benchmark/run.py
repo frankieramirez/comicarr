@@ -164,7 +164,7 @@ def _get(client, *paths):
 
 def rescan_all():
     """Rescan every series folder, as a full library rescan does."""
-    from comicarr import db
+    from comicarr.app.core import db
     from comicarr.app.series import folder_rescan
 
     for row in db.raw_select_all("SELECT ComicID FROM comics ORDER BY ComicID"):
@@ -212,7 +212,7 @@ def release_candidates(series, others, count=200):
 
 
 def release_evaluation(comic_id):
-    from comicarr import db
+    from comicarr.app.core import db
     from comicarr.app.search.evaluation import EvaluationSession
 
     series = db.raw_select_one("SELECT * FROM comics WHERE ComicID = ?", [comic_id])
@@ -367,7 +367,7 @@ def run(library, only=None):
         if "schema_upgrade" in wanted:
             action, setup = schema_upgrade(library, scratch)
             samples["schema_upgrade"] = time_it(action, setup=setup)
-        from comicarr import db
+        from comicarr.app.core import db
 
         db.shutdown_engine()
 

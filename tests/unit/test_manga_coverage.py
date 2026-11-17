@@ -12,10 +12,10 @@
 import pytest
 
 import comicarr
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import metadata
 from comicarr.app.manga import coverage, volumes
 from comicarr.app.manga.acquisition import search_plan_for_series
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import metadata
 
 
 def _chapter(number, volume=None):

@@ -23,11 +23,10 @@ import os
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import dates as common_dates
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import annuals, comics, issues, readlist, storyarcs
 from comicarr.app.library import filers
-from comicarr.tables import annuals, comics, issues, readlist, storyarcs
 
 
 class Readinglist(object):

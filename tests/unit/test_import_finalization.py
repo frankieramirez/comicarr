@@ -24,10 +24,10 @@ from sqlalchemy import create_engine, insert, select
 
 from comicarr.app.common import placement
 from comicarr.app.config.registry import REGISTRY, readable_keys, writable_keys
+from comicarr.app.core.tables import importresults
 from comicarr.app.imports import finalization
 from comicarr.app.imports import queries as import_queries
 from comicarr.app.series import router as series_router
-from comicarr.tables import importresults
 
 
 def _config(
@@ -1371,7 +1371,7 @@ def test_unnumbered_auto_import_protects_existing_series_files(tmp_path):
 
 
 def test_auto_duplicate_leaves_database_issue_and_import_unchanged(tmp_path):
-    from comicarr.tables import comics, issues
+    from comicarr.app.core.tables import comics, issues
 
     source = tmp_path / "inbox.cbz"
     source.write_bytes(b"new")
@@ -1416,8 +1416,8 @@ def test_auto_duplicate_leaves_database_issue_and_import_unchanged(tmp_path):
 
 @pytest.mark.parametrize("unselected", [True, False])
 def test_auto_archive_rescan_consumes_only_selected_files(tmp_path, unselected):
+    from comicarr.app.core.tables import comics, issues, metadata
     from comicarr.app.imports import importinbox
-    from comicarr.tables import comics, issues, metadata
 
     inbox = tmp_path / "inbox" / "X-Men"
     inbox.mkdir(parents=True)

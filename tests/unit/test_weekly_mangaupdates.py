@@ -17,11 +17,10 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
-from comicarr.app.core import workers
+from comicarr.app.core import db, workers
+from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.weekly import mangaupdates
 from comicarr.app.weekly import service as weekly_service
-from comicarr.tables import comics, issues, metadata
 
 # Saturday closing the Sunday-based week of 2026-11-08 to 2026-11-14.
 TODAY = datetime.date(2026, 11, 14)

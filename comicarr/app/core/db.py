@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 
 import comicarr
 from comicarr.app.core import logger
-from comicarr.tables import TABLE_MAP, UPSERT_KEYS
+from comicarr.app.core.tables import TABLE_MAP, UPSERT_KEYS
 
 _engine = None
 _engine_lock = threading.Lock()

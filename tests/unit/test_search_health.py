@@ -18,10 +18,10 @@ import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema, refresh_runtime_state
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import metadata
 from comicarr.app.search import health
 from comicarr.app.search import service as search_service
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import metadata
 
 
 @pytest.fixture(autouse=True)

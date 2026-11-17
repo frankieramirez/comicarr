@@ -16,12 +16,12 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.core import db
 from comicarr.app.core.context import AppContext
+from comicarr.app.core.tables import acquisition_runs, acquisition_search_previews, annuals, comics, issues, metadata
 from comicarr.app.series import service as series_service
-from comicarr.tables import acquisition_runs, acquisition_search_previews, annuals, comics, issues, metadata
 
 
 @pytest.fixture(autouse=True)
@@ -240,7 +240,7 @@ def test_explicit_annual_lookup_uses_null_deleted_row():
 
 def test_search_source_skips_phantom_issues_row_for_annual_and_explicit_arc():
     from comicarr import search as legacy_search
-    from comicarr.tables import storyarcs
+    from comicarr.app.core.tables import storyarcs
 
     with db.get_engine().begin() as conn:
         conn.execute(comics.insert().values(ComicID="c1", Status="Active"))

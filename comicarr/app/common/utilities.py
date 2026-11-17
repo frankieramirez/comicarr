@@ -108,7 +108,7 @@ def log_that_exception(except_info, db=None, now_func=None, log_dir=None, tail_f
 
     from sqlalchemy import select, text
 
-    from comicarr.tables import exceptions_log
+    from comicarr.app.core.tables import exceptions_log
 
     fileline = db.select_one(
         select(text("rowid"), exceptions_log.c.date).select_from(exceptions_log).where(exceptions_log.c.date == logdate)

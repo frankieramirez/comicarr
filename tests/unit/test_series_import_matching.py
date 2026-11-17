@@ -15,8 +15,8 @@ import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.schema import CreateTable
 
+from comicarr.app.core.tables import importresults
 from comicarr.app.series import queries, service
-from comicarr.tables import importresults
 
 
 def test_get_import_pending_returns_group_and_file_summary_counts():

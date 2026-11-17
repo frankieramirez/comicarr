@@ -17,9 +17,9 @@ import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.attention import ResolutionRequest, read, resolve
 from comicarr.app.core.context import AppContext
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import comics, issues, metadata, pipeline_journal
 from comicarr.app.downloads import journal
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, issues, metadata, pipeline_journal
 
 
 @pytest.fixture(autouse=True)

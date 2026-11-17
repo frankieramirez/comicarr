@@ -21,13 +21,13 @@ from sqlalchemy import text
 from starlette.datastructures import UploadFile
 
 import comicarr
-from comicarr import db
 from comicarr.app.ai import chat_images, chat_store
 from comicarr.app.ai.chat_service import stream_turn
 from comicarr.app.ai.router import router
+from comicarr.app.core import db
 from comicarr.app.core.schema import upgrade_database
 from comicarr.app.core.security import require_session
-from comicarr.tables import ai_chat_messages, metadata
+from comicarr.app.core.tables import ai_chat_messages, metadata
 
 
 @pytest.fixture

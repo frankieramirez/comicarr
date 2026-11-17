@@ -53,9 +53,9 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import issues, metadata, nzblog, pipeline_journal, snatched
 from comicarr.app.downloads import journal, recovery, recovery_classify
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import issues, metadata, nzblog, pipeline_journal, snatched
 
 
 @pytest.fixture(autouse=True)

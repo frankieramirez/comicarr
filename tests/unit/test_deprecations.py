@@ -15,10 +15,10 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import annuals, comics, issues, metadata, storyarcs
 from comicarr.app.system import deprecations
 from comicarr.app.system import router as system_router
-from comicarr.tables import annuals, comics, issues, metadata, storyarcs
 
 
 def _entry(in_use):

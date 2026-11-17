@@ -23,9 +23,9 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr.app.common.placement import OnExisting, PlacementError, Purpose
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import comics, issues, metadata, storyarcs
 from comicarr.app.storyarcs import service
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, issues, metadata, storyarcs
 
 
 class Config:

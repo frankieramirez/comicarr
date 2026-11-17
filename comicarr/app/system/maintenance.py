@@ -46,7 +46,7 @@ def auto_backup_db(source_path, dest_dir, retention=4):
         dest_dir: directory to store backups
         retention: number of backups to keep (default: 4)
     """
-    from comicarr.db import get_dialect
+    from comicarr.app.core.db import get_dialect
 
     if get_dialect() != "sqlite":
         logger.warn(

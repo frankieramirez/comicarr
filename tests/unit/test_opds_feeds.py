@@ -20,9 +20,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.series import service as series_service
-from comicarr.tables import comics, issues, metadata
 
 ATOM = "{http://www.w3.org/2005/Atom}"
 AUTH = ("reader", "secret")

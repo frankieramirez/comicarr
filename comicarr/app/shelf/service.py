@@ -29,9 +29,9 @@ from typing import Any, Mapping
 
 from sqlalchemy import delete, func, insert, or_, select, update
 
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import annuals, comics, issues, physical_copies
 from comicarr.app.manga.ledger import normalize_volume_number
-from comicarr.tables import annuals, comics, issues, physical_copies
 
 # What an operator may record about a copy. Text fields map to their length limit.
 _TEXT_LIMITS = {"VariantName": 200, "Grade": 32, "Storage": 200, "Notes": 4000}

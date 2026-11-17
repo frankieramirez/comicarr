@@ -25,17 +25,16 @@ from fastapi.responses import Response
 from starlette.responses import FileResponse
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common.library_roots import is_servable_library_file
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_opds_auth
+from comicarr.app.core.tables import annuals, comics, issues, readlist, snatched, storyarcs
 from comicarr.app.metadata import service as metadata_service
 from comicarr.app.opds.service import comic_pages, mark_issue_read, open_archive, page_count, scale_image
 from comicarr.app.series import service as series_service
 from comicarr.app.storyarcs import service as storyarcs_service
-from comicarr.tables import annuals, comics, issues, readlist, snatched, storyarcs
 
 router = APIRouter(prefix="/opds", tags=["opds"])
 

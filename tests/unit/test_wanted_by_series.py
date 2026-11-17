@@ -20,9 +20,9 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import acquisition_run_items, comics, issues, metadata
 from comicarr.app.series import wanted_groups
-from comicarr.tables import acquisition_run_items, comics, issues, metadata
 
 
 def test_which_label_collapses_runs_and_folds_the_tail():

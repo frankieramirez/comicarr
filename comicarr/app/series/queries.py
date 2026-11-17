@@ -17,16 +17,16 @@ import json
 
 from sqlalchemy import and_, case, delete, func, literal, or_, select, update
 
-from comicarr import db
 from comicarr.app.common import series_kind
+from comicarr.app.core import db
 from comicarr.app.core.database import paginated_query  # noqa: F401 — re-exported
-from comicarr.tables import acquisition_run_items as t_acquisition_run_items
-from comicarr.tables import annuals as t_annuals
-from comicarr.tables import comics as t_comics
-from comicarr.tables import importresults as t_importresults
-from comicarr.tables import issues as t_issues
-from comicarr.tables import storyarcs as t_storyarcs
-from comicarr.tables import upcoming as t_upcoming
+from comicarr.app.core.tables import acquisition_run_items as t_acquisition_run_items
+from comicarr.app.core.tables import annuals as t_annuals
+from comicarr.app.core.tables import comics as t_comics
+from comicarr.app.core.tables import importresults as t_importresults
+from comicarr.app.core.tables import issues as t_issues
+from comicarr.app.core.tables import storyarcs as t_storyarcs
+from comicarr.app.core.tables import upcoming as t_upcoming
 
 COMICS_COLUMNS = [
     t_comics.c.ComicID.label("ComicID"),

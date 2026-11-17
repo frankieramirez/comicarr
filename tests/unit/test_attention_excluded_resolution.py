@@ -24,9 +24,9 @@ from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.attention import ResolutionRequest, read, resolve
 from comicarr.app.attention._policy import is_actionable
 from comicarr.app.core.context import AppContext
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.downloads import journal
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, issues, metadata
 
 EXCLUDED_REASON = "torrent_hash_not_in_client"
 

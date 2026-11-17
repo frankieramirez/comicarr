@@ -17,10 +17,10 @@ from datetime import datetime, timezone
 
 from sqlalchemy import and_, delete, func, insert, or_, select, update
 
-from comicarr import db
-from comicarr.tables import ai_chat_attachments as attachments
-from comicarr.tables import ai_chat_messages as messages
-from comicarr.tables import ai_chat_threads as threads
+from comicarr.app.core import db
+from comicarr.app.core.tables import ai_chat_attachments as attachments
+from comicarr.app.core.tables import ai_chat_messages as messages
+from comicarr.app.core.tables import ai_chat_threads as threads
 
 MAX_CONTEXT_MESSAGES = 20
 

@@ -16,11 +16,11 @@ import pytest
 from mcp import Client
 from sqlalchemy import select
 
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import mcp_tool_calls
 from comicarr.app.mcp import usage
 from comicarr.app.mcp.server import register_aliases
 from comicarr.app.system.deprecations import REGISTRY, mcp_tool_called_recently, mcp_tool_rename
-from comicarr.tables import mcp_tool_calls
 from tests.mcp_harness import make_app, seed_library, teardown_library
 
 

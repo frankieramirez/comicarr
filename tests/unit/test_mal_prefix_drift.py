@@ -30,10 +30,10 @@ from sqlalchemy import create_engine, select
 
 import comicarr
 from comicarr import rsscheck
+from comicarr.app.core.tables import comics, metadata
 from comicarr.app.manga import add as manga_add
 from comicarr.app.metadata import service as metadata_service
 from comicarr.app.series import service as series_service
-from comicarr.tables import comics, metadata
 from tests.fakes import folder_request
 
 

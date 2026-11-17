@@ -32,17 +32,16 @@ import sqlalchemy
 from sqlalchemy import and_, delete, select, text, update
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import annuals, comics, futureupcoming, issues, weekly
 from comicarr.app.search import mb
 from comicarr.app.search import service as search_service
 from comicarr.app.series import add_workers, comic_add
 from comicarr.app.series import service as series_service
 from comicarr.app.storyarcs import readinglist
 from comicarr.app.weekly import locg, watchlist_match
-from comicarr.tables import annuals, comics, futureupcoming, issues, weekly
 
 
 def _weekly_pull_result(status, retry_hint=None, origin_error=False, cause=None, source=None):

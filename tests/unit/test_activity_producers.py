@@ -24,11 +24,11 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.core import db
+from comicarr.app.core.tables import activity_events, comics, issues, metadata
 from comicarr.app.downloads import journal
-from comicarr.tables import activity_events, comics, issues, metadata
 
 
 @pytest.fixture

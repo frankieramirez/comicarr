@@ -88,8 +88,8 @@ def _blocklist_release(
     payload=None,
     conn=None,
 ):
-    from comicarr import db
     from comicarr.app.common import dates as common_dates
+    from comicarr.app.core import db
 
     data = _payload_dict(payload)
     comicid = comicid if comicid not in (None, "") else data.get("comicid")
@@ -292,8 +292,8 @@ def cleanup_phantom_issue_rows():
     This is a reviewed one-shot. Do not call it from startup reconcile —
     invoke it only after an operator has inspected the candidate list.
     """
-    from comicarr import db
-    from comicarr.tables import acquisition_run_items, annuals, issues, nzblog, snatched, storyarcs
+    from comicarr.app.core import db
+    from comicarr.app.core.tables import acquisition_run_items, annuals, issues, nzblog, snatched, storyarcs
 
     referenced = or_(
         issues.c.IssueID.in_(select(snatched.c.IssueID)),
@@ -348,9 +348,9 @@ def reconcile_existing_excluded_rows():
     """
     from sqlalchemy import and_, or_, select
 
-    from comicarr import db
+    from comicarr.app.core import db
+    from comicarr.app.core.tables import pipeline_journal
     from comicarr.app.downloads.journal import FAILED, MANUAL_REVIEW, RESOLVED_STATUSES
-    from comicarr.tables import pipeline_journal
 
     pre_actionability = and_(
         pipeline_journal.c.stage.in_((FAILED, MANUAL_REVIEW)),

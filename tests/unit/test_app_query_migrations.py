@@ -17,13 +17,11 @@ from sqlalchemy import insert, select
 from sqlalchemy.exc import OperationalError
 
 import comicarr
-from comicarr import db
 from comicarr.app.ai import pull_list
 from comicarr.app.ai import queries as ai_queries
 from comicarr.app.ai import story_arcs as ai_story_arcs
-from comicarr.app.dashboard import queries as dashboard_queries
-from comicarr.app.weekly import queries as weekly_queries
-from comicarr.tables import (
+from comicarr.app.core import db
+from comicarr.app.core.tables import (
     activity_events,
     ai_cache,
     ai_metadata_history,
@@ -33,6 +31,8 @@ from comicarr.tables import (
     storyarcs,
     weekly,
 )
+from comicarr.app.dashboard import queries as dashboard_queries
+from comicarr.app.weekly import queries as weekly_queries
 
 
 @pytest.fixture

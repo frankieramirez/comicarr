@@ -16,11 +16,10 @@ legacy ``md-``/``mal-`` rows stay in sync. Does not invent live NAS counts.
 
 from sqlalchemy import func, or_, select
 
-from comicarr import db
 from comicarr.app.common.series_kind import manga_sql_clause
-from comicarr.app.core import logger
-from comicarr.tables import comics as t_comics
-from comicarr.tables import issues as t_issues
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import comics as t_comics
+from comicarr.app.core.tables import issues as t_issues
 
 JOB_ID = "manga_sync"
 JOB_NAME = "Manga ledger sync"

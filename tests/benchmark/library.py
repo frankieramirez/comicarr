@@ -355,9 +355,9 @@ def generate(root, seed=DEFAULT_SEED, spec=BENCHMARK, today=None):
     holds the one-byte files. ``root`` must be empty or absent.
     """
     import comicarr
-    from comicarr import db
+    from comicarr.app.core import db
     from comicarr.app.core.schema import upgrade_database
-    from comicarr.tables import activity_events, comics, issues, snatched, storyarcs, weekly
+    from comicarr.app.core.tables import activity_events, comics, issues, snatched, storyarcs, weekly
 
     root = Path(root).resolve()
     if root.exists() and any(root.iterdir()):

@@ -25,15 +25,14 @@ from pathlib import Path
 import requests
 
 import comicarr
-from comicarr import db
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome, RunState
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import issues, ref32p
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.library import filers
 from comicarr.app.search import rss
 from comicarr.app.search.commands import SearchCommand, SearchCommandError
 from comicarr.app.search.routes import classify, route_health
-from comicarr.tables import issues, ref32p
 from comicarr.torrent import monitor as torrent_monitor
 
 
@@ -762,7 +761,7 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
 
     from sqlalchemy import select
 
-    from comicarr.tables import snatched
+    from comicarr.app.core.tables import snatched
 
     if issueid:
         stmt = (

@@ -25,10 +25,9 @@ import os
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import comics, importresults
 from comicarr.app.imports import finalization, folder_memory
-from comicarr.tables import comics, importresults
 
 LIBRARY_LIMIT = 3
 REMOTE_LIMIT = 3

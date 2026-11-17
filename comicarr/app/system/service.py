@@ -40,7 +40,6 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.acquisition.models import DispatchState
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common.dates import normalize_utc_datetime
@@ -58,8 +57,9 @@ from comicarr.app.config.registry import (
     scheduler_job_required_config,
     writable_keys,
 )
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
 from comicarr.app.core.security import LoginRateLimiter
+from comicarr.app.core.tables import comics, jobhistory
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.search import prowlarr
 from comicarr.app.search.provider_config import (
@@ -69,7 +69,6 @@ from comicarr.app.search.provider_config import (
 )
 from comicarr.app.search.providers import effective_provider_plan
 from comicarr.app.system import job_results, log_files
-from comicarr.tables import comics, jobhistory
 
 _rate_limiter = LoginRateLimiter()
 

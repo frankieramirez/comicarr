@@ -16,15 +16,9 @@ import pytest
 from sqlalchemy import String, insert, inspect, select, update
 
 import comicarr
-from comicarr import db
 from comicarr.app.acquisition.maintenance import MaintenanceController, ensure_acquisition_schema
-from comicarr.app.downloads import handoff, journal
-from comicarr.app.system.acquisition_repair import (
-    RepairBlocked,
-    RepairConfirmationError,
-    RepairService,
-)
-from comicarr.tables import (
+from comicarr.app.core import db
+from comicarr.app.core.tables import (
     acquisition_canary_permits,
     acquisition_maintenance_leases,
     acquisition_repair_canaries,
@@ -39,6 +33,12 @@ from comicarr.tables import (
     issues,
     metadata,
     pipeline_journal,
+)
+from comicarr.app.downloads import handoff, journal
+from comicarr.app.system.acquisition_repair import (
+    RepairBlocked,
+    RepairConfirmationError,
+    RepairService,
 )
 
 TODAY = datetime.date(2026, 7, 10)

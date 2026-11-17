@@ -17,9 +17,9 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, importresults, metadata
 from comicarr.app.imports import candidates, finalization, folder_memory, importinbox
-from comicarr.tables import comics, importresults, metadata
 
 
 @pytest.fixture

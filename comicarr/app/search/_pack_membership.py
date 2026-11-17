@@ -12,10 +12,9 @@
 import re
 
 import comicarr
-from comicarr import db
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import issues
 from comicarr.app.manga.ledger import is_volume_target, volume_numbers_match
-from comicarr.tables import issues
 
 
 def _pack_row_matches(row, int_iss, iss_item, kind):

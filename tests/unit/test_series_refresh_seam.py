@@ -21,10 +21,10 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
+from comicarr.app.core.tables import annuals, comics, issues, metadata
 from comicarr.app.downloads import service as downloads_service
 from comicarr.app.series import comic_add, folder_rescan, watchlist_refresh
 from comicarr.app.series import refresh as series_refresh
-from comicarr.tables import annuals, comics, issues, metadata
 
 
 def _config(**overrides):
@@ -48,7 +48,7 @@ def _config(**overrides):
 def engine(monkeypatch):
     eng = create_engine("sqlite://")
     metadata.create_all(eng)
-    monkeypatch.setattr(comicarr.db, "get_engine", lambda: eng)
+    monkeypatch.setattr(comicarr.app.core.db, "get_engine", lambda: eng)
     monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
     monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
     return eng

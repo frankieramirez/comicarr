@@ -21,9 +21,8 @@ import os
 import sys
 
 import comicarr
-from comicarr import db
 from comicarr.app.common import numbers as common_numbers
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
 from comicarr.downloaders import mega_public
 
 

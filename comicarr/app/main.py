@@ -324,7 +324,7 @@ async def lifespan(app: FastAPI):
             pass
 
     try:
-        from comicarr import db
+        from comicarr.app.core import db
 
         engine = db.get_engine()
         if engine:

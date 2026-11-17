@@ -17,7 +17,7 @@
 
 """CI gate: every literal ``upsert`` table name is a key of ``TABLE_MAP``.
 
-``db.upsert()`` resolves its table by dict lookup (``comicarr/db.py``), so a
+``db.upsert()`` resolves its table by dict lookup (``comicarr/app/core/db.py``), so a
 name that is merely mis-cased — ``"Issues"`` for ``"issues"`` — type-checks,
 imports, and lints clean, then raises ``ValueError: Unknown table for upsert``
 the first time that branch runs. Six such literals silently broke series
@@ -42,7 +42,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TABLES_PATH = ROOT / "comicarr" / "tables.py"
+TABLES_PATH = ROOT / "comicarr" / "app" / "core" / "tables.py"
 
 # Trees that can call upsert. Tests are scanned too: a mis-cased literal in a
 # fixture pins the wrong contract just as convincingly as one in source.
@@ -129,7 +129,7 @@ def main() -> int:
         print('  %s:%d: "%s"%s' % (rel, lineno, name, suggestion), file=sys.stderr)
     print("", file=sys.stderr)
     print("TABLE_MAP keys are lowercase; db.upsert() raises ValueError at runtime", file=sys.stderr)
-    print("for anything else. See comicarr/tables.py and comicarr/db.py.", file=sys.stderr)
+    print("for anything else. See comicarr/app/core/tables.py and comicarr/app/core/db.py.", file=sys.stderr)
     return 1
 
 

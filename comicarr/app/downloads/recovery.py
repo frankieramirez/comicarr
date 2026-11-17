@@ -36,13 +36,12 @@ import time
 from sqlalchemy import and_, or_, select
 
 import comicarr
-from comicarr import db
 from comicarr.app.attention import ManualReview, record
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import ddl_info, nzblog, pipeline_journal, snatched, storyarcs
 from comicarr.app.downloads import journal, postprocessing, recovery_classify
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 from comicarr.app.downloads.pp_commands import PostProcessCommandError, configured_roots, validate_postprocess_item
-from comicarr.tables import ddl_info, nzblog, pipeline_journal, snatched, storyarcs
 
 _ENQUEUE_THROTTLE_SECONDS = 0.05
 

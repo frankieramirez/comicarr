@@ -19,9 +19,9 @@
 
 from sqlalchemy import or_, select
 
-from comicarr import db
 from comicarr.app.common import series_kind
-from comicarr.tables import comics
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics
 
 
 def find_existing_manga_series(*, comic_id=None, mal_id=None, mangadex_id=None):

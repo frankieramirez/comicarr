@@ -29,12 +29,12 @@ import time
 from sqlalchemy import or_, select
 
 import comicarr
-from comicarr import db, filechecker
+from comicarr import filechecker
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import strings as common_strings
-from comicarr.app.core import logger
-from comicarr.tables import annuals, comics, issues, storyarcs, weekly
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import annuals, comics, issues, storyarcs, weekly
 
 
 class FileHandlers(object):

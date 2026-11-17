@@ -16,10 +16,10 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, metadata
 from comicarr.app.system import cover_wall
 from comicarr.app.system import router as system_router
-from comicarr.tables import comics, metadata
 
 
 @pytest.fixture

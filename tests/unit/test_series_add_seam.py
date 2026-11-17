@@ -24,16 +24,16 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import db
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.core import db
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.manga import add as manga_add
 from comicarr.app.metadata import service as metadata_service
 from comicarr.app.series import add as series_add
 from comicarr.app.series import add_workers, comic_add
 from comicarr.app.series import service as series_service
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, issues, metadata
 
 MD_UUID = "aaaaaaaa-bbbb-cccc-dddd-onepiece01"
 MAL_ID = "13"

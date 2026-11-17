@@ -18,7 +18,8 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import annuals, comics, issues, metadata, snatched
 from comicarr.app.downloads import snatch_record
 from comicarr.app.downloads.postprocess_pipeline import (
     ANNUAL,
@@ -28,7 +29,6 @@ from comicarr.app.downloads.postprocess_pipeline import (
     PostProcessReconcileStage,
 )
 from comicarr.app.series import folder_rescan
-from comicarr.tables import annuals, comics, issues, metadata, snatched
 
 # Rewritten on every run by design; everything else must hold still.
 _CLOCK_COLUMNS = {"DateAdded", "FilesUpdated"}

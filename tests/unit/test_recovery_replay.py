@@ -31,10 +31,10 @@ from sqlalchemy import select
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.attention import RecordOutcome
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import comics, ddl_info, issues, metadata, nzblog, pipeline_journal, snatched, storyarcs
 from comicarr.app.downloads import journal, postprocessing, recovery, recovery_classify
 from comicarr.app.downloads.recovery import _MAX_INLINE_PP_REDRIVE_PER_PASS
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, ddl_info, issues, metadata, nzblog, pipeline_journal, snatched, storyarcs
 
 
 @pytest.fixture(autouse=True)

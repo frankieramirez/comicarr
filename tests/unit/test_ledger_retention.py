@@ -23,9 +23,8 @@ from sqlalchemy import insert, select
 import comicarr
 from comicarr.app.acquisition import retention
 from comicarr.app.acquisition.models import ItemOutcome, RunState
-from comicarr.app.downloads import journal
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import (
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import (
     acquisition_maintenance_events,
     acquisition_run_items,
     acquisition_runs,
@@ -33,6 +32,7 @@ from comicarr.tables import (
     metadata,
     pipeline_journal,
 )
+from comicarr.app.downloads import journal
 
 FIXED_NOW = datetime.datetime(2026, 8, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
 

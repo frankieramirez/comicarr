@@ -24,9 +24,9 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
-from comicarr.tables import annuals, comics, issues, metadata, storyarcs
+from comicarr.app.core import db
+from comicarr.app.core.tables import annuals, comics, issues, metadata, storyarcs
 from tests.fakes import folder_request, pipeline
 
 

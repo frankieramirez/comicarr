@@ -38,11 +38,10 @@ import requests
 from sqlalchemy import or_, select
 
 import comicarr
-from comicarr import db
 from comicarr.app.attention import Failure, record
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import annuals, ddl_info, issues, nzblog, storyarcs
 from comicarr.app.downloads import journal
-from comicarr.tables import annuals, ddl_info, issues, nzblog, storyarcs
 
 STILL = "still"
 COMPLETE = "complete"

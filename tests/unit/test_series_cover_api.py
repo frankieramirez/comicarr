@@ -15,10 +15,10 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, metadata
 from comicarr.app.series import queries as series_queries
 from comicarr.app.series import service as series_service
-from comicarr.tables import comics, metadata
 
 MANGADEX_COVER = "https://uploads.mangadex.org/covers/uuid/cover.jpg"
 MAL_COVER = "https://cdn.myanimelist.net/images/manga/2/253146l.jpg"

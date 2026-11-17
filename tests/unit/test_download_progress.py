@@ -16,9 +16,9 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import activity_events, metadata, pipeline_journal
 from comicarr.app.downloads import progress
-from comicarr.tables import activity_events, metadata, pipeline_journal
 
 
 @pytest.fixture

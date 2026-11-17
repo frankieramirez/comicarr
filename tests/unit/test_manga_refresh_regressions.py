@@ -16,11 +16,11 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
+from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.manga import add as manga_add
 from comicarr.app.metadata import service as metadata_service
 from comicarr.app.series import comic_add, folder_rescan, watchlist_refresh
 from comicarr.app.series import service as series_service
-from comicarr.tables import comics, issues, metadata
 
 
 class TestAddComictoDBMangaRouting:

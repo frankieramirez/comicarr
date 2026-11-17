@@ -14,15 +14,14 @@ import time
 from sqlalchemy import Float, cast, delete, func, insert, or_, select, update
 from sqlalchemy.exc import OperationalError
 
-from comicarr import db
-from comicarr.app.core import logger
-from comicarr.tables import ai_activity_log as t_ai_activity_log
-from comicarr.tables import ai_cache as t_ai_cache
-from comicarr.tables import ai_metadata_history as t_ai_metadata_history
-from comicarr.tables import comics as t_comics
-from comicarr.tables import issues as t_issues
-from comicarr.tables import storyarcs as t_storyarcs
-from comicarr.tables import weekly as t_weekly
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import ai_activity_log as t_ai_activity_log
+from comicarr.app.core.tables import ai_cache as t_ai_cache
+from comicarr.app.core.tables import ai_metadata_history as t_ai_metadata_history
+from comicarr.app.core.tables import comics as t_comics
+from comicarr.app.core.tables import issues as t_issues
+from comicarr.app.core.tables import storyarcs as t_storyarcs
+from comicarr.app.core.tables import weekly as t_weekly
 
 _WRITE_ATTEMPTS = 5
 

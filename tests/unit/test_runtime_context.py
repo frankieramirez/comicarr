@@ -27,8 +27,8 @@ import pytest
 import comicarr
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.runtime import (
-    RuntimeNotInitializedError,
     _CONTEXT_TO_LEGACY,
+    RuntimeNotInitializedError,
     create_runtime,
     get_runtime,
     set_runtime_field,
@@ -243,7 +243,7 @@ async def test_lifespan_attaches_the_factory_runtime_instance(_legacy_runtime_ob
         epoch=0,
     )
     monkeypatch.setattr("comicarr.app.acquisition.maintenance.refresh_runtime_state", lambda *_args: gate)
-    monkeypatch.setattr("comicarr.db.get_engine", lambda: None)
+    monkeypatch.setattr("comicarr.app.core.db.get_engine", lambda: None)
 
     cm = lifespan(app)
     await cm.__aenter__()
@@ -287,7 +287,7 @@ async def test_lifespan_warns_about_deprecations_in_use(_legacy_runtime_objects,
     create_runtime()
     gate = RuntimeGateStatus(blocked=False, reason=None, schema_ready=True, maintenance_active=False, epoch=0)
     monkeypatch.setattr("comicarr.app.acquisition.maintenance.refresh_runtime_state", lambda *_args: gate)
-    monkeypatch.setattr("comicarr.db.get_engine", lambda: None)
+    monkeypatch.setattr("comicarr.app.core.db.get_engine", lambda: None)
 
     app = SimpleNamespace(state=SimpleNamespace())
     cm = lifespan(app)

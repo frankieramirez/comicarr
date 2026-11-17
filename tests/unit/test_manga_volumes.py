@@ -12,9 +12,9 @@
 import pytest
 
 import comicarr
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import metadata
 from comicarr.app.manga import volumes
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import metadata
 
 
 @pytest.fixture(autouse=True)
@@ -64,7 +64,7 @@ def test_a_snatched_update_never_overwrites_a_row_that_became_downloaded(monkeyp
     """The guard sits in the UPDATE itself, not only in a read before it."""
     from sqlalchemy import update
 
-    from comicarr.tables import manga_volumes
+    from comicarr.app.core.tables import manga_volumes
 
     volumes.record_volume("md-x", "1", volumes.SNATCHED)
     # Simulate a concurrent post-process landing between any read and the write.

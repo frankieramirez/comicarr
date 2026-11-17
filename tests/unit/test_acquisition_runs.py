@@ -14,8 +14,8 @@ import pytest
 import comicarr
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome, RunState
 from comicarr.app.acquisition.runs import RunLedger
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import metadata
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import metadata
 
 
 @pytest.fixture(autouse=True)

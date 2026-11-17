@@ -15,10 +15,10 @@ import pytest
 from sqlalchemy import create_engine
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import issues, metadata
 from comicarr.app.search.evaluation import EvaluationSession
 from comicarr.app.search.evaluation_handoff import handoff_matches
-from comicarr.tables import issues, metadata
 
 
 @pytest.fixture(autouse=True)

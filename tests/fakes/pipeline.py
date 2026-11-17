@@ -291,8 +291,8 @@ def manga_issues() -> dict[str, dict]:
     """This series' issue rows by IssueID, as the database holds them now."""
     from sqlalchemy import select
 
-    from comicarr import db
-    from comicarr.tables import issues
+    from comicarr.app.core import db
+    from comicarr.app.core.tables import issues
 
     rows = db.select_all(select(issues).where(issues.c.ComicID == MANGA_ID))
     return {row["IssueID"]: row for row in rows}
@@ -320,8 +320,8 @@ def recorded_chapter_id(comic_id, number) -> str:
 
 
 def want_recorded_chapter(comic_id, number) -> str:
-    from comicarr import db
-    from comicarr.tables import issues
+    from comicarr.app.core import db
+    from comicarr.app.core.tables import issues
 
     issue_id = recorded_chapter_id(comic_id, number)
     with db.get_engine().begin() as conn:
@@ -346,15 +346,15 @@ def recorded_release_key(comic_id, number, source="Digital"):
 
 
 def series_row(comic_id) -> dict:
-    from comicarr import db
-    from comicarr.tables import comics
+    from comicarr.app.core import db
+    from comicarr.app.core.tables import comics
 
     return db.select_one(comics.select().where(comics.c.ComicID == comic_id))
 
 
 def chapters_by_number(comic_id) -> dict:
     """Chapter number -> issue row, for one series."""
-    from comicarr import db
-    from comicarr.tables import issues
+    from comicarr.app.core import db
+    from comicarr.app.core.tables import issues
 
     return {row["Issue_Number"]: row for row in db.select_all(issues.select().where(issues.c.ComicID == comic_id))}

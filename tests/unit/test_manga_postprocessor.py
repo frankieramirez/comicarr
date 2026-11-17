@@ -1218,7 +1218,7 @@ class TestMangaVolumeForIssue:
         from comicarr.app.metadata import tagging as cmtag
 
         rows = [issue_row, comic_row]
-        with patch("comicarr.db.select_one", side_effect=lambda *a, **k: rows.pop(0)):
+        with patch("comicarr.app.core.db.select_one", side_effect=lambda *a, **k: rows.pop(0)):
             return cmtag.manga_volume_for_issue(issueid)
 
     @staticmethod
@@ -1274,14 +1274,14 @@ class TestMangaVolumeForIssue:
     def test_no_issueid_never_queries(self):
         from comicarr.app.metadata import tagging as cmtag
 
-        with patch("comicarr.db.select_one", side_effect=AssertionError("must not query")):
+        with patch("comicarr.app.core.db.select_one", side_effect=AssertionError("must not query")):
             assert cmtag.manga_volume_for_issue(None) is None
 
     def test_a_lookup_failure_never_breaks_tagging(self):
         """Best-effort enrichment: a DB error tags as a periodical, not 'fail'."""
         from comicarr.app.metadata import tagging as cmtag
 
-        with patch("comicarr.db.select_one", side_effect=RuntimeError("boom")):
+        with patch("comicarr.app.core.db.select_one", side_effect=RuntimeError("boom")):
             assert cmtag.manga_volume_for_issue("446055") is None
 
 

@@ -94,10 +94,10 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr import postprocessor
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import comics, issues, metadata, nzblog, pipeline_journal
 from comicarr.app.downloads import journal
 from comicarr.app.downloads.postprocess_pipeline import _JOURNAL, process_manga_download
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, issues, metadata, nzblog, pipeline_journal
 from tests.conftest import placement_result
 from tests.fakes import folder_request
 

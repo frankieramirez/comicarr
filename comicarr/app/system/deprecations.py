@@ -25,9 +25,8 @@ from functools import partial
 from sqlalchemy import exists, select
 
 import comicarr
-from comicarr import db
-from comicarr.app.core import logger
-from comicarr.tables import annuals, comics, issues, mcp_tool_calls, storyarcs
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import annuals, comics, issues, mcp_tool_calls, storyarcs
 
 
 @dataclass(frozen=True)

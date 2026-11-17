@@ -16,9 +16,10 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import db, weeklypull
+from comicarr import weeklypull
 from comicarr.app.common import configured
-from comicarr.tables import metadata, weekly
+from comicarr.app.core import db
+from comicarr.app.core.tables import metadata, weekly
 
 
 @pytest.fixture

@@ -23,8 +23,8 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from alembic import command
-from comicarr.db import get_engine
-from comicarr.tables import metadata
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import metadata
 
 
 class DatabaseState(str, Enum):
@@ -433,7 +433,11 @@ def _seed_acquisition_schema_ledger(connection: Connection) -> None:
         SCHEMA_COMPONENT,
         SCHEMA_VERSION,
     )
-    from comicarr.tables import acquisition_maintenance, acquisition_reconciliation, acquisition_schema_versions
+    from comicarr.app.core.tables import (
+        acquisition_maintenance,
+        acquisition_reconciliation,
+        acquisition_schema_versions,
+    )
 
     now = datetime.now(timezone.utc).isoformat()
     recorded_versions = set(

@@ -26,7 +26,6 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.attention import (
     BATCH_CAP,
@@ -36,14 +35,15 @@ from comicarr.app.attention import (
     resolve,
 )
 from comicarr.app.attention import read as read_attention
+from comicarr.app.core import db
 from comicarr.app.core.context import AppContext
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import annuals, comics, failed, issues, metadata, pipeline_journal, storyarcs
 from comicarr.app.downloads import journal, postprocessing
 from comicarr.app.downloads import service as dl_service
 from comicarr.app.search import service as search_service
 from comicarr.app.series import queries as series_queries
 from comicarr.app.system.acquisition_repair import RepairService
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import annuals, comics, failed, issues, metadata, pipeline_journal, storyarcs
 
 
 @pytest.fixture(autouse=True)

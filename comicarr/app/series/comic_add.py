@@ -28,12 +28,13 @@ import sqlalchemy.exc
 from sqlalchemy import select
 
 import comicarr
-from comicarr import db, filechecker, search
+from comicarr import filechecker, search
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common import strings as common_strings
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import annuals, comics, issues
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.downloads import snatch_record
 from comicarr.app.library import directories, filers, moveit
@@ -46,7 +47,6 @@ from comicarr.app.series import rescan
 from comicarr.app.series import service as series_service
 from comicarr.app.series.add_activity import emit_add_activity
 from comicarr.app.weekly import pull
-from comicarr.tables import annuals, comics, issues
 
 
 def mark_series_wanted(comicid):

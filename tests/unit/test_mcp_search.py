@@ -18,9 +18,9 @@ from sqlalchemy import select, update
 import comicarr
 from comicarr.app.acquisition.maintenance import MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.core.db import get_engine
+from comicarr.app.core.tables import acquisition_run_items, acquisition_runs, activity_events, annuals, issues
 from comicarr.app.search import bulk
-from comicarr.db import get_engine
-from comicarr.tables import acquisition_run_items, acquisition_runs, activity_events, annuals, issues
 from tests.mcp_harness import KEY, make_app, mcp_client, seed_library, teardown_library
 
 AUTH = {"Authorization": "Bearer " + KEY}

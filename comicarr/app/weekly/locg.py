@@ -25,11 +25,10 @@ import requests
 from sqlalchemy import and_, delete
 
 import comicarr
-from comicarr import db
 from comicarr.app.common.series_names import dynamic_series_key
-from comicarr.app.core import logger
+from comicarr.app.core import db, logger
+from comicarr.app.core.tables import weekly
 from comicarr.app.search.service import ignored_publisher_check
-from comicarr.tables import weekly
 
 CLOUDFLARE_ORIGIN_ERRORS = {
     "520": "returned an unknown error",
@@ -200,7 +199,7 @@ def store_week(pull, weeknumber, year):
     ``locg()`` builds from Walksoftly, so the ``weekly`` table and everything
     reading it stay source-agnostic.
     """
-    from comicarr.tables import metadata as table_metadata
+    from comicarr.app.core.tables import metadata as table_metadata
 
     todaydate = datetime.datetime.today().replace(second=0, microsecond=0)
     table_metadata.create_all(db.get_engine(), tables=[weekly], checkfirst=True)

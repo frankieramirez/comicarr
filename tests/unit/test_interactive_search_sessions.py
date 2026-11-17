@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from sqlalchemy import create_engine, func, select
 
+from comicarr.app.core.tables import interactive_search_candidates, interactive_search_sessions, metadata
 from comicarr.app.search.evaluation import ReleaseCandidateEvaluation
 from comicarr.app.search.interactive_sessions import (
     CLAIM_LEASE_SECONDS,
@@ -34,7 +35,6 @@ from comicarr.app.search.interactive_sessions import (
     read_session,
 )
 from comicarr.app.system import service as system_service
-from comicarr.tables import interactive_search_candidates, interactive_search_sessions, metadata
 
 NOW = datetime.datetime(2026, 8, 11, 15, 0, tzinfo=datetime.timezone.utc)
 

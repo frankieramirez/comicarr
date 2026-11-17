@@ -13,8 +13,8 @@ from types import SimpleNamespace
 from sqlalchemy import create_engine, select
 
 import comicarr
+from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.series import folder_rescan
-from comicarr.tables import comics, issues, metadata
 
 
 def _config():

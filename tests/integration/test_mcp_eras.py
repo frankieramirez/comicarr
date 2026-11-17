@@ -21,7 +21,7 @@ import pytest
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
-from comicarr.db import get_engine
+from comicarr.app.core.db import get_engine
 from tests.mcp_harness import (
     INIT,
     KEY,

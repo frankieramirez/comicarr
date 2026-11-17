@@ -18,9 +18,9 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core.db import get_engine, shutdown_engine
+from comicarr.app.core.tables import comics, issues, metadata, nzblog, pipeline_journal
 from comicarr.app.downloads import journal, postprocess_pipeline, postprocessing
-from comicarr.db import get_engine, shutdown_engine
-from comicarr.tables import comics, issues, metadata, nzblog, pipeline_journal
 
 
 @pytest.fixture(autouse=True)

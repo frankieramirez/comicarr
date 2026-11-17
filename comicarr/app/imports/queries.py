@@ -14,9 +14,9 @@ from collections.abc import Sequence
 
 from sqlalchemy import func, or_, select, update
 
-from comicarr import db
-from comicarr.tables import importresults as t_importresults
-from comicarr.tables import issues as t_issues
+from comicarr.app.core import db
+from comicarr.app.core.tables import importresults as t_importresults
+from comicarr.app.core.tables import issues as t_issues
 
 
 class ImportRecordChangedError(RuntimeError):

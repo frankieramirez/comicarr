@@ -14,9 +14,9 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import db
+from comicarr.app.core import db
+from comicarr.app.core.tables import comics, issues
 from comicarr.app.series import comic_add
-from comicarr.tables import comics, issues
 
 
 @pytest.fixture
@@ -258,8 +258,8 @@ def test_mal_metadata_requires_exact_chapter_source(metadata_environment, monkey
 
 @pytest.fixture
 def pending_import(metadata_environment, tmp_path, monkeypatch):
+    from comicarr.app.core.tables import importresults
     from comicarr.app.imports import finalization
-    from comicarr.tables import importresults
 
     engine, session, volume, issue = metadata_environment
     importresults.create(engine)
