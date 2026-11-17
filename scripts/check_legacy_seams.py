@@ -115,6 +115,10 @@ DEFERRED_ALLOWLIST = {
     ("comicarr/app/downloads/service.py", "sabnzbd"): ("SABnzbd client", DEFERRED),
     ("comicarr/app/downloads/service.py", "search"): ("FailedMark and searchforissue for retries", DEFERRED),
     ("comicarr/app/imports/finalization.py", "filechecker"): ("validateAndCreateDirectory", DEFERRED),
+    ("comicarr/app/system/maintenance.py", "filechecker"): (
+        "the database-conversion maintenance task parses old file names with FileChecker; carried over when maintenance.py moved (#1419)",
+        "#1422 moves filechecker under comicarr/app/",
+    ),
     ("comicarr/app/library/filers.py", "filechecker"): (
         "FileChecker lists and parses the files in a series folder; carried over when filers.py moved (#1417)",
         "#1422 moves filechecker under comicarr/app/",
@@ -125,8 +129,6 @@ DEFERRED_ALLOWLIST = {
     ("comicarr/app/series/service.py", "comicsync"): ("comicScan and import_selected_series", DEFERRED),
     ("comicarr/app/series/service.py", "filechecker"): ("validateAndCreateDirectory", DEFERRED),
     ("comicarr/app/storyarcs/service.py", "filechecker"): ("FileChecker and validateAndCreateDirectory", DEFERRED),
-    ("comicarr/app/system/service.py", "migration"): ("Mylar3Migration", DEFERRED),
-    ("comicarr/app/system/service.py", "versioncheckit"): ("CheckVersion", DEFERRED),
 }
 
 ALLOWLISTS = {

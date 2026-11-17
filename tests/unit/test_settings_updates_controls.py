@@ -118,10 +118,10 @@ class TestForceVersionCheck:
         mock_runner.run.return_value = check_payload
         mock_cls = MagicMock(return_value=mock_runner)
 
-        with patch.object(comicarr.versioncheckit, "CheckVersion", mock_cls):
+        with patch.object(comicarr.app.system.versioncheckit, "CheckVersion", mock_cls):
             # Simulate what CheckVersion.run does: persist state via the seam.
             def _run(scheduled_job=True):
-                from comicarr import versioncheck
+                from comicarr.app.system import versioncheck
 
                 versioncheck._set_version_state(
                     update_state="behind",
@@ -143,10 +143,10 @@ class TestForceVersionCheck:
         mock_runner = MagicMock()
         mock_cls = MagicMock(return_value=mock_runner)
 
-        with patch.object(comicarr.versioncheckit, "CheckVersion", mock_cls):
+        with patch.object(comicarr.app.system.versioncheckit, "CheckVersion", mock_cls):
 
             def _run(scheduled_job=True):
-                from comicarr import versioncheck
+                from comicarr.app.system import versioncheck
 
                 versioncheck._set_version_state(
                     update_state="unknown",

@@ -25,17 +25,20 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 
-def add_series(comic_id: str, *, metadata_only: bool = False) -> Any:
+def add_series(comic_id: str, *, metadata_only: bool = False, calledfrom: str | None = None) -> Any:
     """Add or update ``comic_id`` now, through ``importer.addComictoDB``.
 
     ``metadata_only`` stores the series and its issues unmonitored, without
-    searching or placing files. Returns whatever ``addComictoDB`` returns:
-    usually a dict carrying ``status``, but legacy paths return a string or
-    ``None``.
+    searching or placing files. ``calledfrom`` is the legacy caller tag;
+    ``"maintenance"`` (the database import) skips the post-add searches.
+    Returns whatever ``addComictoDB`` returns: usually a dict carrying
+    ``status``, but legacy paths return a string or ``None``.
     """
     from comicarr import importer
 
-    return importer.addComictoDB(comic_id, metadata_only=metadata_only)
+    if calledfrom is None:
+        return importer.addComictoDB(comic_id, metadata_only=metadata_only)
+    return importer.addComictoDB(comic_id, metadata_only=metadata_only, calledfrom=calledfrom)
 
 
 def add_manga(comic_id: str) -> Any:

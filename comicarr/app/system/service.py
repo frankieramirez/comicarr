@@ -1001,9 +1001,9 @@ def force_version_check(ctx):
     ``CHECK_GITHUB`` off means no unsolicited traffic, not "refuse when asked".
     Auth is the caller's responsibility (router uses require_session).
     """
-    import comicarr
+    from comicarr.app.system import versioncheckit
 
-    runner = comicarr.versioncheckit.CheckVersion()
+    runner = versioncheckit.CheckVersion()
     check_result = runner.run(scheduled_job=False) or {}
     info = get_version_info(ctx)
     message = check_result.get("message")
@@ -1445,7 +1445,7 @@ def preview_migration(ctx, path):
     if not path:
         return {"success": False, "error": "path parameter is required"}
 
-    from comicarr import migration
+    from comicarr.app.system import migration
 
     m = migration.Mylar3Migration(path)
     result = m.validate()
@@ -1467,12 +1467,12 @@ def start_migration(ctx, path):
     import time
     import uuid
 
-    from comicarr import migration
     from comicarr.app.acquisition.maintenance import (
         MaintenanceConflict,
         MaintenanceController,
         set_reconciliation_state,
     )
+    from comicarr.app.system import migration
 
     m = migration.Mylar3Migration(path)
     result = m.validate()

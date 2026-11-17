@@ -37,7 +37,7 @@ def _load_config(tmp_path, monkeypatch, body: str):
     cfg.configure = MagicMock()
     cfg.provider_sequence = MagicMock()
     monkeypatch.setattr(
-        "comicarr.maintenance.Maintenance.backup_files",
+        "comicarr.app.system.maintenance.Maintenance.backup_files",
         lambda self, **kwargs: True,
         raising=False,
     )

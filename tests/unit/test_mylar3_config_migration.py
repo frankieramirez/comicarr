@@ -109,7 +109,7 @@ class TestUndefinedKeysAreSkippedNotFatal:
     def test_a_stray_key_costs_only_itself(self, tmp_path, monkeypatch):
         """Drives the real `migrate_mylar3_config` with a key nothing defines."""
         import comicarr
-        from comicarr import migration
+        from comicarr.app.system import migration
 
         (tmp_path / "config.ini").write_text(MYLAR3_CONFIG + "\n[Bogus]\nnot_a_real_key = 1\n")
 
@@ -158,20 +158,20 @@ class TestDefineHandlesOnly3Tuples:
 @pytest.mark.parametrize("raw", ["None", "none", "  None  ", None])
 def test_unset_mylar3_setting_is_not_imported(raw):
     """#1255: Mylar3's literal "None" must not become a credential or password."""
-    from comicarr.migration import _imported_value
+    from comicarr.app.system.migration import _imported_value
 
     assert _imported_value(raw) is None
 
 
 @pytest.mark.parametrize(("raw", "expected"), [(" secret ", "secret"), ("", ""), ("0", "0"), ("Nonesuch", "Nonesuch")])
 def test_set_mylar3_setting_is_imported_trimmed(raw, expected):
-    from comicarr.migration import _imported_value
+    from comicarr.app.system.migration import _imported_value
 
     assert _imported_value(raw) == expected
 
 
 def test_mylar3_config_version_is_not_imported():
     """#1254: Mylar3's own counter would re-run Comicarr's config migrations."""
-    from comicarr.migration import _NOT_IMPORTED_KEYS
+    from comicarr.app.system.migration import _NOT_IMPORTED_KEYS
 
     assert {"CONFIG_VERSION", "MINIMAL_INI"} <= _NOT_IMPORTED_KEYS

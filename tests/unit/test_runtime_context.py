@@ -50,7 +50,7 @@ PROJECTED_SCALAR_REBIND_ALLOWLIST = {
         "VERSION_STATUS",
         "MONITOR_STATUS",
     },
-    "comicarr/migration.py": {
+    "comicarr/app/system/migration.py": {
         "MIGRATION_RECONCILIATION",
         "MIGRATION_IN_PROGRESS",
         "MIGRATION_STATUS",
@@ -406,7 +406,7 @@ def test_start_migration_gate_refresh_failure_blocks_context_and_alias(_legacy_r
     def raise_gate(*_args, **_kwargs):
         raise RuntimeError("gate unavailable")
 
-    monkeypatch.setattr("comicarr.migration.Mylar3Migration", FakeMigration)
+    monkeypatch.setattr("comicarr.app.system.migration.Mylar3Migration", FakeMigration)
     monkeypatch.setattr("comicarr.app.acquisition.maintenance.MaintenanceController", FakeController)
     monkeypatch.setattr("comicarr.app.acquisition.maintenance.set_reconciliation_state", lambda *_a, **_k: None)
     monkeypatch.setattr("comicarr.app.acquisition.maintenance.refresh_runtime_state", raise_gate)
@@ -454,13 +454,13 @@ def test_mylar3_migration_success_projects_db_empty(_legacy_runtime_objects, mon
     ctx = create_runtime()
     set_runtime_field(ctx, "db_empty", True)
 
-    monkeypatch.setattr("comicarr.maintenance.auto_backup_db", lambda *_a, **_k: None)
+    monkeypatch.setattr("comicarr.app.system.maintenance.auto_backup_db", lambda *_a, **_k: None)
     monkeypatch.setattr("comicarr.app.core.schema.upgrade_database", lambda: None)
-    monkeypatch.setattr("comicarr.migration.migrate_mylar3_config", lambda *_a, **_k: None)
-    monkeypatch.setattr("comicarr.migration._verify_migration", lambda *_a, **_k: None)
-    monkeypatch.setattr("comicarr.migration._set_acquisition_reconciliation", lambda *_a, **_k: None)
+    monkeypatch.setattr("comicarr.app.system.migration.migrate_mylar3_config", lambda *_a, **_k: None)
+    monkeypatch.setattr("comicarr.app.system.migration._verify_migration", lambda *_a, **_k: None)
+    monkeypatch.setattr("comicarr.app.system.migration._set_acquisition_reconciliation", lambda *_a, **_k: None)
 
-    from comicarr.migration import Mylar3Migration
+    from comicarr.app.system.migration import Mylar3Migration
 
     migration = Mylar3Migration(str(tmp_path))
     migration.dbfile = str(source_db)

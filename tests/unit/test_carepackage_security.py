@@ -15,7 +15,7 @@ import zipfile
 import comicarr
 from comicarr import config as config_module
 from comicarr import encrypted as encrypted_module
-from comicarr.carepackage import carePackage
+from comicarr.app.system.carepackage import carePackage
 
 
 def test_carepackage_redacts_every_encrypted_config_item(tmp_path, monkeypatch):

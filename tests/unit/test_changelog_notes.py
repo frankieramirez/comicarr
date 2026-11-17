@@ -173,7 +173,7 @@ class TestParseReleaseBody:
 
 class TestCheckGithubCachesReleaseBody:
     def test_behind_check_caches_body_for_notes(self, monkeypatch):
-        from comicarr import versioncheck
+        from comicarr.app.system import versioncheck
         from comicarr.app.system import service as system_service
 
         changelog_notes.clear_cached_release_body()
@@ -203,7 +203,7 @@ class TestCheckGithubCachesReleaseBody:
         changelog_notes.clear_cached_release_body()
 
     def test_current_check_clears_stale_cache(self, monkeypatch):
-        from comicarr import versioncheck
+        from comicarr.app.system import versioncheck
         from comicarr.app.system import service as system_service
 
         changelog_notes.set_cached_release_body("0.22.0", "stale body")

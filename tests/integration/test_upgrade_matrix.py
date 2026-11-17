@@ -301,7 +301,7 @@ class Install:
         monkeypatch.setattr(comicarr, "DB_FILE", str(self.database), raising=False)
         monkeypatch.setattr(runtime, "_runtime", None)
         monkeypatch.setattr(
-            "comicarr.maintenance.Maintenance.backup_files",
+            "comicarr.app.system.maintenance.Maintenance.backup_files",
             lambda self, **kwargs: True,
             raising=False,
         )
@@ -375,7 +375,7 @@ class Install:
     def import_mylar3(self):
         """Run the Mylar3 import as Settings does, minus the background fence."""
 
-        from comicarr import migration
+        from comicarr.app.system import migration
         from comicarr.app.acquisition.maintenance import get_reconciliation_status
 
         assert migration.Mylar3Migration(str(self.source_dir)).execute() is True
@@ -417,7 +417,7 @@ def upgraded(install):
         assert classify_database(install.engine) is DatabaseState.LEGACY
     before = install.table_counts(install.source)
     if install.row.mylar:
-        from comicarr.migration import MIGRATABLE_TABLES
+        from comicarr.app.system.migration import MIGRATABLE_TABLES
 
         before = {table: count for table, count in before.items() if table in MIGRATABLE_TABLES}
     install.before_counts = before

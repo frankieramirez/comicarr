@@ -51,14 +51,13 @@ import comicarr.config
 from comicarr import (
     helpers,
     logger,
-    maintenance,
     rsscheckit,
     sabnzbd,
     updater,
-    versioncheckit,
     weeklypullit,
 )
 from comicarr.app.search.queue import FairSearchQueue
+from comicarr.app.system import maintenance, versioncheckit
 
 
 class ThreadSafeLock:

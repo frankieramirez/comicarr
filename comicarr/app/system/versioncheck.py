@@ -146,7 +146,7 @@ def runGit(args, ptv=None, suppress_errors=False):
             ]
         ):
             if not suppress_errors:
-                logger.error("[%s] Unable to find git with command: %s" % (output.stdout, cmd))
+                logger.error("[%s] Unable to find git with command: %s" % (output.stdout, cmd_list))
             output = None
             gitworked = False
         elif ("fatal:" in output.stdout) or ("fatal:" in output.stderr):
@@ -391,15 +391,12 @@ def getVersion(ptv):
                 }
             else:
                 logger.warn("No branch specified within config - will attempt to poll version from comicarr")
-                try:
-                    branch = version.COMICARR_VERSION
-                    logger.info("Branch detected & set to : " + branch)
-                except:
-                    branch = "master"
-                    logger.info(
-                        "Unable to detect branch properly - set branch in config.ini, currently defaulting to : "
-                        + branch
-                    )
+                # Inherited code read an undefined ``version`` module here, so it
+                # always fell through to the default; kept as that default.
+                branch = "master"
+                logger.info(
+                    "Unable to detect branch properly - set branch in config.ini, currently defaulting to : " + branch
+                )
                 return {
                     "current_version": current_version,
                     "current_version_name": current_version_name,
