@@ -1357,6 +1357,14 @@ def persist_scheduler_event(event):
             }
         )
     elif event_code == EVENT_JOB_ERROR:
+        logger.error(
+            "[SCHEDULER] Job %s failed: %s\n%s"
+            % (
+                job_name,
+                sanitize_job_error(getattr(event, "exception", None)),
+                redact_sensitive_text(getattr(event, "traceback", None) or ""),
+            )
+        )
         values.update(
             {
                 "status": DispatchState.ERROR.value,

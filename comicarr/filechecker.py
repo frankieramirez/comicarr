@@ -310,14 +310,22 @@ class FileChecker(object):
                 path_list = path_list[1:]
             logger.fdebug("[SUB-PATH] subpath set to : %s" % path_list)
 
+        # A name wrapped whole in one pair of square brackets ("[Title 1.cbz]",
+        # seen in some Newznab feeds) would otherwise be read as a leading
+        # scanlation-group tag and stripped to nothing (#1441).
+        parse_name = filename
+        wrapped = re.fullmatch(r"\s*\[([^\[\]]+)\]\s*", filename)
+        if wrapped:
+            parse_name = wrapped.group(1).strip()
+
         comic_ext = (".cbr", ".cbz", ".cb7", ".pdf")
         comic_ext = tuple(x for x in comic_ext if x not in comicarr.CONFIG.IGNORE_SEARCH_WORDS)
-        if os.path.splitext(filename)[1].endswith(comic_ext):
-            filetype = os.path.splitext(filename)[1]
+        if os.path.splitext(parse_name)[1].endswith(comic_ext):
+            filetype = os.path.splitext(parse_name)[1]
         else:
             filetype = "unknown"
 
-        modfilename = re.sub(filetype, "", filename).strip()
+        modfilename = re.sub(filetype, "", parse_name).strip()
         reading_order = None
 
         if self.sarc and comicarr.CONFIG.READ2FILENAME:
@@ -512,6 +520,29 @@ class FileChecker(object):
                 ret_sf1,
                 re.UNICODE,
             )
+
+        if not split_file:
+            logger.fdebug("[PARSE] Nothing left to parse in %s; skipping it." % filename)
+            return {
+                "parse_status": "failure",
+                "sub": path_list,
+                "comicfilename": filename,
+                "comiclocation": self.dir,
+                "series_name": None,
+                "series_name_decoded": None,
+                "issueid": issueid,
+                "alt_series": None,
+                "alt_issue": None,
+                "dynamic_name": None,
+                "issue_number": None,
+                "justthedigits": None,
+                "series_volume": None,
+                "issue_year": None,
+                "annual_comicid": None,
+                "scangroup": scangroup,
+                "booktype": None,
+                "reading_order": None,
+            }
 
         possible_issuenumbers = []
         volumeprior = False
