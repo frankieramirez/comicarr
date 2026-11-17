@@ -55,6 +55,17 @@ def add_manga(comic_id: str) -> Any:
     return importer.addMangaToDB(comic_id)
 
 
+def update_issue_data(comic_id: str, comic_name: str, *, calledfrom: str | None = None) -> Any:
+    """Re-read a series' issue list from its source, through ``importer.updateissuedata``.
+
+    The pull-list match calls it with ``calledfrom="weeklycheck"`` when a
+    pulled issue is not in the series yet.
+    """
+    from comicarr import importer
+
+    return importer.updateissuedata(comic_id, comic_name, calledfrom=calledfrom)
+
+
 def queue_series_adds(series: Sequence[Mapping[str, Any]]) -> None:
     """Put each series dict on the mass-add queue and start its worker if idle.
 

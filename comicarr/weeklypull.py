@@ -32,10 +32,10 @@ import sqlalchemy
 from sqlalchemy import and_, delete, select, text, update
 
 import comicarr
-from comicarr import db, helpers, importer, logger, updater
+from comicarr import db, helpers, importer, logger
 from comicarr.app.search import mb
 from comicarr.app.storyarcs import readinglist
-from comicarr.app.weekly import locg
+from comicarr.app.weekly import locg, watchlist_match
 from comicarr.tables import annuals, comics, futureupcoming, issues, weekly
 
 
@@ -902,8 +902,10 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                                     "Watchlist hit for : " + ComicName + " ISSUE: " + str(watchfndiss[tot - 1])
                                 )
 
-                                updater.latest_update(ComicID=ComicID, LatestIssue=ComicIssue, LatestDate=ComicDate)
-                                statusupdate = updater.upcoming_update(
+                                watchlist_match.latest_update(
+                                    ComicID=ComicID, LatestIssue=ComicIssue, LatestDate=ComicDate
+                                )
+                                statusupdate = watchlist_match.upcoming_update(
                                     ComicID=ComicID,
                                     ComicName=ComicName,
                                     IssueNumber=ComicIssue,
@@ -928,7 +930,7 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                                     cstatus = None
 
                                 if date_downloaded is None:
-                                    updater.weekly_update(
+                                    watchlist_match.weekly_update(
                                         ComicName=week["COMIC"],
                                         IssueNumber=ComicIssue,
                                         CStatus=cstatus,
@@ -938,7 +940,7 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                                         altissuenumber=altissuenum,
                                     )
                                 else:
-                                    updater.weekly_update(
+                                    watchlist_match.weekly_update(
                                         ComicName=week["COMIC"],
                                         IssueNumber=ComicIssue,
                                         CStatus=date_downloaded,
@@ -1279,7 +1281,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                     if comicarr.CURRENT_WEEKNUMBER is None:
                         comicarr.CURRENT_WEEKNUMBER = todaydate.strftime("%U")
 
-                    statusupdate = updater.upcoming_update(
+                    statusupdate = watchlist_match.upcoming_update(
                         ComicID=comicid,
                         ComicName=comicname,
                         IssueNumber=week["issue"],
@@ -1294,14 +1296,14 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                         if statusupdate is not None:
                             if statusupdate["Status"] != "incorrect_match":
                                 if comicarr.CONFIG.ANNUALS_ON:
-                                    updater.latest_update(
+                                    watchlist_match.latest_update(
                                         ComicID=statusupdate["ComicID"],
                                         LatestIssue=week["issue"],
                                         LatestDate=ComicDate,
                                         ReleaseComicID=comicid,
                                     )
                                 else:
-                                    updater.latest_update(
+                                    watchlist_match.latest_update(
                                         ComicID=comicid, LatestIssue=week["issue"], LatestDate=ComicDate
                                     )
                     except Exception as e:

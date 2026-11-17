@@ -57,3 +57,25 @@ def check_future_releases() -> None:
     from comicarr import weeklypull
 
     weeklypull.future_check()
+
+
+def match_new_series(comic_name: str, comic_id: str, issue: str | None = None) -> None:
+    """Match one newly added series against the current pull list.
+
+    Moved from ``updater.newpullcheck`` (#1461). With the default source it
+    rechecks the stored pull list for this series; with the alternate source
+    it matches the current week.
+    """
+    import comicarr
+    from comicarr import weeklypull
+
+    if comicarr.CONFIG.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
+        weeklypull.pullitcheck(comic1off_name=comic_name, comic1off_id=comic_id, issue=issue)
+    else:
+        weeklypull.new_pullcheck(
+            weeknumber=comicarr.CURRENT_WEEKNUMBER,
+            pullyear=comicarr.CURRENT_YEAR,
+            comic1off_name=comic_name,
+            comic1off_id=comic_id,
+            issue=issue,
+        )

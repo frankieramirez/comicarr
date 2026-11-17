@@ -18,14 +18,16 @@ still lives in ``updater.py``.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 
-def refresh_series_metadata(comic_ids: Sequence[str], *, calledfrom: str | None = None) -> None:
+def refresh_series_metadata(comic_ids: Sequence[str], *, calledfrom: str | None = None) -> Any:
     """Refresh the named series now, through ``updater.dbUpdate``.
 
     ``calledfrom`` is the legacy caller tag ``dbUpdate`` branches on
-    (``"dupechk"``, ``"refresh"``, ...).
+    (``"dupechk"``, ``"refresh"``, ``"weekly"``, ...). Returns what
+    ``dbUpdate`` returns; the pull-list match reads it for ``"weekly"``.
     """
     from comicarr import updater
 
-    updater.dbUpdate(ComicIDList=list(comic_ids), calledfrom=calledfrom)
+    return updater.dbUpdate(ComicIDList=list(comic_ids), calledfrom=calledfrom)

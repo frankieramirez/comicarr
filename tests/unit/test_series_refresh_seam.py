@@ -106,10 +106,10 @@ def _issues_by_id(eng, comic_id):
 
 
 def test_seam_delegates_to_db_update(monkeypatch):
-    db_update = MagicMock()
+    db_update = MagicMock(return_value="refreshed")
     monkeypatch.setattr(updater, "dbUpdate", db_update)
 
-    assert series_refresh.refresh_series_metadata(("100",), calledfrom="dupechk") is None
+    assert series_refresh.refresh_series_metadata(("100",), calledfrom="dupechk") == "refreshed"
 
     db_update.assert_called_once_with(ComicIDList=["100"], calledfrom="dupechk")
 
