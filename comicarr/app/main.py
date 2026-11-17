@@ -403,6 +403,7 @@ def create_app():
     from comicarr.app.opds.router import router as opds_router
     from comicarr.app.search.router import router as search_router
     from comicarr.app.series.router import router as series_router
+    from comicarr.app.shelf.router import router as shelf_router
     from comicarr.app.storyarcs.router import router as storyarcs_router
     from comicarr.app.system.router import router as system_router
     from comicarr.app.weekly.router import router as weekly_router
@@ -416,6 +417,7 @@ def create_app():
     app.include_router(metadata_router)
     app.include_router(storyarcs_router)
     app.include_router(series_router)
+    app.include_router(shelf_router)
     app.include_router(search_router)
     app.include_router(downloads_router)
     app.include_router(opds_router)

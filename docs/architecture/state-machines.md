@@ -76,6 +76,7 @@ state. Then replace the frontend's hand-written union with the generated one.
 | `journal_stage` | `pipeline_journal.stage` | monotonic rank compare-and-swap | none |
 | `journal_resolution` | `pipeline_journal.status` | conditional update | none |
 | `activity_event_status` | `activity_events.status` | validated on insert | `EventStatus` |
+| `shelf_copy_state` | `physical_copies.State` | validated on write | `ShelfCopyState` |
 
 `series_status` and `issue_status` are the two with no enforcement at all.
 They are registered because every screen and both MCP status tools read them.

@@ -107,6 +107,10 @@ export const SEARCH_RUN_ITEM_STATE_VALUES = [
 ] as const;
 export type SearchRunItemState = (typeof SEARCH_RUN_ITEM_STATE_VALUES)[number];
 
+/** Whether a print copy on the shelf is owned or wanted. */
+export const SHELF_COPY_STATE_VALUES = ["owned", "wishlist"] as const;
+export type ShelfCopyState = (typeof SHELF_COPY_STATE_VALUES)[number];
+
 /** Outcome recorded on an Activity event. A vocabulary: events are append-only. */
 export const EVENT_STATUS_VALUES = [
   "started",

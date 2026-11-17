@@ -253,6 +253,16 @@ _MACHINES = (
         notes="NULL means unresolved. manual_review is also written to this column as a marker.",
     ),
     StateMachine(
+        name="shelf_copy_state",
+        summary="Whether a print copy on the shelf is owned or wanted.",
+        states=("owned", "wishlist"),
+        stored_in="physical_copies.State",
+        owner="comicarr/app/shelf/service.py",
+        enforced_by="validated on create, update and bulk mark against STATES",
+        ts_type="ShelfCopyState",
+        notes="Display only: nothing in search, post-processing or volume coverage reads it.",
+    ),
+    StateMachine(
         name="activity_event_status",
         summary="Outcome recorded on an Activity event. A vocabulary: events are append-only.",
         states=("started", "succeeded", "no_match", "cancelled", "failed", "blocked", "needs_attention"),
