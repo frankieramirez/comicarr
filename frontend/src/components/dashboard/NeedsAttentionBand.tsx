@@ -37,7 +37,10 @@ import {
   useBandBatchResolution,
   type BandBatchResult,
 } from "@/hooks/useActivity";
-import { useSearchBlockers } from "@/hooks/useAcquisitionHealth";
+import {
+  useConnections,
+  useSearchBlockers,
+} from "@/hooks/useAcquisitionHealth";
 import type { SearchBlocker } from "@/lib/searchBlockers";
 import { setupSteps } from "@/lib/setupSteps";
 import SetupChecklist from "@/components/dashboard/SetupChecklist";
@@ -264,6 +267,7 @@ function distinctSeries(causes: AttentionCause[]) {
 export default function NeedsAttentionBand() {
   const band = useActivityBand();
   const { blockers, known } = useSearchBlockers();
+  const connections = useConnections();
   const config = useConfig();
   const library = useDashboardLibrary();
   const batch = useBandBatchResolution();
@@ -308,8 +312,12 @@ export default function NeedsAttentionBand() {
   // first download take the whole section until a series is added and every
   // step is done.
   const steps =
-    known && config.data && library.data
-      ? setupSteps({ config: config.data, blockers })
+    known && config.data && library.data && !connections.isPending
+      ? setupSteps({
+          config: config.data,
+          blockers,
+          connections: connections.data?.connections,
+        })
       : null;
   if (
     steps &&

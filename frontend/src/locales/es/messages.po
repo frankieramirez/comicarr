@@ -682,6 +682,10 @@ msgstr "{first}–{last} de más de {total} historias"
 msgid "{first}, {second} and {third}"
 msgstr "{first}, {second} y {third}"
 
+#: src/lib/healthBand.ts
+msgid "{firstLabel} set up, not checked yet"
+msgstr "{firstLabel} configurado, aún sin comprobar"
+
 #: src/pages/ImportPage.tsx
 msgid "{groupCount} · {fileCount} awaiting review"
 msgstr "{groupCount} · {fileCount} pendientes de revisión"
@@ -743,6 +747,14 @@ msgstr "{issues} faltan en {series} series"
 msgid "{label} — {activity} {status}"
 msgstr "{label} — {activity} {status}"
 
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer its connection check."
+msgstr "{label} no respondió a la comprobación de conexión."
+
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer: {result}"
+msgstr "{label} no respondió: {result}"
+
 #: src/components/activity/health/HealthView.tsx
 msgid "{label} didn't start."
 msgstr "{label} no se inició."
@@ -754,6 +766,14 @@ msgstr "{label} para {file}"
 #: src/components/activity/timeline/sentences.ts
 msgid "{label} needs attention"
 msgstr "{label} necesita atención"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering"
+msgstr "{label} no responde"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering — {result}"
+msgstr "{label} no responde — {result}"
 
 #: src/components/dashboard/DashboardPanel.tsx
 msgid "{label} unavailable"
@@ -2819,6 +2839,7 @@ msgstr "Comprobación de conexión"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Connection test failed"
 msgstr "La prueba de conexión falló"
 
@@ -4651,6 +4672,10 @@ msgid "Indexer {index}"
 msgstr "Indexador {index}"
 
 #: src/components/settings/SearchProviderEditor.tsx
+msgid "Indexer answered"
+msgstr "El indexador respondió"
+
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Indexer API key"
 msgstr "Clave de API del indexador"
 
@@ -4669,6 +4694,10 @@ msgstr "URL del indexador"
 #: src/pages/SettingsPage.tsx
 msgid "Indexers and search"
 msgstr "Indexadores y búsqueda"
+
+#: src/lib/healthBand.ts
+msgid "Indexers set up, not checked yet"
+msgstr "Indexadores configurados, aún sin comprobar"
 
 #: src/lib/healthRows.ts
 msgid "Indexers, {live} of {total}"
@@ -7597,6 +7626,10 @@ msgstr "Guardado (introduce uno nuevo para cambiarlo)"
 msgid "Saved conversations appear here."
 msgstr "Las conversaciones guardadas aparecen aquí."
 
+#: src/lib/setupSteps.ts
+msgid "Saved. Checking that {label} answers…"
+msgstr "Guardado. Comprobando que {label} responde…"
+
 #: src/components/series/SeriesContentKind.tsx
 msgid "Saving content kind"
 msgstr "Guardando el tipo de contenido"
@@ -8786,6 +8819,14 @@ msgstr "Probar conexión"
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Test Connection"
 msgstr "Probar conexión"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test indexer {index}"
+msgstr "Probar indexador {index}"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test Torznab indexer {index}"
+msgstr "Probar indexador Torznab {index}"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx

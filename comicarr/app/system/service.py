@@ -131,7 +131,7 @@ _CLIENT_SECRET_FOR_HOST = {
 }
 
 
-_CLIENT_KEY_PREFIXES = (
+_CONNECTION_KEY_PREFIXES = (
     "NZB_DOWNLOADER",
     "TORRENT_DOWNLOADER",
     "ENABLE_TORRENTS",
@@ -141,7 +141,37 @@ _CLIENT_KEY_PREFIXES = (
     "QBITTORRENT_",
     "DELUGE_",
     "TRANSMISSION_",
+    "RTORRENT_",
+    "UTORRENT_",
+    "BLACKHOLE_DIR",
+    "LOCAL_WATCHDIR",
+    "DDL_LOCATION",
+    "NEWZNAB",
+    "ENABLE_TORZNAB",
+    "TORZNAB",
+    "PROWLARR_",
+    "ENABLE_PROWLARR",
 )
+
+
+def recheck_connections(ctx):
+    """Forget the stored connection checks and run them again now.
+
+    A stored check describes the old settings, so it goes first; then the
+    connection job runs straight away instead of within the hour. Until it
+    answers, the dashboard says "not checked yet" rather than "ready", and
+    only a real answer turns a client or indexer ready.
+    """
+    from comicarr.app.system import connections
+
+    connections.reset()
+    scheduler = getattr(ctx, "scheduler", None)
+    try:
+        job = scheduler.get_job(connections.JOB_ID) if scheduler is not None else None
+        if job is not None and job.next_run_time is not None:
+            job.modify(next_run_time=datetime.datetime.now(datetime.timezone.utc))
+    except Exception as e:
+        logger.warn("[CONNECTIONS] Could not queue a connection check after a settings change: %s" % e)
 
 
 def _host_key(value):
@@ -639,11 +669,8 @@ def update_config(ctx, key_values):
     if interval_changed:
         _reconfigure_schedulers(ctx)
 
-    if any(k.startswith(_CLIENT_KEY_PREFIXES) for k in filtered):
-        # A stored check describes the old settings; show none rather than a stale one.
-        from comicarr.app.system import connections
-
-        connections.reset()
+    if any(k.startswith(_CONNECTION_KEY_PREFIXES) for k in filtered):
+        recheck_connections(ctx)
 
     for notice in level_notices:
         logger.warn("[CONFIG] %s" % notice)
@@ -855,10 +882,46 @@ def update_providers(ctx, provider_data):
     if persisted is False:
         return {"success": False, "error": PROVIDER_CONFIG_PERSISTENCE_ERROR}
 
+    recheck_connections(ctx)
     result = {"success": True}
     if object_payload:
         result.update(_safe_provider_projection(ctx.config, provider_type))
     return result
+
+
+def check_indexer_connection(ctx, body):
+    """Test one Newznab or Torznab indexer from Settings, saved or not.
+
+    A blank API key uses the stored key of the saved indexer with the same id,
+    but only while the URL still points at the same server, so a stored key is
+    never sent somewhere new.
+    """
+    from comicarr.app.system import connections
+
+    body = body if isinstance(body, dict) else {}
+    kind = body.get("type")
+    if kind not in ("newznab", "torznab"):
+        return {"success": False, "error": "Invalid provider type"}
+    old = None
+    if ctx.config is not None and body.get("id") is not None:
+        old = next(
+            (p for p in providers_from_config(ctx.config, kind) if str(p.id) == str(body.get("id"))),
+            None,
+        )
+    host = str(body.get("host") or "").strip()
+    if old is not None and host == _safe_provider_host(old.host):
+        host = old.host
+    if _http_origin(host) is None:
+        return {"success": False, "error": "Indexer URL must be a valid HTTP or HTTPS URL"}
+    api_key = str(body.get("api_key") or "").strip()
+    if not api_key and old is not None and _http_origin(old.host) == _http_origin(host):
+        api_key = old.api_key or ""
+    if not api_key:
+        return {"success": False, "error": "Enter the indexer API key to test it"}
+    verify = body.get("verify")
+    if not isinstance(verify, bool):
+        verify = True
+    return connections.check_indexer(kind, host, api_key, verify=verify, name=body.get("name"))
 
 
 SCHEDULER_JOB_INTERVALS = scheduler_job_intervals()

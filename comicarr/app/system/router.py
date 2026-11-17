@@ -257,6 +257,16 @@ async def test_prowlarr(request: Request, ctx: AppContext = Depends(get_context)
     return await asyncio.to_thread(system_service.check_prowlarr_connection, ctx, body)
 
 
+@router.post("/config/providers/test", dependencies=[Depends(require_session)])
+async def test_indexer(request: Request, ctx: AppContext = Depends(get_context)):
+    """Test one Newznab or Torznab indexer; a blank key uses the saved indexer's key."""
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    return await asyncio.to_thread(system_service.check_indexer_connection, ctx, body)
+
+
 @router.get("/config/provider-order", dependencies=[Depends(require_session)])
 def get_provider_order(ctx: AppContext = Depends(get_context)):
     """Return the enabled Search providers in global search order."""

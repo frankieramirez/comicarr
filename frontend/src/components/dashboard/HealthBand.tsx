@@ -3,7 +3,7 @@ import { Trans } from "@lingui/react/macro";
 import { useSyncExternalStore } from "react";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useSearchHealth } from "@/hooks/useAcquisitionHealth";
+import { useConnections, useSearchHealth } from "@/hooks/useAcquisitionHealth";
 import { useConfig } from "@/hooks/useConfig";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionHeader } from "@/components/dashboard/DashboardPanel";
@@ -93,6 +93,7 @@ function SignalRow({ signal }: { signal: HealthBandView["signals"][number] }) {
 export default function HealthBand() {
   const health = useSearchHealth();
   const config = useConfig();
+  const connections = useConnections();
   const now = useNow();
 
   if (health.isPending) {
@@ -110,6 +111,7 @@ export default function HealthBand() {
 
   const view = healthBandView({
     health: health.isError ? null : (health.data ?? null),
+    connections: connections.data?.connections,
     searchIntervalMinutes:
       config.data?.search_interval ?? DEFAULT_SEARCH_INTERVAL_MINUTES,
     now,

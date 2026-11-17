@@ -682,6 +682,10 @@ msgstr "第 {first}–{last} 条，共 {total}+ 条记录"
 msgid "{first}, {second} and {third}"
 msgstr "{first}、{second}和{third}"
 
+#: src/lib/healthBand.ts
+msgid "{firstLabel} set up, not checked yet"
+msgstr "{firstLabel} 已设置，尚未检查"
+
 #: src/pages/ImportPage.tsx
 msgid "{groupCount} · {fileCount} awaiting review"
 msgstr "{groupCount} · {fileCount} 待审核"
@@ -743,6 +747,14 @@ msgstr "{series} 个系列中缺少 {issues} 期"
 msgid "{label} — {activity} {status}"
 msgstr "{label} — {activity} {status}"
 
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer its connection check."
+msgstr "{label} 未响应连接检查。"
+
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer: {result}"
+msgstr "{label} 未响应：{result}"
+
 #: src/components/activity/health/HealthView.tsx
 msgid "{label} didn't start."
 msgstr "{label} 未能启动。"
@@ -754,6 +766,14 @@ msgstr "{file} 的 {label}"
 #: src/components/activity/timeline/sentences.ts
 msgid "{label} needs attention"
 msgstr "{label} 需要关注"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering"
+msgstr "{label} 无响应"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering — {result}"
+msgstr "{label} 无响应 — {result}"
 
 #: src/components/dashboard/DashboardPanel.tsx
 msgid "{label} unavailable"
@@ -2819,6 +2839,7 @@ msgstr "连接检查"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Connection test failed"
 msgstr "连接测试失败"
 
@@ -4651,6 +4672,10 @@ msgid "Indexer {index}"
 msgstr "索引器 {index}"
 
 #: src/components/settings/SearchProviderEditor.tsx
+msgid "Indexer answered"
+msgstr "索引器已响应"
+
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Indexer API key"
 msgstr "索引器 API 密钥"
 
@@ -4669,6 +4694,10 @@ msgstr "索引器 URL"
 #: src/pages/SettingsPage.tsx
 msgid "Indexers and search"
 msgstr "索引器与搜索"
+
+#: src/lib/healthBand.ts
+msgid "Indexers set up, not checked yet"
+msgstr "索引器已设置，尚未检查"
 
 #: src/lib/healthRows.ts
 msgid "Indexers, {live} of {total}"
@@ -7597,6 +7626,10 @@ msgstr "已保存（输入新值即可更改）"
 msgid "Saved conversations appear here."
 msgstr "已保存的对话会显示在这里。"
 
+#: src/lib/setupSteps.ts
+msgid "Saved. Checking that {label} answers…"
+msgstr "已保存。正在检查 {label} 是否响应…"
+
 #: src/components/series/SeriesContentKind.tsx
 msgid "Saving content kind"
 msgstr "正在保存内容类型"
@@ -8786,6 +8819,14 @@ msgstr "测试连接"
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Test Connection"
 msgstr "测试连接"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test indexer {index}"
+msgstr "测试索引器 {index}"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test Torznab indexer {index}"
+msgstr "测试 Torznab 索引器 {index}"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx

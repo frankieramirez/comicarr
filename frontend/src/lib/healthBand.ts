@@ -22,7 +22,9 @@ import type {
   AcquisitionWorkerHealth,
 } from "@/hooks/useAcquisitionHealth";
 import { sanitizeAcquisitionMessage } from "@/hooks/useAcquisitionHealth";
+import type { ConnectionCheck } from "@/hooks/useAcquisitionHealth";
 import { searchBlockers, type SearchBlocker } from "@/lib/searchBlockers";
+import { connectionVerdict } from "@/lib/connectionVerdict";
 
 /** Quiet, amber, red — in escalating order, which is also their precedence. */
 export type HealthTone = "healthy" | "degraded" | "blocked";
@@ -363,6 +365,52 @@ function pausedSignal(blocker: SearchBlocker): HealthSignal {
   };
 }
 
+/**
+ * A route or indexer the acquisition health calls ready is only configured and
+ * not blocked. Hold it to the last connection check before saying "ready": a
+ * failed check turns the signal red with its reason, and a configured
+ * connection that has not answered yet says so instead of claiming "ready".
+ */
+function checkedSignal(
+  signal: HealthSignal,
+  connections: ConnectionCheck[] | null | undefined,
+  kind: "client" | "indexers",
+): HealthSignal {
+  if (connections == null || signal.tone !== "healthy") return signal;
+  const verdict = connectionVerdict(connections, kind);
+  const fix =
+    kind === "client"
+      ? { label: t`open download clients`, to: SETTINGS_CLIENTS }
+      : { label: t`open search providers`, to: SETTINGS_SEARCH };
+  if (verdict.state === "failed") {
+    const { row } = verdict;
+    const { label, result } = row;
+    return {
+      ...signal,
+      tone:
+        kind === "indexers" && (row.responding ?? 0) > 0
+          ? "degraded"
+          : "blocked",
+      text: result
+        ? t`${label} not answering — ${result}`
+        : t`${label} not answering`,
+      fix,
+    };
+  }
+  if (verdict.state === "unchecked") {
+    const firstLabel = verdict.rows[0].label;
+    return {
+      ...signal,
+      tone: "degraded",
+      text:
+        kind === "client"
+          ? t`${firstLabel} set up, not checked yet`
+          : t`Indexers set up, not checked yet`,
+    };
+  }
+  return signal;
+}
+
 function worstTone(tones: HealthTone[]): HealthTone {
   return tones.reduce<HealthTone>(
     (worst, tone) => (TONE_RANK[tone] > TONE_RANK[worst] ? tone : worst),
@@ -376,10 +424,13 @@ function worstTone(tones: HealthTone[]): HealthTone {
  */
 export function healthBandView({
   health,
+  connections,
   searchIntervalMinutes = DEFAULT_SEARCH_INTERVAL_MINUTES,
   now,
 }: {
   health: AcquisitionHealthResponse | null;
+  /** The last connection checks; leave out to judge by configuration alone. */
+  connections?: ConnectionCheck[] | null;
   searchIntervalMinutes?: number;
   now: number;
 }): HealthBandView {
@@ -404,8 +455,12 @@ export function healthBandView({
   const gate = gateSignal(health);
   const blockers = searchBlockers(health);
   const signals: HealthSignal[] = [
-    setupTone(routeSignal(health), blockers),
-    indexerSignal(health),
+    checkedSignal(
+      setupTone(routeSignal(health), blockers),
+      connections,
+      "client",
+    ),
+    checkedSignal(indexerSignal(health), connections, "indexers"),
     blockers.length > 0 ? pausedSignal(blockers[0]) : workerSignal(health),
     ...(gate ? [gate] : []),
   ];

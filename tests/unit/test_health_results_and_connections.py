@@ -251,6 +251,23 @@ def test_indexers_report_a_median_and_failures(monkeypatch):
     assert result["responding"] == 2
 
 
+def test_check_indexer_asks_for_caps_and_hides_the_key(monkeypatch):
+    seen = []
+
+    def fake_get(url, params=None, **kwargs):
+        seen.append((url, params["t"]))
+        if "bad" in url:
+            raise requests.exceptions.ConnectionError("refused %s?apikey=sekrit" % url)
+        return FakeResponse(text="<caps></caps>")
+
+    monkeypatch.setattr(connections.requests, "get", fake_get)
+    assert connections.check_indexer("newznab", "https://good.example", "sekrit")["success"] is True
+    failed = connections.check_indexer("torznab", "https://bad.example/1/api", "sekrit", name="Bad")
+    assert seen == [("https://good.example/api", "caps"), ("https://bad.example/1/api", "caps")]
+    assert failed["success"] is False
+    assert "sekrit" not in str(failed)
+
+
 def test_snapshot_lists_unchecked_connections_without_answers():
     rows = connections.snapshot(_sab_config(ENABLE_DDL=True, DDL_LOCATION="/nope"))
     assert [row["key"] for row in rows] == ["sabnzbd", "ddl"]

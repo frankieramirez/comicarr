@@ -1,12 +1,20 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { useEffect, useMemo, useState } from "react";
-import { LoaderCircle, Plus, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  LoaderCircle,
+  Plus,
+  Trash2,
+  XCircle,
+  Zap,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { useUpdateSearchProviders } from "@/hooks/useConfig";
+import { apiRequest } from "@/lib/api";
 import { httpOrigin } from "@/lib/httpOrigin";
 import type {
   NewznabProvider,
@@ -25,6 +33,12 @@ type EditableProvider = {
   api_key_set: boolean;
   api_key: string;
   rss_uid?: string;
+};
+
+type IndexerTestResult = {
+  success: boolean;
+  latency_ms?: number | null;
+  error?: string;
 };
 
 type ProviderGroup = {
@@ -49,6 +63,7 @@ type EditorCopy = {
   key: string;
   categoriesHelp: string;
   enableRow: (index: number) => string;
+  test: (index: number) => string;
   verifyRow: (index: number) => string;
   idPrefix: string;
   showRssUid: boolean;
@@ -72,6 +87,7 @@ const COPY = (): Record<SearchProviderKind, EditorCopy> => ({
     key: t`Indexer API key`,
     categoriesHelp: t`Newznab category IDs, comma-separated. 7030 is Books/Comics.`,
     enableRow: (index) => t`Enable indexer ${index}`,
+    test: (index) => t`Test indexer ${index}`,
     verifyRow: (index) => t`Verify TLS for indexer ${index}`,
     idPrefix: "indexer",
     showRssUid: true,
@@ -93,6 +109,7 @@ const COPY = (): Record<SearchProviderKind, EditorCopy> => ({
     key: t`Torznab indexer API key`,
     categoriesHelp: t`Torznab category IDs, comma-separated. Use the IDs your indexer documents for comics.`,
     enableRow: (index) => t`Enable Torznab indexer ${index}`,
+    test: (index) => t`Test Torznab indexer ${index}`,
     verifyRow: (index) => t`Verify TLS for Torznab indexer ${index}`,
     idPrefix: "torznab-indexer",
     showRssUid: false,
@@ -150,6 +167,46 @@ export function SearchProviderEditor({
 
   const addProvider = () => {
     setProviders((current) => [...current, blankProvider(kind)]);
+    // An indexer added under a switched-off group is saved and silently never
+    // searched. Adding one is asking for it to be used.
+    setEnabled(true);
+  };
+
+  const [testing, setTesting] = useState<number | null>(null);
+  const [testResults, setTestResults] = useState<
+    Record<number, IndexerTestResult>
+  >({});
+
+  const testProvider = async (index: number) => {
+    const provider = providers[index];
+    setTesting(index);
+    setTestResults((current) => {
+      const { [index]: _previous, ...rest } = current;
+      return rest;
+    });
+    let result: IndexerTestResult;
+    try {
+      result = await apiRequest<IndexerTestResult>(
+        "POST",
+        "/api/config/providers/test",
+        {
+          type: kind,
+          id: provider.id,
+          name: provider.name,
+          host: provider.host,
+          api_key: provider.api_key,
+          verify: provider.verify,
+        },
+      );
+    } catch (error) {
+      result = {
+        success: false,
+        error:
+          error instanceof Error ? error.message : t`Connection test failed`,
+      };
+    }
+    setTestResults((current) => ({ ...current, [index]: result }));
+    setTesting(null);
   };
 
   const resetProviders = () => {
@@ -249,13 +306,14 @@ export function SearchProviderEditor({
                     variant="ghost"
                     size="icon-sm"
                     aria-label={copy.remove(index + 1)}
-                    onClick={() =>
+                    onClick={() => {
+                      setTestResults({});
                       setProviders((current) =>
                         current.filter(
                           (_, providerIndex) => providerIndex !== index,
                         ),
-                      )
-                    }
+                      );
+                    }}
                   >
                     <Trash2 />
                   </Button>
@@ -369,6 +427,41 @@ export function SearchProviderEditor({
                       updateProvider(index, { verify: value as boolean })
                     }
                   />
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      testing !== null ||
+                      !provider.host.trim() ||
+                      (!provider.api_key.trim() && !provider.api_key_set)
+                    }
+                    onClick={() => void testProvider(index)}
+                  >
+                    {testing === index ? (
+                      <LoaderCircle className="animate-spin" />
+                    ) : (
+                      <Zap />
+                    )}
+                    {copy.test(index + 1)}
+                  </Button>
+                  {testResults[index] && (
+                    <p
+                      role={testResults[index].success ? "status" : "alert"}
+                      className="flex items-center gap-2 text-[12px]"
+                    >
+                      {testResults[index].success ? (
+                        <CheckCircle2 className="h-4 w-4 text-[var(--status-active)]" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-[var(--status-error)]" />
+                      )}
+                      {testResults[index].success
+                        ? t`Indexer answered`
+                        : testResults[index].error || t`Connection test failed`}
+                    </p>
+                  )}
                 </div>
               </article>
             );

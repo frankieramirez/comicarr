@@ -832,6 +832,47 @@ class TestConfigService:
             system_service.update_config(ctx, {"search_interval": 720})
             reset.assert_called_once()
 
+    def test_saving_a_connection_queues_a_check_now(self):
+        ctx = _make_test_ctx()
+        job = MagicMock()
+        job.next_run_time = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+        ctx.scheduler = MagicMock()
+        ctx.scheduler.get_job.return_value = job
+        with patch("comicarr.app.system.connections.reset") as reset:
+            system_service.update_config(ctx, {"sab_category": "comics"})
+        reset.assert_called_once()
+        ctx.scheduler.get_job.assert_called_with("connection_check")
+        job.modify.assert_called_once()
+        assert job.modify.call_args.kwargs["next_run_time"] > job.next_run_time
+
+    def test_saving_indexers_queues_a_check_now(self):
+        ctx = _make_test_ctx()
+        ctx.config.EXTRA_NEWZNABS = []
+        with patch.object(system_service, "recheck_connections") as recheck:
+            result = system_service.update_providers(ctx, {"type": "newznab", "enabled": True, "providers": []})
+        assert result["success"] is True
+        recheck.assert_called_once_with(ctx)
+
+    def test_indexer_test_reuses_the_saved_key_only_for_the_same_server(self):
+        ctx = _make_test_ctx()
+        ctx.config.EXTRA_NEWZNABS = [("Indexer", "https://indexer.test", "1", "stored-key", "7030", "1", 7)]
+        with patch("comicarr.app.system.connections.check_indexer", return_value={"success": True}) as check:
+            body = {"type": "newznab", "id": 7, "host": "https://indexer.test", "api_key": ""}
+            assert system_service.check_indexer_connection(ctx, body) == {"success": True}
+            assert check.call_args.args[:3] == ("newznab", "https://indexer.test", "stored-key")
+
+            moved = system_service.check_indexer_connection(ctx, {**body, "host": "https://elsewhere.test"})
+            assert moved == {"success": False, "error": "Enter the indexer API key to test it"}
+            assert check.call_count == 1
+
+    def test_indexer_test_rejects_a_bad_url_and_type(self):
+        ctx = _make_test_ctx()
+        assert system_service.check_indexer_connection(ctx, {"type": "x"})["error"] == "Invalid provider type"
+        assert (
+            system_service.check_indexer_connection(ctx, {"type": "torznab", "host": "ftp://x", "api_key": "k"})["error"]
+            == "Indexer URL must be a valid HTTP or HTTPS URL"
+        )
+
     def test_safe_config_reports_client_passwords_only_as_set(self):
         ctx = _make_test_ctx()
         ctx.config.QBITTORRENT_HOST = "http://user:pw@qbit:8080"

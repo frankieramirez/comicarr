@@ -682,6 +682,10 @@ msgstr "{first}–{last} من {total}+ قصة"
 msgid "{first}, {second} and {third}"
 msgstr "{first} و{second} و{third}"
 
+#: src/lib/healthBand.ts
+msgid "{firstLabel} set up, not checked yet"
+msgstr "تم إعداد {firstLabel}، ولم يُفحص بعد"
+
 #: src/pages/ImportPage.tsx
 msgid "{groupCount} · {fileCount} awaiting review"
 msgstr "{groupCount} · {fileCount} بانتظار المراجعة"
@@ -743,6 +747,14 @@ msgstr "{issues} ناقصة في {series} سلسلة"
 msgid "{label} — {activity} {status}"
 msgstr "{label} — {activity} {status}"
 
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer its connection check."
+msgstr "لم يستجب {label} لفحص الاتصال."
+
+#: src/lib/setupSteps.ts
+msgid "{label} did not answer: {result}"
+msgstr "لم يستجب {label}: {result}"
+
 #: src/components/activity/health/HealthView.tsx
 msgid "{label} didn't start."
 msgstr "لم يبدأ {label}."
@@ -754,6 +766,14 @@ msgstr "{label} لـ {file}"
 #: src/components/activity/timeline/sentences.ts
 msgid "{label} needs attention"
 msgstr "{label} يحتاج إلى انتباه"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering"
+msgstr "{label} لا يستجيب"
+
+#: src/lib/healthBand.ts
+msgid "{label} not answering — {result}"
+msgstr "{label} لا يستجيب — {result}"
 
 #: src/components/dashboard/DashboardPanel.tsx
 msgid "{label} unavailable"
@@ -2819,6 +2839,7 @@ msgstr "فحص الاتصال"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Connection test failed"
 msgstr "فشل اختبار الاتصال"
 
@@ -4651,6 +4672,10 @@ msgid "Indexer {index}"
 msgstr "المفهرس {index}"
 
 #: src/components/settings/SearchProviderEditor.tsx
+msgid "Indexer answered"
+msgstr "استجاب المفهرس"
+
+#: src/components/settings/SearchProviderEditor.tsx
 msgid "Indexer API key"
 msgstr "مفتاح API للمفهرس"
 
@@ -4669,6 +4694,10 @@ msgstr "عنوان URL للمفهرس"
 #: src/pages/SettingsPage.tsx
 msgid "Indexers and search"
 msgstr "المفهرسات والبحث"
+
+#: src/lib/healthBand.ts
+msgid "Indexers set up, not checked yet"
+msgstr "تم إعداد المفهرسات، ولم تُفحص بعد"
 
 #: src/lib/healthRows.ts
 msgid "Indexers, {live} of {total}"
@@ -7597,6 +7626,10 @@ msgstr "تم الحفظ (أدخل قيمة جديدة لتغييرها)"
 msgid "Saved conversations appear here."
 msgstr "تظهر المحادثات المحفوظة هنا."
 
+#: src/lib/setupSteps.ts
+msgid "Saved. Checking that {label} answers…"
+msgstr "تم الحفظ. جارٍ التحقق من استجابة {label}…"
+
 #: src/components/series/SeriesContentKind.tsx
 msgid "Saving content kind"
 msgstr "جارٍ حفظ نوع المحتوى"
@@ -8786,6 +8819,14 @@ msgstr "اختبار الاتصال"
 #: src/components/settings/ProwlarrSettings.tsx
 msgid "Test Connection"
 msgstr "اختبار الاتصال"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test indexer {index}"
+msgstr "اختبار المفهرس {index}"
+
+#: src/components/settings/SearchProviderEditor.tsx
+msgid "Test Torznab indexer {index}"
+msgstr "اختبار مفهرس Torznab {index}"
 
 #: src/components/settings/AiTab.tsx
 #: src/components/settings/ProwlarrSettings.tsx
