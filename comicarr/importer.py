@@ -1203,14 +1203,11 @@ def _manga_series_folder(manga_dest, manga_name, manga_year):
     formatted = helpers.filesafe(folder_format.replace("$Series", manga_name).replace("$Year", str(manga_year)))
     root = os.path.normpath(os.path.abspath(manga_dest))
     formatted_path = os.path.join(manga_dest, formatted)
+    checked_formatted = os.path.normpath(os.path.join(root, formatted))
     plain_path = os.path.normpath(os.path.join(root, helpers.filesafe(manga_name)))
-    if not plain_path.startswith(root + os.sep):
+    if not checked_formatted.startswith(root + os.sep) or not plain_path.startswith(root + os.sep):
         return formatted_path
-    if (
-        plain_path != os.path.normpath(os.path.join(root, formatted))
-        and not os.path.isdir(formatted_path)
-        and os.path.isdir(plain_path)
-    ):
+    if plain_path != checked_formatted and not os.path.isdir(checked_formatted) and os.path.isdir(plain_path):
         logger.info("[MANGA] Using the existing folder %s for %s" % (plain_path, manga_name))
         return plain_path
     return formatted_path
