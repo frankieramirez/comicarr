@@ -2163,6 +2163,10 @@ def set_manga_volume_end(comic_id, volume_number, last_chapter):
         return {"success": False, "error": "Only a manga series has volumes", "code": "not_manga"}
     try:
         end = set_volume_end(comic_id, volume_number, last_chapter)
-    except ValueError as e:
-        return {"success": False, "error": str(e), "code": "invalid_volume_end"}
+    except ValueError:
+        return {
+            "success": False,
+            "error": "Give a volume number and a last chapter above zero",
+            "code": "invalid_volume_end",
+        }
     return {"success": True, "last_chapter": end}
