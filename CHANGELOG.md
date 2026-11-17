@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.60.0
+
+### Minor Changes
+
+- 86facca: Removed four integrations that only worked through hand-edited `config.ini` settings and whose sites no longer work: the 32P torrent tracker, Experimental NZB search through NZBIndex, series data from the Grand Comics Database, and the PreviewsWorld pull-list scraper. If your install still had 32P, Experimental search or the Grand Comics Database switched on, Activity → Health now shows a row saying so. Series added from the Grand Comics Database no longer refresh; add them again from ComicVine to keep them up to date.
+- 284bd52: The web UI is now available in Arabic, and it lays itself out right to left when an Arabic (or other right-to-left) language is active: the sidebar moves to the right, spacing and alignment mirror, menus and tooltips open toward the reading direction, and arrows point the way the text flows. Comicarr opens in Arabic when your browser's preferred language is Arabic, and you can switch languages from the Language picker in the account menu. Some messages written by the server, such as the reasons shown under Needs you, are still in English for now.
+- 1643893: The web UI is now available in Brazilian Portuguese. Comicarr opens in Portuguese when your browser's preferred language is Portuguese, and you can switch languages from the Language picker in the account menu. The choice is saved per browser. Some messages written by the server, such as the reasons shown under Needs you, are still in English for now.
+- de8641a: The web UI is now available in French. Comicarr opens in French when your browser's preferred language is French, and you can switch languages from the Language picker in the account menu. The choice is saved per browser. Some messages written by the server, such as the reasons shown under Needs you, are still in English for now.
+- 9154044: The web UI is now available in German. Comicarr opens in German when your browser's preferred language is German, and you can switch languages from the Language picker in the account menu. The choice is saved per browser. Some messages written by the server, such as the reasons shown under Needs you, are still in English for now.
+- 4703ce4: The web UI is now available in Simplified Chinese. Comicarr opens in Simplified Chinese when your browser's preferred language is Chinese, and you can switch languages from the Language picker in the account menu. The choice is saved per browser. Some messages written by the server, such as the reasons shown under Needs you, are still in English for now.
+- 8be058d: The web UI is now available in Spanish. Comicarr opens in Spanish when your browser's preferred language is Spanish, and you can switch between English and Spanish from the Language picker in the account menu. The choice is saved per browser, so people sharing one Comicarr can each use their own language. Some messages written by the server, such as the reasons shown under Needs you, are still in English for now.
+
+### Patch Changes
+
+- aa3b923: Comicarr now writes comic tags itself instead of running the bundled ComicTagger. Your tagging settings stay the same: ComicRack (`ComicInfo.xml`) and Comic Book Lover tags, CBR to CBZ conversion, the overwrite setting and the volume options all work as before, and the tags still come from ComicVine.
+  
+  What changes:
+  - A CBZ that already has tags, with overwriting off, is now left as it is and placed normally. Before, it was reported as a tagging failure.
+  - When overwriting is on, fields Comicarr does not manage, such as a GTIN or a translator credit, are now kept instead of dropped.
+  - The Notes field now reads "Tagged by Comicarr". It still ends with `[Issue ID 12345]` (or `[CVDB12345]`), so other library tools can still find the ComicVine issue.
+  - Comicarr no longer creates a `.ComicTagger` folder in your home directory. The old `cmtagger_path` and `ct_settingspath` settings are ignored.
+- 67b1ecc: Deluge now connects through the maintained `deluge-client` package instead of an old bundled copy. Nothing changes in your settings.
+- 6137f22: Searches now run when Prowlarr's **Include Usenet indexers** is your only search source. Before, Auto-Search, forced searches and the RSS check logged "There are no search providers enabled" and searched nothing, even though Activity → Health showed a working route, unless at least one Newznab indexer was also turned on. You can now turn your Newznab indexers off and search them through Prowlarr alone. The RSS check still has nothing to match for Prowlarr, because Prowlarr has no RSS feed; its results come from the regular searches.
+- e6a79b2: qBittorrent now connects through the maintained `qbittorrent-api` library instead of an old bundled copy. Nothing changes in your settings. If qBittorrent refuses the login because of too many failed attempts, Comicarr now reports a login failure instead of a generic connection error.
+- 2b43980: rTorrent now connects through a small client built into Comicarr instead of an old bundled library. Your settings stay the same: HTTP, HTTPS, SCGI and ruTorrent's HTTPRPC URLs all still work, with basic or digest login.
+  
+  Two fixes come with it:
+  - If rTorrent can't be reached, the download monitor now reports it as unreachable instead of stopping.
+  - A magnet whose details are still loading is no longer reported as a failed send.
+- d4ce2fa: Sending a torrent to a seedbox over SFTP now gives up after three failed uploads instead of retrying forever, and logs an error when the `paramiko` package it needs is missing. A torrent that had not finished writing no longer crashes the upload.
+- f35d00f: In the library table, a series that could not be loaded from its metadata provider now reads "Error". It read "error", in lowercase, before. "Error" on a series and "Covered" on a manga chapter are now part of the translated status vocabulary, so they follow your language once a translation for it exists.
+- 83a13a6: Transmission now connects through the maintained `transmission-rpc` package instead of an old bundled copy. A Transmission host entered as `http://host:9091` with no path now reaches the standard `/transmission/rpc` endpoint. Torrent files are sent to Transmission directly, so Transmission no longer has to see Comicarr's folders to add them.
+
 ## 0.59.0
 
 ### Minor Changes
