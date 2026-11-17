@@ -16,10 +16,11 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import db, importer
+from comicarr import db
 from comicarr.app.manga import add as manga_add
 from comicarr.app.manga.duplicates import find_existing_manga_series
 from comicarr.app.search.service import add_manga
+from comicarr.app.series import comic_add
 from comicarr.app.series.service import listLibrary
 from comicarr.tables import comics, metadata
 
@@ -32,7 +33,7 @@ def manga_db(monkeypatch, tmp_path):
     engine = create_engine("sqlite://")
     metadata.create_all(engine)
     monkeypatch.setattr(db, "get_engine", lambda: engine)
-    monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
+    monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
     monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
     monkeypatch.setattr(
         comicarr,
@@ -102,8 +103,8 @@ def _patch_add_side_effects(monkeypatch, tmp_path, *, md_details=None, mal_detai
     monkeypatch.setattr(myanimelist, "get_manga_details", lambda *a, **k: mal_details or _mal_details())
     monkeypatch.setattr(mangadex, "find_by_mal_id", lambda *a, **k: mal_to_md)
     monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: 0)
-    monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: None)
-    monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+    monkeypatch.setattr(comic_add.helpers, "getImage", lambda *a, **k: None)
+    monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
     monkeypatch.setattr(comicarr_config, "get_manga_destination", lambda: str(tmp_path))
 
 
@@ -226,7 +227,7 @@ def test_add_manga_search_refuses_known_mal_id_without_queueing(manga_db):
         Status="Active",
     )
     ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=True, MAL_ENABLED=True, MAL_CLIENT_ID="client"))
-    with patch("comicarr.importer.importer_thread") as mock_thread:
+    with patch("comicarr.app.series.add_workers.queue_series_adds") as mock_thread:
         result = add_manga(ctx, "mal-" + MAL_ID)
 
     assert result["success"] is False
@@ -245,7 +246,7 @@ def test_add_manga_search_refuses_known_mangadex_id_without_queueing(manga_db):
         Status="Active",
     )
     ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=True, MAL_ENABLED=False, MAL_CLIENT_ID=None))
-    with patch("comicarr.importer.importer_thread") as mock_thread:
+    with patch("comicarr.app.series.add_workers.queue_series_adds") as mock_thread:
         result = add_manga(ctx, "md-" + MD_UUID)
 
     assert result["success"] is False
@@ -260,7 +261,7 @@ def test_add_manga_search_refuses_mangadex_id_whose_mal_id_is_in_the_library(man
     _insert(manga_db, ComicID="mal-" + MAL_ID, ComicName="One Piece", MalID=MAL_ID, Status="Active")
     ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=True, MAL_ENABLED=False, MAL_CLIENT_ID=None))
     with (
-        patch("comicarr.importer.importer_thread") as mock_thread,
+        patch("comicarr.app.series.add_workers.queue_series_adds") as mock_thread,
         patch("comicarr.app.manga.mangadex.get_manga_details", return_value={"mal_id": MAL_ID}) as details,
     ):
         result = add_manga(ctx, "md-" + MD_UUID)
@@ -276,7 +277,7 @@ def test_add_manga_search_refuses_mangadex_id_whose_mal_id_is_on_another_row(man
     _insert(manga_db, ComicID="12345", ComicName="One Piece (other)", MalID=MAL_ID, Status="Active")
     ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=True, MAL_ENABLED=False, MAL_CLIENT_ID=None))
     with (
-        patch("comicarr.importer.importer_thread") as mock_thread,
+        patch("comicarr.app.series.add_workers.queue_series_adds") as mock_thread,
         patch("comicarr.app.manga.mangadex.get_manga_details", return_value={"mal_id": MAL_ID}),
     ):
         result = add_manga(ctx, "md-" + MD_UUID)
@@ -291,7 +292,7 @@ def test_add_manga_search_queues_when_mangadex_names_no_known_mal_id(manga_db, d
     ctx = SimpleNamespace(config=SimpleNamespace(MANGADEX_ENABLED=True, MAL_ENABLED=False, MAL_CLIENT_ID=None))
     kwargs = {"side_effect": details} if isinstance(details, Exception) else {"return_value": details}
     with (
-        patch("comicarr.importer.importer_thread") as mock_thread,
+        patch("comicarr.app.series.add_workers.queue_series_adds") as mock_thread,
         patch("comicarr.app.manga.mangadex.get_manga_details", **kwargs),
     ):
         result = add_manga(ctx, "md-" + MD_UUID)

@@ -763,13 +763,13 @@ def test_annual_eligibility_treats_null_deleted_as_not_deleted(acquisition_ledge
 
 
 def test_startup_replays_search_and_refresh_before_workers(monkeypatch):
-    from comicarr import importer
     from comicarr.app.search import commands
+    from comicarr.app.series import add_workers
 
     search_replay = MagicMock(return_value=2)
     refresh_replay = MagicMock(return_value=3)
     monkeypatch.setattr(commands, "replay_search_obligations", search_replay)
-    monkeypatch.setattr(importer, "replay_refresh_obligations", refresh_replay)
+    monkeypatch.setattr(add_workers, "replay_refresh_obligations", refresh_replay)
 
     result = comicarr.replay_acquisition_obligations()
 

@@ -16,34 +16,33 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import importer
 from comicarr.app.manga import add as manga_add
-from comicarr.app.series import folder_rescan, watchlist_refresh
+from comicarr.app.series import comic_add, folder_rescan, watchlist_refresh
 from comicarr.tables import comics, issues, metadata
 
 
 class TestAddComictoDBMangaRouting:
     """Defect 2a: addComictoDB must route mal-/md- IDs to the manga importer, not ComicVine."""
 
-    @patch("comicarr.importer.cv.getComic")
+    @patch("comicarr.app.series.comic_add.cv.getComic")
     @patch("comicarr.app.manga.add.add_myanimelist")
     def test_mal_id_routes_to_mal_importer(self, mock_mal, mock_getcomic):
         sentinel = {"status": "complete", "comicid": "mal-161890"}
         mock_mal.return_value = sentinel
 
-        result = importer.addComictoDB("mal-161890")
+        result = comic_add.add_comic("mal-161890")
 
         assert result is sentinel
         mock_mal.assert_called_once_with("mal-161890", imported=None, calledfrom=None, location=None)
         mock_getcomic.assert_not_called()
 
-    @patch("comicarr.importer.cv.getComic")
+    @patch("comicarr.app.series.comic_add.cv.getComic")
     @patch("comicarr.app.manga.add.add_mangadex")
     def test_md_id_routes_to_mangadex_importer(self, mock_md, mock_getcomic):
         sentinel = {"status": "complete", "comicid": "md-abc"}
         mock_md.return_value = sentinel
 
-        result = importer.addComictoDB("md-abc")
+        result = comic_add.add_comic("md-abc")
 
         assert result is sentinel
         mock_md.assert_called_once_with("md-abc", imported=None, calledfrom=None, location=None)
@@ -77,7 +76,7 @@ class TestDbUpdateMangaShortCircuit:
         mock_add = MagicMock(return_value={"status": "complete", "comicid": "mal-161890", "content_type": "manga"})
         mock_rescan = MagicMock()
         mock_emit = MagicMock(return_value={"event_id": 1})
-        monkeypatch.setattr(comicarr.importer, "addComictoDB", mock_add)
+        monkeypatch.setattr(comic_add, "add_comic", mock_add)
         monkeypatch.setattr(folder_rescan, "force_rescan", mock_rescan)
         monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", mock_emit)
 
@@ -112,7 +111,7 @@ class TestDbUpdateMangaShortCircuit:
         monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
         mock_add = MagicMock(return_value={"status": "complete", "comicid": "134064"})
         mock_rescan = MagicMock()
-        monkeypatch.setattr(comicarr.importer, "addComictoDB", mock_add)
+        monkeypatch.setattr(comic_add, "add_comic", mock_add)
         monkeypatch.setattr(folder_rescan, "force_rescan", mock_rescan)
         monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", MagicMock())
 
@@ -142,7 +141,7 @@ class TestDbUpdateMangaShortCircuit:
         monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
         mock_add = MagicMock(return_value={"status": "complete", "comicid": "md-example"})
         mock_rescan = MagicMock()
-        monkeypatch.setattr(comicarr.importer, "addComictoDB", mock_add)
+        monkeypatch.setattr(comic_add, "add_comic", mock_add)
         monkeypatch.setattr(folder_rescan, "force_rescan", mock_rescan)
         monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", MagicMock())
 
@@ -335,7 +334,7 @@ class TestMangaCoverCachePath:
     def _add(self, monkeypatch, getimage_status):
         engine = create_engine("sqlite://")
         metadata.create_all(engine)
-        monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
         monkeypatch.setattr(
             comicarr,
@@ -347,9 +346,9 @@ class TestMangaCoverCachePath:
         monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: _mal_details())
         monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: "uuid-1")
         monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: None)
-        monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: {"status": getimage_status})
+        monkeypatch.setattr(comic_add.helpers, "getImage", lambda *a, **k: {"status": getimage_status})
         monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
-        monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+        monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
 
         manga_add.add_myanimelist("mal-13")
 
@@ -406,7 +405,7 @@ class TestMangaRefreshPreservesLibraryState:
         engine = create_engine("sqlite://")
         metadata.create_all(engine)
         self._seed_existing_mal(engine, status="Paused")
-        monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
         monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: None)
 
         result = manga_add.add_myanimelist("mal-13")
@@ -420,7 +419,7 @@ class TestMangaRefreshPreservesLibraryState:
     def test_fetch_failure_placeholder_only_for_new_series(self, monkeypatch):
         engine = create_engine("sqlite://")
         metadata.create_all(engine)
-        monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
         monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: None)
 
         result = manga_add.add_myanimelist("mal-999")
@@ -436,7 +435,7 @@ class TestMangaRefreshPreservesLibraryState:
         metadata.create_all(engine)
         existing = str(tmp_path / "existing-library")
         self._seed_existing_mal(engine, location=existing)
-        monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
         monkeypatch.setattr(
             comicarr,
@@ -447,9 +446,9 @@ class TestMangaRefreshPreservesLibraryState:
         monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: _mal_details())
         monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: None)
         monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: str(tmp_path / "manga-dest"))
-        monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: {"status": "failed"})
+        monkeypatch.setattr(comic_add.helpers, "getImage", lambda *a, **k: {"status": "failed"})
         monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
-        monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+        monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
 
         manga_add.add_myanimelist("mal-13")
 
@@ -461,7 +460,7 @@ class TestMangaRefreshPreservesLibraryState:
         engine = create_engine("sqlite://")
         metadata.create_all(engine)
         self._seed_existing_mal(engine)
-        monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
         monkeypatch.setattr(
             comicarr,
             "CONFIG",
@@ -517,7 +516,7 @@ class TestMangaRefreshPreservesContentKind:
                 },
             )
 
-        monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
         monkeypatch.setattr(
             comicarr,
@@ -526,9 +525,9 @@ class TestMangaRefreshPreservesContentKind:
             raising=False,
         )
         monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: None)
-        monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: {"status": "failed"})
+        monkeypatch.setattr(comic_add.helpers, "getImage", lambda *a, **k: {"status": "failed"})
         monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
-        monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+        monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
 
         if provider == "mangadex":
             monkeypatch.setattr("comicarr.app.manga.mangadex.get_manga_details", lambda _id: _mal_details())
@@ -566,8 +565,8 @@ class TestMangaRefreshForceRescanErrors:
         monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
         monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
         monkeypatch.setattr(
-            comicarr.importer,
-            "addComictoDB",
+            comic_add,
+            "add_comic",
             MagicMock(return_value={"status": "complete", "comicid": "mal-161890"}),
         )
         monkeypatch.setattr(folder_rescan, "force_rescan", MagicMock(side_effect=RuntimeError("disk gone")))

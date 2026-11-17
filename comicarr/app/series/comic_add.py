@@ -1,33 +1,28 @@
-# -*- coding: utf-8 -*-
-
-#  Copyright (C) 2012–2024 Mylar3 contributors
 #  Copyright (C) 2025–2026 Comicarr contributors
 #
 #  This file is part of Comicarr.
-#  Originally based on Mylar3 (https://github.com/mylar3/mylar3).
 #
 #  Comicarr is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
-#
-#  Comicarr is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
+
+"""Add a comic series from ComicVine, and re-read or extend one already added.
+
+Moved from ``comicarr/importer.py`` (#1464). The old names map as follows:
+``addComictoDB`` is ``add_comic``, ``updateissuedata`` is ``update_issue_data``,
+``issue_collection`` is ``store_issue_rows``, ``manualAnnual`` is
+``add_manual_annual``, ``annual_check`` is ``check_annuals``, ``image_it`` is
+``fetch_series_image``, ``markSeriesWanted`` is ``mark_series_wanted`` and
+``markIssueWantedById`` is ``mark_issue_wanted``. Other modules add a series
+through ``app/series/add.py``.
+"""
 
 import datetime
 import json
 import os
 import re
 import shutil
-import threading
-import time
-import uuid
-from collections.abc import Mapping
 
 import sqlalchemy.exc
 from sqlalchemy import select
@@ -37,93 +32,18 @@ from comicarr import db, filechecker, helpers, logger, search
 from comicarr.app.common import series_kind
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.downloads import snatch_record
-from comicarr.app.library import filers, moveit
+from comicarr.app.library import directories, filers, moveit
 from comicarr.app.manga import add as manga_add
 from comicarr.app.metadata import cv, series_metadata
 from comicarr.app.metadata.series_type import resolve_series_edition
 from comicarr.app.search import mb
-from comicarr.app.series import rescan, watchlist_refresh
+from comicarr.app.series import rescan
 from comicarr.app.series.add_activity import emit_add_activity
 from comicarr.app.weekly import pull
 from comicarr.tables import annuals, comics, issues
 
 
-def _mass_add_runtime_context():
-    """Return the active canonical runtime, if the process has one."""
-    from comicarr.app.core.runtime import get_runtime_if_initialized
-
-    ctx = get_runtime_if_initialized()
-    return ctx if ctx is not None and not ctx.disposed else None
-
-
-def _set_mass_add_pool(ctx, pool):
-    """Publish the same MASS_ADD worker reference to runtime and legacy code."""
-    if ctx is None:
-        comicarr.MASS_ADD = pool
-        return
-
-    from comicarr.app.core.runtime import set_runtime_field
-
-    set_runtime_field(ctx, "mass_add_pool", pool)
-
-
-def _set_mass_refresh_pool(ctx, pool):
-    """Publish the same MASS_REFRESH worker reference to runtime and legacy code."""
-    if ctx is None:
-        comicarr.MASS_REFRESH = pool
-        return
-
-    from comicarr.app.core.runtime import set_runtime_field
-
-    set_runtime_field(ctx, "mass_refresh_pool", pool)
-
-
-def addvialist(seriesQueue, issueWantQueue):
-    while True:
-        if seriesQueue.qsize() >= 1:
-            time.sleep(3)
-            item = seriesQueue.get(True)
-            if item == "exit":
-                break
-            seriesyear = item.get("seriesyear")
-            if item["comicname"] is not None:
-                if seriesyear is not None:
-                    logger.info(
-                        "[MASS-ADD][1/%s] Now adding %s (%s) [%s] "
-                        % (seriesQueue.qsize() + 1, item["comicname"], seriesyear, item["comicid"])
-                    )
-                else:
-                    logger.info(
-                        "[MASS-ADD][1/%s] Now adding %s [%s] "
-                        % (seriesQueue.qsize() + 1, item["comicname"], item["comicid"])
-                    )
-            else:
-                logger.info("[MASS-ADD][1/%s] Now adding ComicID: %s " % (seriesQueue.qsize() + 1, item["comicid"]))
-
-            try:
-                add_kwargs = {}
-                if "suppress_addall" in item.keys():
-                    add_kwargs["suppress_addall"] = item["suppress_addall"]
-                if item.get("location"):
-                    add_kwargs["location"] = item["location"]
-                addComictoDB(item["comicid"], **add_kwargs)
-                if item.get("want"):
-                    # Riding on the add item keeps the want behind its add with
-                    # no second queue for the worker to retire past.
-                    markSeriesWanted(re.sub("^4050-", "", str(item["comicid"])))
-            except Exception as e:
-                logger.error("[MASS-ADD] Failed adding %s: %s" % (item["comicid"], e))
-                emit_add_activity("failed", item["comicid"], comicname=item.get("comicname"), reason_detail=str(e))
-        elif issueWantQueue.qsize() > 0:
-            time.sleep(1)
-            issueItem = issueWantQueue.get(True)
-            markIssueWantedById(issueItem)
-        elif mass_add_worker_should_retire(seriesQueue, issueWantQueue):
-            break
-    return False
-
-
-def markSeriesWanted(comicid):
+def mark_series_wanted(comicid):
     """Mark every issue and annual of a series Wanted, right after its add.
 
     Run by the mass-add worker for an add queued with ``want``; issues already
@@ -141,10 +61,10 @@ def markSeriesWanted(comicid):
     if not issue_ids:
         logger.warning("[MASS-ADD] No issues found to mark Wanted for ComicID %s" % comicid)
     for issue_id in issue_ids:
-        markIssueWantedById(issue_id)
+        mark_issue_wanted(issue_id)
 
 
-def markIssueWantedById(issueId):
+def mark_issue_wanted(issueId):
     with db.get_engine().connect() as conn:
         stmt = (
             select(
@@ -160,7 +80,7 @@ def markIssueWantedById(issueId):
         )
         issue = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
-    annual_check = False
+    check_annuals = False
     if issue is None:
         with db.get_engine().connect() as conn:
             stmt = (
@@ -185,7 +105,7 @@ def markIssueWantedById(issueId):
             )
             return
         else:
-            annual_check = True
+            check_annuals = True
             comicname = issue["ReleaseComicName"]
             issuenumber = issue["Issue_Number"]
             comicid = issue["ComicID"]
@@ -208,7 +128,7 @@ def markIssueWantedById(issueId):
     controlValueDict = {"IssueID": issueId}
     newValueDict = {"Status": "Wanted"}
 
-    if annual_check:
+    if check_annuals:
         db.upsert("annuals", newValueDict, controlValueDict)
     else:
         db.upsert("issues", newValueDict, controlValueDict)
@@ -216,7 +136,7 @@ def markIssueWantedById(issueId):
     logger.fdebug(f"Finished changing status of {comicname} [ID:{comicid}] issue #{issuenumber} to Wanted")
 
 
-def addComictoDB(
+def add_comic(
     comicid,
     mismatch=None,
     pullupd=None,
@@ -297,7 +217,7 @@ def addComictoDB(
                 latestissueinfo.append({"latestiss": dbcomic["LatestIssue"], "latestdate": dbcomic["LatestDate"]})
 
             if comicarr.CONFIG.CREATE_FOLDERS is True:
-                checkdirectory = filechecker.validateAndCreateDirectory(comlocation, True)
+                checkdirectory = directories.validateAndCreateDirectory(comlocation, True)
                 if not checkdirectory:
                     logger.warn("Error trying to validate/create directory. Aborting this process at this time.")
                     return {"status": "incomplete"}
@@ -528,7 +448,7 @@ def addComictoDB(
             except Exception as e:
                 if "No such file or directory" in e:
                     if comicarr.CONFIG.CREATE_FOLDERS:
-                        checkdirectory = filechecker.validateAndCreateDirectory(new_location, True)
+                        checkdirectory = directories.validateAndCreateDirectory(new_location, True)
                         if not checkdirectory:
                             logger.warn(
                                 "Error trying to validate/create directory. Aborting this process at this time."
@@ -541,7 +461,7 @@ def addComictoDB(
             logger.info("Directory (" + comlocation + ") already exists! Continuing...")
         else:
             if comicarr.CONFIG.CREATE_FOLDERS is True:
-                checkdirectory = filechecker.validateAndCreateDirectory(comlocation, True)
+                checkdirectory = directories.validateAndCreateDirectory(comlocation, True)
                 if not checkdirectory:
                     logger.warn("Error trying to validate/create directory. Aborting this process at this time.")
                     return {"status": "incomplete"}
@@ -600,7 +520,7 @@ def addComictoDB(
                     comiclocal = os.path.join(clocit, "cover.jpg")
                     shutil.copyfile(cimage, comiclocal)
                     if comicarr.CONFIG.ENFORCE_PERMS:
-                        filechecker.setperms(comiclocal)
+                        directories.setperms(comiclocal)
                 except IOError as e:
                     if "No such file or directory" not in str(e):
                         logger.error(
@@ -694,7 +614,7 @@ def addComictoDB(
             return {"status": "incomplete"}
     logger.info("Successfully retrieved issue details for " + comic["ComicName"])
 
-    updateddata = updateissuedata(
+    updateddata = update_issue_data(
         comicid,
         comic["ComicName"],
         issued,
@@ -727,9 +647,9 @@ def addComictoDB(
         return {"status": "incomplete"}
 
     if any([calledfrom is None, calledfrom == "maintenance"]):
-        issue_collection(issuedata, nostatus="False", serieslast_updated=serieslast_updated)
+        store_issue_rows(issuedata, nostatus="False", serieslast_updated=serieslast_updated)
         if anndata:
-            manualAnnual(annchk=anndata, series_status=series_status)
+            add_manual_annual(annchk=anndata, series_status=series_status)
 
     if comicarr.CONFIG.ALTERNATE_LATEST_SERIES_COVERS is True:
         cimage = os.path.join(comicarr.CONFIG.CACHE_DIR, comicid + ".jpg")
@@ -741,7 +661,7 @@ def addComictoDB(
         if os.path.isfile(cimage) and all([FirstImageSize != 0, FirstImageSize == coversize]):
             logger.fdebug("Cover already exists for series. Not redownloading.")
         else:
-            image_it(comicid, importantdates["LatestIssueID"], comlocation, comic["ComicImage"])
+            fetch_series_image(comicid, importantdates["LatestIssueID"], comlocation, comic["ComicImage"])
     else:
         logger.fdebug(
             "no update required - lastissueid [%s] = latestissueid [%s]"
@@ -984,7 +904,7 @@ def addComictoDB(
         return {"status": "complete"}
 
 
-def issue_collection(issuedata, nostatus, serieslast_updated=None, suppress_addall=None):
+def store_issue_rows(issuedata, nostatus, serieslast_updated=None, suppress_addall=None):
     try:
         serieslast_updated = datetime.datetime.strptime(serieslast_updated, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d")
     except Exception:
@@ -1093,7 +1013,7 @@ def issue_collection(issuedata, nostatus, serieslast_updated=None, suppress_adda
                 return
 
 
-def manualAnnual(
+def add_manual_annual(
     manual_comicid=None,
     comicname=None,
     comicyear=None,
@@ -1151,7 +1071,7 @@ def manualAnnual(
                     break
                 try:
                     cleanname = firstval["Issue_Name"]
-                except:
+                except Exception:
                     cleanname = "None"
 
                 if firstval["Store_Date"] == "0000-00-00":
@@ -1233,7 +1153,7 @@ def manualAnnual(
     return
 
 
-def updateissuedata(
+def update_issue_data(
     comicid,
     comicname=None,
     issued=None,
@@ -1291,7 +1211,7 @@ def updateissuedata(
             )
             return {"status": "failure"}
 
-    annualchk = annual_check(comicname, SeriesYear, comicid, issuetype, issuechk, annualchk, series_status)
+    annualchk = check_annuals(comicname, SeriesYear, comicid, issuetype, issuechk, annualchk, series_status)
     if annualchk is None:
         annualchk = []
     logger.fdebug("Finished Annual checking.")
@@ -1322,7 +1242,7 @@ def updateissuedata(
                 return {"status": "failure"}
             try:
                 cleanname = firstval["Issue_Name"]
-            except:
+            except Exception:
                 cleanname = "None"
             issid = str(firstval["Issue_ID"])
             issnum = firstval["Issue_Number"]
@@ -1579,12 +1499,12 @@ def updateissuedata(
     else:
         if len(issuedata) >= 1 and not calledfrom == "dbupdate":
             logger.fdebug("initiating issue updating - info & status")
-            issue_collection(
+            store_issue_rows(
                 issuedata, nostatus="False", serieslast_updated=serieslast_updated, suppress_addall=suppress_addall
             )
         else:
             logger.fdebug("initiating issue updating - just the info")
-            issue_collection(
+            store_issue_rows(
                 issuedata, nostatus="True", serieslast_updated=serieslast_updated, suppress_addall=suppress_addall
             )
 
@@ -1624,7 +1544,7 @@ def updateissuedata(
 
         try:
             c_date = datetime.date(int(latestdate[:4]), int(latestdate[5:7]), 1)
-        except:
+        except Exception:
             logger.error(
                 "Cannot determine Latest Date for given series. This is most likely due to an issue having a date of : 0000-00-00"
             )
@@ -1726,7 +1646,7 @@ def updateissuedata(
         return importantdates
 
 
-def annual_check(ComicName, SeriesYear, comicid, issuetype, issuechk, annualslist, series_status):
+def check_annuals(ComicName, SeriesYear, comicid, issuetype, issuechk, annualslist, series_status):
     annualids = []
     annload = []
 
@@ -1755,7 +1675,7 @@ def annual_check(ComicName, SeriesYear, comicid, issuetype, issuechk, annualslis
     else:
         for manchk in annload:
             if manchk["ReleaseComicID"] is not None or manchk["ReleaseComicID"] is not None:
-                tmp_the_annuals = manualAnnual(
+                tmp_the_annuals = add_manual_annual(
                     manchk["ReleaseComicID"],
                     ComicName,
                     SeriesYear,
@@ -1778,7 +1698,7 @@ def annual_check(ComicName, SeriesYear, comicid, issuetype, issuechk, annualslis
 
     annualyear = SeriesYear
     logger.fdebug("[IMPORTER-ANNUAL] - Annual Year:" + str(annualyear))
-    sresults = mb.findComic(annComicName, mode, issue=None, annual_check=True)
+    sresults = mb.findComic(annComicName, mode, issue=None, check_annuals=True)
     if not sresults:
         return
 
@@ -1846,7 +1766,7 @@ def annual_check(ComicName, SeriesYear, comicid, issuetype, issuechk, annualslis
                             break
                         try:
                             cleanname = firstval["Issue_Name"]
-                        except:
+                        except Exception:
                             cleanname = "None"
                         issid = str(firstval["Issue_ID"])
                         issnum = str(firstval["Issue_Number"])
@@ -1906,12 +1826,12 @@ def annual_check(ComicName, SeriesYear, comicid, issuetype, issuechk, annualslis
 
                         n += 1
             num_res += 1
-        manualAnnual(annchk=annualslist, series_status=series_status)
+        add_manual_annual(annchk=annualslist, series_status=series_status)
         return annualslist
 
     elif sresults is None or len(sresults) == 0:
         logger.fdebug("[IMPORTER-ANNUAL] - No results, removing the year from the agenda and re-querying.")
-        sresults = mb.findComic(annComicName, mode, issue=None, annual_check=True)
+        sresults = mb.findComic(annComicName, mode, issue=None, check_annuals=True)
         if not sresults:
             return
         elif len(sresults) == 1:
@@ -1930,7 +1850,7 @@ def annual_check(ComicName, SeriesYear, comicid, issuetype, issuechk, annualslis
                 logger.fdebug("[IMPORTER-ANNUAL] - Issue count is wrong")
 
 
-def image_it(comicid, latestissueid, comlocation, ComicImage):
+def fetch_series_image(comicid, latestissueid, comlocation, ComicImage):
 
     cimage = os.path.join(comicarr.CONFIG.CACHE_DIR, str(comicid) + ".jpg")
     imageurl = cv.getComic(comicid, "image", issueid=latestissueid)
@@ -1979,7 +1899,7 @@ def image_it(comicid, latestissueid, comlocation, ComicImage):
                 comiclocal = os.path.join(clocit, "cover.jpg")
                 shutil.copyfile(cimage, comiclocal)
                 if comicarr.CONFIG.ENFORCE_PERMS:
-                    filechecker.setperms(comiclocal)
+                    directories.setperms(comiclocal)
             except IOError as e:
                 if "No such file or directory" not in str(e):
                     logger.error(
@@ -1987,206 +1907,3 @@ def image_it(comicid, latestissueid, comlocation, ComicImage):
                     )
 
     db.upsert("comics", {"ComicImage": ComicImage}, {"ComicID": comicid})
-
-
-_MASS_ADD_WORKER_LOCK = threading.RLock()
-
-
-def mass_add_worker_should_retire(series_queue, issue_queue):
-    """Atomically decide whether an idle mass-add worker may exit.
-
-    Producers hold the same lock while enqueueing and checking liveness, so an
-    add cannot land between the worker's empty check and its retirement and
-    then sit on the queue with no worker to run it (#1322).
-    """
-    with _MASS_ADD_WORKER_LOCK:
-        if not series_queue.empty() or not issue_queue.empty():
-            return False
-        ctx = _mass_add_runtime_context()
-        worker = ctx.mass_add_pool if ctx is not None else getattr(comicarr, "MASS_ADD", None)
-        if worker is threading.current_thread():
-            _set_mass_add_pool(ctx, None)
-        return True
-
-
-def importer_thread(serieslist):
-
-    if type(serieslist) != list:
-        serieslist = [(serieslist)]
-
-    with _MASS_ADD_WORKER_LOCK:
-        ctx = _mass_add_runtime_context()
-        add_list = ctx.add_list if ctx is not None else comicarr.ADD_LIST
-        issue_watch_list = ctx.issue_watch_list if ctx is not None else comicarr.ISSUE_WATCH_LIST
-
-        for series in serieslist:
-            add_list.put(series)
-
-        pool = ctx.mass_add_pool if ctx is not None else getattr(comicarr, "MASS_ADD", None)
-        if pool is not None and getattr(pool, "is_alive", lambda: False)():
-            logger.info(
-                "[MASS-ADD] MASS_ADD thread already running. Adding an additional %s items to existing queue"
-                % len(serieslist)
-            )
-            return
-
-        logger.info("[MASS-ADD] MASS_ADD thread not started. Started & submitting.")
-        pool = threading.Thread(target=addvialist, args=(add_list, issue_watch_list), name="mass-add")
-        _set_mass_add_pool(ctx, pool)
-        pool.start()
-
-
-def issue_watcher_thread(issuelist):
-    if type(issuelist) != list:
-        issuelist = [issuelist]
-
-    with _MASS_ADD_WORKER_LOCK:
-        ctx = _mass_add_runtime_context()
-        issue_watch_list = ctx.issue_watch_list if ctx is not None else comicarr.ISSUE_WATCH_LIST
-        for issue in issuelist:
-            issue_watch_list.put(issue)
-
-
-_REFRESH_WORKER_LOCK = threading.RLock()
-
-
-def _start_refresh_worker():
-    """Start the on-demand worker under the same lock used for retirement."""
-    with _REFRESH_WORKER_LOCK:
-        ctx = _mass_add_runtime_context()
-        worker = ctx.mass_refresh_pool if ctx is not None else getattr(comicarr, "MASS_REFRESH", None)
-        if worker is not None and getattr(worker, "is_alive", lambda: False)():
-            return False
-        logger.info("[MASS-REFRESH] MASS_REFRESH thread not started. Started & submitting.")
-        refresh_queue = ctx.refresh_queue if ctx is not None else comicarr.REFRESH_QUEUE
-        worker = threading.Thread(
-            target=watchlist_refresh.run_refresh_queue, args=(refresh_queue,), name="mass-refresh"
-        )
-        _set_mass_refresh_pool(ctx, worker)
-        worker.start()
-        return True
-
-
-def refresh_worker_should_retire(refresh_queue):
-    """Atomically decide whether an idle refresh worker may exit.
-
-    Producers hold the same lock while enqueueing and checking liveness, so a
-    command cannot land between the worker's empty check and its retirement.
-    """
-    with _REFRESH_WORKER_LOCK:
-        if not refresh_queue.empty():
-            return False
-        ctx = _mass_add_runtime_context()
-        worker = ctx.mass_refresh_pool if ctx is not None else getattr(comicarr, "MASS_REFRESH", None)
-        if worker is threading.current_thread():
-            _set_mass_refresh_pool(ctx, None)
-        return True
-
-
-def _handoff_refresh_items(queue_items, *, start_worker, maintenance=None):
-    from comicarr.app.acquisition.maintenance import MaintenanceController
-
-    if not queue_items:
-        return
-    controller = maintenance or MaintenanceController()
-    with controller.lease(
-        "refresh-producer",
-        work_kind="refresh_queue_handoff",
-        entity_type="run",
-        entity_id=queue_items[0]["run_id"],
-    ) as lease:
-        controller.assert_lease_current(lease)
-        with _REFRESH_WORKER_LOCK:
-            ctx = _mass_add_runtime_context()
-            refresh_queue = ctx.refresh_queue if ctx is not None else comicarr.REFRESH_QUEUE
-            for queue_item in queue_items:
-                refresh_queue.put(queue_item)
-            if start_worker:
-                _start_refresh_worker()
-
-
-def _refresh_payload(raw_values):
-    if not isinstance(raw_values, Mapping):
-        raise ValueError("refresh command must be an object")
-    values = {str(key).lower(): value for key, value in raw_values.items()}
-    comicid = values.get("comicid")
-    if comicid in (None, ""):
-        raise ValueError("refresh command is missing comicid")
-    payload = {
-        "comicid": str(comicid),
-        "comicname": values.get("comicname"),
-        "seriesyear": values.get("seriesyear"),
-    }
-    for field in ("r_mode", "calledfrom", "serieslast_updated", "manual_comicid"):
-        if field in values:
-            payload[field] = values[field]
-    return payload
-
-
-def refresh_thread(
-    serieslist,
-    *,
-    ledger=None,
-    run_id=None,
-    trigger="refresh_thread",
-    start_worker=True,
-    maintenance=None,
-):
-    """Persist refresh obligations before handing them to the worker queue."""
-    from comicarr.app.acquisition.models import DispatchState
-    from comicarr.app.acquisition.runs import RunLedger
-
-    if not isinstance(serieslist, list):
-        serieslist = [serieslist]
-    if not serieslist:
-        return None
-
-    ledger = ledger or RunLedger()
-    effective_run_id = str(run_id or uuid.uuid4())
-    ledger.create_run(effective_run_id, command_kind="refresh", trigger=trigger, scope_type="series_batch")
-    queued = []
-    for raw_item in serieslist:
-        payload = _refresh_payload(raw_item)
-        ledger.accept_item(
-            effective_run_id,
-            entity_type="series",
-            entity_id=payload["comicid"],
-            payload=payload,
-        )
-        queue_item = {**payload, "run_id": effective_run_id}
-        queued.append(queue_item)
-    try:
-        _handoff_refresh_items(queued, start_worker=start_worker, maintenance=maintenance)
-    except Exception:
-        ledger.record_dispatch(effective_run_id, DispatchState.ERROR)
-        raise
-    ledger.record_dispatch(effective_run_id, DispatchState.ACCEPTED)
-    return effective_run_id
-
-
-def replay_refresh_obligations(*, ledger=None, start_worker=True, maintenance=None):
-    """Restore accepted/running refresh obligations after a process restart."""
-    from comicarr.app.acquisition.models import DispatchState, ItemOutcome
-    from comicarr.app.acquisition.runs import RunLedger
-
-    ledger = ledger or RunLedger()
-    queue_items = []
-    replayed_run_ids = set()
-    for item in ledger.list_recoverable_items("refresh"):
-        run_id = item["run_id"]
-        entity_id = item["entity_id"]
-        if not ledger.claim_recovery(item):
-            continue
-        try:
-            payload = _refresh_payload(item["payload"] or {})
-        except ValueError as e:
-            ledger.record_outcome(run_id, "series", entity_id, ItemOutcome.QUARANTINED, reason=str(e))
-            continue
-        if item["state"] == ItemOutcome.RUNNING.value:
-            ledger.record_requeue(run_id, "series", entity_id, reason="worker restart", replay=True)
-        queue_items.append({**payload, "run_id": run_id})
-        replayed_run_ids.add(run_id)
-    _handoff_refresh_items(queue_items, start_worker=start_worker, maintenance=maintenance)
-    for run_id in replayed_run_ids:
-        ledger.record_dispatch(run_id, DispatchState.ACCEPTED)
-    return len(queue_items)

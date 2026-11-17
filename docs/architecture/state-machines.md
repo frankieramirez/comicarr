@@ -105,8 +105,8 @@ place to look, not as a confirmed bug.
 The two registered legacy machines carry the most history:
 
 - `issue_status` is written from about 60 sites. The Wanted-or-Skipped
-  decision for a new issue is copied about seven times across `importer.py`
-  and the modules split out of the old `updater.py`. In the weekly upcoming update, any status outside five
+  decision for a new issue is copied about seven times across the modules split out of
+  the old `importer.py` and `updater.py`. In the weekly upcoming update, any status outside five
   named ones is rewritten to Skipped, which includes Ignored
   (`watchlist_match.upcoming_update`, *read*).
 - `series_status`: Error is written by `snatch_record.no_searchresults` and read back as
@@ -213,7 +213,7 @@ can cover it.
    in the owning module, register them, generate the frontend unions.
 4. `acquisition_repair_runs.state`. Put the state predicate in the UPDATE.
 5. `issue_status` writers. Route the copied Wanted-or-Skipped decision
-   through one function. This is the largest and waits on the `importer.py`
-   move (#1464).
+   through one function. This is the largest and can start now that
+   `importer.py` is split up (#1464).
 6. Frontend ladders. Point `ActivityPage`, `releaseState` and
    `wantedColumns` at generated types so an unknown state is a compile error.

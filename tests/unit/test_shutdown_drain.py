@@ -779,7 +779,7 @@ class TestBoundedDrainExceeded:
         allowed_thread_constructors = {
             "comicarr/__init__.py": 2,
             "comicarr/app/core/workers.py": 1,
-            "comicarr/importer.py": 2,
+            "comicarr/app/series/add_workers.py": 2,
         }
         found = {}
 

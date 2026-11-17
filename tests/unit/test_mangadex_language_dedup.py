@@ -10,7 +10,7 @@
 """Regression coverage for multi-language chapter de-duplication.
 
 MangaDex returns a chapter number once per translated language. The importer
-keys issues by chapter number alone (``importer.py`` -> ``IssueID`` of
+keys issues by chapter number alone (``comic_add.py`` -> ``IssueID`` of
 ``<mangaid>-ch<num>``) and upserts last-wins, so before this fix an enabled
 fallback language could silently overwrite the preferred one and the chapter
 surfaced in the UI in a language the operator never chose. ``get_all_chapters``

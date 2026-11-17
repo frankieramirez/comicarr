@@ -8,17 +8,17 @@
 #  (at your option) any later version.
 
 """
-Tests for comicarr.importer.addvialist — mass-add queue handling.
+Tests for add_workers.run_mass_add_queue — mass-add queue handling.
 """
 
 import queue
 from unittest.mock import MagicMock, patch
 
 import comicarr
-from comicarr import importer
 from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
-from comicarr.importer import addvialist
+from comicarr.app.series import add_workers, comic_add
+from comicarr.app.series.add_workers import run_mass_add_queue
 
 
 def _run_single_item(series_queue, issue_queue, item):
@@ -26,10 +26,10 @@ def _run_single_item(series_queue, issue_queue, item):
     series_queue.put(item)
     series_queue.put("exit")
 
-    with patch("comicarr.importer.addComictoDB") as mock_add:
-        with patch("comicarr.importer.time.sleep"):
+    with patch("comicarr.app.series.comic_add.add_comic") as mock_add:
+        with patch("comicarr.app.series.add_workers.time.sleep"):
             with patch.object(comicarr, "ADD_LIST", queue.Queue()):
-                addvialist(series_queue, issue_queue)
+                run_mass_add_queue(series_queue, issue_queue)
 
     return mock_add
 
@@ -72,7 +72,7 @@ class TestAddComicPayloads:
         from comicarr.app.search.service import add_comic
 
         ctx = MagicMock()
-        with patch("comicarr.importer.importer_thread") as mock_thread:
+        with patch("comicarr.app.series.add_workers.queue_series_adds") as mock_thread:
             result = add_comic(ctx, "4050-99999")
 
         assert result["success"] is True
@@ -84,7 +84,7 @@ class TestAddComicPayloads:
         from comicarr.app.series.service import add_comic
 
         ctx = MagicMock()
-        with patch("comicarr.importer.importer_thread") as mock_thread:
+        with patch("comicarr.app.series.add_workers.queue_series_adds") as mock_thread:
             result = add_comic(ctx, "4050-12345")
 
         assert result["success"] is True
@@ -97,9 +97,9 @@ def test_importer_thread_projects_mass_add_pool_to_canonical_runtime(monkeypatch
     pool = MagicMock(name="mass_add_pool")
     monkeypatch.setattr(runtime, "_runtime", ctx)
     monkeypatch.setattr(comicarr, "MASS_ADD", None)
-    monkeypatch.setattr(importer.threading, "Thread", MagicMock(return_value=pool))
+    monkeypatch.setattr(add_workers.threading, "Thread", MagicMock(return_value=pool))
 
-    importer.importer_thread([{"comicid": "12345", "comicname": None}])
+    add_workers.queue_series_adds([{"comicid": "12345", "comicname": None}])
 
     assert ctx.mass_add_pool is pool
     assert comicarr.MASS_ADD is pool
@@ -114,17 +114,19 @@ def test_refresh_worker_projects_pool_to_canonical_runtime(monkeypatch):
     thread = MagicMock(return_value=pool)
     monkeypatch.setattr(runtime, "_runtime", ctx)
     monkeypatch.setattr(comicarr, "MASS_REFRESH", None)
-    monkeypatch.setattr(importer.threading, "Thread", thread)
+    monkeypatch.setattr(add_workers.threading, "Thread", thread)
 
-    assert importer._start_refresh_worker() is True
+    assert add_workers._start_refresh_worker() is True
 
     assert ctx.mass_refresh_pool is pool
     assert comicarr.MASS_REFRESH is pool
-    thread.assert_called_once_with(target=importer.watchlist_refresh.run_refresh_queue, args=(ctx.refresh_queue,), name="mass-refresh")
+    thread.assert_called_once_with(
+        target=add_workers.watchlist_refresh.run_refresh_queue, args=(ctx.refresh_queue,), name="mass-refresh"
+    )
     pool.start.assert_called_once()
 
-    monkeypatch.setattr(importer.threading, "current_thread", lambda: pool)
-    assert importer.refresh_worker_should_retire(ctx.refresh_queue) is True
+    monkeypatch.setattr(add_workers.threading, "current_thread", lambda: pool)
+    assert add_workers.refresh_worker_should_retire(ctx.refresh_queue) is True
     assert ctx.mass_refresh_pool is None
     assert comicarr.MASS_REFRESH is None
 
@@ -137,7 +139,7 @@ def test_add_queued_while_mass_add_worker_retires_still_runs(monkeypatch):
     monkeypatch.setattr(runtime, "_runtime", ctx)
     # set_runtime_field mirrors the pool onto the legacy global; restore it.
     monkeypatch.setattr(comicarr, "MASS_ADD", None)
-    monkeypatch.setattr(importer.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(add_workers.time, "sleep", lambda *_: None)
     added = []
     done = threading.Event()
 
@@ -145,7 +147,7 @@ def test_add_queued_while_mass_add_worker_retires_still_runs(monkeypatch):
         added.append(comicid)
         done.set()
 
-    monkeypatch.setattr(importer, "addComictoDB", fake_add)
+    monkeypatch.setattr(comic_add, "add_comic", fake_add)
 
     producer = {}
     real_empty = ctx.add_list.empty
@@ -155,7 +157,7 @@ def test_add_queued_while_mass_add_worker_retires_still_runs(monkeypatch):
         # A producer queues an add right now; it must wait for the decision.
         if "thread" not in producer:
             producer["thread"] = threading.Thread(
-                target=importer.importer_thread, args=([{"comicid": "777", "comicname": None}],)
+                target=add_workers.queue_series_adds, args=([{"comicid": "777", "comicname": None}],)
             )
             producer["thread"].start()
             producer["thread"].join(timeout=0.2)
@@ -164,8 +166,8 @@ def test_add_queued_while_mass_add_worker_retires_still_runs(monkeypatch):
 
     monkeypatch.setattr(ctx.add_list, "empty", empty_with_racing_producer)
 
-    first = threading.Thread(target=importer.addvialist, args=(ctx.add_list, ctx.issue_watch_list))
-    importer._set_mass_add_pool(ctx, first)
+    first = threading.Thread(target=add_workers.run_mass_add_queue, args=(ctx.add_list, ctx.issue_watch_list))
+    add_workers._set_mass_add_pool(ctx, first)
     first.start()
     first.join(timeout=5)
     producer["thread"].join(timeout=5)
@@ -183,12 +185,12 @@ def test_mass_add_worker_does_not_retire_while_work_is_queued(monkeypatch):
     monkeypatch.setattr(runtime, "_runtime", ctx)
     monkeypatch.setattr(comicarr, "MASS_ADD", None)
     sentinel = MagicMock(name="other_worker")
-    importer._set_mass_add_pool(ctx, sentinel)
+    add_workers._set_mass_add_pool(ctx, sentinel)
 
     ctx.issue_watch_list.put("i1")
-    assert importer.mass_add_worker_should_retire(ctx.add_list, ctx.issue_watch_list) is False
+    assert add_workers.mass_add_worker_should_retire(ctx.add_list, ctx.issue_watch_list) is False
     ctx.issue_watch_list.get_nowait()
 
     # Retiring from a thread that is not the published worker leaves it alone.
-    assert importer.mass_add_worker_should_retire(ctx.add_list, ctx.issue_watch_list) is True
+    assert add_workers.mass_add_worker_should_retire(ctx.add_list, ctx.issue_watch_list) is True
     assert ctx.mass_add_pool is sentinel

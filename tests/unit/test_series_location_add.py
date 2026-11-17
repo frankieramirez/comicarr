@@ -15,9 +15,9 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import importer
 from comicarr.app.manga import add as manga_add
 from comicarr.app.search import service as search_service
+from comicarr.app.series import add_workers, comic_add
 from comicarr.app.series import service as series_service
 from comicarr.tables import comics, metadata
 
@@ -52,8 +52,8 @@ def test_the_mass_add_queue_carries_a_chosen_folder_to_the_importer():
     series_queue.put({"comicid": "18692", "comicname": None, "location": "/srv/Magazines/Wizard"})
     series_queue.put("exit")
 
-    with patch("comicarr.importer.addComictoDB") as add, patch("comicarr.importer.time.sleep"):
-        importer.addvialist(series_queue, queue.Queue())
+    with patch("comicarr.app.series.comic_add.add_comic") as add, patch("comicarr.app.series.add_workers.time.sleep"):
+        add_workers.run_mass_add_queue(series_queue, queue.Queue())
 
     add.assert_called_once_with("18692", location="/srv/Magazines/Wizard")
 
@@ -70,7 +70,7 @@ def test_the_mass_add_queue_carries_a_chosen_folder_to_the_importer():
 def test_every_add_command_validates_the_folder_before_queueing(empty_library, add):
     chosen = str(empty_library.tmp_path / "Magazines" / "Wizard")
 
-    with patch("comicarr.importer.importer_thread") as thread:
+    with patch("comicarr.app.series.add_workers.queue_series_adds") as thread:
         accepted = add(empty_library.ctx, chosen)
         refused = add(empty_library.ctx, str(empty_library.tmp_path / "Elsewhere" / "Wizard"))
 
@@ -83,7 +83,7 @@ def test_every_add_command_validates_the_folder_before_queueing(empty_library, a
 
 
 def test_an_omitted_folder_keeps_todays_add(empty_library):
-    with patch("comicarr.importer.importer_thread") as thread:
+    with patch("comicarr.app.series.add_workers.queue_series_adds") as thread:
         series_service.add_comic(empty_library.ctx, "18692")
 
     assert thread.call_args.args[0] == [{"comicid": "18692", "comicname": None, "seriesyear": None}]
@@ -93,7 +93,7 @@ def test_a_folder_for_a_series_already_in_the_library_points_at_the_series_page(
     with empty_library.engine.begin() as conn:
         conn.execute(comics.insert(), {"ComicID": "18692", "ComicName": "Wizard"})
 
-    with patch("comicarr.importer.importer_thread") as thread:
+    with patch("comicarr.app.series.add_workers.queue_series_adds") as thread:
         result = series_service.add_comic(
             empty_library.ctx, "18692", folder=str(empty_library.tmp_path / "Magazines" / "Wizard")
         )
@@ -104,7 +104,9 @@ def test_a_folder_for_a_series_already_in_the_library_points_at_the_series_page(
 
 
 def test_a_failed_queue_keeps_the_reason_out_of_the_response(empty_library):
-    with patch("comicarr.importer.importer_thread", side_effect=RuntimeError("secret /srv/path failure")):
+    with patch(
+        "comicarr.app.series.add_workers.queue_series_adds", side_effect=RuntimeError("secret /srv/path failure")
+    ):
         result = series_service.add_comic(empty_library.ctx, "18692")
 
     assert result["success"] is False
@@ -132,9 +134,9 @@ def test_a_manga_added_to_a_chosen_folder_keeps_it_through_refresh(empty_library
     monkeypatch.setattr("comicarr.app.manga.myanimelist.get_manga_details", lambda _id: _mal_details())
     monkeypatch.setattr("comicarr.app.manga.mangadex.find_by_mal_id", lambda *a, **k: None)
     monkeypatch.setattr("comicarr.config.get_manga_destination", lambda: str(empty_library.tmp_path / "Manga"))
-    monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: {"status": "failed"})
+    monkeypatch.setattr(comic_add.helpers, "getImage", lambda *a, **k: {"status": "failed"})
     monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: None)
-    monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+    monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
 
     manga_add.add_myanimelist("mal-13", location=chosen)
     manga_add.add_myanimelist("mal-13")

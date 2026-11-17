@@ -93,25 +93,25 @@ class TestGetCvId:
 
 class TestAddComictoDBResolution:
     def test_unresolvable_metron_id_raises_before_any_db_write(self):
-        from comicarr import importer
+        from comicarr.app.series import comic_add
 
         with (
             patch("comicarr.app.metadata.metron.get_cv_id", return_value=None),
-            patch("comicarr.importer.db") as mock_db,
+            patch("comicarr.app.series.comic_add.db") as mock_db,
         ):
             with pytest.raises(ValueError, match="no ComicVine mapping"):
-                importer.addComictoDB("metron-9253")
+                comic_add.add_comic("metron-9253")
 
         mock_db.upsert.assert_not_called()
 
     def test_resolvable_metron_id_continues_with_cv_id(self):
-        from comicarr import importer
+        from comicarr.app.series import comic_add
 
         with (
             patch("comicarr.app.metadata.metron.get_cv_id", return_value="145678"),
-            patch("comicarr.importer.db") as mock_db,
-            patch("comicarr.importer.helpers"),
-            patch("comicarr.importer.cv") as mock_cv,
+            patch("comicarr.app.series.comic_add.db") as mock_db,
+            patch("comicarr.app.series.comic_add.helpers"),
+            patch("comicarr.app.series.comic_add.cv") as mock_cv,
             patch.object(comicarr, "COMICSORT", {}, create=True),
             patch.object(comicarr, "CONFIG", MagicMock(IMP_PATHS=False)),
         ):
@@ -119,7 +119,7 @@ class TestAddComictoDBResolution:
             conn.execute.return_value = []
             mock_cv.getComic.return_value = None
 
-            result = importer.addComictoDB("metron-9253")
+            result = comic_add.add_comic("metron-9253")
 
         assert result == {"status": "incomplete"}
         mock_cv.getComic.assert_called_once_with("145678", "comic", series=True)
@@ -135,7 +135,7 @@ class TestAddComicServiceResolution:
 
         with (
             patch("comicarr.app.metadata.metron.get_cv_id", return_value="145678") as mock_resolve,
-            patch("comicarr.importer.importer_thread") as mock_thread,
+            patch("comicarr.app.series.add_workers.queue_series_adds") as mock_thread,
         ):
             result = service.add_comic(None, "metron-9253")
 
@@ -149,7 +149,7 @@ class TestAddComicServiceResolution:
 
         with (
             patch("comicarr.app.metadata.metron.get_cv_id", return_value=None),
-            patch("comicarr.importer.importer_thread") as mock_thread,
+            patch("comicarr.app.series.add_workers.queue_series_adds") as mock_thread,
         ):
             result = service.add_comic(None, "metron-9253")
 
@@ -162,7 +162,7 @@ class TestAddComicServiceResolution:
 
         with (
             patch("comicarr.app.metadata.metron.get_cv_id") as mock_resolve,
-            patch("comicarr.importer.importer_thread") as mock_thread,
+            patch("comicarr.app.series.add_workers.queue_series_adds") as mock_thread,
         ):
             result = service.add_comic(None, "145678")
 

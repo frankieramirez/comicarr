@@ -227,7 +227,7 @@ def test_add_missing_series_stamps_queues_and_spawns_worker():
 
     queued = {}
     with (
-        patch("comicarr.importer.importer_thread") as importer_thread,
+        patch("comicarr.app.series.add_workers.queue_series_adds") as importer_thread,
         patch.object(service, "start_background_thread") as starter,
     ):
         importer_thread.side_effect = lambda watch: queued.setdefault("watch", watch)

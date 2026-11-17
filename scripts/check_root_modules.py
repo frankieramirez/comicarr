@@ -59,7 +59,6 @@ ROOT_MODULES: dict[str, int] = {
     "filechecker": 1422,
     "getcomics": 1422,
     "helpers": 1423,
-    "importer": 1420,
     "logger": 1423,
     "nzbget": 1422,
     "postprocessor": 1422,

@@ -10,7 +10,7 @@
 """Characterization tests for series refresh behind ``app/series/refresh.py`` (#1207).
 
 They pin what ``watchlist_refresh.refresh_series_list`` does today when ``comicarr/app/`` calls it,
-with the metadata provider (``importer.addComictoDB``) and the file rescan
+with the metadata provider (``comic_add.add_comic``) and the file rescan
 faked. They describe current behavior, not intended behavior.
 """
 
@@ -21,9 +21,8 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr import importer
 from comicarr.app.downloads import service as downloads_service
-from comicarr.app.series import folder_rescan, watchlist_refresh
+from comicarr.app.series import comic_add, folder_rescan, watchlist_refresh
 from comicarr.app.series import refresh as series_refresh
 from comicarr.tables import annuals, comics, issues, metadata
 
@@ -60,7 +59,7 @@ def fakes(monkeypatch):
     add = MagicMock()
     rescan = MagicMock()
     emit = MagicMock(return_value={"event_id": 1})
-    monkeypatch.setattr(importer, "addComictoDB", add)
+    monkeypatch.setattr(comic_add, "add_comic", add)
     monkeypatch.setattr(folder_rescan, "force_rescan", rescan)
     monkeypatch.setattr("comicarr.app.activity.producers.emit_series_activity", emit)
     return SimpleNamespace(add=add, rescan=rescan, emit=emit)
@@ -281,7 +280,7 @@ def test_new_annual_status_is_written_against_the_annual(engine, fakes, monkeypa
         with engine.begin() as conn:
             conn.execute(annuals.insert(), {"IssueID": "a1", "ComicID": "100", "ReleaseDate": "2099-01-01"})
 
-    monkeypatch.setattr(importer, "manualAnnual", fake_manual_annual)
+    monkeypatch.setattr(comic_add, "add_manual_annual", fake_manual_annual)
     fakes.add.return_value = {
         "status": "complete",
         "issuedata": [_issue_data("100", "i2", "2", "2023-11-01")],
@@ -309,7 +308,7 @@ def test_new_annual_with_an_unusable_date_is_skipped(engine, fakes, monkeypatch,
         with engine.begin() as conn:
             conn.execute(annuals.insert(), {"IssueID": "a1", "ComicID": "100", "ReleaseDate": release_date})
 
-    monkeypatch.setattr(importer, "manualAnnual", fake_manual_annual)
+    monkeypatch.setattr(comic_add, "add_manual_annual", fake_manual_annual)
     fakes.add.return_value = {
         "status": "complete",
         "issuedata": [_issue_data("100", "i2", "2", "2023-11-01")],

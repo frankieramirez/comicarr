@@ -165,11 +165,11 @@ def _select_all(engine, stmt):
 class TestMangaDexAddRecordsItsId:
     def test_mangadex_add_writes_mangadexid(self, monkeypatch, tmp_path):
         """The MAL path always recorded MangaDexID; the MangaDex path did not."""
-        from comicarr import importer
+        from comicarr.app.series import comic_add
 
         engine = create_engine("sqlite://")
         metadata.create_all(engine)
-        monkeypatch.setattr(importer.db, "get_engine", lambda: engine)
+        monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
         monkeypatch.setattr(
             comicarr,
@@ -202,8 +202,8 @@ class TestMangaDexAddRecordsItsId:
             },
         )
         monkeypatch.setattr(manga_add, "_populate_manga_chapters", lambda *a, **k: 0)
-        monkeypatch.setattr(importer.helpers, "getImage", lambda *a, **k: None)
-        monkeypatch.setattr(importer.helpers, "ComicSort", lambda **k: None)
+        monkeypatch.setattr(comic_add.helpers, "getImage", lambda *a, **k: None)
+        monkeypatch.setattr(comic_add.helpers, "ComicSort", lambda **k: None)
         monkeypatch.setattr(comicarr_config, "get_manga_destination", lambda: str(tmp_path))
 
         manga_add.add_mangadex("md-uuid-42")
