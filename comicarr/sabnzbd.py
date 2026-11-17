@@ -137,6 +137,12 @@ def _accepted_nzo_id(sendresponse):
     return str(sendresponse.get("nzo_id") or "").strip()
 
 
+def _file_not_found(expected_file):
+    """A completed job whose file Comicarr cannot see, with the folder it expected."""
+    folder = os.path.dirname(str(expected_file)) if expected_file else None
+    return {"status": "file not found", "failed": False, "expected_folder": folder or None}
+
+
 class SABnzbd(object):
     def __init__(self, params):
         self.sab_url = comicarr.CONFIG.SAB_HOST + "/api"
@@ -435,21 +441,21 @@ class SABnzbd(object):
                                 % (hq["storage"], comicarr.CONFIG.SAB_DIRECTORY, e)
                             )
                             self._consume_history(hq, keep_history)
-                            return {"status": "file not found", "failed": False}
+                            return _file_not_found(hq["storage"])
                         else:
                             if new_path is None:
                                 logger.warn(
                                     "[ERROR] Unable to remap the directory from SAB to Comicarr's configuration."
                                 )
                                 self._consume_history(hq, keep_history)
-                                return {"status": "file not found", "failed": False}
+                                return _file_not_found(hq["storage"])
                             elif not os.path.isfile(new_path):
                                 logger.fdebug(
                                     "[ERROR] Unable to locate path (%s) on the machine that is running Comicarr. If Comicarr and sabnzbd are on separate machines, you need to set a directory location that is accessible to both"
                                     % (new_path)
                                 )
                                 self._consume_history(hq, keep_history)
-                                return {"status": "file not found", "failed": False}
+                                return _file_not_found(str(new_path))
 
                         logger.fdebug("location found @ %s" % new_path)
                         found = {
@@ -473,7 +479,7 @@ class SABnzbd(object):
                             % hq["storage"]
                         )
                         self._consume_history(hq, keep_history)
-                        return {"status": "file not found", "failed": False}
+                        return _file_not_found(hq["storage"])
 
                 elif hq["nzo_id"] == sendresponse and hq["status"] == "Failed":
                     nzo_exists = True

@@ -18,6 +18,8 @@ call it. A second pass does not import twice — the journal claim inside
 post-processing accepts the row once.
 """
 
+import os
+
 import comicarr
 from comicarr import logger
 from comicarr.app.downloads import handoff, journal
@@ -273,3 +275,24 @@ def retry_postprocess(release_key):
     if action == "unplaced" and result.get("error"):
         message = result["error"]
     raise RetryPostProcessError(message, status_code=status_code)
+
+
+def locate_job_folder(nzb_name):
+    """The folder a finished usenet job named ``nzb_name`` landed in, as Comicarr sees it.
+
+    Rows recorded before Comicarr kept the client's path have only the job
+    name. Clients put a job in a folder of that name under the completed
+    directory Comicarr is told about, so look there. Returns None when no such
+    folder exists.
+    """
+    if not nzb_name or os.sep in str(nzb_name):
+        return None
+    config = getattr(comicarr, "CONFIG", None)
+    for key in ("SAB_DIRECTORY", "NZBGET_DIRECTORY", "CHECK_FOLDER"):
+        root = getattr(config, key, None)
+        if not root or str(root) == "None":
+            continue
+        candidate = os.path.join(str(root), str(nzb_name))
+        if os.path.isdir(candidate):
+            return candidate
+    return None

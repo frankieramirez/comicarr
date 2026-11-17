@@ -573,6 +573,51 @@ def test_import_stamps_only_on_success(tmp_path, monkeypatch):
     assert payload["attention_release_key"] == key
 
 
+def _seed_unlocated_download(*, key="1001|nzbsite", issueid="1001", nzb_name="Saga.001.2024.Digital"):
+    payload = {"issueid": issueid, "provider": "nzbsite", "nzbname": nzb_name, "route": "sabnzbd"}
+    journal.record_transition(
+        key, journal.SNATCHED, payload=payload, issueid=issueid, provider="nzbsite", nzbname=nzb_name
+    )
+    journal.mark_manual_review(
+        key, "sab_completed_file_not_found", payload=payload, issueid=issueid, provider="nzbsite"
+    )
+    return key
+
+
+def test_import_finds_the_job_folder_when_the_row_never_recorded_one(tmp_path, monkeypatch):
+    _seed_issue()
+    completed = tmp_path / "completed"
+    job = completed / "Saga.001.2024.Digital"
+    job.mkdir(parents=True)
+    key = _seed_unlocated_download()
+    config = _manual_pp_config(tmp_path, tmp_path / "pp")
+    config.SAB_DIRECTORY = str(completed)
+    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+
+    result = _resolve_one(ctx, key, "import")
+
+    assert result.ok is True
+    assert result.status == "queued"
+    queued = comicarr.PP_QUEUE.queue[0]
+    assert queued["nzb_folder"] == str(job)
+    _drain_pp()
+
+
+def test_import_without_a_recorded_or_findable_folder_still_reports_it(tmp_path, monkeypatch):
+    _seed_issue()
+    key = _seed_unlocated_download()
+    config = _manual_pp_config(tmp_path, tmp_path / "pp")
+    config.SAB_DIRECTORY = str(tmp_path / "completed")
+    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+
+    result = _resolve_one(ctx, key, "import")
+
+    assert result.ok is False
+    assert comicarr.PP_QUEUE.empty()
+
+
 def test_import_validation_failure_keeps_band(tmp_path, monkeypatch):
     _seed_issue()
     # folder outside any configured root / missing
