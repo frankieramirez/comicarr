@@ -18,6 +18,10 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import IssueStatusMenu from "@/components/series/IssueStatusMenu";
+import {
+  MangaCoverageBar,
+  MangaVolumeList,
+} from "@/components/series/MangaVolumes";
 import { SeriesContentKind } from "@/components/series/SeriesContentKind";
 import { SeriesSearchProviders } from "@/components/series/SeriesSearchProviders";
 import { SeriesFolder } from "@/components/series/SeriesFolder";
@@ -78,7 +82,7 @@ import { displayComicDate, pickComicDate } from "@/lib/format";
 import { seriesCoverSrc, seriesSyncLabel } from "@/lib/series-utils";
 import { DESKTOP_COL } from "@/components/data-table/gridColumns";
 
-type IssueFilter = "all" | "have" | "wanted" | "not_wanted";
+type IssueFilter = "all" | "have" | "in_volume" | "wanted" | "not_wanted";
 
 function getIssueStatus(issue: Issue): string {
   return issue.displayState ?? issue.status ?? issue.Status ?? t`Unknown`;
@@ -291,6 +295,18 @@ function issueFallbackLabel(issue: Issue, number?: string | null): string {
 const ISSUE_GRID_COLS =
   "grid-cols-[42px_minmax(0,1fr)_auto_36px] md:grid-cols-[28px_72px_42px_minmax(220px,1fr)_130px_110px_190px_36px]";
 
+/** The volume a manga chapter is in; "~" marks an estimate. */
+function MangaHoldingVolume({ issue }: { issue: Issue }) {
+  if (!issue.holdingVolume) return <>—</>;
+  return issue.holdingEstimated ? (
+    <span title={t`Estimated: MangaDex doesn't list this volume's chapters`}>
+      ~{issue.holdingVolume}
+    </span>
+  ) : (
+    <>{issue.holdingVolume}</>
+  );
+}
+
 function issueRowKey(issue: Issue): string {
   return `${issue.annual ? "annual" : "issue"}:${issue.id ?? issue.IssueID}`;
 }
@@ -376,7 +392,7 @@ export default function SeriesDetailPage() {
   }, []);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [filter, setFilter] = useState<IssueFilter>("all");
-  const [tab, setTab] = useState<"issues" | "settings">("issues");
+  const [tab, setTab] = useState<"issues" | "volumes" | "settings">("issues");
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [preview, setPreview] = useState<SearchMissingPreview | null>(null);
   const [searchOutcome, setSearchOutcome] =
@@ -544,6 +560,10 @@ export default function SeriesDetailPage() {
   const summary = seriesData.summary;
   const total = summary?.total ?? allIssues.length;
   const have = summary?.owned ?? allIssues.filter(isIssueOwned).length;
+  // Manga: a chapter inside a volume you have counts as held (ADR-0004).
+  const mangaView = seriesData.manga ?? null;
+  const coveredCount = allIssues.filter((issue) => issue.covered).length;
+  const heldCount = mangaView ? have + coveredCount : have;
   const wanted =
     summary?.wantedMissing ?? allIssues.filter(isIssueWanted).length;
   const notWanted =
@@ -657,6 +677,7 @@ export default function SeriesDetailPage() {
       : "cv";
   const filteredIssues = allIssues.filter((issue) => {
     if (filter === "have") return isIssueOwned(issue);
+    if (filter === "in_volume") return Boolean(issue.covered);
     if (filter === "wanted") return isIssueWanted(issue);
     if (filter === "not_wanted") return isIssueNotWanted(issue);
     return true;
@@ -906,7 +927,7 @@ export default function SeriesDetailPage() {
             )}
           </div>
           <span className="hidden shrink-0 font-mono text-xs text-foreground md:inline">
-            {have} / {total}
+            {heldCount} / {total}
           </span>
           {wanted > 0 && (
             <span className="hidden shrink-0 text-[13px] text-foreground-2 lg:inline">
@@ -1032,7 +1053,7 @@ export default function SeriesDetailPage() {
                     </span>
                   )}
                   <span className="font-mono text-xs text-foreground">
-                    {have} / {total}
+                    {heldCount} / {total}
                   </span>
                   {progressSummary && <span>{progressSummary}</span>}
                 </div>
@@ -1188,33 +1209,45 @@ export default function SeriesDetailPage() {
             </div>
 
             {/* Owned, in progress, the rest: one bar, no percentage score. */}
-            <div
-              className="mt-5 flex h-1 gap-0.5 overflow-hidden rounded-full"
-              role="img"
-              aria-label={
-                progressSummary
-                  ? t`${completionPct}% held: ${have} of ${total}, ${progressSummary}`
-                  : t`${completionPct}% held: ${have} of ${total}`
-              }
-            >
-              {segments.length === 0 ? (
-                <div className="flex-1 bg-surface-3" />
-              ) : (
-                segments.map((segment) => (
-                  <div
-                    key={segment.key}
-                    style={{
-                      flexGrow: segment.value,
-                      background: segment.color,
-                    }}
-                  />
-                ))
-              )}
-            </div>
+            {mangaView ? (
+              <MangaCoverageBar progress={mangaView.progress} />
+            ) : (
+              <div
+                className="mt-5 flex h-1 gap-0.5 overflow-hidden rounded-full"
+                role="img"
+                aria-label={
+                  progressSummary
+                    ? t`${completionPct}% held: ${have} of ${total}, ${progressSummary}`
+                    : t`${completionPct}% held: ${have} of ${total}`
+                }
+              >
+                {segments.length === 0 ? (
+                  <div className="flex-1 bg-surface-3" />
+                ) : (
+                  segments.map((segment) => (
+                    <div
+                      key={segment.key}
+                      style={{
+                        flexGrow: segment.value,
+                        background: segment.color,
+                      }}
+                    />
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
           <div className="relative mt-4">
             <TabRow ariaLabel={t`Series sections`}>
+              {mangaView && mangaView.volumes.length > 0 ? (
+                <Tab
+                  active={tab === "volumes"}
+                  label={t`Volumes`}
+                  meta={mangaView.volumes.length}
+                  onClick={() => setTab("volumes")}
+                />
+              ) : null}
               <Tab
                 active={tab === "issues"}
                 label={ledgerLabel}
@@ -1230,7 +1263,13 @@ export default function SeriesDetailPage() {
           </div>
         </div>
 
-        {tab === "issues" ? (
+        {tab === "volumes" && mangaView && comicId ? (
+          <MangaVolumeList
+            comicId={comicId}
+            volumes={mangaView.volumes}
+            progress={mangaView.progress}
+          />
+        ) : tab === "issues" || tab === "volumes" ? (
           <>
             <div className="flex shrink-0 flex-wrap items-center gap-3 px-8 py-3">
               <div className="sr-only" data-testid="ledger-label">
@@ -1245,6 +1284,9 @@ export default function SeriesDetailPage() {
                   [
                     ["all", t`All`, total],
                     ["have", t`Have`, have],
+                    ...(coveredCount > 0
+                      ? ([["in_volume", t`In a volume`, coveredCount]] as const)
+                      : []),
                     ["wanted", t`Wanted`, wanted],
                     ["not_wanted", t`Not wanted`, notWanted],
                   ] as const
@@ -1338,7 +1380,7 @@ export default function SeriesDetailPage() {
                     <Trans>title</Trans>
                   </div>
                   <div className={DESKTOP_COL}>
-                    <Trans>arc</Trans>
+                    {mangaView ? <Trans>vol</Trans> : <Trans>arc</Trans>}
                   </div>
                   <div className={DESKTOP_COL}>
                     <Trans>date</Trans>
@@ -1372,6 +1414,7 @@ export default function SeriesDetailPage() {
                     const status = issueLabel(issue);
                     const separateIntent = getSeparateIntent(issue);
                     const ledgerKind = getLedgerKind(issue, isManga);
+                    const coveredVolume = issue.coveredByVolume;
                     const rowKey = issueRowKey(issue);
                     const rowLabel =
                       issueName || issueFallbackLabel(issue, issueNumber);
@@ -1422,7 +1465,11 @@ export default function SeriesDetailPage() {
                           className={`${DESKTOP_COL} truncate text-[11px]`}
                           style={{ color: "var(--muted-foreground)" }}
                         >
-                          {issue.Arc || "—"}
+                          {mangaView ? (
+                            <MangaHoldingVolume issue={issue} />
+                          ) : (
+                            issue.Arc || "—"
+                          )}
                         </div>
                         <div
                           className={`${DESKTOP_COL} font-mono text-[10px]`}
@@ -1461,6 +1508,21 @@ export default function SeriesDetailPage() {
                             >
                               <Trans>Want</Trans>
                             </button>
+                          )}
+                          {coveredVolume && (
+                            <span
+                              className="text-[11px]"
+                              style={{ color: "var(--status-downloaded)" }}
+                              data-testid="covered-by-volume"
+                            >
+                              {issue.holdingEstimated ? (
+                                <Trans>
+                                  in vol {coveredVolume} (estimated)
+                                </Trans>
+                              ) : (
+                                <Trans>in vol {coveredVolume}</Trans>
+                              )}
+                            </span>
                           )}
                           {separateIntent && (
                             <span

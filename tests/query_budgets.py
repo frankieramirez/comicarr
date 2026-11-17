@@ -26,8 +26,9 @@ fix the loop instead.
 BUDGETS = {
     # GET /api/series: the Library page.
     "library_list": 1,
-    # GET /api/series/{id}: series, issues, provider override.
-    "series_detail": 3,
+    # GET /api/series/{id}: series, issues, provider override, and for a
+    # manga series its recorded volumes (one read, whatever the volume count).
+    "series_detail": 4,
     # GET /api/wanted/series: wanted rows, search state, RSS pacing.
     "wanted_by_series": 3,
     # GET /api/wanted?comic_id=...&limit=50: one series expanded on Wanted.

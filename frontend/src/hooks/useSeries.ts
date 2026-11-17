@@ -289,6 +289,49 @@ export function useUpdateSeriesProviderOverride(): UseMutationResult<
 /**
  * Update per-series search flags (pack matching / booktype override)
  */
+export interface MangaVolumeEdit {
+  comicId: string;
+  volume: string;
+  /** "Wanted", "Skipped", or "" for no decision. */
+  status?: "Wanted" | "Skipped" | "";
+  firstChapter?: string;
+  lastChapter?: string;
+  clearRange?: boolean;
+}
+
+/** Mark a manga volume wanted / not wanted, or set the chapters it holds. */
+export function useEditMangaVolume(): UseMutationResult<
+  unknown,
+  Error,
+  MangaVolumeEdit
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      comicId,
+      volume,
+      status,
+      firstChapter,
+      lastChapter,
+      clearRange,
+    }) =>
+      apiRequest(
+        "PATCH",
+        `/api/series/${comicId}/volumes/${encodeURIComponent(volume)}`,
+        {
+          ...(status !== undefined && { status }),
+          ...(firstChapter !== undefined && { first_chapter: firstChapter }),
+          ...(lastChapter !== undefined && { last_chapter: lastChapter }),
+          ...(clearRange && { clear_range: true }),
+        },
+      ),
+    onSuccess: (_, { comicId }) => {
+      queryClient.invalidateQueries({ queryKey: ["series", comicId] });
+    },
+  });
+}
+
 export function useUpdateSeriesSearchSettings(): UseMutationResult<
   unknown,
   Error,

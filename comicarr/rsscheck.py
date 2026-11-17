@@ -1600,13 +1600,19 @@ def mangaCheck():
 
     # Volumes are not issues (ADR-0004): a grabbed or downloaded volume is
     # owned from manga_volumes, so it leaves the frontier (#1278).
+    # The rows carry any operator chapter range, so search skips the same
+    # chapters the series page shows inside an owned volume.
     volumes_by_series = {}
     for row in db.select_all(
-        select(t_volumes.c.ComicID, t_volumes.c.VolumeNumber, t_volumes.c.Status).where(
-            t_volumes.c.ComicID.in_([series["ComicID"] for series in manga_series])
-        )
+        select(
+            t_volumes.c.ComicID,
+            t_volumes.c.VolumeNumber,
+            t_volumes.c.Status,
+            t_volumes.c.FirstChapter,
+            t_volumes.c.LastChapter,
+        ).where(t_volumes.c.ComicID.in_([series["ComicID"] for series in manga_series]))
     ):
-        volumes_by_series.setdefault(row["ComicID"], {})[row["VolumeNumber"]] = row["Status"]
+        volumes_by_series.setdefault(row["ComicID"], []).append(dict(row))
 
     with rss_lookup_memo():
         for series in manga_series:
@@ -1614,7 +1620,7 @@ def mangaCheck():
             comic_name = series["ComicName"]
             series_year = series.get("ComicYear") or str(datetime.now().year)
             issues = issues_by_series.get(comic_id) or []
-            targets = search_plan_for_series(series, issues, volumes_by_series.get(comic_id, {}))
+            targets = search_plan_for_series(series, issues, volumes_by_series.get(comic_id, []))
             if not targets:
                 continue
 

@@ -691,6 +691,10 @@ msgstr "{head} {skipped_for_cap} 留待下一轮（每次最多 {cap} 个）。"
 msgid "{hiddenIssues, plural, one {{hiddenSeries} more series with # issue, in other causes} other {{hiddenSeries} more series with # issues, in other causes}}"
 msgstr "{hiddenIssues, plural, other {另有 {hiddenSeries} 个系列的 # 期，属于其他原因}}"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "{holes, plural, one {MangaDex doesn't list the chapters for # volume. Comicarr estimated its range from the volumes around it, and an owned volume covers the chapters in its range. Edit a range if it's off.} other {MangaDex doesn't list the chapters for # volumes. Comicarr estimated their ranges from the volumes around them, and an owned volume covers the chapters in its range. Edit a range if it's off.}}"
+msgstr "{holes, plural, other {MangaDex 未列出 # 卷包含的话。Comicarr 根据相邻的卷估算了范围，你已有的卷会覆盖其范围内的话。如果范围不对，请编辑。}}"
+
 #: src/components/queue/WantedPacingBanner.tsx
 msgid "{hours, plural, one {every hour} other {every # hours}}"
 msgstr "{hours, plural, other {每 # 小时}}"
@@ -927,6 +931,10 @@ msgstr "{queued, plural, other {# 期已标记为待获取。}}"
 #: src/components/activity/health/HealthView.tsx
 msgid "{reachable} of {length} reachable"
 msgstr "{length} 个中 {reachable} 个可访问"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "{readable} of {chapterTotal} chapters readable"
+msgstr "{chapterTotal} 话中可读 {readable} 话"
 
 #: src/pages/ImportPage.tsx
 msgid "{records, plural, one {# import record deleted} other {# import records deleted}}"
@@ -1219,6 +1227,7 @@ msgid "Acquisition maintenance is active."
 msgstr "获取维护进行中。"
 
 #: src/components/releases/IndustryReleasesView.tsx
+#: src/components/series/MangaVolumes.tsx
 msgid "actions"
 msgstr "操作"
 
@@ -1558,6 +1567,7 @@ msgstr "AI 状态"
 #: src/components/releases/IndustryReleasesView.tsx
 #: src/components/releases/MyReleasesView.tsx
 #: src/components/releases/releaseFormat.ts
+#: src/components/series/MangaVolumes.tsx
 #: src/components/series/SeriesFilters.tsx
 #: src/pages/AttentionPage.tsx
 #: src/pages/SeriesDetailPage.tsx
@@ -2130,6 +2140,18 @@ msgstr "文件夹 {number} 的分类"
 msgid "Category per library folder"
 msgstr "每个书库文件夹的分类"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "ch {from}"
+msgstr "第 {from} 话"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "ch {from}–{to}"
+msgstr "第 {from}–{to} 话"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "ch 1–{lastChapter}"
+msgstr "第 1–{lastChapter} 话"
+
 #: src/components/releases/industryRows.ts
 msgid "Ch. {chapter}"
 msgstr "第 {chapter} 章"
@@ -2183,6 +2205,18 @@ msgstr "章"
 msgid "Chapter {first}"
 msgstr "第 {first} 章"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "chapter files"
+msgstr "单话文件"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Chapter files"
+msgstr "单话文件"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "chapters"
+msgstr "话"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Chapters"
 msgstr "章节"
@@ -2194,6 +2228,10 @@ msgstr "第 {first}-{last} 章"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Chapters only"
 msgstr "仅章节"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "chapters you can read"
+msgstr "可读的话数"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "chapters: {chapterCount}"
@@ -2921,6 +2959,10 @@ msgstr "无法将 {label} 发送到下载器"
 msgid "Couldn't tag {label}"
 msgstr "无法标记 {label}"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "Couldn't update volume {number}"
+msgstr "无法更新第 {number} 卷"
+
 #: src/components/settings/InterfaceTab.tsx
 msgid "Cover wall on sign-in"
 msgstr "登录页封面墙"
@@ -3210,6 +3252,10 @@ msgstr "需要令牌时，Docker 安装会在容器日志中打印 <0>[SETUP] Se
 msgid "Docs"
 msgstr "文档"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "Don't want volume {number}"
+msgstr "不想要第 {number} 卷"
+
 #: src/components/import/ImportPickPanel.tsx
 #: src/components/series/IssueStory.tsx
 #: src/lib/statusTone.ts
@@ -3278,6 +3324,7 @@ msgstr "已下载 {label}"
 msgid "downloader unreachable"
 msgstr "无法访问下载器"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/lib/releaseState.ts
 msgid "Downloading"
 msgstr "下载中"
@@ -3358,6 +3405,14 @@ msgstr "编辑章节号"
 #: src/components/import/ImportPickPanel.tsx
 msgid "Edit issue numbers"
 msgstr "编辑期号"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Edit range"
+msgstr "编辑范围"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Edit the chapters in volume {number}"
+msgstr "编辑第 {number} 卷包含的话"
 
 #: src/components/settings/NotificationsTab.tsx
 msgid "Email"
@@ -3489,6 +3544,7 @@ msgstr "更改服务器时请再次输入 SABnzbd API 密钥"
 msgid "Enter your 40-character Comic Vine API key"
 msgstr "输入你的 40 位 Comic Vine API 密钥"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/components/series/SeriesTable.tsx
 #: src/components/storyarcs/ArcHeader.tsx
 #: src/components/storyarcs/ArcIssueTable.tsx
@@ -3507,6 +3563,14 @@ msgstr "搜索出错：{error}"
 #: src/components/settings/LogsTab.tsx
 msgid "Errors only"
 msgstr "仅错误"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "estimated"
+msgstr "估算"
+
+#: src/pages/SeriesDetailPage.tsx
+msgid "Estimated: MangaDex doesn't list this volume's chapters"
+msgstr "估算：MangaDex 未列出本卷包含的话"
 
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Event"
@@ -3808,6 +3872,10 @@ msgstr "功能"
 msgid "Fewest Issues"
 msgstr "期数最少"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "file"
+msgstr "文件"
+
 #: src/components/settings/LogsTab.tsx
 #: src/pages/ActivityPage.tsx
 msgid "File"
@@ -3935,6 +4003,10 @@ msgstr "筛选时间线"
 msgid "Filter timeline…"
 msgstr "筛选时间线…"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "Filter volumes"
+msgstr "筛选卷"
+
 #: src/pages/WantedPage.tsx
 msgid "Filter wanted issues"
 msgstr "筛选待获取刊物"
@@ -3974,6 +4046,10 @@ msgstr "完成设置"
 #: src/lib/healthRows.ts
 msgid "Finished without errors"
 msgstr "已完成，没有错误"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "First chapter"
+msgstr "起始话"
 
 #: src/pages/LoginPage.tsx
 msgid "first-run · create admin"
@@ -4159,6 +4235,7 @@ msgstr "硬链接"
 msgid "Hasn't run yet"
 msgstr "尚未运行"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Have"
 msgstr "已拥有"
@@ -4438,6 +4515,10 @@ msgstr "{duration}后"
 msgid "in {minutes} min"
 msgstr "{minutes} 分钟后"
 
+#: src/pages/SeriesDetailPage.tsx
+msgid "In a volume"
+msgstr "在卷中"
+
 #: src/components/activity/ActivityTabs.tsx
 #: src/components/dashboard/InFlightLine.tsx
 #: src/pages/ActivityPage.tsx
@@ -4466,6 +4547,14 @@ msgstr "在书库中"
 #: src/components/series/SeriesFilters.tsx
 msgid "In progress"
 msgstr "进行中"
+
+#: src/pages/SeriesDetailPage.tsx
+msgid "in vol {coveredVolume}"
+msgstr "在第 {coveredVolume} 卷"
+
+#: src/pages/SeriesDetailPage.tsx
+msgid "in vol {coveredVolume} (estimated)"
+msgstr "在第 {coveredVolume} 卷（估算）"
 
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "in your library"
@@ -4542,6 +4631,10 @@ msgstr "信息"
 #: src/components/settings/LogsTab.tsx
 msgid "Info and above"
 msgstr "信息及以上"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Inside a volume you have"
+msgstr "在你已有的卷中"
 
 #: src/components/settings/AboutTab.tsx
 msgid "Install identity and paths for this instance."
@@ -4703,6 +4796,10 @@ msgstr "最近 30 天"
 #: src/pages/AttentionPage.tsx
 msgid "last 7 days"
 msgstr "最近 7 天"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Last chapter"
+msgstr "结束话"
 
 #: src/components/activity/health/HealthView.tsx
 msgid "Last checked"
@@ -5090,6 +5187,10 @@ msgstr "日漫、韩漫和国漫的发布数据来自 <0>MangaUpdates</0>。"
 msgid "MangaDex"
 msgstr "MangaDex"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "MangaDex doesn't list this volume's chapters"
+msgstr "MangaDex 未列出本卷包含的话"
+
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "MangaUpdates could not be reached. Comicarr tries again in a few minutes."
 msgstr "无法访问 MangaUpdates。Comicarr 会在几分钟后重试。"
@@ -5339,6 +5440,14 @@ msgstr "最小大小必须小于最大大小"
 #: src/components/queue/WantedBySeries.tsx
 msgid "Missing"
 msgstr "缺少"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "missing before your latest chapter"
+msgstr "在你最新一话之前缺失"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Missing before your latest chapter"
+msgstr "在你最新一话之前缺失"
 
 #: src/components/storyarcs/ArcMissingSeries.tsx
 msgid "Missing from your library"
@@ -5870,6 +5979,10 @@ msgstr "未配置 Usenet 索引器。请在搜索设置中添加并启用一个�
 msgid "No Usenet indexers are configured. Add a Newznab-compatible indexer to make the NZB route searchable."
 msgstr "未配置 Usenet 索引器。添加 Newznab 兼容的索引器，NZB 路由才能搜索。"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "no volumes to display"
+msgstr "没有可显示的卷"
+
 #: src/components/ui/EmptyState.tsx
 msgid "No wanted issues"
 msgstr "没有待获取刊物"
@@ -5982,6 +6095,7 @@ msgstr "此处不支持"
 msgid "Not Tracked"
 msgstr "未跟踪"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Not wanted"
 msgstr "不需要"
@@ -7314,6 +7428,10 @@ msgstr "安全"
 msgid "Same as downloads"
 msgstr "与下载相同"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "Save"
+msgstr "保存"
+
 #: src/components/storyarcs/ArcGenerator.tsx
 msgid "Save Arc"
 msgstr "保存故事线"
@@ -8066,6 +8184,10 @@ msgstr "在 config.ini 中设置导入目录即可启用自动导入。"
 msgid "Set an import directory to watch for new files"
 msgstr "设置一个导入目录以监控新文件"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "set by you"
+msgstr "由你设置"
+
 #: src/components/import/LibraryScanSection.tsx
 msgid "Set Comic Directory in Settings → Media"
 msgstr "在设置 → 媒体中设置漫画目录"
@@ -8259,6 +8381,7 @@ msgstr "SMTP 端口"
 msgid "SMTP Server"
 msgstr "SMTP 服务器"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/lib/statusTone.ts
 #: src/pages/ActivityPage.tsx
 msgid "Snatched"
@@ -8346,6 +8469,7 @@ msgstr "正在开始提供方搜索…"
 msgid "Starting…"
 msgstr "正在开始…"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "state"
 msgstr "状态"
@@ -9105,6 +9229,7 @@ msgstr "取消忽略"
 msgid "Unignore selected import files"
 msgstr "取消忽略所选导入文件"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "unknown"
 msgstr "未知"
@@ -9237,6 +9362,10 @@ msgstr "将 MAL 用作日漫元数据的主要来源，以获得更好的搜索�
 #: src/components/series/SeriesContentKind.tsx
 msgid "Use manga chapter labels and matching rules."
 msgstr "使用日漫章节的标签和匹配规则。"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Use MangaDex or estimate"
+msgstr "使用 MangaDex 或估算"
 
 #: src/components/settings/ApiTab.tsx
 msgid "Use Metron API for comic search (fixes sorting issues)"
@@ -9386,12 +9515,21 @@ msgstr "在 {site} 上查看"
 msgid "View toggles"
 msgstr "视图切换"
 
+#: src/components/series/MangaVolumes.tsx
+#: src/pages/SeriesDetailPage.tsx
+msgid "vol"
+msgstr "卷"
+
 #: src/components/releases/industryRows.ts
 msgid "Vol. {volume}"
 msgstr "第 {volume} 卷"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Volume"
+msgstr "卷"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "volumes"
 msgstr "卷"
 
 #: src/pages/SeriesDetailPage.tsx
@@ -9424,6 +9562,7 @@ msgstr "正在等待你的决定。"
 
 #: src/components/queue/upcomingColumns.tsx
 #: src/components/releases/IndustryReleasesView.tsx
+#: src/components/series/MangaVolumes.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Want"
 msgstr "待获取"
@@ -9440,6 +9579,10 @@ msgstr "待获取 {rowLabel}"
 msgid "Want all"
 msgstr "全部待获取"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "Want volume {number}"
+msgstr "想要第 {number} 卷"
+
 #: src/lib/releaseState.ts
 msgid "wanted"
 msgstr "待获取"
@@ -9449,6 +9592,7 @@ msgstr "待获取"
 #: src/components/layout/MobileTabBar.tsx
 #: src/components/releases/IndustryReleasesView.tsx
 #: src/components/series/IssueStatusMenu.tsx
+#: src/components/series/MangaVolumes.tsx
 #: src/components/storyarcs/ArcIssueRow.tsx
 #: src/lib/statusTone.ts
 #: src/pages/SeriesDetailPage.tsx

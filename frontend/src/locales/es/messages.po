@@ -691,6 +691,10 @@ msgstr "{head} {skipped_for_cap} quedan para otra ronda (máximo {cap} a la vez)
 msgid "{hiddenIssues, plural, one {{hiddenSeries} more series with # issue, in other causes} other {{hiddenSeries} more series with # issues, in other causes}}"
 msgstr "{hiddenIssues, plural, one {{hiddenSeries} series más con # número, en otras causas} other {{hiddenSeries} series más con # números, en otras causas}}"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "{holes, plural, one {MangaDex doesn't list the chapters for # volume. Comicarr estimated its range from the volumes around it, and an owned volume covers the chapters in its range. Edit a range if it's off.} other {MangaDex doesn't list the chapters for # volumes. Comicarr estimated their ranges from the volumes around them, and an owned volume covers the chapters in its range. Edit a range if it's off.}}"
+msgstr "{holes, plural, one {MangaDex no indica los capítulos de # volumen. Comicarr estimó su rango a partir de los volúmenes cercanos, y un volumen que tienes cubre los capítulos de su rango. Edita un rango si no es correcto.} other {MangaDex no indica los capítulos de # volúmenes. Comicarr estimó sus rangos a partir de los volúmenes cercanos, y un volumen que tienes cubre los capítulos de su rango. Edita un rango si no es correcto.}}"
+
 #: src/components/queue/WantedPacingBanner.tsx
 msgid "{hours, plural, one {every hour} other {every # hours}}"
 msgstr "{hours, plural, one {cada hora} other {cada # horas}}"
@@ -927,6 +931,10 @@ msgstr "{queued, plural, one {# número marcado como Buscado.} other {# números
 #: src/components/activity/health/HealthView.tsx
 msgid "{reachable} of {length} reachable"
 msgstr "{reachable} de {length} accesibles"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "{readable} of {chapterTotal} chapters readable"
+msgstr "{readable} de {chapterTotal} capítulos legibles"
 
 #: src/pages/ImportPage.tsx
 msgid "{records, plural, one {# import record deleted} other {# import records deleted}}"
@@ -1219,6 +1227,7 @@ msgid "Acquisition maintenance is active."
 msgstr "El mantenimiento de adquisición está activo."
 
 #: src/components/releases/IndustryReleasesView.tsx
+#: src/components/series/MangaVolumes.tsx
 msgid "actions"
 msgstr "acciones"
 
@@ -1558,6 +1567,7 @@ msgstr "Estado de la IA"
 #: src/components/releases/IndustryReleasesView.tsx
 #: src/components/releases/MyReleasesView.tsx
 #: src/components/releases/releaseFormat.ts
+#: src/components/series/MangaVolumes.tsx
 #: src/components/series/SeriesFilters.tsx
 #: src/pages/AttentionPage.tsx
 #: src/pages/SeriesDetailPage.tsx
@@ -2130,6 +2140,18 @@ msgstr "Categoría para la carpeta {number}"
 msgid "Category per library folder"
 msgstr "Categoría por carpeta de biblioteca"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "ch {from}"
+msgstr "cap. {from}"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "ch {from}–{to}"
+msgstr "cap. {from}–{to}"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "ch 1–{lastChapter}"
+msgstr "cap. 1–{lastChapter}"
+
 #: src/components/releases/industryRows.ts
 msgid "Ch. {chapter}"
 msgstr "Cap. {chapter}"
@@ -2183,6 +2205,18 @@ msgstr "Capítulo"
 msgid "Chapter {first}"
 msgstr "Capítulo {first}"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "chapter files"
+msgstr "archivos de capítulo"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Chapter files"
+msgstr "Archivos de capítulo"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "chapters"
+msgstr "capítulos"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "Chapters"
 msgstr "Capítulos"
@@ -2194,6 +2228,10 @@ msgstr "Capítulos {first}-{last}"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Chapters only"
 msgstr "Solo capítulos"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "chapters you can read"
+msgstr "capítulos que puedes leer"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "chapters: {chapterCount}"
@@ -2921,6 +2959,10 @@ msgstr "No se pudo enviar {label} al descargador"
 msgid "Couldn't tag {label}"
 msgstr "No se pudo etiquetar {label}"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "Couldn't update volume {number}"
+msgstr "No se pudo actualizar el volumen {number}"
+
 #: src/components/settings/InterfaceTab.tsx
 msgid "Cover wall on sign-in"
 msgstr "Muro de portadas en el inicio de sesión"
@@ -3210,6 +3252,10 @@ msgstr "Las instalaciones con Docker muestran <0>[SETUP] Setup token:</0> en los
 msgid "Docs"
 msgstr "Documentación"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "Don't want volume {number}"
+msgstr "No quiero el volumen {number}"
+
 #: src/components/import/ImportPickPanel.tsx
 #: src/components/series/IssueStory.tsx
 #: src/lib/statusTone.ts
@@ -3278,6 +3324,7 @@ msgstr "Se descargó {label}"
 msgid "downloader unreachable"
 msgstr "descargador inaccesible"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/lib/releaseState.ts
 msgid "Downloading"
 msgstr "Descargando"
@@ -3358,6 +3405,14 @@ msgstr "Editar números de capítulo"
 #: src/components/import/ImportPickPanel.tsx
 msgid "Edit issue numbers"
 msgstr "Editar números"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Edit range"
+msgstr "Editar rango"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Edit the chapters in volume {number}"
+msgstr "Editar los capítulos del volumen {number}"
 
 #: src/components/settings/NotificationsTab.tsx
 msgid "Email"
@@ -3489,6 +3544,7 @@ msgstr "Vuelve a introducir la clave de API de SABnzbd al cambiar de servidor"
 msgid "Enter your 40-character Comic Vine API key"
 msgstr "Introduce tu clave de API de Comic Vine de 40 caracteres"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/components/series/SeriesTable.tsx
 #: src/components/storyarcs/ArcHeader.tsx
 #: src/components/storyarcs/ArcIssueTable.tsx
@@ -3507,6 +3563,14 @@ msgstr "Error al buscar: {error}"
 #: src/components/settings/LogsTab.tsx
 msgid "Errors only"
 msgstr "Solo errores"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "estimated"
+msgstr "estimado"
+
+#: src/pages/SeriesDetailPage.tsx
+msgid "Estimated: MangaDex doesn't list this volume's chapters"
+msgstr "Estimado: MangaDex no indica los capítulos de este volumen"
 
 #: src/components/activity/timeline/TimelineView.tsx
 msgid "Event"
@@ -3808,6 +3872,10 @@ msgstr "Función"
 msgid "Fewest Issues"
 msgstr "Menos números"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "file"
+msgstr "archivo"
+
 #: src/components/settings/LogsTab.tsx
 #: src/pages/ActivityPage.tsx
 msgid "File"
@@ -3935,6 +4003,10 @@ msgstr "Filtrar la cronología"
 msgid "Filter timeline…"
 msgstr "Filtrar la cronología…"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "Filter volumes"
+msgstr "Filtrar volúmenes"
+
 #: src/pages/WantedPage.tsx
 msgid "Filter wanted issues"
 msgstr "Filtrar números buscados"
@@ -3974,6 +4046,10 @@ msgstr "Termina la configuración"
 #: src/lib/healthRows.ts
 msgid "Finished without errors"
 msgstr "Terminó sin errores"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "First chapter"
+msgstr "Primer capítulo"
 
 #: src/pages/LoginPage.tsx
 msgid "first-run · create admin"
@@ -4159,6 +4235,7 @@ msgstr "Enlace duro"
 msgid "Hasn't run yet"
 msgstr "Aún no se ha ejecutado"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Have"
 msgstr "Tengo"
@@ -4438,6 +4515,10 @@ msgstr "en {duration}"
 msgid "in {minutes} min"
 msgstr "en {minutes} min"
 
+#: src/pages/SeriesDetailPage.tsx
+msgid "In a volume"
+msgstr "En un volumen"
+
 #: src/components/activity/ActivityTabs.tsx
 #: src/components/dashboard/InFlightLine.tsx
 #: src/pages/ActivityPage.tsx
@@ -4466,6 +4547,14 @@ msgstr "En la biblioteca"
 #: src/components/series/SeriesFilters.tsx
 msgid "In progress"
 msgstr "En progreso"
+
+#: src/pages/SeriesDetailPage.tsx
+msgid "in vol {coveredVolume}"
+msgstr "en vol. {coveredVolume}"
+
+#: src/pages/SeriesDetailPage.tsx
+msgid "in vol {coveredVolume} (estimated)"
+msgstr "en vol. {coveredVolume} (estimado)"
 
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "in your library"
@@ -4542,6 +4631,10 @@ msgstr "Información"
 #: src/components/settings/LogsTab.tsx
 msgid "Info and above"
 msgstr "Información y superiores"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Inside a volume you have"
+msgstr "Dentro de un volumen que tienes"
 
 #: src/components/settings/AboutTab.tsx
 msgid "Install identity and paths for this instance."
@@ -4703,6 +4796,10 @@ msgstr "últimos 30 días"
 #: src/pages/AttentionPage.tsx
 msgid "last 7 days"
 msgstr "últimos 7 días"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Last chapter"
+msgstr "Último capítulo"
 
 #: src/components/activity/health/HealthView.tsx
 msgid "Last checked"
@@ -5090,6 +5187,10 @@ msgstr "Datos de lanzamientos de manga, manhwa y manhua de <0>MangaUpdates</0>."
 msgid "MangaDex"
 msgstr "MangaDex"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "MangaDex doesn't list this volume's chapters"
+msgstr "MangaDex no indica los capítulos de este volumen"
+
 #: src/components/releases/IndustryReleasesView.tsx
 msgid "MangaUpdates could not be reached. Comicarr tries again in a few minutes."
 msgstr "No se pudo acceder a MangaUpdates. Comicarr lo volverá a intentar en unos minutos."
@@ -5339,6 +5440,14 @@ msgstr "El tamaño mínimo debe ser menor que el máximo"
 #: src/components/queue/WantedBySeries.tsx
 msgid "Missing"
 msgstr "Faltan"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "missing before your latest chapter"
+msgstr "faltan antes de tu último capítulo"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Missing before your latest chapter"
+msgstr "Faltan antes de tu último capítulo"
 
 #: src/components/storyarcs/ArcMissingSeries.tsx
 msgid "Missing from your library"
@@ -5870,6 +5979,10 @@ msgstr "No hay ningún indexador de Usenet configurado. Añade y activa uno en l
 msgid "No Usenet indexers are configured. Add a Newznab-compatible indexer to make the NZB route searchable."
 msgstr "No hay indexadores de Usenet configurados. Añade un indexador compatible con Newznab para poder buscar por la ruta NZB."
 
+#: src/components/series/MangaVolumes.tsx
+msgid "no volumes to display"
+msgstr "no hay volúmenes para mostrar"
+
 #: src/components/ui/EmptyState.tsx
 msgid "No wanted issues"
 msgstr "No hay números buscados"
@@ -5982,6 +6095,7 @@ msgstr "No compatible aquí"
 msgid "Not Tracked"
 msgstr "No seguida"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Not wanted"
 msgstr "No buscado"
@@ -7314,6 +7428,10 @@ msgstr "seguro"
 msgid "Same as downloads"
 msgstr "Igual que las descargas"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "Save"
+msgstr "Guardar"
+
 #: src/components/storyarcs/ArcGenerator.tsx
 msgid "Save Arc"
 msgstr "Guardar arco"
@@ -8066,6 +8184,10 @@ msgstr "Define un directorio de importación en tu config.ini para activar la im
 msgid "Set an import directory to watch for new files"
 msgstr "Define un directorio de importación para vigilar archivos nuevos"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "set by you"
+msgstr "definido por ti"
+
 #: src/components/import/LibraryScanSection.tsx
 msgid "Set Comic Directory in Settings → Media"
 msgstr "Define el directorio de cómics en Ajustes → Medios"
@@ -8259,6 +8381,7 @@ msgstr "Puerto SMTP"
 msgid "SMTP Server"
 msgstr "Servidor SMTP"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/lib/statusTone.ts
 #: src/pages/ActivityPage.tsx
 msgid "Snatched"
@@ -8346,6 +8469,7 @@ msgstr "Iniciando la búsqueda en proveedores…"
 msgid "Starting…"
 msgstr "Iniciando…"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "state"
 msgstr "estado"
@@ -9105,6 +9229,7 @@ msgstr "Dejar de ignorar"
 msgid "Unignore selected import files"
 msgstr "Dejar de ignorar los archivos de importación seleccionados"
 
+#: src/components/series/MangaVolumes.tsx
 #: src/components/settings/AcquisitionHealthTab.tsx
 msgid "unknown"
 msgstr "desconocido"
@@ -9237,6 +9362,10 @@ msgstr "Usar MAL como fuente principal de metadatos de manga para mejorar la cob
 #: src/components/series/SeriesContentKind.tsx
 msgid "Use manga chapter labels and matching rules."
 msgstr "Usa las etiquetas y reglas de coincidencia de capítulos de manga."
+
+#: src/components/series/MangaVolumes.tsx
+msgid "Use MangaDex or estimate"
+msgstr "Usar MangaDex o la estimación"
 
 #: src/components/settings/ApiTab.tsx
 msgid "Use Metron API for comic search (fixes sorting issues)"
@@ -9386,6 +9515,11 @@ msgstr "Ver en {site}"
 msgid "View toggles"
 msgstr "Opciones de vista"
 
+#: src/components/series/MangaVolumes.tsx
+#: src/pages/SeriesDetailPage.tsx
+msgid "vol"
+msgstr "vol."
+
 #: src/components/releases/industryRows.ts
 msgid "Vol. {volume}"
 msgstr "Vol. {volume}"
@@ -9393,6 +9527,10 @@ msgstr "Vol. {volume}"
 #: src/pages/SeriesDetailPage.tsx
 msgid "Volume"
 msgstr "Volumen"
+
+#: src/components/series/MangaVolumes.tsx
+msgid "volumes"
+msgstr "volúmenes"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Volumes"
@@ -9424,6 +9562,7 @@ msgstr "Esperando tu decisión."
 
 #: src/components/queue/upcomingColumns.tsx
 #: src/components/releases/IndustryReleasesView.tsx
+#: src/components/series/MangaVolumes.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Want"
 msgstr "Buscar"
@@ -9440,6 +9579,10 @@ msgstr "Buscar {rowLabel}"
 msgid "Want all"
 msgstr "Buscar todo"
 
+#: src/components/series/MangaVolumes.tsx
+msgid "Want volume {number}"
+msgstr "Quiero el volumen {number}"
+
 #: src/lib/releaseState.ts
 msgid "wanted"
 msgstr "buscado"
@@ -9449,6 +9592,7 @@ msgstr "buscado"
 #: src/components/layout/MobileTabBar.tsx
 #: src/components/releases/IndustryReleasesView.tsx
 #: src/components/series/IssueStatusMenu.tsx
+#: src/components/series/MangaVolumes.tsx
 #: src/components/storyarcs/ArcIssueRow.tsx
 #: src/lib/statusTone.ts
 #: src/pages/SeriesDetailPage.tsx

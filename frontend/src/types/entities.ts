@@ -125,6 +125,12 @@ export interface Issue {
   digitalDate?: string | null;
   comicId?: string;
   comicName?: string | null;
+  /** Manga: the volume this chapter belongs to (MangaDex's, an edit, or an estimate). */
+  holdingVolume?: string | null;
+  holdingEstimated?: boolean;
+  /** Manga: set when the chapter reads Covered through an owned volume file. */
+  coveredByVolume?: string | null;
+  covered?: boolean;
 }
 
 /** Aggregated issue projection counts from series detail */
@@ -510,8 +516,50 @@ export interface SeriesSearchProviders {
   override: ProviderOverride | null;
 }
 
+/** Where a manga volume's chapter range comes from; null means unknown. */
+export type MangaRangeSource = "user" | "mangadex" | "estimated" | null;
+
+/** One manga volume on the series page (volumes are not issues, ADR-0004). */
+export interface MangaVolume {
+  number: string;
+  firstChapter: string | null;
+  lastChapter: string | null;
+  rangeSource: MangaRangeSource;
+  chapterCount: number;
+  status: string | null;
+  displayState: "Have" | "Snatched" | "Wanted" | "Not wanted";
+  owned: boolean;
+  location: string | null;
+  explicitIntent: boolean;
+}
+
+export type MangaCoverageKind =
+  "volume" | "chapter" | "inFlight" | "gap" | "wanted" | "notWanted";
+
+export interface MangaCoverageSegment {
+  kind: MangaCoverageKind;
+  from: string;
+  to: string;
+  count: number;
+}
+
+export interface MangaProgress {
+  volumesTotal: number;
+  volumesOwned: number;
+  volumesEstimated: number;
+  volumesUnknown: number;
+  chaptersTotal: number;
+  chaptersOwned: number;
+  chaptersCovered: number;
+  chaptersReadable: number;
+  chaptersGap: number;
+  segments: MangaCoverageSegment[];
+}
+
 /** Series detail response (includes issues) */
 export interface SeriesDetail {
+  /** Manga only: the volume list and blended progress. */
+  manga?: { volumes: MangaVolume[]; progress: MangaProgress } | null;
   comic: Comic[] | Comic;
   issues: Issue[];
   annuals?: Issue[];

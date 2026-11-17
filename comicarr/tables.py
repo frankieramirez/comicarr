@@ -818,8 +818,9 @@ mcp_tool_calls = Table(
     Column("last_called_at", String(40), nullable=False),
 )
 
-# A manga volume the library owns or has grabbed (ADR-0004: volumes are not
-# issues). Chapters a Downloaded volume contains read as Covered (#1278).
+# A manga volume the library owns or has grabbed, or one the operator set a
+# want decision or chapter range on (ADR-0004: volumes are not issues).
+# Chapters a Downloaded volume contains read as Covered (#1278).
 manga_volumes = Table(
     "manga_volumes",
     metadata,
@@ -829,6 +830,9 @@ manga_volumes = Table(
     Column("Status", String(16), nullable=False),
     Column("Location", Text),
     Column("updated_at", String(40), nullable=False),
+    # Operator-set chapter range; null means MangaDex's list or an estimate.
+    Column("FirstChapter", String(32)),
+    Column("LastChapter", String(32)),
     Index("ix_manga_volumes_comic", "ComicID"),
 )
 
