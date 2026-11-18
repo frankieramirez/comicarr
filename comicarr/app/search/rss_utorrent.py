@@ -18,6 +18,7 @@
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
 import re
+from base64 import b16encode, b32decode
 
 import requests
 
@@ -67,7 +68,7 @@ class utorrentclient(object):
             d = open(filepath, "rb")
             tordata = d.read()
             d.close()
-        except:
+        except Exception:
             logger.warn("Unable to load torrent file. Aborting at this time.")
             return "fail"
 
@@ -85,7 +86,7 @@ class utorrentclient(object):
             if comicarr.CONFIG.UTORRENT_LABEL:
                 try:
                     self.setlabel(hash)
-                except:
+                except Exception:
                     logger.warn("Unable to set label for torrent.")
             return hash
         else:
@@ -106,7 +107,7 @@ class utorrentclient(object):
             if comicarr.CONFIG.UTORRENT_LABEL:
                 try:
                     self.setlabel(hash)
-                except:
+                except Exception:
                     logger.warn("Unable to set label for torrent.")
             return hash
         else:
@@ -139,7 +140,7 @@ class utorrentclient(object):
             if link.startswith("magnet:"):
                 torrent_hash = re.findall(r"urn:btih:([\w]{32,40})", link)[0]
                 if len(torrent_hash) == 32:
-                    torrent_hash = b16encode(b32decode(torrent_hash)).lower()
+                    torrent_hash = b16encode(b32decode(torrent_hash.upper())).decode("ascii").lower()
                 thehash = torrent_hash.upper()
 
         if thehash is None:

@@ -33,13 +33,15 @@ from sqlalchemy import Column, Integer, MetaData, Table, Text, func, or_, select
 from sqlalchemy.exc import OperationalError
 
 import comicarr
-from comicarr import filechecker, utorrent
+from comicarr import filechecker
 from comicarr.app.common import configured as configured
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.common import strings as common_strings
 from comicarr.app.common import utilities as common_utilities
+from comicarr.app.common.cfscrape_compat import import_cfscrape
 from comicarr.app.core import db, logger
 from comicarr.app.core.tables import comics, rssdb
+from comicarr.app.search import rss_utorrent as utorrent
 from comicarr.app.search import service as search_service
 from comicarr.app.search.backlog import (
     get_rss_provider_lookup,
@@ -49,7 +51,6 @@ from comicarr.app.search.backlog import (
 )
 from comicarr.app.search.provider_config import provider_enabled
 from comicarr.app.series import service as series_service
-from comicarr.cfscrape_compat import import_cfscrape
 from comicarr.torrent.clients import deluge as deluge
 from comicarr.torrent.clients import qbittorrent as qbittorrent
 from comicarr.torrent.clients import transmission
