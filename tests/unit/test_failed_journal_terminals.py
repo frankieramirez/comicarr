@@ -27,9 +27,9 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
-from comicarr import failed as failed_mod
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, issues, metadata, nzblog, pipeline_journal
+from comicarr.app.downloads import failed as failed_mod
 from comicarr.app.downloads import journal
 
 # Settled needs-attention band predicate (#437 / #457). Do not widen.
