@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import metadata, pipeline_journal
 from comicarr.app.downloads import failed as failed_mod
@@ -190,9 +191,9 @@ def test_cdh_monitor_terminalizes_when_sab_handling_is_off(sab_config, isolated_
     assert _row(key)["stage"] == journal.SNATCHED
 
     nzb_queue = MagicMock()
-    monkeypatch.setattr(comicarr, "NZB_QUEUE", nzb_queue, raising=False)
-    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", MagicMock(), raising=False)
-    monkeypatch.setattr(comicarr, "PP_QUEUE", MagicMock(), raising=False)
+    monkeypatch.setattr(runtime.current(), "nzb_queue", nzb_queue, raising=False)
+    monkeypatch.setattr(runtime.current(), "return_nzb_queue", MagicMock(), raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", MagicMock(), raising=False)
 
     nzstat = {
         "status": "failed_no_auto_handling",

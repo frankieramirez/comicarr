@@ -18,7 +18,7 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import ddl_info, issues, metadata, nzblog, pipeline_journal
 from comicarr.app.downloads import journal, service
 from comicarr.app.downloads.ddl_commands import DDLCommand
@@ -72,7 +72,7 @@ def health_db(tmp_path, monkeypatch):
     engine = db.get_engine()
     metadata.create_all(engine)
     monkeypatch.setattr(comicarr, "CONFIG", _health_config(), raising=False)
-    monkeypatch.setattr(comicarr, "DDL_QUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "ddl_queue", queue.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "DDL_QUEUED", set(), raising=False)
     monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", set(), raising=False)
     monkeypatch.setitem(service._ACTIVE_DDL_ITEM, "id", None)
@@ -195,7 +195,7 @@ def test_anchored_orphan_with_live_link_fails_as_stalled_and_is_rewanted(health_
     assert row["stage"] == journal.FAILED
     assert row["fail_reason"] == "ddl_stalled"
     assert _issue_status() == "Wanted"
-    assert comicarr.DDL_QUEUE.empty()
+    assert runtime.current().ddl_queue.empty()
     assert health_db == []
 
 

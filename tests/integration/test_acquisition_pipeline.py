@@ -21,7 +21,7 @@ import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.tables import (
     acquisition_run_items,
@@ -52,8 +52,8 @@ def _isolated_db(tmp_path, monkeypatch):
         SimpleNamespace(MANUAL_PP_FOLDER=str(tmp_path / "downloads")),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "SEARCH_QUEUE", queue.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "PP_QUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "search_queue", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", queue.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "ACQUISITION_WORKERS_BLOCKED", False, raising=False)
     monkeypatch.setattr(comicarr, "ACQUISITION_BLOCK_REASON", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
@@ -151,7 +151,7 @@ def test_bulk_wanted_run_handoff_restart_and_owned_projection(monkeypatch, tmp_p
     assert accepted["accepted"] == 1
     run_id = accepted["run_id"]
 
-    queued_search = comicarr.SEARCH_QUEUE.get_nowait()
+    queued_search = runtime.current().search_queue.get_nowait()
     assert queued_search == {
         "issueid": "issue-1",
         "comicid": "160294",
@@ -208,7 +208,7 @@ def test_bulk_wanted_run_handoff_restart_and_owned_projection(monkeypatch, tmp_p
     # recovery pipeline records downloaded before it requeues PP work.
     restarted = recovery.replay_pipeline(probes=_complete_probes())
     assert restarted["actions"] == {"complete-pp-enqueued": 1}
-    pp_item = comicarr.PP_QUEUE.get_nowait()
+    pp_item = runtime.current().pp_queue.get_nowait()
     assert pp_item["journal_release_key"] == release_key
     assert pp_item["issueid"] == "issue-1"
     assert journal.read_one(release_key)["stage"] == journal.DOWNLOADED
@@ -233,7 +233,7 @@ def test_bulk_wanted_run_handoff_restart_and_owned_projection(monkeypatch, tmp_p
     assert run["completion_state"] == "completed"
     second_restart = recovery.replay_pipeline(probes=_complete_probes())
     assert second_restart["open"] == 0
-    assert comicarr.PP_QUEUE.empty()
+    assert runtime.current().pp_queue.empty()
 
     detail = series_service.get_comic_detail(_ctx(), "160294")
     issue = detail["issues"][0]
@@ -384,8 +384,8 @@ def sab(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
-    monkeypatch.setattr(comicarr, "NZB_QUEUE", queue.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "nzb_queue", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "return_nzb_queue", queue.Queue(), raising=False)
     monkeypatch.setattr("comicarr.app.downloads.sabnzbd.time.sleep", lambda _seconds: None)
     monkeypatch.setattr("comicarr.app.downloads.service.time.sleep", lambda _seconds: None)
     # Post-processing waits for a file renamed in the last ten seconds to
@@ -491,7 +491,7 @@ def test_sab_missing_completed_path_goes_to_manual_review(sab):
     nzstat = pipeline.monitor_sab(item)
 
     assert nzstat["status"] == "file not found"
-    assert comicarr.PP_QUEUE.empty()
+    assert runtime.current().pp_queue.empty()
     row = journal.read_one(pipeline.release_key())
     assert row["stage"] == journal.MANUAL_REVIEW
     assert row["fail_reason"] == "sab_completed_file_not_found"
@@ -507,7 +507,7 @@ def test_sab_history_removed_before_comicarr_reads_it(sab):
     nzstat = pipeline.monitor_sab(item)
 
     assert nzstat["status"] == "nzb removed"
-    assert comicarr.PP_QUEUE.empty()
+    assert runtime.current().pp_queue.empty()
     row = journal.read_one(pipeline.release_key())
     assert row["stage"] == journal.MANUAL_REVIEW
     assert row["fail_reason"] == "sab_job_missing_from_client"
@@ -531,7 +531,7 @@ def test_sab_failed_download_leads_to_a_retry(sab, monkeypatch):
     assert row["stage"] == journal.FAILED
     issue, _summary = pipeline.library_issue()
     assert issue["fulfillment"] != "downloaded"
-    retry = comicarr.SEARCH_QUEUE.get_nowait()
+    retry = runtime.current().search_queue.get_nowait()
     assert retry["issueid"] == pipeline.ISSUE_ID
 
 
@@ -559,7 +559,7 @@ def test_sab_restart_mid_download_resumes_monitoring(sab):
     restarted = recovery.replay_pipeline()
 
     assert journal.read_one(pipeline.release_key())["stage"] == journal.SNATCHED
-    rebuilt = comicarr.NZB_QUEUE.get_nowait()
+    rebuilt = runtime.current().nzb_queue.get_nowait()
     assert rebuilt["nzo_id"] == nzo_id
     assert restarted["open"] == 1
     sab.complete(nzo_id, str(_download_lands(sab, nzo_id)))
@@ -644,8 +644,8 @@ def nzb(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(comicarr, "USE_NZBGET", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", False, raising=False)
-    monkeypatch.setattr(comicarr, "NZB_QUEUE", queue.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "nzb_queue", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "return_nzb_queue", queue.Queue(), raising=False)
     monkeypatch.setattr("comicarr.app.downloads.nzbget.time.sleep", lambda _seconds: None)
     monkeypatch.setattr("comicarr.app.downloads.service.time.sleep", lambda _seconds: None)
     monkeypatch.setattr(
@@ -731,7 +731,7 @@ def _nzbget_failure_is_retried(nzb, monkeypatch, how):
     assert row["stage"] == journal.FAILED
     issue, _summary = pipeline.library_issue()
     assert issue["fulfillment"] != "downloaded"
-    retry = comicarr.SEARCH_QUEUE.get_nowait()
+    retry = runtime.current().search_queue.get_nowait()
     assert retry["issueid"] == pipeline.ISSUE_ID
     return row
 
@@ -769,7 +769,7 @@ def test_nzbget_restart_after_the_job_finished_resumes_handling(nzb):
     assert restarted["open"] == 1
     assert restarted["actions"] == {"complete-pp-enqueued": 1}
     assert journal.read_one(pipeline.release_key())["stage"] == journal.DOWNLOADED
-    assert comicarr.NZB_QUEUE.empty()
+    assert runtime.current().nzb_queue.empty()
     assert pipeline.post_process_next().status == "processed"
     _assert_in_library(nzb)
 
@@ -782,7 +782,7 @@ def test_nzbget_restart_mid_download_resumes_monitoring(nzb):
     restarted = recovery.replay_pipeline()
 
     assert journal.read_one(pipeline.release_key())["stage"] == journal.SNATCHED
-    rebuilt = comicarr.NZB_QUEUE.get_nowait()
+    rebuilt = runtime.current().nzb_queue.get_nowait()
     assert rebuilt["NZBID"] == nzbid
     assert restarted["open"] == 1
     _nzbget_download_lands(nzb)
@@ -1059,8 +1059,8 @@ def recorded(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
-    monkeypatch.setattr(comicarr, "NZB_QUEUE", queue.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "nzb_queue", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "return_nzb_queue", queue.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "COMICSORT", series_service.ComicSort(sequence="startup"), raising=False)
     monkeypatch.setattr("comicarr.app.manga.mangadex._rate_limit", lambda: None)
     monkeypatch.setattr("comicarr.app.manga.myanimelist._rate_limit", lambda: None)
@@ -1223,7 +1223,7 @@ def test_manga_rss_grabs_and_places_a_wanted_chapter(recorded, monkeypatch):
     [nzo_id] = recorded.sab.jobs
     job = recorded.sab.jobs[nzo_id]
     assert job["category"] == recorded.sab.category
-    item = comicarr.NZB_QUEUE.get_nowait()
+    item = runtime.current().nzb_queue.get_nowait()
     assert item["issueid"] == issue_id
     archive = pipeline.write_download(recorded.local_complete / recorded.sab.category / job["name"] / filename)
     recorded.sab.complete(nzo_id, str(archive))
@@ -1239,8 +1239,8 @@ def test_manga_add_failure_is_narrated_in_activity(recorded, monkeypatch):
     from comicarr.app.search.service import add_manga
 
     monkeypatch.setattr("comicarr.app.series.add_workers.time.sleep", lambda _seconds: None)
-    monkeypatch.setattr(comicarr, "ADD_LIST", queue.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "ISSUE_WATCH_LIST", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "add_list", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "issue_watch_list", queue.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "MASS_ADD", None, raising=False)
     missing = "md-" + manga_fake.MISSING_MANGADEX_ID
 

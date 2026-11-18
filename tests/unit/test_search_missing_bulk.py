@@ -18,7 +18,7 @@ from sqlalchemy import select
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.tables import acquisition_runs, acquisition_search_previews, annuals, comics, issues, metadata
 from comicarr.app.series import service as series_service
@@ -28,7 +28,7 @@ from comicarr.app.series import service as series_service
 def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
-    monkeypatch.setattr(comicarr, "SEARCH_QUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "search_queue", queue.Queue(), raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("COMICARR_ACQUISITION_MAINTENANCE", raising=False)
     db.shutdown_engine()
@@ -132,7 +132,7 @@ def test_confirmed_bulk_search_is_session_bound_idempotent_and_handles_annuals(m
     assert repeated["run_id"] == first["run_id"]
     assert repeated["accepted"] == 2
     assert repeated["idempotent"] is True
-    assert comicarr.SEARCH_QUEUE.qsize() == 2
+    assert runtime.current().search_queue.qsize() == 2
 
     with db.get_engine().connect() as conn:
         run_rows = list(conn.execute(select(acquisition_runs)).mappings())
@@ -205,7 +205,7 @@ def test_bulk_search_keeps_same_id_issue_and_annual_as_distinct_obligations(monk
         ("issue", "shared-id"),
         ("annual", "shared-id"),
     }
-    assert {comicarr.SEARCH_QUEUE.get_nowait()["entity_type"] for _ in range(2)} == {"issue", "annual"}
+    assert {runtime.current().search_queue.get_nowait()["entity_type"] for _ in range(2)} == {"issue", "annual"}
 
 
 def test_explicit_annual_lookup_uses_null_deleted_row():
@@ -283,7 +283,7 @@ def test_bulk_search_rejects_stale_preview_without_mutating_sources(monkeypatch)
 
     assert result["success"] is False
     assert result["status"] == "stale_preview"
-    assert comicarr.SEARCH_QUEUE.empty()
+    assert runtime.current().search_queue.empty()
     with db.get_engine().connect() as conn:
         annual_row = conn.execute(select(annuals).where(annuals.c.IssueID == "annual-1")).mappings().one()
     assert annual_row["AcquisitionIntent"] is None
@@ -340,7 +340,7 @@ def test_bulk_search_retries_only_the_failed_queue_handoff(monkeypatch):
         attempted.append(command.issueid)
         if command.entity_type == "annual" and fail_annual["value"]:
             raise RuntimeError("queue temporarily unavailable")
-        (work_queue or comicarr.SEARCH_QUEUE).put(command.to_mapping())
+        (work_queue or runtime.current().search_queue).put(command.to_mapping())
 
     monkeypatch.setattr("comicarr.app.search.commands.dispatch_persisted_search_command", dispatch)
     preview = series_service.preview_search_all_missing(

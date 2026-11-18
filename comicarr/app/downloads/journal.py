@@ -162,7 +162,7 @@ def release_key(issueid, provider, nzbname=None, hash=None, discriminant=None):
     The release NAME is NOT reproducible across those seams: the snatch seam
     has the search-time `nzbname`, while the NZB downloaded seam only has the
     SAB-reported `nzstat['name']` (a different string), the torrent
-    SNATCHED_QUEUE item carries no name at all, and `snatched.FolderName` is
+    snatched_queue item carries no name at all, and `snatched.FolderName` is
     never written. A perfectly byte-identical name is therefore genuinely
     unavailable at one seam, so per the plan's documented robust fallback the
     NON-one-off key drops the name component entirely and keys on
@@ -230,7 +230,7 @@ def _coerce_discriminant(discriminant):
 def derive_release_key(item):
     """Convenience: derive release_key from a queue-item dict.
 
-    Recognizes the common identity fields across SNATCHED_QUEUE / PP_QUEUE /
+    Recognizes the common identity fields across snatched_queue / pp_queue /
     torrent items. The discriminant for one-offs falls back to a hash of the
     whole item so two distinct one-off payloads cannot coalesce.
     """

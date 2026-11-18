@@ -105,8 +105,6 @@ def _legacy_runtime_objects(monkeypatch):
         "DATA_DIR": "/runtime/data",
         "DB_FILE": "/runtime/data/comicarr.db",
         "SCHED": scheduler,
-        "SEARCH_QUEUE": search_queue,
-        "DDL_QUEUE": ddl_queue,
         "SEARCHLOCK": search_lock,
         "DDL_LOCK": ddl_lock,
         "ACQUISITION_RESUME_LOCK": acquisition_resume_lock,
@@ -126,6 +124,7 @@ def _legacy_runtime_objects(monkeypatch):
     }
     for name, value in values.items():
         monkeypatch.setattr(comicarr, name, value, raising=False)
+    monkeypatch.setattr(runtime, "_bootstrap", AppContext(search_queue=search_queue, ddl_queue=ddl_queue))
 
     return SimpleNamespace(
         scheduler=scheduler,

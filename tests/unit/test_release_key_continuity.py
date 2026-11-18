@@ -136,7 +136,7 @@ def test_torrent_snatch_and_downloaded_share_one_release_key_one_row(monkeypatch
     assert len(snatch_rows) == 1
     assert snatch_rows[0]["stage"] == "snatched"
 
-    # REAL downloaded seam: worker_main. The SNATCHED_QUEUE torrent item now
+    # REAL downloaded seam: worker_main. The snatched_queue torrent item now
     # carries provider+nzbname (search.py auto-snatch fix). torrentinfo is
     # stubbed to report a completed copy.
     def _fake_torrentinfo(torrent_hash=None, download=False, monitor=False):

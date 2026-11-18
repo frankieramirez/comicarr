@@ -23,7 +23,7 @@ import uuid
 from collections.abc import Mapping
 
 import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.series import comic_add, watchlist_refresh
 from comicarr.app.series.add_activity import emit_add_activity
 
@@ -130,8 +130,8 @@ def queue_series_adds(serieslist):
 
     with _MASS_ADD_WORKER_LOCK:
         ctx = _mass_add_runtime_context()
-        add_list = ctx.add_list if ctx is not None else comicarr.ADD_LIST
-        issue_watch_list = ctx.issue_watch_list if ctx is not None else comicarr.ISSUE_WATCH_LIST
+        add_list = ctx.add_list if ctx is not None else runtime.current().add_list
+        issue_watch_list = ctx.issue_watch_list if ctx is not None else runtime.current().issue_watch_list
 
         for series in serieslist:
             add_list.put(series)
@@ -156,7 +156,7 @@ def queue_issue_wants(issuelist):
 
     with _MASS_ADD_WORKER_LOCK:
         ctx = _mass_add_runtime_context()
-        issue_watch_list = ctx.issue_watch_list if ctx is not None else comicarr.ISSUE_WATCH_LIST
+        issue_watch_list = ctx.issue_watch_list if ctx is not None else runtime.current().issue_watch_list
         for issue in issuelist:
             issue_watch_list.put(issue)
 
@@ -172,7 +172,7 @@ def _start_refresh_worker():
         if worker is not None and getattr(worker, "is_alive", lambda: False)():
             return False
         logger.info("[MASS-REFRESH] MASS_REFRESH thread not started. Started & submitting.")
-        refresh_queue = ctx.refresh_queue if ctx is not None else comicarr.REFRESH_QUEUE
+        refresh_queue = ctx.refresh_queue if ctx is not None else runtime.current().refresh_queue
         worker = threading.Thread(
             target=watchlist_refresh.run_refresh_queue, args=(refresh_queue,), name="mass-refresh"
         )
@@ -212,7 +212,7 @@ def _handoff_refresh_items(queue_items, *, start_worker, maintenance=None):
         controller.assert_lease_current(lease)
         with _REFRESH_WORKER_LOCK:
             ctx = _mass_add_runtime_context()
-            refresh_queue = ctx.refresh_queue if ctx is not None else comicarr.REFRESH_QUEUE
+            refresh_queue = ctx.refresh_queue if ctx is not None else runtime.current().refresh_queue
             for queue_item in queue_items:
                 refresh_queue.put(queue_item)
             if start_worker:

@@ -392,7 +392,7 @@ def test_torrent_downloaded_persistence_failure_never_hands_unowned_pp(sqlite_dd
 
     monkeypatch.setattr(journal, "record_transition", fail_downloaded)
     pp_queue = queue.Queue()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", pp_queue)
+    monkeypatch.setattr(runtime.current(), "pp_queue", pp_queue)
 
     service._handle_torrent_monitor_result(
         {
@@ -435,7 +435,7 @@ def test_nzb_downloaded_persistence_failure_never_hands_unowned_pp(sqlite_ddl_db
     monkeypatch.setattr(journal, "record_transition", fail_downloaded)
     monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda path: {"status": True})
     pp_queue = queue.Queue()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", pp_queue)
+    monkeypatch.setattr(runtime.current(), "pp_queue", pp_queue)
     item = {
         "nzo_id": "sab-id",
         "journal_release_key": key,
@@ -472,7 +472,7 @@ def test_queue_ddl_persists_reconstructable_command_before_enqueue(monkeypatch):
 
     queued.put.side_effect = lambda item: operations.append(("enqueue", item))
     monkeypatch.setattr(service.db, "upsert", fake_upsert)
-    monkeypatch.setattr(comicarr, "DDL_QUEUE", queued)
+    monkeypatch.setattr(runtime.current(), "ddl_queue", queued)
 
     result = service.queue_ddl_download(_complete_ddl_payload())
 
@@ -498,7 +498,7 @@ def test_queue_ddl_keeps_persisted_row_queued_when_handoff_fails(monkeypatch):
     )
     ddl_queue = MagicMock()
     ddl_queue.put.side_effect = RuntimeError("queue unavailable")
-    monkeypatch.setattr(comicarr, "DDL_QUEUE", ddl_queue)
+    monkeypatch.setattr(runtime.current(), "ddl_queue", ddl_queue)
 
     result = service.queue_ddl_download(_complete_ddl_payload())
 
@@ -543,7 +543,7 @@ def test_queue_ddl_rejects_poison_jobs_before_mutation(monkeypatch, payload, exp
     upsert = MagicMock()
     ddl_queue = MagicMock()
     monkeypatch.setattr(service.db, "upsert", upsert)
-    monkeypatch.setattr(comicarr, "DDL_QUEUE", ddl_queue)
+    monkeypatch.setattr(runtime.current(), "ddl_queue", ddl_queue)
 
     result = service.queue_ddl_download(payload)
 
@@ -555,7 +555,7 @@ def test_queue_ddl_rejects_poison_jobs_before_mutation(monkeypatch, payload, exp
 
 def test_queue_ddl_router_returns_400_for_non_runnable_legacy_payload(monkeypatch):
     monkeypatch.setattr(service.db, "upsert", MagicMock())
-    monkeypatch.setattr(comicarr, "DDL_QUEUE", MagicMock())
+    monkeypatch.setattr(runtime.current(), "ddl_queue", MagicMock())
 
     response = router.queue_ddl_download({"id": "ddl-1", "link": "https://example.invalid", "site": "DDL(GetComics)"})
 
@@ -580,7 +580,7 @@ def test_requeue_reconstructs_and_enqueues_persisted_command(monkeypatch):
     monkeypatch.setattr(service.dl_queries, "get_ddl_item", lambda item_id: row)
     monkeypatch.setattr(service.dl_queries, "update_ddl_status", lambda item_id, status: statuses.append(status))
     monkeypatch.setattr(service.dl_queries, "claim_failed_ddl_retry", lambda item_id: statuses.append("Queued") or True)
-    monkeypatch.setattr(comicarr, "DDL_QUEUE", ddl_queue)
+    monkeypatch.setattr(runtime.current(), "ddl_queue", ddl_queue)
 
     result = service.requeue_ddl_item("ddl-1")
 
@@ -606,7 +606,7 @@ def test_requeue_rejects_active_downloading_status(monkeypatch):
     monkeypatch.setattr(service.dl_queries, "get_ddl_item", lambda item_id: row)
     monkeypatch.setattr(service.dl_queries, "update_ddl_status", lambda item_id, status: statuses.append(status))
     monkeypatch.setattr(service.dl_queries, "claim_failed_ddl_retry", lambda item_id: statuses.append("Queued") or True)
-    monkeypatch.setattr(comicarr, "DDL_QUEUE", ddl_queue)
+    monkeypatch.setattr(runtime.current(), "ddl_queue", ddl_queue)
 
     result = service.requeue_ddl_item("ddl-1")
 
@@ -638,7 +638,7 @@ def test_requeue_does_not_mark_incomplete_persisted_item_queued(monkeypatch):
         lambda item_id: {"ID": item_id, "link": "https://example.invalid", "site": "DDL(GetComics)"},
     )
     monkeypatch.setattr(service.dl_queries, "update_ddl_status", lambda item_id, status: statuses.append(status))
-    monkeypatch.setattr(comicarr, "DDL_QUEUE", ddl_queue)
+    monkeypatch.setattr(runtime.current(), "ddl_queue", ddl_queue)
 
     result = service.requeue_ddl_item("ddl-bad")
 
@@ -666,7 +666,7 @@ def test_requeue_keeps_durable_queued_status_when_handoff_fails(monkeypatch):
     monkeypatch.setattr(service.dl_queries, "get_ddl_item", lambda item_id: row)
     monkeypatch.setattr(service.dl_queries, "update_ddl_status", lambda item_id, status: statuses.append(status))
     monkeypatch.setattr(service.dl_queries, "claim_failed_ddl_retry", lambda item_id: statuses.append("Queued") or True)
-    monkeypatch.setattr(comicarr, "DDL_QUEUE", ddl_queue)
+    monkeypatch.setattr(runtime.current(), "ddl_queue", ddl_queue)
 
     result = service.requeue_ddl_item("ddl-1")
 
@@ -798,7 +798,7 @@ def test_startup_sweep_queue_failure_keeps_row_recoverable(sqlite_ddl_db, monkey
 def test_ddl_startup_sweep_runs_before_worker_thread(monkeypatch):
     events = []
     work_queue = queue.Queue()
-    monkeypatch.setattr(comicarr, "DDL_QUEUE", work_queue)
+    monkeypatch.setattr(runtime.current(), "ddl_queue", work_queue)
     monkeypatch.setattr(comicarr, "DDLPOOL", None)
     monkeypatch.setattr(
         downloads_service,
@@ -820,7 +820,7 @@ def test_ddl_startup_sweep_is_skipped_when_worker_is_alive(monkeypatch):
     live_worker.is_alive.return_value = True
     recover = MagicMock()
     worker = MagicMock()
-    monkeypatch.setattr(comicarr, "DDL_QUEUE", work_queue)
+    monkeypatch.setattr(runtime.current(), "ddl_queue", work_queue)
     monkeypatch.setattr(comicarr, "DDLPOOL", live_worker)
     monkeypatch.setattr(downloads_service, "recover_queued_ddl_commands", recover, raising=False)
     monkeypatch.setattr(downloads_service, "ddl_downloader", worker)
@@ -1221,7 +1221,7 @@ def test_nzb_monitor_requeues_connection_error_and_continues(sqlite_ddl_db, monk
             raise requests.ConnectionError("sab down")
 
     monkeypatch.setattr(service.sabnzbd, "SABnzbd", Boom)
-    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "return_nzb_queue", queue.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(service.time, "sleep", lambda _s: None)
 
@@ -1245,7 +1245,7 @@ def test_nzb_monitor_survives_pause_probe_error(sqlite_ddl_db, monkeypatch):
             raise RuntimeError("pause probe exploded")
 
     monkeypatch.setattr(service.sabnzbd, "SABnzbd", Boom)
-    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", return_q, raising=False)
+    monkeypatch.setattr(runtime.current(), "return_nzb_queue", return_q, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(comicarr.CONFIG, "SAB_APIKEY", "k", raising=False)
     monkeypatch.setattr(service.time, "sleep", lambda _s: None)
@@ -1269,7 +1269,7 @@ def test_worker_main_transient_backoff_grows(sqlite_ddl_db, monkeypatch):
 
     monkeypatch.setattr("comicarr.app.search.service.torrentinfo", fake_torrentinfo)
     monkeypatch.setattr(service.time, "sleep", capture_sleep)
-    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", MagicMock(), raising=False)
+    monkeypatch.setattr(runtime.current(), "snatched_queue", MagicMock(), raising=False)
 
     q = queue.Queue()
     q.put({"hash": "hash-backoff", "issueid": "ib", "comicid": "cb", "provider": "torznab", "nzbname": "B.cbz"})

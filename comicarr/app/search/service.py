@@ -1110,7 +1110,7 @@ def _process_search_command(command):
             local_check["status"] = False
 
     if local_check["status"] is True:
-        comicarr.PP_QUEUE.put(
+        runtime.current().pp_queue.put(
             {
                 "nzb_name": local_check["filename"],
                 "nzb_folder": local_check["filepath"],

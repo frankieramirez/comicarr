@@ -35,7 +35,7 @@ from comicarr.app.attention import (
     resolve,
 )
 from comicarr.app.attention import read as read_attention
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import annuals, comics, failed, issues, metadata, pipeline_journal, storyarcs
@@ -54,8 +54,8 @@ def _isolated_db(tmp_path, monkeypatch):
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
         monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     monkeypatch.setattr(comicarr, "PROVIDER_BLOCKLIST", {}, raising=False)
-    monkeypatch.setattr(comicarr, "SEARCH_QUEUE", queuelib.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "PP_QUEUE", queuelib.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "search_queue", queuelib.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", queuelib.Queue(), raising=False)
     monkeypatch.setattr(
         comicarr,
         "CONFIG",
@@ -191,8 +191,8 @@ def _status_code(item):
 
 
 def _drain_pp():
-    comicarr.PP_QUEUE.put("exit")
-    dl_service.postprocess_main(comicarr.PP_QUEUE)
+    runtime.current().pp_queue.put("exit")
+    dl_service.postprocess_main(runtime.current().pp_queue)
 
 
 def _manual_pp_config(tmp_path, root):
@@ -555,8 +555,8 @@ def test_import_stamps_only_on_success(tmp_path, monkeypatch):
     assert result.status == "queued"
     assert _status_code(result) not in (500, 409)
     assert _journal_row(key).get("status") != journal.STATUS_IMPORTED
-    assert not comicarr.PP_QUEUE.empty()
-    queued = comicarr.PP_QUEUE.queue[0]
+    assert not runtime.current().pp_queue.empty()
+    queued = runtime.current().pp_queue.queue[0]
     assert queued["journal_release_key"].startswith("%s|import:" % key)
     assert queued["attention_release_key"] == key
 
@@ -599,7 +599,7 @@ def test_import_finds_the_job_folder_when_the_row_never_recorded_one(tmp_path, m
 
     assert result.ok is True
     assert result.status == "queued"
-    queued = comicarr.PP_QUEUE.queue[0]
+    queued = runtime.current().pp_queue.queue[0]
     assert queued["nzb_folder"] == str(job)
     _drain_pp()
 
@@ -615,7 +615,7 @@ def test_import_without_a_recorded_or_findable_folder_still_reports_it(tmp_path,
     result = _resolve_one(ctx, key, "import")
 
     assert result.ok is False
-    assert comicarr.PP_QUEUE.empty()
+    assert runtime.current().pp_queue.empty()
 
 
 def test_import_validation_failure_keeps_band(tmp_path, monkeypatch):
@@ -735,7 +735,7 @@ def test_force_process_stays_unjournaled(tmp_path, monkeypatch):
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "PP_QUEUE", queuelib.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", queuelib.Queue(), raising=False)
     processed = []
     monkeypatch.setattr(
         "comicarr.app.downloads.postprocessing._execute",
@@ -749,12 +749,12 @@ def test_force_process_stays_unjournaled(tmp_path, monkeypatch):
         comicid="C1",
     )
     assert queued["success"] is True
-    item = comicarr.PP_QUEUE.get_nowait()
+    item = runtime.current().pp_queue.get_nowait()
     assert item["source"] == "manual"
     assert "journal_release_key" not in item
-    comicarr.PP_QUEUE.put(item)
-    comicarr.PP_QUEUE.put("exit")
-    dl_service.postprocess_main(comicarr.PP_QUEUE)
+    runtime.current().pp_queue.put(item)
+    runtime.current().pp_queue.put("exit")
+    dl_service.postprocess_main(runtime.current().pp_queue)
 
     assert len(processed) == 1
     assert journal.read_one("1001|") is None
@@ -783,13 +783,13 @@ def test_import_busy_lock_does_not_fail_http(tmp_path, monkeypatch):
         assert result.status == "queued"
         assert _status_code(result) not in (500, 409)
         assert _journal_row(key).get("status") != journal.STATUS_IMPORTED
-        item = comicarr.PP_QUEUE.get_nowait()
+        item = runtime.current().pp_queue.get_nowait()
         outcome = postprocessing.run(item)
         assert outcome.status == "busy"
         assert processed == []
         assert _journal_row(key).get("status") != journal.STATUS_IMPORTED
         assert key in _attention_release_keys()
-        comicarr.PP_QUEUE.put(item)
+        runtime.current().pp_queue.put(item)
     finally:
         lock.release()
     _drain_pp()
@@ -842,7 +842,7 @@ def test_double_import_reuses_attempt_key(tmp_path, monkeypatch):
     second = _resolve_one(ctx, key, "import")
     assert first.ok is True
     assert second.ok is True
-    queued = list(comicarr.PP_QUEUE.queue)
+    queued = list(runtime.current().pp_queue.queue)
     assert len(queued) == 2
     assert queued[0]["journal_release_key"] == queued[1]["journal_release_key"]
     attempt_key = queued[0]["journal_release_key"]

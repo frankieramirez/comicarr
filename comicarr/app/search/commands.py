@@ -13,7 +13,6 @@ import uuid
 from dataclasses import dataclass, replace
 from typing import Any, Mapping
 
-import comicarr
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome
 from comicarr.app.acquisition.policy import (
     EligibilityInput,
@@ -21,6 +20,7 @@ from comicarr.app.acquisition.policy import (
     evaluate_eligibility,
     project_legacy_state,
 )
+from comicarr.app.core import runtime
 from comicarr.app.search.queue import INTERACTIVE, RECOVERY, ROUTINE
 
 
@@ -199,7 +199,7 @@ def enqueue_search_command(
     effective_run_id = _optional_text(run_id) or command.run_id or str(uuid.uuid4())
     command = replace(command, run_id=effective_run_id)
     ledger = ledger or RunLedger()
-    work_queue = work_queue or comicarr.SEARCH_QUEUE
+    work_queue = work_queue or runtime.current().search_queue
 
     ledger.create_run(
         effective_run_id,
@@ -294,7 +294,7 @@ def dispatch_persisted_search_command(command, *, work_queue=None, maintenance=N
     retry.
     """
 
-    work_queue = work_queue or comicarr.SEARCH_QUEUE
+    work_queue = work_queue or runtime.current().search_queue
     _put_with_maintenance_lease(command, work_queue, maintenance)
 
 
@@ -313,7 +313,7 @@ def dispatch_pending_search_commands(run_id, *, work_queue=None, ledger=None, ma
     run = ledger.get_run(run_id)
     if run is None:
         raise KeyError("unknown acquisition run %s" % run_id)
-    work_queue = work_queue or comicarr.SEARCH_QUEUE
+    work_queue = work_queue or runtime.current().search_queue
     dispatched = 0
     errors = []
     for item in ledger.list_pending_dispatch_items(run_id):
@@ -355,7 +355,7 @@ def replay_search_obligations(*, work_queue=None, ledger=None, maintenance=None)
     from comicarr.app.acquisition.runs import RunLedger
 
     ledger = ledger or RunLedger()
-    work_queue = work_queue or comicarr.SEARCH_QUEUE
+    work_queue = work_queue or runtime.current().search_queue
     replayed = 0
     for item in ledger.list_recoverable_items("search"):
         run_id = item["run_id"]

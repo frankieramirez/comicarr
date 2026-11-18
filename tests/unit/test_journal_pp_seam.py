@@ -12,7 +12,7 @@
 Covers the U3 contract:
 
   * `cdh_monitor` / `worker_main` write journal `downloaded` immediately
-    BEFORE their `PP_QUEUE.put` (ordering asserted via a spy).
+    BEFORE their `pp_queue.put` (ordering asserted via a spy).
   * The DDL "download complete" site co-commits `ddl_info status='Completed'`
     and journal `downloaded` inside ONE explicit begin() block (atomic).
   * The PP-complete sites write `post_processing` (before the destructive
@@ -36,6 +36,7 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, ddl_info, issues, metadata, pipeline_journal
 from comicarr.app.downloads import journal, postprocessing, service
@@ -89,13 +90,13 @@ def _stage_of(key):
 
 
 # ---------------------------------------------------------------------------
-# Download-complete seam: journal `downloaded` BEFORE PP_QUEUE.put
+# Download-complete seam: journal `downloaded` BEFORE pp_queue.put
 # ---------------------------------------------------------------------------
 
 
 def test_cdh_monitor_journals_downloaded_before_pp_queue_put(monkeypatch):
     """cdh_monitor must write journal `downloaded` strictly BEFORE it puts the
-    item on PP_QUEUE — the ordering U3 guarantees."""
+    item on pp_queue — the ordering U3 guarantees."""
     order = []
 
     real_record = journal.record_transition
@@ -107,7 +108,7 @@ def test_cdh_monitor_journals_downloaded_before_pp_queue_put(monkeypatch):
     fake_pp_queue = MagicMock()
     fake_pp_queue.put.side_effect = lambda *a, **k: order.append(("pp_put", None))
 
-    monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp_queue, raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", fake_pp_queue, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda p: {"status": True})
 
@@ -136,7 +137,7 @@ def test_cdh_monitor_failed_download_still_journals_downloaded(monkeypatch):
     flows to the PP failure path which, per U3, must NOT write
     post_processed). The journal write is not gated on success."""
     fake_pp_queue = MagicMock()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp_queue, raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", fake_pp_queue, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda p: {"status": True})
 
@@ -160,7 +161,7 @@ def test_cdh_monitor_failed_download_still_journals_downloaded(monkeypatch):
 def test_cdh_monitor_journal_failure_does_not_block_pp_queue(monkeypatch):
     """A journal failure must NOT block the PP handoff (additive / inert)."""
     fake_pp_queue = MagicMock()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp_queue, raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", fake_pp_queue, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda p: {"status": True})
 
@@ -183,11 +184,11 @@ def test_cdh_monitor_journal_failure_does_not_block_pp_queue(monkeypatch):
 
 def test_worker_main_journals_downloaded_before_pp_queue_put(monkeypatch):
     """worker_main (torrent direct-PP handoff) writes journal `downloaded`
-    strictly BEFORE PP_QUEUE.put."""
+    strictly BEFORE pp_queue.put."""
     order = []
     fake_pp_queue = MagicMock()
     fake_pp_queue.put.side_effect = lambda *a, **k: order.append(("pp_put", None))
-    monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp_queue, raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", fake_pp_queue, raising=False)
 
     real_record = journal.record_transition
 
@@ -246,8 +247,8 @@ def _ddl_item(idv="ddl-1", issueid="DI1"):
 def test_ddl_complete_cocommits_ddl_info_and_journal_downloaded(monkeypatch):
     """On DDL download success the ddl_info status='Completed' row and the
     journal `downloaded` row are committed together in the one begin() block,
-    and the journal write precedes PP_QUEUE.put (ordering asserted via a spy
-    on record_transition vs PP_QUEUE.put — the U3 download-seam guarantee)."""
+    and the journal write precedes pp_queue.put (ordering asserted via a spy
+    on record_transition vs pp_queue.put — the U3 download-seam guarantee)."""
     monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
 
     order = []
@@ -259,7 +260,7 @@ def test_ddl_complete_cocommits_ddl_info_and_journal_downloaded(monkeypatch):
 
     fake_pp_queue = MagicMock()
     fake_pp_queue.put.side_effect = lambda *a, **k: order.append(("pp_put", None))
-    monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp_queue, raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", fake_pp_queue, raising=False)
     monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda p: {"status": True})
 
     # Seed the Downloading ddl_info row (the U2 snatch block writes this).
@@ -289,7 +290,7 @@ def test_ddl_complete_cocommits_ddl_info_and_journal_downloaded(monkeypatch):
     assert jr["provider"] == "DDL"
     assert jr["downloader_type"] == "ddl"
     fake_pp_queue.put.assert_called_once()
-    # The journal `downloaded` write must land strictly BEFORE the PP_QUEUE.put
+    # The journal `downloaded` write must land strictly BEFORE the pp_queue.put
     # handoff — the atomic begin() block commits the `downloaded` row first,
     # then PP is enqueued (the snatch block earlier in ddl_downloader also
     # records `snatched`, so assert relative ordering rather than equality).
@@ -309,9 +310,9 @@ def test_ddl_complete_journal_failure_quarantines_artifact_without_resubmission(
     """
     monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
     fake_pp_queue = MagicMock()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp_queue, raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", fake_pp_queue, raising=False)
     fake_ddl_queue = MagicMock()
-    monkeypatch.setattr(comicarr, "DDL_QUEUE", fake_ddl_queue, raising=False)
+    monkeypatch.setattr(runtime.current(), "ddl_queue", fake_ddl_queue, raising=False)
     monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda p: {"status": True})
 
     with get_engine().begin() as conn:

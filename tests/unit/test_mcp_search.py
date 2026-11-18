@@ -15,9 +15,9 @@ import queue
 import pytest
 from sqlalchemy import select, update
 
-import comicarr
 from comicarr.app.acquisition.maintenance import MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine
 from comicarr.app.core.tables import acquisition_run_items, acquisition_runs, activity_events, annuals, issues
 from comicarr.app.search import bulk
@@ -29,7 +29,7 @@ AUTH = {"Authorization": "Bearer " + KEY}
 @pytest.fixture(autouse=True)
 def _library(tmp_path, monkeypatch):
     seed_library(tmp_path, monkeypatch)
-    monkeypatch.setattr(comicarr, "SEARCH_QUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "search_queue", queue.Queue(), raising=False)
     monkeypatch.delenv("COMICARR_ACQUISITION_MAINTENANCE", raising=False)
     assert ensure_acquisition_schema(get_engine()).ready
     with get_engine().begin() as conn:
@@ -70,7 +70,7 @@ async def test_search_issue_queues_one_run_attributed_to_mcp():
     run = RunLedger().get_run(started["run_id"])
     assert run is not None and run["command_kind"] == "search"
     assert (run["scope_type"], run["scope_id"]) == ("issue", "5001")
-    assert comicarr.SEARCH_QUEUE.get_nowait()["issueid"] == "5001"
+    assert runtime.current().search_queue.get_nowait()["issueid"] == "5001"
     [row] = _run_rows()
     assert (row["activity"], row["status"], row["actor"]) == ("search", "started", "mcp")
     assert row["run_id"] == started["run_id"]
@@ -144,14 +144,14 @@ async def test_maintenance_refuses_every_search_and_starts_nothing(tool, argumen
     assert result.structured_content["code"] == "maintenance"
     assert result.structured_content["retryable"] is True
     assert _runs() == []
-    assert comicarr.SEARCH_QUEUE.empty()
+    assert runtime.current().search_queue.empty()
 
 
 @pytest.mark.asyncio
 async def test_retry_search_run_redrives_items_still_waiting_for_a_worker():
     async with mcp_client(_app(), **AUTH) as mcp:
         run_id = (await mcp.call_tool("search_issue", {"issue_id": "5001"})).structured_content["run_id"]
-        comicarr.SEARCH_QUEUE.get_nowait()
+        runtime.current().search_queue.get_nowait()
         with get_engine().begin() as conn:
             conn.execute(
                 update(acquisition_run_items)
@@ -162,5 +162,5 @@ async def test_retry_search_run_redrives_items_still_waiting_for_a_worker():
         missing = await mcp.call_tool("retry_search_run", {"run_id": "no-such-run"})
     assert not retried.is_error, retried.content[0].text
     assert retried.structured_content == {"run_id": run_id, "dispatched": 1, "pending": 0}
-    assert comicarr.SEARCH_QUEUE.get_nowait()["issueid"] == "5001"
+    assert runtime.current().search_queue.get_nowait()["issueid"] == "5001"
     assert missing.is_error and missing.structured_content["code"] == "not_found"

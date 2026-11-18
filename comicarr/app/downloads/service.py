@@ -25,7 +25,7 @@ import rarfile
 import comicarr
 from comicarr.app.attention import Failure, ManualReview, record
 from comicarr.app.common.redaction import redacted_traceback
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, ddl_info, issues, storyarcs, weekly
 from comicarr.app.downloads import getcomics, nzbget, postprocessing, sabnzbd
 from comicarr.app.downloads import queries as dl_queries
@@ -242,7 +242,7 @@ def force_process(
 ):
     """Queue a download for post-processing.
 
-    For standard API calls, queues to PP_QUEUE for background processing.
+    For standard API calls, queues to pp_queue for background processing.
     ComicRN/APC compatibility runs the post-processor directly.
     """
     if apc_version is not None:
@@ -259,7 +259,7 @@ def force_process(
         return {"success": True}
 
     logger.info("Received API Request for PostProcessing %s [%s]. Queueing..." % (nzb_name, nzb_folder))
-    comicarr.PP_QUEUE.put(
+    runtime.current().pp_queue.put(
         {
             "nzb_name": nzb_name,
             "nzb_folder": nzb_folder,
@@ -344,7 +344,7 @@ def recover_queued_ddl_commands(queue=None):
     Only ``Queued`` rows are eligible: ``Downloading`` rows belong to the
     pipeline journal recovery path and must never be duplicated here.
     """
-    target_queue = queue if queue is not None else comicarr.DDL_QUEUE
+    target_queue = queue if queue is not None else runtime.current().ddl_queue
     result = {"enqueued_ids": [], "failed_ids": [], "handoff_failed_ids": []}
 
     for row in dl_queries.get_queued_ddl_items():
@@ -425,7 +425,7 @@ def requeue_ddl_item(item_id):
         }
 
     try:
-        if not _enqueue_ddl_queue_item(comicarr.DDL_QUEUE, command.to_queue_item()):
+        if not _enqueue_ddl_queue_item(runtime.current().ddl_queue, command.to_queue_item()):
             return {
                 "success": False,
                 "error": "Unable to insert DDL command into the worker queue",
@@ -466,7 +466,7 @@ def queue_ddl_download(command_values):
         }
 
     try:
-        if not _enqueue_ddl_queue_item(comicarr.DDL_QUEUE, command.to_queue_item()):
+        if not _enqueue_ddl_queue_item(runtime.current().ddl_queue, command.to_queue_item()):
             logger.info(
                 "[DOWNLOADS] DDL download %s already queued in this process; durable row left unchanged" % command.id
             )
@@ -1060,7 +1060,7 @@ def _finalize_ddl_download(item, ddzstat, release_key):
         raise
 
     if comicarr.CONFIG.POST_PROCESSING is True:
-        comicarr.PP_QUEUE.put(
+        runtime.current().pp_queue.put(
             {
                 "nzb_name": nzb_name,
                 "nzb_folder": ddzstat["path"],
@@ -1426,7 +1426,7 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
             if all([ddzstat["success"] is True, comicarr.CONFIG.POST_PROCESSING is True]):
                 try:
                     if ddzstat["filename"] is None:
-                        comicarr.PP_QUEUE.put(
+                        runtime.current().pp_queue.put(
                             {
                                 "nzb_name": os.path.basename(ddzstat["path"]),
                                 "nzb_folder": ddzstat["path"],
@@ -1440,7 +1440,7 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                             }
                         )
                     else:
-                        comicarr.PP_QUEUE.put(
+                        runtime.current().pp_queue.put(
                             {
                                 "nzb_name": ddzstat["filename"],
                                 "nzb_folder": ddzstat["path"],
@@ -1924,7 +1924,7 @@ def _handle_torrent_monitor_result(item, snstat):
         return
     if not won:
         return
-    comicarr.PP_QUEUE.put(
+    runtime.current().pp_queue.put(
         {
             "nzb_name": payload["nzb_name"],
             "nzb_folder": copied_path,
@@ -1943,7 +1943,7 @@ def nzb_monitor(queue):
     from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController
 
     while True:
-        if comicarr.RETURN_THE_NZBQUEUE.qsize() >= 1:
+        if runtime.current().return_nzb_queue.qsize() >= 1:
             try:
                 if comicarr.USE_SABNZBD is True:
                     sab_params = {
@@ -1957,12 +1957,12 @@ def nzb_monitor(queue):
                     s = sabnzbd.SABnzbd(params=sab_params)
                     sabresponse = s.sender(chkstatus=True)
                     if sabresponse["status"] is False:
-                        pending = comicarr.RETURN_THE_NZBQUEUE.qsize()
+                        pending = runtime.current().return_nzb_queue.qsize()
                         for _ in range(pending):
-                            qu_retrieve = comicarr.RETURN_THE_NZBQUEUE.get(True)
+                            qu_retrieve = runtime.current().return_nzb_queue.get(True)
                             not_before = qu_retrieve.get("_not_before") if isinstance(qu_retrieve, dict) else None
                             if not_before and time.time() < not_before:
-                                comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)
+                                runtime.current().return_nzb_queue.put(qu_retrieve)
                                 continue
                             try:
                                 controller = MaintenanceController()
@@ -1976,7 +1976,7 @@ def nzb_monitor(queue):
                                     nzstat = s.historycheck(qu_retrieve, ignore_category=True)
                                     cdh_monitor(queue, qu_retrieve, nzstat, readd=True, lease=lease)
                             except MaintenanceBlocked:
-                                comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)
+                                runtime.current().return_nzb_queue.put(qu_retrieve)
                             except Exception as e:
                                 item_id = _monitor_item_id(qu_retrieve)
                                 logger.error(
@@ -1984,7 +1984,7 @@ def nzb_monitor(queue):
                                     % ((" id=%s" % item_id) if item_id else "", redacted_traceback(e))
                                 )
                                 if _is_transient_monitor_error(e):
-                                    comicarr.RETURN_THE_NZBQUEUE.put(qu_retrieve)
+                                    runtime.current().return_nzb_queue.put(qu_retrieve)
                                 else:
                                     _record_poison_monitor_item("nzb", qu_retrieve, e)
                             time.sleep(5)
@@ -2287,7 +2287,7 @@ def _cdh_record_terminal_outcome(item, nzstat, readd=False):
     (PR 1047) and ``failed_in_sab`` with handling off terminalize through
     ``failed.terminalize_failed_download``. ``failed_in_sab`` with handling on
     falls through so FailedProcessor / FAILED_AUTO can retry. Unhandled
-    staging statuses requeue onto RETURN_THE_NZBQUEUE without sleeping under
+    staging statuses requeue onto return_nzb_queue without sleeping under
     the maintenance lease. Returns True when the status was consumed.
     """
     status = nzstat.get("status") if isinstance(nzstat, dict) else None
@@ -2332,7 +2332,7 @@ def _cdh_record_terminal_outcome(item, nzstat, readd=False):
         )
         if isinstance(item, dict):
             item["_not_before"] = time.time() + delay
-        comicarr.RETURN_THE_NZBQUEUE.put(item)
+        runtime.current().return_nzb_queue.put(item)
         return True
     return False
 
@@ -2345,12 +2345,12 @@ def _cdh_monitor_owned(queue, item, nzstat, readd=False):
         return
     if nzstat["status"] == "queue_paused":
         if comicarr.USE_SABNZBD is True:
-            comicarr.RETURN_THE_NZBQUEUE.put(item)
+            runtime.current().return_nzb_queue.put(item)
     elif nzstat["status"] is False:
         logger.info("Download %s failed. Requeue NZB to check later..." % known_nzb_id)
         time.sleep(5)
         if item not in queue.queue:
-            comicarr.NZB_QUEUE.put(item)
+            runtime.current().nzb_queue.put(item)
     elif nzstat["status"] is True:
         if nzstat["failed"] is False:
             resolved = resolve_completed_download_file(nzstat["location"], nzstat.get("name"))
@@ -2440,7 +2440,7 @@ def _cdh_monitor_owned(queue, item, nzstat, readd=False):
             }
             if nzstat["failed"] and nzstat.get("fail_cause"):
                 pp_item["fail_cause"] = nzstat["fail_cause"]
-            comicarr.PP_QUEUE.put(pp_item)
+            runtime.current().pp_queue.put(pp_item)
         except Exception as e:
             logger.error("process error: %s" % e)
     return

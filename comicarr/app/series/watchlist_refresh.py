@@ -1005,7 +1005,7 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
 
     watch = []
     for x in to_check:
-        if {"comicid": x["comicid"], "comicname": x["comicname"]} not in comicarr.REFRESH_QUEUE.queue:
+        if {"comicid": x["comicid"], "comicname": x["comicname"]} not in runtime.current().refresh_queue.queue:
             watch.append({"comicid": x["comicid"], "comicname": x["comicname"], "seriesyear": x["seriesyear"]})
 
     if len(watch) > 0:

@@ -21,7 +21,7 @@ post-processing accepts the row once.
 import os
 
 import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.downloads import handoff, journal
 
 INTERVAL_MINUTES = 2
@@ -117,7 +117,7 @@ def _validated_item(row, payload, quarantine=False):
 
 
 def _put_postprocess(row, item):
-    comicarr.PP_QUEUE.put(item)
+    runtime.current().pp_queue.put(item)
     logger.info("[SAB-RECONCILE] queued post-processing for %s (%s)." % (row.get("release_key"), item.get("nzb_name")))
     return {"action": "enqueued", "release_key": row.get("release_key")}
 

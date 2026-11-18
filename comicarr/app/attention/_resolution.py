@@ -28,7 +28,7 @@ from comicarr.app.attention.contracts import (
     ResolutionReport,
     ResolutionRequest,
 )
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.downloads import journal
 
 
@@ -75,7 +75,6 @@ class _RuntimeResolutionEffects:
         return series_queries.update_obligation_intent(issue_id, actor, intent="ignored", entity_type=entity_type)
 
     def enqueue_import(self, item):
-        import comicarr
         from comicarr.app.downloads.pp_commands import PostProcessCommandError, validate_postprocess_item
 
         try:
@@ -91,7 +90,7 @@ class _RuntimeResolutionEffects:
                 item.get("provider"),
                 attempt_id=band_key,
             )
-        comicarr.PP_QUEUE.put(
+        runtime.current().pp_queue.put(
             {
                 "nzb_name": validated["nzb_name"],
                 "nzb_folder": validated["nzb_folder"],

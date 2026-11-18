@@ -31,6 +31,7 @@ from sqlalchemy import select
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.attention import RecordOutcome
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, ddl_info, issues, metadata, nzblog, pipeline_journal, snatched, storyarcs
 from comicarr.app.downloads import journal, postprocessing, recovery, recovery_classify
@@ -77,10 +78,10 @@ def queues(monkeypatch):
     sn = queue_module.Queue()
     nz = queue_module.Queue()
     dl = queue_module.Queue()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", pp, raising=False)
-    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", sn, raising=False)
-    monkeypatch.setattr(comicarr, "NZB_QUEUE", nz, raising=False)
-    monkeypatch.setattr(comicarr, "DDL_QUEUE", dl, raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", pp, raising=False)
+    monkeypatch.setattr(runtime.current(), "snatched_queue", sn, raising=False)
+    monkeypatch.setattr(runtime.current(), "nzb_queue", nz, raising=False)
+    monkeypatch.setattr(runtime.current(), "ddl_queue", dl, raising=False)
     return {"pp": pp, "snatched": sn, "nzb": nz, "ddl": dl}
 
 
@@ -330,7 +331,7 @@ def test_downloaded_with_valid_artifact_command_skips_downloader_probe(queues, t
 
 
 # ---------------------------------------------------------------------------
-# STILL -> re-enqueue onto SNATCHED_QUEUE (torrent) / NZB_QUEUE (sab)
+# STILL -> re-enqueue onto snatched_queue (torrent) / nzb_queue (sab)
 # ---------------------------------------------------------------------------
 
 
@@ -814,7 +815,7 @@ def test_finalizer_post_processing_redrives_in_full(queues, monkeypatch, tmp_pat
     # row (single-derivation invariant).
     assert calls["rkey"] == rkey
     assert calls["nzb_name"] == "F.cbz"
-    # NOT routed through PP_QUEUE (the U4 claim would lose on a row already at
+    # NOT routed through pp_queue (the U4 claim would lose on a row already at
     # post_processing).
     assert _drain(queues["pp"]) == []
 

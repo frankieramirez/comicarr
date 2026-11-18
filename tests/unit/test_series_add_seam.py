@@ -26,7 +26,7 @@ from sqlalchemy import create_engine, select
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.manga import add as manga_add
@@ -243,7 +243,7 @@ def test_refresh_series_records_run_then_hands_it_to_the_refresh_queue(acquisiti
     refresh_queue = queue.Queue()
     start_worker = MagicMock()
     monkeypatch.setattr(add_workers, "_mass_add_runtime_context", lambda: None)
-    monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
+    monkeypatch.setattr(runtime.current(), "refresh_queue", refresh_queue)
     monkeypatch.setattr(add_workers, "_start_refresh_worker", start_worker)
 
     run_id = series_add.refresh_series([{"comicid": 160294, "comicname": "Absolute Batman", "seriesyear": "2024"}])
@@ -266,8 +266,8 @@ def test_queue_series_adds_and_issue_wants_feed_the_mass_add_worker(monkeypatch)
     issue_watch_list = queue.Queue()
     running = SimpleNamespace(is_alive=lambda: True)
     monkeypatch.setattr(add_workers, "_mass_add_runtime_context", lambda: None)
-    monkeypatch.setattr(comicarr, "ADD_LIST", add_list)
-    monkeypatch.setattr(comicarr, "ISSUE_WATCH_LIST", issue_watch_list)
+    monkeypatch.setattr(runtime.current(), "add_list", add_list)
+    monkeypatch.setattr(runtime.current(), "issue_watch_list", issue_watch_list)
     monkeypatch.setattr(comicarr, "MASS_ADD", running, raising=False)
     watch = {"comicid": "123", "comicname": None, "seriesyear": None, "location": "/library/Example"}
 
