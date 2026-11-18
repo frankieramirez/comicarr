@@ -16,6 +16,7 @@ from sqlalchemy import inspect as sa_inspect
 
 import comicarr
 from comicarr.app.core import db, runtime
+from comicarr.app.core.schema import upgrade_database
 from comicarr.app.core.tables import ddl_info, metadata, snatched
 from comicarr.app.downloads import queries, router, service
 
@@ -229,7 +230,7 @@ def test_legacy_ddl_schema_migration_adds_column_before_activity_index(tmp_path,
 
     event.listen(engine, "before_cursor_execute", capture_sql)
     try:
-        comicarr.dbcheck()
+        upgrade_database()
     finally:
         event.remove(engine, "before_cursor_execute", capture_sql)
 

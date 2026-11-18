@@ -20,7 +20,7 @@ from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 import comicarr
-from comicarr.app.core import db, runtime
+from comicarr.app.core import db, runtime, unique_constraints
 from comicarr.app.core.tables import UPSERT_KEYS, metadata
 
 EXPECTED_CONSTRAINTS = {
@@ -56,7 +56,7 @@ def _successful_backup(_source_path, _dest_dir, _retention):
 
 
 def _run_migration(engine, backup_func=_successful_backup):
-    comicarr._migrate_unique_constraints(engine, backup_func=backup_func)
+    unique_constraints._migrate_unique_constraints(engine, backup_func=backup_func)
 
 
 def _create_legacy_table(conn, table_name, columns):
@@ -159,16 +159,16 @@ def test_legacy_sqlite_migration_repairs_real_single_and_composite_upserts(legac
 
 def test_upsert_unique_constraint_map_matches_upsert_keys_allowlist():
     """Lock migration key columns to tables.UPSERT_KEYS for the allowlisted tables."""
-    assert comicarr._UPSERT_UNIQUE_CONSTRAINTS == EXPECTED_CONSTRAINTS
-    assert set(comicarr._UPSERT_UNIQUE_CONSTRAINT_NAMES) == set(EXPECTED_CONSTRAINTS)
+    assert unique_constraints._UPSERT_UNIQUE_CONSTRAINTS == EXPECTED_CONSTRAINTS
+    assert set(unique_constraints._UPSERT_UNIQUE_CONSTRAINT_NAMES) == set(EXPECTED_CONSTRAINTS)
     for table_name, (key_columns, constraint_name) in EXPECTED_CONSTRAINTS.items():
-        assert comicarr._UPSERT_UNIQUE_CONSTRAINT_NAMES[table_name] == constraint_name
+        assert unique_constraints._UPSERT_UNIQUE_CONSTRAINT_NAMES[table_name] == constraint_name
         assert list(UPSERT_KEYS[table_name]) == key_columns
-        assert comicarr._UPSERT_UNIQUE_CONSTRAINTS[table_name][0] == list(UPSERT_KEYS[table_name])
+        assert unique_constraints._UPSERT_UNIQUE_CONSTRAINTS[table_name][0] == list(UPSERT_KEYS[table_name])
 
 
 def test_sqlite_migration_covers_every_declared_legacy_upsert_table_and_is_idempotent(legacy_engine):
-    assert comicarr._UPSERT_UNIQUE_CONSTRAINTS == EXPECTED_CONSTRAINTS
+    assert unique_constraints._UPSERT_UNIQUE_CONSTRAINTS == EXPECTED_CONSTRAINTS
     with legacy_engine.begin() as conn:
         for table_name, (key_columns, _constraint_name) in EXPECTED_CONSTRAINTS.items():
             _create_legacy_table(conn, table_name, key_columns)
@@ -209,7 +209,7 @@ def test_sqlite_migration_reuses_the_callers_active_connection(legacy_engine):
 
         event.listen(legacy_engine, "engine_connect", forbid_second_engine_connection)
         try:
-            comicarr._migrate_unique_constraints(conn, backup_func=_successful_backup)
+            unique_constraints._migrate_unique_constraints(conn, backup_func=_successful_backup)
         finally:
             event.remove(legacy_engine, "engine_connect", forbid_second_engine_connection)
 
@@ -282,7 +282,7 @@ def test_sqlite_migration_uses_alternate_name_when_canonical_index_name_is_taken
         assert conn.scalar(text("SELECT COUNT(*) FROM issues WHERE IssueID = 'issue-1'")) == 1
     unique_indexes = [index for index in inspect(legacy_engine).get_indexes("issues") if index.get("unique")]
     assert len(unique_indexes) == 1
-    assert unique_indexes[0]["name"] == comicarr._bounded_alternate_index_name(
+    assert unique_indexes[0]["name"] == unique_constraints._bounded_alternate_index_name(
         legacy_engine,
         "uq_issues_issueid",
         "issues",
@@ -345,8 +345,8 @@ def test_sqlite_migration_backs_up_before_delete_and_only_once(legacy_engine):
         return True
 
     with patch.object(comicarr.app.system.maintenance, "auto_backup_db", side_effect=backup_before_delete) as backup:
-        comicarr._migrate_unique_constraints(legacy_engine)
-        comicarr._migrate_unique_constraints(legacy_engine)
+        unique_constraints._migrate_unique_constraints(legacy_engine)
+        unique_constraints._migrate_unique_constraints(legacy_engine)
 
     assert backup_calls == [(source_path, expected_backup_dir, 7)]
     backup.assert_called_once_with(*backup_calls[0])
@@ -367,7 +367,7 @@ def test_migration_backup_survives_same_second_normal_backup(legacy_engine):
     source_path = os.path.abspath(legacy_engine.url.database)
     normal_backup_dir = Path(runtime.current().data_dir) / "backups"
     migration_backup_dir = Path(os.path.dirname(source_path)) / "backups" / "migrations"
-    pin_backup = migration_backup_dir / comicarr._PRE_UNIQUE_MIGRATION_BACKUP
+    pin_backup = migration_backup_dir / unique_constraints._PRE_UNIQUE_MIGRATION_BACKUP
     with patch.object(comicarr.app.system.maintenance.time, "strftime", return_value=fixed_timestamp):
         _run_migration(legacy_engine, comicarr.app.system.maintenance.auto_backup_db)
         assert comicarr.app.system.maintenance.auto_backup_db(source_path, str(normal_backup_dir), 7)
@@ -401,7 +401,7 @@ def test_pre_unique_migration_pin_is_reused_and_not_rotated(legacy_engine, tmp_p
 
     source_path = os.path.abspath(legacy_engine.url.database)
     migration_backup_dir = Path(os.path.dirname(source_path)) / "backups" / "migrations"
-    pin_path = migration_backup_dir / comicarr._PRE_UNIQUE_MIGRATION_BACKUP
+    pin_path = migration_backup_dir / unique_constraints._PRE_UNIQUE_MIGRATION_BACKUP
 
     with patch.object(comicarr.app.system.maintenance.time, "strftime", return_value="20260710_010203"):
         _run_migration(legacy_engine, comicarr.app.system.maintenance.auto_backup_db)
@@ -420,7 +420,7 @@ def test_pre_unique_migration_pin_is_reused_and_not_rotated(legacy_engine, tmp_p
 
     # Second migration with pin present must not re-backup (pending already cleared).
     backup = MagicMock(return_value=True)
-    comicarr._migrate_unique_constraints(legacy_engine, backup_func=backup)
+    unique_constraints._migrate_unique_constraints(legacy_engine, backup_func=backup)
     backup.assert_not_called()
 
 
@@ -456,7 +456,7 @@ def test_sqlite_in_memory_migration_does_not_attempt_durable_backup(monkeypatch)
             ],
         )
 
-    comicarr._migrate_unique_constraints(engine)
+    unique_constraints._migrate_unique_constraints(engine)
 
     with engine.connect() as conn:
         assert conn.scalar(text("SELECT COUNT(*) FROM issues WHERE IssueID = 'issue-1'")) == 1
@@ -477,7 +477,7 @@ def test_sqlite_named_memory_uri_migration_does_not_attempt_filesystem_backup(mo
         )
 
     with patch.object(comicarr.app.system.maintenance, "auto_backup_db", return_value=True) as backup:
-        comicarr._migrate_unique_constraints(engine)
+        unique_constraints._migrate_unique_constraints(engine)
 
     backup.assert_not_called()
     with engine.connect() as conn:
@@ -510,7 +510,7 @@ def test_sqlite_memory_like_paths_without_uri_mode_are_backed_up(tmp_path, monke
         )
 
     backup = MagicMock(return_value=True)
-    comicarr._migrate_unique_constraints(engine, backup_func=backup)
+    unique_constraints._migrate_unique_constraints(engine, backup_func=backup)
 
     source_path = str(tmp_path / database_name)
     backup.assert_called_once_with(
@@ -544,8 +544,8 @@ def test_non_sqlite_partial_unique_indexes_are_not_full_enforcement(dialect_name
         }
     ]
 
-    with patch.object(comicarr, "inspect", return_value=inspector):
-        assert not comicarr._has_unique_enforcement(engine, "issues", ["IssueID"])
+    with patch.object(unique_constraints, "inspect", return_value=inspector):
+        assert not unique_constraints._has_unique_enforcement(engine, "issues", ["IssueID"])
 
 
 def test_non_sqlite_full_unique_index_is_enforcement():
@@ -561,8 +561,8 @@ def test_non_sqlite_full_unique_index_is_enforcement():
         }
     ]
 
-    with patch.object(comicarr, "inspect", return_value=inspector):
-        assert comicarr._has_unique_enforcement(engine, "issues", ["IssueID"])
+    with patch.object(unique_constraints, "inspect", return_value=inspector):
+        assert unique_constraints._has_unique_enforcement(engine, "issues", ["IssueID"])
 
 
 def test_dedup_sql_uses_dialect_native_row_identity():
@@ -570,9 +570,9 @@ def test_dedup_sql_uses_dialect_native_row_identity():
     quoted_keys = ['"IssueID"']
     predicate = '"IssueID" IS NOT NULL AND "IssueID" != \'\''
     # Without quality columns / table context, keep MAX(rowid|ctid).
-    sqlite_sql = comicarr._dedup_delete_sql("sqlite", quoted_table, quoted_keys, predicate)
-    pg_sql = comicarr._dedup_delete_sql("postgresql", quoted_table, quoted_keys, predicate)
-    mysql_sql = comicarr._dedup_delete_sql("mysql", quoted_table, quoted_keys, predicate)
+    sqlite_sql = unique_constraints._dedup_delete_sql("sqlite", quoted_table, quoted_keys, predicate)
+    pg_sql = unique_constraints._dedup_delete_sql("postgresql", quoted_table, quoted_keys, predicate)
+    mysql_sql = unique_constraints._dedup_delete_sql("mysql", quoted_table, quoted_keys, predicate)
 
     assert "MAX(rowid)" in sqlite_sql
     assert "MAX(ctid)" in pg_sql
@@ -585,7 +585,7 @@ def test_dedup_sql_library_tables_use_status_location_ranking():
     quoted_table = quote("issues")
     quoted_keys = [quote("IssueID")]
     predicate = '"IssueID" IS NOT NULL AND "IssueID" != \'\''
-    sql = comicarr._dedup_delete_sql(
+    sql = unique_constraints._dedup_delete_sql(
         "sqlite",
         quoted_table,
         quoted_keys,
@@ -641,9 +641,9 @@ def test_recheck_inspect_error_still_attempts_migration(legacy_engine):
             ],
         )
 
-    pending = comicarr._pending_unique_constraints(legacy_engine)
+    pending = unique_constraints._pending_unique_constraints(legacy_engine)
     assert pending
-    real_has_enforcement = comicarr._has_unique_enforcement
+    real_has_enforcement = unique_constraints._has_unique_enforcement
     calls = {"n": 0}
 
     def recheck_then_real(engine, table_name, key_cols):
@@ -654,8 +654,8 @@ def test_recheck_inspect_error_still_attempts_migration(legacy_engine):
         return real_has_enforcement(engine, table_name, key_cols)
 
     with (
-        patch.object(comicarr, "_pending_unique_constraints", return_value=pending),
-        patch.object(comicarr, "_has_unique_enforcement", side_effect=recheck_then_real),
+        patch.object(unique_constraints, "_pending_unique_constraints", return_value=pending),
+        patch.object(unique_constraints, "_has_unique_enforcement", side_effect=recheck_then_real),
     ):
         _run_migration(legacy_engine)
 

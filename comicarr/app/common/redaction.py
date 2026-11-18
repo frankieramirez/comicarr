@@ -42,3 +42,17 @@ def redact_sensitive_text(value, secrets=()):
 
 def redacted_traceback(error):
     return redact_sensitive_text("".join(traceback.format_exception(error)).rstrip())
+
+
+def redact_diagnostic_error(error):
+    """Remove credentials from errors returned by authenticated diagnostics."""
+
+    message = re.sub(r"\s+", " ", str(error or "")).strip()
+    message = re.sub(
+        r"(?i)(api[ _-]?key|authorization|password|token|passkey)\s*[=:]\s*[^\s,;]+",
+        r"\1=[redacted]",
+        message,
+    )
+    message = re.sub(r"(?i)([a-z][a-z0-9+.-]*://)[^/@\s]+@", r"\1[redacted]@", message)
+    message = re.sub(r"(?i)([?&](?:apikey|api_key|token|password|passkey)=)[^&\s]+", r"\1[redacted]", message)
+    return message[:1000]
