@@ -7,7 +7,7 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""Metadata provider searches, artwork, and comic archive access."""
+"""Metadata lookups, artwork, and comic archive access."""
 
 import json
 import os
@@ -25,44 +25,6 @@ from comicarr.app.core.workers import start_background_thread
 from comicarr.app.library import filers, getimage
 from comicarr.app.metadata import cv
 from comicarr.app.series import rescan as series_rescan
-
-
-def search_comics(
-    ctx, name, issue=None, type_="comic", mode="series", limit=None, offset=None, sort=None, content_type=None
-):
-    """Search for comics across configured providers.
-
-    Delegates to search domain's find_comic() to avoid duplicated logic.
-    """
-    from comicarr.app.search.service import find_comic
-
-    return find_comic(
-        ctx,
-        name,
-        issue=issue,
-        type_=type_,
-        mode=mode,
-        limit=limit,
-        offset=offset,
-        sort=sort,
-        content_type=content_type,
-    )
-
-
-def search_manga(ctx, name, limit=None, offset=None, sort=None):
-    """Search for manga via MangaDex API."""
-    if not ctx.config or not getattr(ctx.config, "MANGADEX_ENABLED", False):
-        return {"error": "MangaDex integration is not enabled"}
-
-    from comicarr.app.manga import mangadex
-
-    try:
-        parsed_limit = int(limit) if limit else None
-        parsed_offset = int(offset) if offset else None
-    except (ValueError, TypeError):
-        return {"error": "Invalid pagination parameters"}
-
-    return mangadex.search_manga(name, limit=parsed_limit, offset=parsed_offset, sort=sort)
 
 
 def get_series_image(ctx, series_id):

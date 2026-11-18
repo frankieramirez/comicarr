@@ -8,7 +8,9 @@
 #  (at your option) any later version.
 
 """
-Metadata domain router — comic search, metadata lookup, metatag operations.
+Metadata domain router — metadata lookup, artwork, metatag operations.
+
+Series search lives under ``/api/search``.
 
 Low cross-domain dependency, well-bounded. Validates the domain pattern.
 """
@@ -24,65 +26,6 @@ from comicarr.app.metadata import service as metadata_service
 from comicarr.app.metadata.image_fetch import fetch_allowed_image
 
 router = APIRouter(prefix="/api/metadata", tags=["metadata"])
-
-
-@router.post("/search", dependencies=[Depends(require_session)])
-def search_comics(
-    request_body: dict = None,
-    ctx: AppContext = Depends(get_context),
-):
-    """Search for comics across ComicVine, Metron, or MangaDex."""
-
-    if request_body is None:
-        request_body = {}
-
-    name = request_body.get("name", "")
-    if not name:
-        return JSONResponse(status_code=400, content={"detail": "Missing search name"})
-
-    result = metadata_service.search_comics(
-        ctx,
-        name=name,
-        issue=request_body.get("issue"),
-        type_=request_body.get("type", "comic"),
-        mode=request_body.get("mode", "series"),
-        limit=request_body.get("limit"),
-        offset=request_body.get("offset"),
-        sort=request_body.get("sort"),
-        content_type=request_body.get("content_type"),
-    )
-
-    if isinstance(result, dict) and "error" in result:
-        return JSONResponse(status_code=400, content={"detail": result["error"]})
-
-    return result
-
-
-@router.post("/search/manga", dependencies=[Depends(require_session)])
-def search_manga(
-    request_body: dict = None,
-    ctx: AppContext = Depends(get_context),
-):
-    """Search for manga via MangaDex API."""
-    if request_body is None:
-        request_body = {}
-
-    name = request_body.get("name", "")
-    if not name:
-        return JSONResponse(status_code=400, content={"detail": "Missing search name"})
-
-    result = metadata_service.search_manga(
-        ctx,
-        name=name,
-        limit=request_body.get("limit"),
-        offset=request_body.get("offset"),
-        sort=request_body.get("sort"),
-    )
-
-    if isinstance(result, dict) and "error" in result:
-        return JSONResponse(status_code=400, content={"detail": result["error"]})
-
-    return result
 
 
 @router.get("/comic/{comic_id}", dependencies=[Depends(require_session)])
