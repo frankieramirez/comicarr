@@ -68,6 +68,38 @@ RETIRED_GLOBALS = {
 
 # Trees that hold source. Prose keeps the history — the ADR names the retired
 # global on purpose, so docs/ is deliberately not scanned.
+# Package globals retired into AppContext fields (#1478, #1402). Each group
+# moved every reader and writer to ``runtime.current().<field>`` in one change.
+_RUNTIME_FIELD_GROUPS = {
+    "scheduler status and schedule stamps (#1539)": (
+        "MONITOR_STATUS",
+        "IMPORTINBOX_STATUS",
+        "SEARCH_STATUS",
+        "RSS_STATUS",
+        "WEEKLY_STATUS",
+        "VERSION_STATUS",
+        "UPDATER_STATUS",
+        "MANGA_SYNC_STATUS",
+        "FORCE_STATUS",
+        "WEEKLY_MANUAL_NEXT_RUN",
+        "SCHED_RSS_LAST",
+        "SCHED_WEEKLY_LAST",
+        "SCHED_MONITOR_LAST",
+        "SCHED_SEARCH_LAST",
+        "SCHED_VERSION_LAST",
+        "SCHED_DBUPDATE_LAST",
+        "SCHED_MANGA_SYNC_LAST",
+        "SCHED_UPDATER_LAST",
+    ),
+}
+
+for _group, _names in _RUNTIME_FIELD_GROUPS.items():
+    for _name in _names:
+        RETIRED_GLOBALS[_name] = (
+            "retired with the %s. Read and write runtime.current().%s "
+            "(comicarr.app.core.runtime) instead of a comicarr package global." % (_group, _name.lower())
+        )
+
 SCAN_ROOTS = ("comicarr", "frontend/src", "frontend/tests", "tests", "scripts")
 
 SCAN_FILES = ("Comicarr.py",)

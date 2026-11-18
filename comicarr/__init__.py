@@ -50,7 +50,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 import comicarr.app.config.ini
 from comicarr.app.common import dates as common_dates
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.downloads import sabnzbd
 from comicarr.app.downloads import service as downloads_service
 from comicarr.app.search import rss_runner
@@ -159,16 +159,6 @@ IMPORT_PARSED_COUNT = 0
 IMPORT_FAILURE_COUNT = 0
 _INITIALIZED = False
 started = False
-MONITOR_STATUS = "Waiting"
-IMPORTINBOX_STATUS = "Waiting"
-SEARCH_STATUS = "Waiting"
-RSS_STATUS = "Waiting"
-WEEKLY_STATUS = "Waiting"
-WEEKLY_MANUAL_NEXT_RUN = None
-VERSION_STATUS = "Waiting"
-UPDATER_STATUS = "Waiting"
-MANGA_SYNC_STATUS = "Waiting"
-FORCE_STATUS = {}
 RSS_SCHEDULER = None
 WEEKLY_SCHEDULER = None
 MONITOR_SCHEDULER = None
@@ -177,13 +167,6 @@ SEARCH_SCHEDULER = None
 VERSION_SCHEDULER = None
 UPDATER_SCHEDULER = None
 MANGA_SYNC_SCHEDULER = None
-SCHED_RSS_LAST = None
-SCHED_WEEKLY_LAST = None
-SCHED_MONITOR_LAST = None
-SCHED_SEARCH_LAST = None
-SCHED_VERSION_LAST = None
-SCHED_DBUPDATE_LAST = None
-SCHED_MANGA_SYNC_LAST = None
 DB_BACKFILL = False
 DB_FILE = None
 MAINTENANCE_UPDATE = []
@@ -455,15 +438,6 @@ def initialize(config_file):
             AUTHKEY_32P, \
             FEED_32P, \
             FEEDINFO_32P, \
-            MONITOR_STATUS, \
-            IMPORTINBOX_STATUS, \
-            SEARCH_STATUS, \
-            RSS_STATUS, \
-            WEEKLY_STATUS, \
-            VERSION_STATUS, \
-            UPDATER_STATUS, \
-            MANGA_SYNC_STATUS, \
-            FORCE_STATUS, \
             DB_BACKFILL, \
             APILOCK, \
             SEARCHLOCK, \
@@ -477,13 +451,6 @@ def initialize(config_file):
             UPDATER_SCHEDULER, \
             MANGA_SYNC_SCHEDULER, \
             START_UP, \
-            SCHED_RSS_LAST, \
-            SCHED_WEEKLY_LAST, \
-            SCHED_MONITOR_LAST, \
-            SCHED_SEARCH_LAST, \
-            SCHED_VERSION_LAST, \
-            SCHED_DBUPDATE_LAST, \
-            SCHED_MANGA_SYNC_LAST, \
             SEARCH_TIER_DATE, \
             BACKENDSTATUS_CV, \
             BACKENDSTATUS_WS, \
@@ -899,13 +866,13 @@ def resume_acquisition_runtime(config=None):
             queues_started.append("ddl_queue")
 
         scheduler_statuses = {
-            "dbupdater": UPDATER_STATUS,
-            "search": SEARCH_STATUS,
-            "weekly": WEEKLY_STATUS,
-            "rss": RSS_STATUS,
-            "monitor": MONITOR_STATUS,
-            "importinbox": IMPORTINBOX_STATUS,
-            "manga_sync": MANGA_SYNC_STATUS,
+            "dbupdater": runtime.current().updater_status,
+            "search": runtime.current().search_status,
+            "weekly": runtime.current().weekly_status,
+            "rss": runtime.current().rss_status,
+            "monitor": runtime.current().monitor_status,
+            "importinbox": runtime.current().importinbox_status,
+            "manga_sync": runtime.current().manga_sync_status,
         }
         scheduler = ctx.scheduler if ctx is not None else SCHED
         resumed_jobs = []
@@ -1097,7 +1064,7 @@ def start(ctx):
                 logger.error("[ACQUISITION] Refusing worker startup because gate refresh failed: %s" % e)
 
             if ctx.acquisition_workers_blocked:
-                if VERSION_STATUS != "Paused":
+                if ctx.version_status != "Paused":
                     VERSION_SCHEDULER.resume()
                 logger.warn(
                     "[ACQUISITION] Background acquisition is blocked (%s); diagnostics remain available"
@@ -1127,17 +1094,17 @@ def start(ctx):
 
             monitors = system_service.job_management(startup=True)
 
-            SCHED_WEEKLY_LAST = monitors["weekly"]["last"]
-            SCHED_SEARCH_LAST = monitors["search"]["last"]
-            SCHED_UPDATER_LAST = monitors["updater"]["last"]
+            sched_weekly_last = monitors["weekly"]["last"]
+            sched_search_last = monitors["search"]["last"]
+            sched_updater_last = monitors["updater"]["last"]
             monitors["monitor"]["last"]
             monitors["version"]["last"]
-            SCHED_RSS_LAST = monitors["rss"]["last"]
-            SCHED_MANGA_SYNC_LAST = monitors.get("manga_sync", {}).get("last")
+            sched_rss_last = monitors["rss"]["last"]
+            sched_manga_sync_last = monitors.get("manga_sync", {}).get("last")
 
-            if UPDATER_STATUS != "Paused":
-                if SCHED_UPDATER_LAST is not None:
-                    updater_timestamp = float(SCHED_UPDATER_LAST)
+            if ctx.updater_status != "Paused":
+                if sched_updater_last is not None:
+                    updater_timestamp = float(sched_updater_last)
                     logger.fdebug(
                         "[DB UPDATER] Updater last run @ %s"
                         % common_dates.utc_date_to_local(datetime.datetime.utcfromtimestamp(updater_timestamp))
@@ -1161,20 +1128,20 @@ def start(ctx):
 
             from comicarr.app.manga.sync import arm_manga_sync_job
 
-            if MANGA_SYNC_STATUS != "Paused":
+            if ctx.manga_sync_status != "Paused":
                 arm_manga_sync_job(
                     MANGA_SYNC_SCHEDULER,
-                    MANGA_SYNC_STATUS,
-                    SCHED_MANGA_SYNC_LAST,
+                    ctx.manga_sync_status,
+                    sched_manga_sync_last,
                     CONFIG.DBUPDATE_INTERVAL,
                 )
 
-            if SEARCH_STATUS != "Paused":
+            if ctx.search_status != "Paused":
                 if CONFIG.NZB_STARTUP_SEARCH:
                     SEARCH_SCHEDULER.modify(next_run_time=(datetime.datetime.utcnow() + timedelta(minutes=2)))
                 else:
-                    if SCHED_SEARCH_LAST is not None:
-                        search_timestamp = float(SCHED_SEARCH_LAST)
+                    if sched_search_last is not None:
+                        search_timestamp = float(sched_search_last)
                         logger.fdebug(
                             "[AUTO-SEARCH] Search last run @ %s"
                             % common_dates.utc_date_to_local(datetime.datetime.utcfromtimestamp(search_timestamp))
@@ -1243,20 +1210,20 @@ def start(ctx):
 
             weekly_interval = weektimer * 60 * 60
             try:
-                if SCHED_WEEKLY_LAST:
+                if sched_weekly_last:
                     pass
             except:
-                SCHED_WEEKLY_LAST = None
+                sched_weekly_last = None
 
             weektimestamp = common_dates.utctimestamp()
-            if SCHED_WEEKLY_LAST is not None:
-                weekly_timestamp = float(SCHED_WEEKLY_LAST)
+            if sched_weekly_last is not None:
+                weekly_timestamp = float(sched_weekly_last)
             else:
                 weekly_timestamp = weektimestamp + weekly_interval
 
             duration_diff = (weektimestamp - weekly_timestamp) / 60
 
-            if WEEKLY_STATUS != "Paused":
+            if ctx.weekly_status != "Paused":
                 if abs(duration_diff) >= weekly_interval / 60:
                     logger.info(
                         "[WEEKLY] Weekly Pull-Update initializing immediately as it has been %s hours since the last run"
@@ -1273,10 +1240,10 @@ def start(ctx):
                     )
                     WEEKLY_SCHEDULER.modify(next_run_time=weekly_diff)
 
-            if RSS_STATUS != "Paused":
+            if ctx.rss_status != "Paused":
                 logger.info("[RSS-FEEDS] Initiating startup-RSS feed checks.")
-                if SCHED_RSS_LAST is not None:
-                    rss_timestamp = float(SCHED_RSS_LAST)
+                if sched_rss_last is not None:
+                    rss_timestamp = float(sched_rss_last)
                     logger.info(
                         "[RSS-FEEDS] RSS last run @ %s"
                         % common_dates.utc_date_to_local(datetime.datetime.utcfromtimestamp(rss_timestamp))
@@ -1296,7 +1263,7 @@ def start(ctx):
                     )
                     RSS_SCHEDULER.modify(next_run_time=rss_diff)
 
-            if IMPORTINBOX_STATUS != "Paused":
+            if ctx.importinbox_status != "Paused":
                 if CONFIG.IMPORT_DIR is not None:
                     if CONFIG.IMPORT_SCAN_INTERVAL > 0:
                         logger.info(
@@ -1314,10 +1281,10 @@ def start(ctx):
                     logger.fdebug("[IMPORT-INBOX] No IMPORT_DIR configured, disabling scheduled scanning")
                     IMPORTINBOX_SCHEDULER.pause()
 
-            if VERSION_STATUS != "Paused":
+            if ctx.version_status != "Paused":
                 VERSION_SCHEDULER.resume()
 
-            if MONITOR_STATUS != "Paused":
+            if ctx.monitor_status != "Paused":
                 if CONFIG.CHECK_FOLDER is not None:
                     if CONFIG.DOWNLOAD_SCAN_INTERVAL > 0:
                         logger.info(

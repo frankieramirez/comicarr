@@ -23,7 +23,7 @@ import threading
 
 import comicarr
 from comicarr.app.common import dates as common_dates
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.search import rss_feeds
 from comicarr.app.system import service as system_service
 
@@ -38,16 +38,16 @@ class tehMain:
         with rss_lock:
             firstrun = "no"
             if (
-                comicarr.SCHED_RSS_LAST is None
-                or comicarr.SCHED_RSS_LAST == ""
-                or comicarr.SCHED_RSS_LAST == "0"
+                runtime.current().sched_rss_last is None
+                or runtime.current().sched_rss_last == ""
+                or runtime.current().sched_rss_last == "0"
                 or forcerss
             ):
                 logger.info("[RSS-FEEDS] RSS Feed Check Initalizing....")
                 firstrun = "yes"
                 duration_diff = 0
             else:
-                tstamp = float(comicarr.SCHED_RSS_LAST)
+                tstamp = float(runtime.current().sched_rss_last)
                 duration_diff = abs(common_dates.utctimestamp() - tstamp) / 60
             if firstrun == "no" and duration_diff < int(comicarr.CONFIG.RSS_CHECKINTERVAL):
                 logger.fdebug(
@@ -58,7 +58,7 @@ class tehMain:
             system_service.job_management(
                 write=True, job="RSS Feeds", current_run=common_dates.utctimestamp(), status="Running"
             )
-            comicarr.RSS_STATUS = "Running"
+            runtime.current().rss_status = "Running"
 
             if comicarr.CONFIG.ENABLE_TORRENT_SEARCH:
                 logger.info("[RSS-FEEDS] Initiating Torrent RSS Check.")
@@ -85,5 +85,5 @@ class tehMain:
             system_service.job_management(
                 write=True, job="RSS Feeds", last_run_completed=common_dates.utctimestamp(), status="Waiting"
             )
-            comicarr.RSS_STATUS = "Waiting"
+            runtime.current().rss_status = "Waiting"
             return True

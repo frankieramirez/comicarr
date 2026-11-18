@@ -18,9 +18,8 @@
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import comicarr
 from comicarr.app.common import dates as common_dates
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.system import service as system_service
 from comicarr.app.system import versioncheck
 
@@ -34,7 +33,7 @@ class CheckVersion:
         system_service.job_management(
             write=True, job="Check Version", current_run=common_dates.utctimestamp(), status="Running"
         )
-        comicarr.VERSION_STATUS = "Running"
+        runtime.current().version_status = "Running"
         cc = versioncheck.checkGithub()
         system_service.job_management(
             write=True, job="Check Version", last_run_completed=common_dates.utctimestamp(), status="Waiting"

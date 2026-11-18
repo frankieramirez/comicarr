@@ -24,6 +24,7 @@ from apscheduler.events import (
 import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common.dates import normalize_utc_datetime, utc_date_to_local
+from comicarr.app.core import runtime
 from comicarr.app.search import service as search_service
 from comicarr.app.system import service as system_service
 
@@ -163,7 +164,7 @@ def test_scheduled_search_failure_is_supervised_and_propagated(monkeypatch):
     with pytest.raises(RuntimeError, match="provider down"):
         search_service.run_scheduled_search()
 
-    assert comicarr.SEARCH_STATUS == "Error"
+    assert runtime.current().search_status == "Error"
     assert job_management.call_args_list[-1].kwargs == {
         "write": True,
         "job": "Auto-Search",

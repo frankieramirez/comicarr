@@ -58,7 +58,7 @@ from comicarr.app.config.registry import (
     writable_keys,
 )
 from comicarr.app.config.setting_values import check_setting_values
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.security import LoginRateLimiter
 from comicarr.app.core.tables import comics, jobhistory
 from comicarr.app.core.workers import start_background_thread
@@ -108,17 +108,6 @@ PROVIDER_CONFIG_PERSISTENCE_ERROR = "Failed to persist provider configuration"
 def get_weekly_refresh_lock():
     """Return the process-wide weekly lock after package initialization."""
     return getattr(comicarr, "WEEKLY_REFRESH_LOCK", _fallback_weekly_refresh_lock)
-
-
-def _set_projected_runtime_field(context_field, legacy_name, value):
-    """Write a projected scalar through AppContext when the runtime exists."""
-    from comicarr.app.core.runtime import get_runtime_if_initialized, set_runtime_field
-
-    ctx = get_runtime_if_initialized()
-    if ctx is not None and not getattr(ctx, "disposed", False):
-        return set_runtime_field(ctx, context_field, value)
-    setattr(comicarr, legacy_name, value)
-    return value
 
 
 # A download client's host and the secret Comicarr sends it. Pointing a client
@@ -1329,7 +1318,7 @@ def get_job_info(ctx, include_acquisition=True):
         job_info["result_partial"] = bool(getattr(summary, "partial", False))
         if job.id == "weekly":
             if not history.get("status"):
-                status = getattr(comicarr, "WEEKLY_STATUS", "Waiting")
+                status = runtime.current().weekly_status
                 job_info["status"] = status
                 job_info["state"] = _weekly_state(status)
                 job_info["dispatch"]["state"] = _weekly_state(status)
@@ -2258,65 +2247,68 @@ def job_management(
                     )
                 db.upsert("jobhistory", recovery_values, {"JobName": ji["JobName"]})
             if "update" in ji["JobName"].lower():
-                if comicarr.SCHED_DBUPDATE_LAST is None:
-                    comicarr.SCHED_DBUPDATE_LAST = ji["prev_run_timestamp"]
+                if runtime.current().sched_dbupdate_last is None:
+                    runtime.current().sched_dbupdate_last = ji["prev_run_timestamp"]
                 if jstatus is None:
                     jstatus = "Waiting"
-                comicarr.UPDATER_STATUS = jstatus
+                runtime.current().updater_status = jstatus
             elif "search" in ji["JobName"].lower():
-                if comicarr.SCHED_SEARCH_LAST is None:
-                    comicarr.SCHED_SEARCH_LAST = ji["prev_run_timestamp"]
+                if runtime.current().sched_search_last is None:
+                    runtime.current().sched_search_last = ji["prev_run_timestamp"]
                 if jstatus is None:
                     jstatus = "Waiting"
-                comicarr.SEARCH_STATUS = jstatus
+                runtime.current().search_status = jstatus
             elif "rss" in ji["JobName"].lower():
-                if comicarr.SCHED_RSS_LAST is None:
-                    comicarr.SCHED_RSS_LAST = ji["prev_run_timestamp"]
+                if runtime.current().sched_rss_last is None:
+                    runtime.current().sched_rss_last = ji["prev_run_timestamp"]
                 if jstatus is None:
                     if comicarr.CONFIG.ENABLE_RSS:
                         jstatus = "Waiting"
                 if any([jstatus == "Waiting", jstatus == "Running"]) and comicarr.CONFIG.ENABLE_RSS is False:
                     jstatus = "Paused"
-                comicarr.RSS_STATUS = jstatus
+                runtime.current().rss_status = jstatus
             elif "weekly" in ji["JobName"].lower():
-                if comicarr.SCHED_WEEKLY_LAST is None:
-                    comicarr.SCHED_WEEKLY_LAST = ji["last_success_timestamp"] or ji["prev_run_timestamp"]
+                if runtime.current().sched_weekly_last is None:
+                    runtime.current().sched_weekly_last = ji["last_success_timestamp"] or ji["prev_run_timestamp"]
                 if jstatus is None:
                     jstatus = "Waiting"
-                _set_projected_runtime_field("weekly_status", "WEEKLY_STATUS", jstatus)
+                runtime.current().weekly_status = jstatus
             elif "version" in ji["JobName"].lower():
-                if comicarr.SCHED_VERSION_LAST is None:
-                    comicarr.SCHED_VERSION_LAST = ji["prev_run_timestamp"]
+                if runtime.current().sched_version_last is None:
+                    runtime.current().sched_version_last = ji["prev_run_timestamp"]
                 if jstatus is None:
                     if comicarr.CONFIG.CHECK_GITHUB:
                         jstatus = "Waiting"
                 if any([jstatus == "Waiting", jstatus == "Running"]) and comicarr.CONFIG.CHECK_GITHUB is False:
                     jstatus = "Paused"
-                comicarr.VERSION_STATUS = jstatus
+                runtime.current().version_status = jstatus
             elif "monitor" in ji["JobName"].lower():
-                if comicarr.SCHED_MONITOR_LAST is None:
-                    comicarr.SCHED_MONITOR_LAST = ji["prev_run_timestamp"]
+                if runtime.current().sched_monitor_last is None:
+                    runtime.current().sched_monitor_last = ji["prev_run_timestamp"]
                 if jstatus is None:
                     if comicarr.CONFIG.CHECK_FOLDER:
                         jstatus = "Waiting"
                 if any([jstatus == "Waiting", jstatus == "Running"]) and comicarr.CONFIG.CHECK_FOLDER is False:
                     jstatus = "Paused"
-                comicarr.MONITOR_STATUS = jstatus
+                runtime.current().monitor_status = jstatus
             elif "ledger sync" in ji["JobName"].lower():
-                if comicarr.SCHED_MANGA_SYNC_LAST is None:
-                    comicarr.SCHED_MANGA_SYNC_LAST = ji["prev_run_timestamp"]
+                if runtime.current().sched_manga_sync_last is None:
+                    runtime.current().sched_manga_sync_last = ji["prev_run_timestamp"]
                 if jstatus is None:
                     jstatus = "Waiting"
-                comicarr.MANGA_SYNC_STATUS = jstatus
+                runtime.current().manga_sync_status = jstatus
 
         return {
-            "weekly": {"last": comicarr.SCHED_WEEKLY_LAST, "status": comicarr.WEEKLY_STATUS},
-            "monitor": {"last": comicarr.SCHED_MONITOR_LAST, "status": comicarr.MONITOR_STATUS},
-            "search": {"last": comicarr.SCHED_SEARCH_LAST, "status": comicarr.SEARCH_STATUS},
-            "updater": {"last": comicarr.SCHED_DBUPDATE_LAST, "status": comicarr.UPDATER_STATUS},
-            "version": {"last": comicarr.SCHED_VERSION_LAST, "status": comicarr.VERSION_STATUS},
-            "rss": {"last": comicarr.SCHED_RSS_LAST, "status": comicarr.RSS_STATUS},
-            "manga_sync": {"last": comicarr.SCHED_MANGA_SYNC_LAST, "status": comicarr.MANGA_SYNC_STATUS},
+            "weekly": {"last": runtime.current().sched_weekly_last, "status": runtime.current().weekly_status},
+            "monitor": {"last": runtime.current().sched_monitor_last, "status": runtime.current().monitor_status},
+            "search": {"last": runtime.current().sched_search_last, "status": runtime.current().search_status},
+            "updater": {"last": runtime.current().sched_dbupdate_last, "status": runtime.current().updater_status},
+            "version": {"last": runtime.current().sched_version_last, "status": runtime.current().version_status},
+            "rss": {"last": runtime.current().sched_rss_last, "status": runtime.current().rss_status},
+            "manga_sync": {
+                "last": runtime.current().sched_manga_sync_last,
+                "status": runtime.current().manga_sync_status,
+            },
         }
 
     for jb in comicarr.SCHED.get_jobs():
@@ -2328,76 +2320,76 @@ def job_management(
         sched_status = "Waiting" if "next run" in jobstatus else "Paused"
 
         if jobname == "DB Updater":
-            prev_run_timestamp = comicarr.SCHED_DBUPDATE_LAST
+            prev_run_timestamp = runtime.current().sched_dbupdate_last
             if "next run" in jobstatus:
-                comicarr.UPDATER_STATUS = "Waiting"
-                if any(ky == "updater" for ky, vl in comicarr.FORCE_STATUS.items()):
-                    comicarr.UPDATER_STATUS = comicarr.FORCE_STATUS["updater"]
+                runtime.current().updater_status = "Waiting"
+                if any(ky == "updater" for ky, vl in runtime.current().force_status.items()):
+                    runtime.current().updater_status = runtime.current().force_status["updater"]
                     next_the_run = True
             else:
-                comicarr.UPDATER_STATUS = "Paused"
-            sched_status = comicarr.UPDATER_STATUS
+                runtime.current().updater_status = "Paused"
+            sched_status = runtime.current().updater_status
         elif jobname == "Auto-Search":
-            prev_run_timestamp = comicarr.SCHED_SEARCH_LAST
+            prev_run_timestamp = runtime.current().sched_search_last
             if "next run" in jobstatus:
-                comicarr.SEARCH_STATUS = "Waiting"
-                if any(ky == "search" for ky, vl in comicarr.FORCE_STATUS.items()):
-                    comicarr.SEARCH_STATUS = comicarr.FORCE_STATUS["search"]
+                runtime.current().search_status = "Waiting"
+                if any(ky == "search" for ky, vl in runtime.current().force_status.items()):
+                    runtime.current().search_status = runtime.current().force_status["search"]
                     next_the_run = True
             else:
-                comicarr.SEARCH_STATUS = "Paused"
-            sched_status = comicarr.SEARCH_STATUS
+                runtime.current().search_status = "Paused"
+            sched_status = runtime.current().search_status
         elif jobname == "RSS Feeds":
-            prev_run_timestamp = comicarr.SCHED_RSS_LAST
+            prev_run_timestamp = runtime.current().sched_rss_last
             if "next run" in jobstatus:
-                comicarr.RSS_STATUS = "Waiting"
-                if any(ky == "rss" for ky, vl in comicarr.FORCE_STATUS.items()):
-                    comicarr.RSS_STATUS = comicarr.FORCE_STATUS["rss"]
+                runtime.current().rss_status = "Waiting"
+                if any(ky == "rss" for ky, vl in runtime.current().force_status.items()):
+                    runtime.current().rss_status = runtime.current().force_status["rss"]
                     next_the_run = True
             else:
-                comicarr.RSS_STATUS = "Paused"
-            sched_status = comicarr.RSS_STATUS
+                runtime.current().rss_status = "Paused"
+            sched_status = runtime.current().rss_status
         elif jobname == "Weekly Pullist":
-            prev_run_timestamp = comicarr.SCHED_WEEKLY_LAST
+            prev_run_timestamp = runtime.current().sched_weekly_last
             if "next run" in jobstatus:
-                if comicarr.WEEKLY_STATUS not in {"Error", "Running", "Queued"}:
-                    _set_projected_runtime_field("weekly_status", "WEEKLY_STATUS", "Waiting")
-                if any(ky == "weekly" for ky, vl in comicarr.FORCE_STATUS.items()):
-                    _set_projected_runtime_field("weekly_status", "WEEKLY_STATUS", comicarr.FORCE_STATUS["weekly"])
+                if runtime.current().weekly_status not in {"Error", "Running", "Queued"}:
+                    runtime.current().weekly_status = "Waiting"
+                if any(ky == "weekly" for ky, vl in runtime.current().force_status.items()):
+                    runtime.current().weekly_status = runtime.current().force_status["weekly"]
                     next_the_run = True
             else:
-                _set_projected_runtime_field("weekly_status", "WEEKLY_STATUS", "Paused")
-            sched_status = comicarr.WEEKLY_STATUS
+                runtime.current().weekly_status = "Paused"
+            sched_status = runtime.current().weekly_status
         elif jobname == "Check Version":
-            prev_run_timestamp = comicarr.SCHED_VERSION_LAST
+            prev_run_timestamp = runtime.current().sched_version_last
             if "next run" in jobstatus:
-                comicarr.VERSION_STATUS = "Waiting"
-                if any(ky == "version" for ky, vl in comicarr.FORCE_STATUS.items()):
-                    comicarr.VERSION_STATUS = comicarr.FORCE_STATUS["version"]
+                runtime.current().version_status = "Waiting"
+                if any(ky == "version" for ky, vl in runtime.current().force_status.items()):
+                    runtime.current().version_status = runtime.current().force_status["version"]
                     next_the_run = True
             else:
-                comicarr.VERSION_STATUS = "Paused"
-            sched_status = comicarr.VERSION_STATUS
+                runtime.current().version_status = "Paused"
+            sched_status = runtime.current().version_status
         elif jobname == "Folder Monitor":
-            prev_run_timestamp = comicarr.SCHED_MONITOR_LAST
+            prev_run_timestamp = runtime.current().sched_monitor_last
             if "next run" in jobstatus:
-                comicarr.MONITOR_STATUS = "Waiting"
-                if any(ky == "monitor" for ky, vl in comicarr.FORCE_STATUS.items()):
-                    comicarr.MONITOR_STATUS = comicarr.FORCE_STATUS["monitor"]
+                runtime.current().monitor_status = "Waiting"
+                if any(ky == "monitor" for ky, vl in runtime.current().force_status.items()):
+                    runtime.current().monitor_status = runtime.current().force_status["monitor"]
                     next_the_run = True
             else:
-                comicarr.MONITOR_STATUS = "Paused"
-            sched_status = comicarr.MONITOR_STATUS
+                runtime.current().monitor_status = "Paused"
+            sched_status = runtime.current().monitor_status
         elif jobname == "Manga ledger sync":
-            prev_run_timestamp = comicarr.SCHED_MANGA_SYNC_LAST
+            prev_run_timestamp = runtime.current().sched_manga_sync_last
             if "next run" in jobstatus:
-                comicarr.MANGA_SYNC_STATUS = "Waiting"
-                if any(ky == "manga_sync" for ky, vl in comicarr.FORCE_STATUS.items()):
-                    comicarr.MANGA_SYNC_STATUS = comicarr.FORCE_STATUS["manga_sync"]
+                runtime.current().manga_sync_status = "Waiting"
+                if any(ky == "manga_sync" for ky, vl in runtime.current().force_status.items()):
+                    runtime.current().manga_sync_status = runtime.current().force_status["manga_sync"]
                     next_the_run = True
             else:
-                comicarr.MANGA_SYNC_STATUS = "Paused"
-            sched_status = comicarr.MANGA_SYNC_STATUS
+                runtime.current().manga_sync_status = "Paused"
+            sched_status = runtime.current().manga_sync_status
 
         jtime = None
         try:
@@ -2498,11 +2490,11 @@ def job_management(
                         if "Status Updater" in jb.lower():
                             continue
                         elif job == "DB Updater" and "update" in jb.lower():
-                            if any(ky == "updater" for ky, vl in comicarr.FORCE_STATUS.items()):
-                                comicarr.UPDATER_STATUS = comicarr.FORCE_STATUS["updater"]
-                                comicarr.FORCE_STATUS.pop("updater")
+                            if any(ky == "updater" for ky, vl in runtime.current().force_status.items()):
+                                runtime.current().updater_status = runtime.current().force_status["updater"]
+                                runtime.current().force_status.pop("updater")
 
-                            if comicarr.UPDATER_STATUS != "Paused":
+                            if runtime.current().updater_status != "Paused":
                                 if comicarr.DB_BACKFILL is True:
                                     nextrun_stamp = utctimestamp() + (comicarr.CONFIG.BACKFILL_TIMESPAN * 60)
                                     logger.fdebug(
@@ -2516,11 +2508,11 @@ def job_management(
                             jobstore = jbst
                             break
                         elif job == "Auto-Search" and "search" in jb.lower():
-                            if any(ky == "search" for ky, vl in comicarr.FORCE_STATUS.items()):
-                                comicarr.SEARCH_STATUS = comicarr.FORCE_STATUS["search"]
-                                comicarr.FORCE_STATUS.pop("search")
+                            if any(ky == "search" for ky, vl in runtime.current().force_status.items()):
+                                runtime.current().search_status = runtime.current().force_status["search"]
+                                runtime.current().force_status.pop("search")
 
-                            if comicarr.SEARCH_STATUS != "Paused":
+                            if runtime.current().search_status != "Paused":
                                 if failure is True:
                                     logger.info(
                                         "Previous job could not run due to other jobs. Scheduling Auto-Search for 10 minutes from now."
@@ -2534,50 +2526,48 @@ def job_management(
                             jobstore = jbst
                             break
                         elif job == "RSS Feeds" and "rss" in jb.lower():
-                            if any(ky == "rss" for ky, vl in comicarr.FORCE_STATUS.items()):
-                                comicarr.RSS_STATUS = comicarr.FORCE_STATUS["rss"]
-                                comicarr.FORCE_STATUS.pop("rss")
+                            if any(ky == "rss" for ky, vl in runtime.current().force_status.items()):
+                                runtime.current().rss_status = runtime.current().force_status["rss"]
+                                runtime.current().force_status.pop("rss")
 
-                            if comicarr.RSS_STATUS != "Paused":
+                            if runtime.current().rss_status != "Paused":
                                 nextrun_stamp = utctimestamp() + (int(comicarr.CONFIG.RSS_CHECKINTERVAL) * 60)
                             else:
                                 comicarr.SCHED.pause_job("rss")
-                            comicarr.SCHED_RSS_LAST = last_run_completed
+                            runtime.current().sched_rss_last = last_run_completed
                             jobstore = jbst
                             break
                         elif job == "Weekly Pullist" and "weekly" in jb.lower():
-                            if any(ky == "weekly" for ky, vl in comicarr.FORCE_STATUS.items()):
-                                _set_projected_runtime_field(
-                                    "weekly_status", "WEEKLY_STATUS", comicarr.FORCE_STATUS["weekly"]
-                                )
-                                comicarr.FORCE_STATUS.pop("weekly")
+                            if any(ky == "weekly" for ky, vl in runtime.current().force_status.items()):
+                                runtime.current().weekly_status = runtime.current().force_status["weekly"]
+                                runtime.current().force_status.pop("weekly")
 
-                            if comicarr.WEEKLY_STATUS != "Paused":
+                            if runtime.current().weekly_status != "Paused":
                                 nextrun_date = getattr(jbst, "next_run_time", None)
                                 if nextrun_date is not None:
                                     nextrun_stamp = nextrun_date.timestamp()
                             else:
                                 comicarr.SCHED.pause_job("weekly")
-                            comicarr.SCHED_WEEKLY_LAST = last_run_completed
+                            runtime.current().sched_weekly_last = last_run_completed
                             jobstore = jbst
                             break
                         elif job == "Check Version" and "version" in jb.lower():
-                            if any(ky == "version" for ky, vl in comicarr.FORCE_STATUS.items()):
-                                comicarr.VERSION_STATUS = comicarr.FORCE_STATUS["version"]
-                                comicarr.FORCE_STATUS.pop("version")
+                            if any(ky == "version" for ky, vl in runtime.current().force_status.items()):
+                                runtime.current().version_status = runtime.current().force_status["version"]
+                                runtime.current().force_status.pop("version")
 
-                            if comicarr.VERSION_STATUS != "Paused":
+                            if runtime.current().version_status != "Paused":
                                 nextrun_stamp = utctimestamp() + (comicarr.CONFIG.CHECK_GITHUB_INTERVAL * 60)
                             else:
                                 comicarr.SCHED.pause_job("version")
                             jobstore = jbst
                             break
                         elif job == "Folder Monitor" and "monitor" in jb.lower():
-                            if any(ky == "monitor" for ky, vl in comicarr.FORCE_STATUS.items()):
-                                comicarr.MONITOR_STATUS = comicarr.FORCE_STATUS["monitor"]
-                                comicarr.FORCE_STATUS.pop("monitor")
+                            if any(ky == "monitor" for ky, vl in runtime.current().force_status.items()):
+                                runtime.current().monitor_status = runtime.current().force_status["monitor"]
+                                runtime.current().force_status.pop("monitor")
 
-                            if comicarr.MONITOR_STATUS != "Paused":
+                            if runtime.current().monitor_status != "Paused":
                                 nextrun_stamp = utctimestamp() + (int(comicarr.CONFIG.DOWNLOAD_SCAN_INTERVAL) * 60)
                             else:
                                 comicarr.SCHED.pause_job("monitor")
@@ -2596,7 +2586,7 @@ def job_management(
                     else:
                         nextrun_stamp = utctimestamp() + (int(comicarr.CONFIG.RSS_CHECKINTERVAL) * 60)
                         nextrun_date = datetime.datetime.fromtimestamp(nextrun_stamp, tz=datetime.timezone.utc)
-                        comicarr.SCHED_RSS_LAST = last_run_completed
+                        runtime.current().sched_rss_last = last_run_completed
 
                 if nextrun_date is not None:
                     logger.fdebug("ReScheduled job: %s to %s" % (job, common_dates.utc_date_to_local(nextrun_date)))

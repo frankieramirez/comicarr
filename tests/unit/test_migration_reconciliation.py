@@ -23,7 +23,7 @@ from comicarr.app.acquisition.maintenance import (
     refresh_runtime_state,
     set_reconciliation_state,
 )
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.tables import acquisition_reconciliation, metadata
 from comicarr.app.system import service as system_service
@@ -142,14 +142,14 @@ def test_runtime_resume_replays_obligations_starts_queues_and_resumes_jobs(monke
     monkeypatch.setattr(comicarr, "replay_acquisition_obligations", lambda: {"search": 2, "refresh": 1})
     monkeypatch.setattr(comicarr, "queue_schedule", lambda queue_name, mode: queues.append((queue_name, mode)))
     for name in (
-        "UPDATER_STATUS",
-        "SEARCH_STATUS",
-        "WEEKLY_STATUS",
-        "RSS_STATUS",
-        "MONITOR_STATUS",
-        "IMPORTINBOX_STATUS",
+        "updater_status",
+        "search_status",
+        "weekly_status",
+        "rss_status",
+        "monitor_status",
+        "importinbox_status",
     ):
-        monkeypatch.setattr(comicarr, name, "Waiting")
+        monkeypatch.setattr(runtime.current(), name, "Waiting")
 
     result = comicarr.resume_acquisition_runtime(config)
 

@@ -44,7 +44,28 @@ _bootstrap = AppContext()
 # 8f slice (#1478) adds its group here in the same change that deletes the
 # global, removes it from ``_CONTEXT_TO_LEGACY`` and lists it in
 # ``RETIRED_GLOBALS``.
-MIGRATED_FIELDS = frozenset()
+MIGRATED_FIELDS = frozenset(
+    {
+        # Scheduler status and schedule stamps (#1539).
+        "monitor_status",
+        "search_status",
+        "rss_status",
+        "weekly_status",
+        "version_status",
+        "updater_status",
+        "manga_sync_status",
+        "importinbox_status",
+        "force_status",
+        "weekly_manual_next_run",
+        "sched_rss_last",
+        "sched_weekly_last",
+        "sched_monitor_last",
+        "sched_search_last",
+        "sched_version_last",
+        "sched_dbupdate_last",
+        "sched_manga_sync_last",
+    }
+)
 
 
 _CONTEXT_TO_LEGACY = {
@@ -90,15 +111,6 @@ _CONTEXT_TO_LEGACY = {
     "pack_issueids_dont_queue": "PACK_ISSUEIDS_DONT_QUEUE",
     "folder_cache": "FOLDER_CACHE",
     "check_folder_cache": "CHECK_FOLDER_CACHE",
-    "monitor_status": "MONITOR_STATUS",
-    "search_status": "SEARCH_STATUS",
-    "rss_status": "RSS_STATUS",
-    "weekly_status": "WEEKLY_STATUS",
-    "version_status": "VERSION_STATUS",
-    "updater_status": "UPDATER_STATUS",
-    "force_status": "FORCE_STATUS",
-    "importinbox_status": "IMPORTINBOX_STATUS",
-    "weekly_manual_next_run": "WEEKLY_MANUAL_NEXT_RUN",
     "import_status": "IMPORT_STATUS",
     "import_files": "IMPORT_FILES",
     "import_totalfiles": "IMPORT_TOTALFILES",

@@ -15,7 +15,7 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import metadata, rss_search_seen
 from comicarr.app.search.backlog import PASS_RSS_WANTED
 from comicarr.app.series import wanted_pacing
@@ -31,7 +31,7 @@ def pacing_db(tmp_path, monkeypatch):
         "CONFIG",
         SimpleNamespace(ENABLE_RSS=True, RSS_CHECKINTERVAL=20, WANTED_SEARCH_PASS_ITEMS=250, SEARCH_TIER_CUTOFF=14),
     )
-    monkeypatch.setattr(comicarr, "RSS_STATUS", "Waiting")
+    monkeypatch.setattr(runtime.current(), "rss_status", "Waiting")
     monkeypatch.setattr(comicarr, "SCHED", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()

@@ -20,7 +20,7 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import ddl_info, metadata
 from comicarr.app.downloads import getcomics, postprocessing, pp_commands, recovery, router, service
 from comicarr.app.downloads import service as downloads_service
@@ -138,14 +138,14 @@ def test_folder_monitor_defers_when_processing_is_busy(tmp_path, monkeypatch):
     lock.acquire()
     monkeypatch.setattr(comicarr, "APILOCK", lock)
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CHECK_FOLDER=str(tmp_path)))
-    monkeypatch.setattr(comicarr, "MONITOR_STATUS", "Waiting")
+    monkeypatch.setattr(runtime.current(), "monitor_status", "Waiting")
     updates = []
     monkeypatch.setattr("comicarr.app.system.service.job_management", lambda **kw: updates.append(kw))
 
     result = FolderCheck().run()
 
     assert result == {"status": "IN PROGRESS"}
-    assert comicarr.MONITOR_STATUS == "Waiting"
+    assert runtime.current().monitor_status == "Waiting"
     assert updates[-1]["status"] == "Waiting"
     assert all("last_run_completed" not in update for update in updates)
     assert lock.locked()

@@ -37,7 +37,7 @@ import comicarr
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.config.log_level import record_startup_argument, resolve_startup_log_level
 from comicarr.app.config.registry import REGISTRY, as_legacy_definitions
-from comicarr.app.core import db, encrypted, logger
+from comicarr.app.core import db, encrypted, logger, runtime
 from comicarr.app.library import directories
 from comicarr.app.search import provider_config, prowlarr
 from comicarr.app.system import maintenance
@@ -1909,10 +1909,10 @@ class Config(object):
                 config.add_section("General")
             config.set("General", "search_delay", str(self.SEARCH_DELAY))
 
-        if self.ENABLE_RSS is True and comicarr.RSS_STATUS == "Paused":
-            comicarr.RSS_STATUS = "Waiting"
-        elif self.ENABLE_RSS is False and comicarr.RSS_STATUS == "Waiting":
-            comicarr.RSS_STATUS = "Paused"
+        if self.ENABLE_RSS is True and runtime.current().rss_status == "Paused":
+            runtime.current().rss_status = "Waiting"
+        elif self.ENABLE_RSS is False and runtime.current().rss_status == "Waiting":
+            runtime.current().rss_status = "Paused"
 
         if self.DUPECONSTRAINT is None:
             self.DUPECONSTRAINT = "filesize"

@@ -24,6 +24,7 @@ from sqlalchemy import select
 import comicarr
 import comicarr.app.search.engine
 from comicarr.app.common import dates as common_dates
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, issues, metadata, rssdb
 from comicarr.app.manga import mangadex
@@ -102,8 +103,8 @@ class TestRunFeedCheck:
             ),
             raising=False,
         )
-        monkeypatch.setattr(comicarr, "SCHED_RSS_LAST", None, raising=False)
-        monkeypatch.setattr(comicarr, "RSS_STATUS", None, raising=False)
+        monkeypatch.setattr(runtime.current(), "sched_rss_last", None, raising=False)
+        monkeypatch.setattr(runtime.current(), "rss_status", None, raising=False)
 
         env = SimpleNamespace(requests=[], searches=[], jobs=[])
 
@@ -148,10 +149,10 @@ class TestRunFeedCheck:
 
         assert feed_env.searches == [{"rsschecker": "yes"}]
         assert [job.get("status") for job in feed_env.jobs] == ["Running", "Waiting"]
-        assert comicarr.RSS_STATUS == "Waiting"
+        assert runtime.current().rss_status == "Waiting"
 
     def test_an_unforced_pass_inside_the_interval_does_nothing(self, feed_env, monkeypatch):
-        monkeypatch.setattr(comicarr, "SCHED_RSS_LAST", str(common_dates.utctimestamp()))
+        monkeypatch.setattr(runtime.current(), "sched_rss_last", str(common_dates.utctimestamp()))
 
         assert rss.run_feed_check() is None
 
@@ -286,7 +287,7 @@ class TestAppCallersUseTheSeam:
         monkeypatch.setattr(sync, "heal_empty_ledgers", lambda: 3)
         monkeypatch.setattr(rss, "check_mangadex_new_chapters", lambda: order.append("poll"))
         monkeypatch.setattr(rss, "check_manga_releases", lambda: order.append("search"))
-        monkeypatch.setattr(comicarr, "SCHED_MANGA_SYNC_LAST", None, raising=False)
+        monkeypatch.setattr(runtime.current(), "sched_manga_sync_last", None, raising=False)
 
         assert sync.run_manga_sync() == {"healed": 3}
         assert order == ["poll", "search"]

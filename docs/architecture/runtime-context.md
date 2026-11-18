@@ -113,3 +113,6 @@ Each retirement slice moves one group of globals in a single change:
    return.
 
 The projection and `_CONTEXT_TO_LEGACY` are removed once the last group is.
+
+Retired so far: scheduler status and schedule stamps (`*_status`,
+`force_status`, `weekly_manual_next_run`, `sched_*_last`; #1539).
