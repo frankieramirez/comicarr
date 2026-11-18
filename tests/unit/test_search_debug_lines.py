@@ -16,7 +16,7 @@ import types
 import pytest
 
 import comicarr
-from comicarr import search
+from comicarr.app.search import engine as search
 from comicarr.app.search.diagnostics import log_query, quoted, safe_provider_name
 from comicarr.app.search.evaluation import EvaluationSession
 from tests.unit import test_release_evaluation_integration as evaluation_fixtures

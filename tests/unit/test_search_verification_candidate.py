@@ -16,7 +16,7 @@ nzbid for all of them, and a single previously-failed release rejected every
 alternative the provider offered.
 """
 
-import comicarr.search as search
+from comicarr.app.search import engine as search
 
 
 def _candidate(nzbid, title, downloadit=True, comyear="2011"):
@@ -58,14 +58,14 @@ def test_each_candidate_is_described_by_itself(monkeypatch):
     monkeypatch.setattr(search, "searcher", fake_searcher)
     monkeypatch.setattr(search, "nzbname_create", lambda *a, **kw: "nzbname")
 
-    matches = [_candidate("empire-id", "Invincible 085 (digital-Empire)"),
-               _candidate("minutemen-id", "Invincible 085 (Minutemen-InnerDemons)")]
+    matches = [
+        _candidate("empire-id", "Invincible 085 (digital-Empire)"),
+        _candidate("minutemen-id", "Invincible 085 (Minutemen-InnerDemons)"),
+    ]
 
     search.verification(matches, _is_info())
 
-    assert seen == ["empire-id", "minutemen-id"], (
-        "second candidate was described by candidate 0: %r" % (seen,)
-    )
+    assert seen == ["empire-id", "minutemen-id"], "second candidate was described by candidate 0: %r" % (seen,)
 
 
 def test_fallback_candidate_can_still_be_taken(monkeypatch):
@@ -88,13 +88,25 @@ def test_fallback_candidate_can_still_be_taken(monkeypatch):
     monkeypatch.setattr(search.snatch_record, "foundsearch", lambda *a, **kw: None)
     monkeypatch.setattr(search, "notify_snatch", lambda *a, **kw: None)
 
-    matches = [_candidate("empire-id", "Invincible 085 (digital-Empire)"),
-               _candidate("minutemen-id", "Invincible 085 (Minutemen-InnerDemons)")]
+    matches = [
+        _candidate("empire-id", "Invincible 085 (digital-Empire)"),
+        _candidate("minutemen-id", "Invincible 085 (Minutemen-InnerDemons)"),
+    ]
 
     info = _is_info()
-    info.update({"ComicName": "Invincible", "ComicYear": "2003", "IssueID": "1001",
-                 "ComicID": "17993", "SARC": None, "IssueArcID": None,
-                 "smode": "want", "oneoff": False, "IssueNumber": "85"})
+    info.update(
+        {
+            "ComicName": "Invincible",
+            "ComicYear": "2003",
+            "IssueID": "1001",
+            "ComicID": "17993",
+            "SARC": None,
+            "IssueArcID": None,
+            "smode": "want",
+            "oneoff": False,
+            "IssueNumber": "85",
+        }
+    )
 
     out = search.verification(matches, info)
 
@@ -127,9 +139,7 @@ def test_skipped_candidate_does_not_misname_the_snatch(monkeypatch):
     monkeypatch.setattr(search, "nzbname_create", lambda *a, **kw: "nzbname")
     monkeypatch.setattr(search.snatch_record, "nzblog", lambda *a, **kw: logged.update(kw))
     monkeypatch.setattr(search.snatch_record, "foundsearch", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        search, "notify_snatch", lambda sent_to, name, year, *a: snatched.update(year=year)
-    )
+    monkeypatch.setattr(search, "notify_snatch", lambda sent_to, name, year, *a: snatched.update(year=year))
 
     matches = [
         _candidate("alt-id", "Invincible 085 (alt match)", downloadit=False, comyear="1999"),
@@ -137,14 +147,22 @@ def test_skipped_candidate_does_not_misname_the_snatch(monkeypatch):
     ]
 
     info = _is_info()
-    info.update({"ComicName": "Invincible", "ComicYear": "2003", "IssueID": "1001",
-                 "ComicID": "17993", "SARC": None, "IssueArcID": None,
-                 "smode": "want", "oneoff": False, "IssueNumber": "85"})
+    info.update(
+        {
+            "ComicName": "Invincible",
+            "ComicYear": "2003",
+            "IssueID": "1001",
+            "ComicID": "17993",
+            "SARC": None,
+            "IssueArcID": None,
+            "smode": "want",
+            "oneoff": False,
+            "IssueNumber": "85",
+        }
+    )
 
     out = search.verification(matches, info)
 
     assert out["foundc"]["status"] is True
-    assert logged["id"] == "minutemen-id", (
-        "nzblog was given the skipped candidate's nzbid: %r" % (logged.get("id"),)
-    )
+    assert logged["id"] == "minutemen-id", "nzblog was given the skipped candidate's nzbid: %r" % (logged.get("id"),)
     assert snatched["year"] == "2011"

@@ -394,8 +394,8 @@ def search_issue(ctx, issue_id, *, trigger="issue_retry", entity_type=None):
 
 def force_search(ctx):
     """Trigger a full search for all wanted issues with a durable outcome."""
-    from comicarr import search
     from comicarr.app.acquisition.runs import RunLedger
+    from comicarr.app.search import engine as search
 
     precheck = route_health(ctx)
     if not precheck.get("success"):
@@ -1123,7 +1123,7 @@ def _process_search_command(command):
             }
         )
         return {"status": True, "source": "local"}
-    return comicarr.search.searchforissue(
+    return comicarr.app.search.engine.searchforissue(
         command.issueid,
         manual=command.manual,
         entity_type=command.entity_type,
@@ -1287,7 +1287,7 @@ def run_scheduled_search() -> None:
     )
     comicarr.SEARCH_STATUS = "Running"
     try:
-        comicarr.search.searchforissue()
+        comicarr.app.search.engine.searchforissue()
     except Exception as e:
         comicarr.SEARCH_STATUS = "Error"
         system_service.job_management(

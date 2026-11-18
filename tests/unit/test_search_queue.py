@@ -76,7 +76,7 @@ def _configure_worker(monkeypatch):
     monkeypatch.setattr(comicarr, "DDL_QUEUED", [])
     monkeypatch.setattr(comicarr, "PP_QUEUE", queue.Queue())
     monkeypatch.setattr(service, "filers", SimpleNamespace(FileHandlers=lambda **_kwargs: _FileCheck()))
-    monkeypatch.setattr(comicarr, "search", SimpleNamespace(searchforissue=provider_search))
+    monkeypatch.setattr(comicarr.app.search, "engine", SimpleNamespace(searchforissue=provider_search))
     monkeypatch.setattr(service.time, "sleep", lambda _seconds: None)
     return provider_search
 
@@ -651,7 +651,7 @@ def test_search_candidate_optional_ended_series_stays_inactive():
 
 
 def test_bulk_candidate_state_avoids_per_issue_eligibility_query(monkeypatch):
-    from comicarr import search as legacy_search
+    from comicarr.app.search import engine as legacy_search
 
     lookup = MagicMock(side_effect=AssertionError("bulk candidate should avoid a per-item query"))
     monkeypatch.setattr(series_queries, "get_search_candidate_state", lookup)
@@ -678,7 +678,7 @@ def test_bulk_candidate_state_avoids_per_issue_eligibility_query(monkeypatch):
 
 
 def test_manual_wanted_scan_queues_eligible_backlog_outside_automatic_tier(acquisition_ledger, monkeypatch):
-    from comicarr import search as legacy_search
+    from comicarr.app.search import engine as legacy_search
 
     monkeypatch.setattr(
         comicarr,

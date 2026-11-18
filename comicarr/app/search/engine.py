@@ -1745,7 +1745,7 @@ def verification(verified_matches, is_info):
             if verified["downloadit"]:
                 try:
                     if verified["chkit"]:
-                        search_service.checkthe_id(ComicID, verified["chkit"])
+                        search_service.checkthe_id(is_info["ComicID"], verified["chkit"])
                 except Exception:
                     pass
                 # nzbname_create() reads ComicName, IssueNumber and comyear off
@@ -2477,13 +2477,14 @@ def searchforissue(
                             "err": str(err),
                             "err_text": err_text,
                             "traceback": tracebackline,
-                            "comicname": comicname,
-                            "issuenumber": result["Issue_Number"],
-                            "seriesyear": SeriesYear,
-                            "issueid": result["IssueID"],
-                            "comicid": result["ComicID"],
-                            "smode": smode,
-                            "booktype": booktype,
+                            # The row can fail before these are assigned; the report must not raise.
+                            "comicname": locals().get("comicname"),
+                            "issuenumber": result.get("Issue_Number"),
+                            "seriesyear": locals().get("SeriesYear"),
+                            "issueid": result.get("IssueID"),
+                            "comicid": result.get("ComicID"),
+                            "smode": "rss" if rsschecker else ("manual" if manual else "backlog"),
+                            "booktype": locals().get("booktype"),
                         }
 
                         configured.log_that_exception(except_line)

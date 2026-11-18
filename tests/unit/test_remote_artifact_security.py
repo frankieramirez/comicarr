@@ -17,10 +17,10 @@ from unittest.mock import MagicMock
 import pytest
 
 import comicarr
-from comicarr import search
 from comicarr.app.common import remote_artifacts
 from comicarr.app.downloads import getcomics
 from comicarr.app.downloads.ddl import mediafire
+from comicarr.app.search import engine as search
 
 
 def _assert_within(root, path):

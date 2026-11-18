@@ -1556,13 +1556,13 @@ def mangaCheck():
     A series whose names match no rssdb row on any site is skipped without a
     search_init call, and identical rssdb lookups inside the pass run once.
     """
-    from comicarr import search
     from comicarr.app.core.tables import comics as t_comics
     from comicarr.app.core.tables import issues as t_issues
     from comicarr.app.core.tables import manga_volumes as t_volumes
     from comicarr.app.manga.acquisition import search_plan_for_series
     from comicarr.app.manga.ledger import volume_id
     from comicarr.app.manga.sync import active_manga_clause
+    from comicarr.app.search import engine as search
 
     logger.info("[MANGA-RSS] Starting manga blended-frontier search")
 

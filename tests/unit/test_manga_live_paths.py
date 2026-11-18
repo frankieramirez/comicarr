@@ -15,17 +15,17 @@ import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import comicarr.search as search
 from comicarr.app.manga.acquisition import search_plan_for_series, search_terms_for_target
 from comicarr.app.manga.ledger import volume_numbers_match
 from comicarr.app.manga.parse import parse_in_series_context, parse_kwargs_for_series
 from comicarr.app.manga.sync import arm_manga_sync_job, next_interval_run
+from comicarr.app.search import engine as search
+from comicarr.app.search.engine import _build_manga_search_terms, manga_volume_search_terms
 from comicarr.app.search.evaluation import manga_volume_satisfies
 from comicarr.app.search.rss_feeds import mangaCheck
-from comicarr.search import _build_manga_search_terms, manga_volume_search_terms
 
 _INIT_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "__init__.py"
-_SEARCH_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "search.py"
+_SEARCH_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "app" / "search" / "engine.py"
 _FILECHECKER_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "app" / "library" / "filechecker.py"
 
 
@@ -157,7 +157,7 @@ def test_manga_check_searches_blended_targets_not_every_wanted_chapter():
         patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False)),
         patch("comicarr.app.search.rss_feeds.series_service") as mock_helpers,
         patch("comicarr.app.search.rss_feeds.db") as mock_db,
-        patch("comicarr.search.search_init") as mock_search,
+        patch("comicarr.app.search.engine.search_init") as mock_search,
     ):
         mock_db.select_all.side_effect = [[series], issues, []]
         mock_helpers.issue_status.return_value = False

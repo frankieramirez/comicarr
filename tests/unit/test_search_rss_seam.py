@@ -22,7 +22,7 @@ import requests
 from sqlalchemy import select
 
 import comicarr
-import comicarr.search
+import comicarr.app.search.engine
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, issues, metadata, rssdb
@@ -112,7 +112,7 @@ class TestRunFeedCheck:
             return SimpleNamespace(status_code=200, content=NEWZNAB_RSS_FEED)
 
         monkeypatch.setattr(rsscheck, "requests", SimpleNamespace(get=fake_get, exceptions=requests.exceptions))
-        monkeypatch.setattr(comicarr.search, "searchforissue", lambda **kw: env.searches.append(kw))
+        monkeypatch.setattr(comicarr.app.search.engine, "searchforissue", lambda **kw: env.searches.append(kw))
         monkeypatch.setattr(system_service, "job_management", lambda **kw: env.jobs.append(kw))
         return env
 
@@ -236,7 +236,7 @@ class TestMangaFeeds:
                 )
             )
         calls = []
-        monkeypatch.setattr(comicarr.search, "search_init", lambda *a, **kw: calls.append((a, kw)))
+        monkeypatch.setattr(comicarr.app.search.engine, "search_init", lambda *a, **kw: calls.append((a, kw)))
 
         rss.check_manga_releases()
 
@@ -259,7 +259,7 @@ class TestMangaFeeds:
                 )
             )
         calls = []
-        monkeypatch.setattr(comicarr.search, "search_init", lambda *a, **kw: calls.append((a, kw)))
+        monkeypatch.setattr(comicarr.app.search.engine, "search_init", lambda *a, **kw: calls.append((a, kw)))
 
         rss.check_manga_releases()
 

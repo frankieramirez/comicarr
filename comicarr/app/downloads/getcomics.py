@@ -283,7 +283,7 @@ class GC(object):
         seen_urls = set()
         while page_no <= total_pages:
             pause_the_search = comicarr.CONFIG.DDL_QUERY_DELAY
-            diff = comicarr.search.check_time(self.provider_stat["lastrun"])
+            diff = comicarr.app.search.engine.check_time(self.provider_stat["lastrun"])
             if diff < pause_the_search:
                 logger.warn(
                     "[PROVIDER-SEARCH-DELAY][DDL] Waiting %s seconds before we fetch a search page again..."
@@ -331,7 +331,7 @@ class GC(object):
                 total_pages = 1
 
             write_time = time.time()
-            comicarr.search.last_run_check(
+            comicarr.app.search.engine.last_run_check(
                 write={
                     "DDL(GetComics)": {
                         "id": 200,

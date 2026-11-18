@@ -1,5 +1,5 @@
 """
-Unit tests for manga search query construction in comicarr/search.py.
+Unit tests for manga search query construction in comicarr/app/search/engine.py.
 
 Tests cover _build_manga_search_terms() which generates NZB/torrent-provider
 query variations for manga chapters and volumes.
@@ -18,13 +18,13 @@ from comicarr.app.series import service as series_service
 # initializing the full comicarr application.
 @pytest.fixture(autouse=True)
 def _mock_logger():
-    with patch("comicarr.search.logger") as mock_log:
+    with patch("comicarr.app.search.engine.logger") as mock_log:
         mock_log.fdebug = lambda *a, **kw: None
         yield mock_log
 
 
 def _build():
-    from comicarr.search import _build_manga_search_terms
+    from comicarr.app.search.engine import _build_manga_search_terms
 
     return _build_manga_search_terms
 
@@ -173,7 +173,7 @@ class TestSeriesContentKindSearchHandoff:
         set_by,
         expected_kind,
     ):
-        from comicarr import search
+        from comicarr.app.search import engine as search
 
         monkeypatch.setattr(
             comicarr,
@@ -250,7 +250,7 @@ _DDL_PROVIDER_PLAN = {
 
 
 def _search_init_logged_provider_order(monkeypatch, mock_log, *, content_type):
-    from comicarr import search
+    from comicarr.app.search import engine as search
 
     orders = []
 
@@ -288,7 +288,7 @@ def _search_init_logged_provider_order(monkeypatch, mock_log, *, content_type):
 
 class TestProvidersWithoutDdl:
     def test_drops_getcomics_and_external(self):
-        from comicarr.search import _providers_without_ddl
+        from comicarr.app.search.engine import _providers_without_ddl
 
         original = {
             **_DDL_PROVIDER_PLAN,

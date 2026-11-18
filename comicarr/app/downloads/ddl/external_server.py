@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Comicarr.  If not, see <http://www.gnu.org/licenses/>.
 
-"""DDL(External) search seam used by ``comicarr.search``.
+"""DDL(External) search seam used by ``comicarr.app.search.engine``.
 
 Mylar3 shipped this module as a placeholder (``EXT_SERVER = False``) for an
 optional drop-in that defined ``MegaNZ``. Comicarr still constructs

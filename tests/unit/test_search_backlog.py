@@ -210,8 +210,8 @@ def test_negative_budget_disables_the_cap_instead_of_slicing_from_the_end(backlo
 
 @pytest.fixture
 def rss_watchlist(tmp_path, monkeypatch):
-    from comicarr import search as legacy_search
     from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+    from comicarr.app.search import engine as legacy_search
 
     monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
     monkeypatch.setattr(
@@ -434,3 +434,32 @@ def test_issue_list_search_queues_with_prowlarr_usenet_as_the_only_provider(rss_
     rss_watchlist.search.searchIssueIDList(["1"])
 
     assert [payload["issueid"] for payload in queued] == ["1"]
+
+
+def test_one_failing_wanted_row_does_not_end_the_scan(rss_watchlist, monkeypatch):
+    """A row that raises is logged and skipped; the scan goes on to the next one.
+
+    The handler used to read an undefined ``smode``, so the NameError it raised
+    escaped and ended the whole pass at the first bad row.
+    """
+    real_select_one = rss_watchlist.search.db.select_one
+    calls = {"n": 0}
+
+    def flaky_select_one(stmt):
+        # The scan loop's first statement per row looks the series up by ComicName.
+        if 'comics."ComicName" !=' in str(stmt) or "comics.ComicName !=" in str(stmt):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("bad row")
+        return real_select_one(stmt)
+
+    logged = MagicMock()
+    monkeypatch.setattr(rss_watchlist.search.db, "select_one", flaky_select_one)
+    monkeypatch.setattr(rss_watchlist.search.configured, "log_that_exception", logged)
+    _seed_watchlist(_wanted("1"), _wanted("2"))
+
+    rss_watchlist.search.searchforissue(rsschecker="yes")
+
+    logged.assert_called_once()
+    assert logged.call_args.args[0]["smode"] == "rss"
+    assert calls["n"] > 1

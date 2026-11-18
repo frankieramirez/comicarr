@@ -28,7 +28,6 @@ import sqlalchemy.exc
 from sqlalchemy import select
 
 import comicarr
-from comicarr import search
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
@@ -42,6 +41,7 @@ from comicarr.app.manga import add as manga_add
 from comicarr.app.metadata import cv, series_metadata
 from comicarr.app.metadata import service as metadata_service
 from comicarr.app.metadata.series_type import resolve_series_edition
+from comicarr.app.search import engine as search
 from comicarr.app.search import mb
 from comicarr.app.series import rescan
 from comicarr.app.series import service as series_service

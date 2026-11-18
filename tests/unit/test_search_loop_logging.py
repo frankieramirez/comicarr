@@ -14,8 +14,8 @@ import types
 import pytest
 
 import comicarr
-from comicarr import search
 from comicarr.app.config.registry import REGISTRY
+from comicarr.app.search import engine as search
 from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import EvaluationSession
 from comicarr.app.series import service as series_service
