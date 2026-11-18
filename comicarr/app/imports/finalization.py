@@ -137,7 +137,7 @@ def _ensure_target_directory(target_directory: str | None) -> None:
     if os.path.exists(target_directory):
         raise _fail("Import target path is not a directory: %s" % target_directory, phase="preflight")
 
-    from comicarr import filechecker
+    from comicarr.app.library import filechecker
 
     try:
         created = filechecker.validateAndCreateDirectory(target_directory, True)

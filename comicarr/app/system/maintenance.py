@@ -27,9 +27,9 @@ import sqlite3
 import time
 
 import comicarr
-from comicarr import filechecker
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import logger
+from comicarr.app.library import filechecker
 from comicarr.app.series.add import add_series
 
 

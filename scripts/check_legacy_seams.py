@@ -92,25 +92,7 @@ ROUTER_ALLOWLIST: dict[tuple[str, str], tuple[str, str]] = {}
 DEFERRED = "a change that moves this module's behavior under comicarr/app/; not a Foundations gate (ADR-0005)"
 
 DEFERRED_ALLOWLIST = {
-    ("comicarr/app/downloads/service.py", "filechecker"): ("FileChecker for duplicate checks", DEFERRED),
     ("comicarr/app/downloads/service.py", "search"): ("FailedMark and searchforissue for retries", DEFERRED),
-    ("comicarr/app/imports/finalization.py", "filechecker"): ("validateAndCreateDirectory", DEFERRED),
-    ("comicarr/app/system/maintenance.py", "filechecker"): (
-        "the database-conversion maintenance task parses old file names with FileChecker; carried over when maintenance.py moved (#1419)",
-        "#1422 moves filechecker under comicarr/app/",
-    ),
-    ("comicarr/app/library/filers.py", "filechecker"): (
-        "FileChecker lists and parses the files in a series folder; carried over when filers.py moved (#1417)",
-        "#1422 moves filechecker under comicarr/app/",
-    ),
-    ("comicarr/app/weekly/pull_list.py", "filechecker"): (
-        "FileChecker.dynamic_replace normalizes pull-list series names; carried over when weeklypull.py moved (#1522)",
-        "#1422 moves filechecker under comicarr/app/",
-    ),
-    ("comicarr/app/search/rss_feeds.py", "filechecker"): (
-        "FileChecker parses feed titles into series and issue; carried over when rsscheck.py moved (#1523)",
-        "#1422 moves filechecker under comicarr/app/",
-    ),
     ("comicarr/app/search/rss_feeds.py", "search"): (
         "mangaCheck runs search.search_init for each manga target; carried over when rsscheck.py moved (#1523)",
         "#1422 moves search under comicarr/app/",
@@ -123,23 +105,12 @@ DEFERRED_ALLOWLIST = {
         "provider pacing (check_time, last_run_check) lives in search; carried over when getcomics.py moved (#1530)",
         "#1422 moves search under comicarr/app/",
     ),
-    ("comicarr/app/series/comic_add.py", "filechecker"): (
-        "FileChecker matches existing files to a new series; carried over when addComictoDB moved (#1464)",
-        "#1422 moves filechecker under comicarr/app/",
-    ),
     ("comicarr/app/series/comic_add.py", "search"): (
         "searchforissue and searchIssueIDList search the wanted issues of a new series; carried over when addComictoDB moved (#1464)",
         "#1422 moves search under comicarr/app/",
     ),
-    ("comicarr/app/series/folder_rescan.py", "filechecker"): (
-        "FileChecker lists and parses the files in a series folder; carried over when forceRescan moved (#1459)",
-        "#1422 moves filechecker under comicarr/app/",
-    ),
-    ("comicarr/app/search/evaluation.py", "filechecker"): ("FileChecker parses release names", DEFERRED),
     ("comicarr/app/search/interactive.py", "search"): ("interactive search drives search.py", DEFERRED),
     ("comicarr/app/search/service.py", "search"): ("searchforissue", DEFERRED),
-    ("comicarr/app/series/service.py", "filechecker"): ("validateAndCreateDirectory", DEFERRED),
-    ("comicarr/app/storyarcs/service.py", "filechecker"): ("FileChecker and validateAndCreateDirectory", DEFERRED),
 }
 
 ALLOWLISTS = {

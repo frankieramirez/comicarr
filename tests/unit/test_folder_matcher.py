@@ -483,7 +483,7 @@ def test_a_manga_chapter_matches_a_series_stored_with_the_old_lookup_key(tmp_pat
 
 
 def test_a_manga_chapter_matches_a_series_stored_with_the_shared_lookup_key(tmp_path):
-    from comicarr import filechecker
+    from comicarr.app.library import filechecker
 
     _manga_series(tmp_path, name="Sand and Sky", dynamic_name=filechecker.dynamic_series_key("Sand and Sky"))
     path = _download(tmp_path, "Sand and Sky 12.cbz")

@@ -17,7 +17,7 @@
 
 """Create library folders and apply the configured owner and permissions.
 
-Moved unchanged from ``comicarr/filechecker.py`` (#1415); ``filechecker``
+Moved unchanged from the old root ``filechecker.py`` (#1415); ``filechecker``
 re-exports these names for its remaining callers.
 """
 

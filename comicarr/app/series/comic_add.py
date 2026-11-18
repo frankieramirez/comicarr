@@ -28,7 +28,7 @@ import sqlalchemy.exc
 from sqlalchemy import select
 
 import comicarr
-from comicarr import filechecker, search
+from comicarr import search
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
@@ -37,7 +37,7 @@ from comicarr.app.core import db, logger
 from comicarr.app.core.tables import annuals, comics, issues
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.downloads import snatch_record
-from comicarr.app.library import directories, filers, moveit
+from comicarr.app.library import directories, filechecker, filers, moveit
 from comicarr.app.manga import add as manga_add
 from comicarr.app.metadata import cv, series_metadata
 from comicarr.app.metadata import service as metadata_service

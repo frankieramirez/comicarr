@@ -33,7 +33,6 @@ from sqlalchemy import Column, Integer, MetaData, Table, Text, func, or_, select
 from sqlalchemy.exc import OperationalError
 
 import comicarr
-from comicarr import filechecker
 from comicarr.app.common import configured as configured
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.common import strings as common_strings
@@ -44,6 +43,7 @@ from comicarr.app.core.tables import comics, rssdb
 from comicarr.app.downloads.torrent.clients import deluge as deluge
 from comicarr.app.downloads.torrent.clients import qbittorrent as qbittorrent
 from comicarr.app.downloads.torrent.clients import transmission
+from comicarr.app.library import filechecker
 from comicarr.app.search import rss_utorrent as utorrent
 from comicarr.app.search import service as search_service
 from comicarr.app.search.backlog import (
@@ -999,7 +999,7 @@ def nzbdbsearch(
                         if nzbprov != nzb["Site"] or not comicarr.CONFIG.ENABLE_NEWZNABS:
                             continue
 
-                fmod = comicarr.filechecker.FileChecker()
+                fmod = comicarr.app.library.filechecker.FileChecker()
                 formatrem_seriesname = fmod.dynamic_replace(nzb["ComicName"])["mod_seriesname"]
                 formatrem_nzbsplit = fmod.dynamic_replace(nzbTITLE)["mod_seriesname"]
                 if formatrem_seriesname.lower() in formatrem_nzbsplit.lower():

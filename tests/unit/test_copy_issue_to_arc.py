@@ -227,7 +227,7 @@ def _legacy_destination(library, config):
     ]
     filechecker = MagicMock()
     filechecker.validateAndCreateDirectory.side_effect = lambda path, **_kw: os.makedirs(path, exist_ok=True) or True
-    with patch.object(comicarr, "CONFIG", config), patch.object(comicarr, "filechecker", filechecker):
+    with patch.object(comicarr, "CONFIG", config), patch.object(comicarr.app.library, "filechecker", filechecker):
         service.updatearc_locs("SA1", arc_issues)
     with get_engine().connect() as conn:
         return conn.execute(

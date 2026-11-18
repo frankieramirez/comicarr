@@ -26,7 +26,7 @@ from comicarr.search import _build_manga_search_terms, manga_volume_search_terms
 
 _INIT_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "__init__.py"
 _SEARCH_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "search.py"
-_FILECHECKER_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "filechecker.py"
+_FILECHECKER_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "app" / "library" / "filechecker.py"
 
 
 def _is_search_init(func):

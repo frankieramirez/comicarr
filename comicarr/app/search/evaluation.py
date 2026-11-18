@@ -26,10 +26,10 @@ from dataclasses import dataclass, field
 from wsgiref.handlers import format_date_time
 
 import comicarr
-from comicarr import filechecker
 from comicarr.app.common import configured as configured
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.core import logger
+from comicarr.app.library import filechecker
 from comicarr.app.search import _pack_membership
 from comicarr.app.search._release_identity import generate_id
 from comicarr.app.search.diagnostics import log_evaluation, safe_provider_name

@@ -613,7 +613,7 @@ def _arc_watchlist(StoryArcID=None):
 
     Extracted from WebInterface.ArcWatchlist — standalone, no CherryPy deps.
     """
-    from comicarr import filechecker
+    from comicarr.app.library import filechecker
 
     if StoryArcID:
         ArcWatch = db.raw_select_all("SELECT * FROM storyarcs WHERE StoryArcID=?", [StoryArcID])
@@ -674,7 +674,7 @@ def _add_story_arc(
 
     Extracted from WebInterface.addStoryArc — standalone, no CherryPy deps.
     """
-    from comicarr import filechecker
+    from comicarr.app.library import filechecker
     from comicarr.app.search import mb
 
     module = "[STORY ARC]"
@@ -792,7 +792,7 @@ def _add_story_arc(
             except IndexError:
                 break
             comicname = arcval["ComicName"]
-            st_d = comicarr.filechecker.FileChecker(watchcomic=comicname)
+            st_d = comicarr.app.library.filechecker.FileChecker(watchcomic=comicname)
             st_dyninfo = st_d.dynamic_replace(comicname)
             dynamic_name = re.sub(r"[\|\s]", "", st_dyninfo["mod_seriesname"].lower()).strip()
 
@@ -1196,7 +1196,7 @@ def updatearc_locs(storyarcid, arc_issues):
                     logger.fdebug("Source Path : " + pathsrc)
                     if not os.path.isdir(grdst):
                         logger.fdebug("[ARC-DIRECTORY] Arc directory doesn't exist. Creating: %s" % grdst)
-                        comicarr.filechecker.validateAndCreateDirectory(grdst, create=True)
+                        comicarr.app.library.filechecker.validateAndCreateDirectory(grdst, create=True)
 
                     logger.info(
                         "[" + comicarr.CONFIG.ARC_FILEOPS.upper() + "] " + pathsrc + " into directory : " + pathdst
@@ -1226,7 +1226,7 @@ def updatearc_locs(storyarcid, arc_issues):
 
 def ensure_arc_directory(path):
     """Create a story-arc folder with the configured permissions; False on failure."""
-    from comicarr import filechecker
+    from comicarr.app.library import filechecker
 
     return filechecker.validateAndCreateDirectory(path, True, module="[STORY-ARC]")
 
