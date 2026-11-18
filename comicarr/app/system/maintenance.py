@@ -278,7 +278,7 @@ class Maintenance(object):
 
         self.sql_close_db()
 
-        with open(self.outputfile, "wb") as outfile:
+        with open(self.outputfile, "w", encoding="utf-8") as outfile:
             json.dump(self.comiclist, outfile)
 
         logger.info(
