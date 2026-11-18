@@ -16,14 +16,14 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.manga.sync import empty_ledger_series, heal_empty_ledgers, list_active_manga_series
 
 
 @pytest.fixture
 def query_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()

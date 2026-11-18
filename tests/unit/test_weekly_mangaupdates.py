@@ -17,7 +17,7 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr.app.core import db, workers
+from comicarr.app.core import db, runtime, workers
 from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.weekly import mangaupdates
 from comicarr.app.weekly import service as weekly_service
@@ -203,7 +203,7 @@ def test_disabled_without_a_manga_provider(monkeypatch):
 
 @pytest.fixture
 def library_db(cache_dir, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(cache_dir))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(cache_dir))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()

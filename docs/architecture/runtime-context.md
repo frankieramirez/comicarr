@@ -118,4 +118,9 @@ Retired so far: scheduler status and schedule stamps (`*_status`,
 `force_status`, `weekly_manual_next_run`, `sched_*_last`; #1539) and the work
 queues (`*_queue`, `add_list`, `issue_watch_list`), process locks
 (`init_lock`, `api_lock`, `search_lock`, `ddl_lock`, `acquisition_resume_lock`)
-and worker-pool references (`*_pool`; #1540).
+and worker-pool references (`*_pool`; #1540), and the install paths
+(`prog_dir`, `data_dir`, `db_file`; #1541).
+
+`tests/fixtures/upgrade_matrix/build.py` drives historical Comicarr and Mylar3
+release trees, where these globals are the old releases' real API, so the guard
+exempts the runtime-field names in that file only.

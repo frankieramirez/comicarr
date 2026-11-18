@@ -26,7 +26,7 @@ import threading
 import sqlalchemy as sa
 
 import comicarr
-from comicarr.app.core import db, encrypted, logger
+from comicarr.app.core import db, encrypted, logger, runtime
 from comicarr.app.system import maintenance
 
 _migration_lock = threading.Lock()
@@ -127,7 +127,7 @@ def _validate_source_path(source_path):
     if not os.path.isfile(config_path):
         return False, "No config.ini found at path"
 
-    if os.path.realpath(comicarr.DATA_DIR) == real_path:
+    if os.path.realpath(runtime.current().data_dir) == real_path:
         return False, "Cannot migrate from own data directory"
 
     return True, db_path
@@ -317,8 +317,8 @@ class Mylar3Migration:
             real_path = self.real_path
 
             logger.info("[MIGRATION] Creating pre-migration backup...")
-            backup_dir = os.path.join(comicarr.DATA_DIR, "backups")
-            maintenance.auto_backup_db(comicarr.DB_FILE, backup_dir)
+            backup_dir = os.path.join(runtime.current().data_dir, "backups")
+            maintenance.auto_backup_db(runtime.current().db_file, backup_dir)
 
             logger.info("[MIGRATION] Upgrading destination to Alembic head...")
             from comicarr.app.core.schema import upgrade_database
@@ -436,7 +436,7 @@ def migrate_mylar3_config(source_path):
         return
 
     if not comicarr.CONFIG.SECURE_DIR:
-        comicarr.CONFIG.SECURE_DIR = os.path.join(comicarr.DATA_DIR, ".secure")
+        comicarr.CONFIG.SECURE_DIR = os.path.join(runtime.current().data_dir, ".secure")
     os.makedirs(comicarr.CONFIG.SECURE_DIR, mode=0o700, exist_ok=True)
 
     fernet = encrypted._get_fernet()

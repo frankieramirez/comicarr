@@ -2,7 +2,6 @@
 Global pytest fixtures and configuration for Comicarr tests.
 """
 
-import os
 import sqlite3
 import sys
 import tempfile
@@ -10,6 +9,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+from comicarr.app.core import runtime
 
 # Add project root to Python path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -333,8 +334,8 @@ def mock_comicarr_globals(tmp_path, monkeypatch):
     # Import comicarr and patch globals
     import comicarr
 
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(data_dir))
-    monkeypatch.setattr(comicarr, "PROG_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(data_dir))
+    monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CACHE_DIR", str(cache_dir))
     monkeypatch.setattr(comicarr, "LOG_DIR", str(log_dir))
 

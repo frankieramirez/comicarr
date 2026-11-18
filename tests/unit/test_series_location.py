@@ -47,7 +47,7 @@ def library(tmp_path, monkeypatch):
         FORMAT_BOOKTYPE=False,
         ANNUALS_ON=False,
     )
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(data_dir))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(data_dir))
     monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()

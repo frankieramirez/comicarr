@@ -93,14 +93,15 @@ MIGRATED_FIELDS = frozenset(
         "ddl_lock",
         # Worker-pool references (#1540).
         *POOL_FIELDS,
+        # Install paths (#1541).
+        "prog_dir",
+        "data_dir",
+        "db_file",
     }
 )
 
 
 _CONTEXT_TO_LEGACY = {
-    "prog_dir": "PROG_DIR",
-    "data_dir": "DATA_DIR",
-    "db_file": "DB_FILE",
     "config": "CONFIG",
     "scheduler": "SCHED",
     "cv_session": "CV_SESSION",

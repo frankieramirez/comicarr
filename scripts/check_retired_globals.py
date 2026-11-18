@@ -118,6 +118,11 @@ _RUNTIME_FIELD_GROUPS = {
         "MASS_ADD",
         "MASS_REFRESH",
     ),
+    "install paths (#1541)": (
+        "PROG_DIR",
+        "DATA_DIR",
+        "DB_FILE",
+    ),
 }
 
 # Retired names whose context field is not simply the lowercased name.
@@ -167,6 +172,12 @@ RETIRED_PATTERNS = {
 
 SELF = Path(__file__).resolve()
 
+# Files that drive historical Comicarr and Mylar3 release trees, where the
+# package globals are those releases' real API. Only the runtime-field names
+# are exempt there; every other retired name is still checked.
+HISTORICAL_FILES = {"tests/fixtures/upgrade_matrix/build.py"}
+_RUNTIME_FIELD_NAMES = {name for names in _RUNTIME_FIELD_GROUPS.values() for name in names}
+
 
 def _iter_source_files():
     for name in SCAN_FILES:
@@ -202,9 +213,11 @@ def main() -> int:
         for lineno, line in enumerate(lines, start=1):
             if _is_comment(line):
                 continue
-            for pattern in RETIRED_PATTERNS.values():
+            rel = path.relative_to(ROOT).as_posix()
+            for name, pattern in RETIRED_PATTERNS.items():
+                if rel in HISTORICAL_FILES and name in _RUNTIME_FIELD_NAMES:
+                    continue
                 if pattern.search(line):
-                    rel = path.relative_to(ROOT).as_posix()
                     violations.append("%s:%d: %s" % (rel, lineno, line.strip()))
 
     if not violations:

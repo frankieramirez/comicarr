@@ -351,7 +351,7 @@ class Config(object):
 
         if startup is True:
             if self.LOG_DIR is None:
-                self.LOG_DIR = os.path.join(comicarr.DATA_DIR, "logs")
+                self.LOG_DIR = os.path.join(runtime.current().data_dir, "logs")
 
             if not os.path.exists(self.LOG_DIR):
                 try:
@@ -389,7 +389,7 @@ class Config(object):
 
         if any([self.CONFIG_VERSION == 0, self.CONFIG_VERSION < self.newconfig]):
             if not self.BACKUP_LOCATION:
-                self.BACKUP_LOCATION = os.path.join(comicarr.DATA_DIR, "backup")
+                self.BACKUP_LOCATION = os.path.join(runtime.current().data_dir, "backup")
 
             backupinfo = {
                 "location": self.BACKUP_LOCATION,
@@ -975,7 +975,7 @@ class Config(object):
         """Encrypt provider keys retained in historical config backups."""
         backup_dir = self.BACKUP_LOCATION
         if backup_dir in (None, "", "None"):
-            backup_dir = os.path.join(comicarr.DATA_DIR, "backup")
+            backup_dir = os.path.join(runtime.current().data_dir, "backup")
 
         for backup_name in glob.glob(os.path.join(backup_dir, "config.ini-v*.backup*")):
             backup_path = Path(backup_name)
@@ -1627,7 +1627,7 @@ class Config(object):
     def _ensure_secure_directory(self):
         """Establish encryption authority before any configuration persistence."""
         if not self.SECURE_DIR:
-            self.SECURE_DIR = os.path.join(comicarr.DATA_DIR, ".secure")
+            self.SECURE_DIR = os.path.join(runtime.current().data_dir, ".secure")
 
         try:
             if os.path.exists(self.SECURE_DIR):
@@ -1684,7 +1684,7 @@ class Config(object):
             logger.fdebug("Log dir: %s" % self.LOG_DIR)
 
         if self.LOG_DIR is None:
-            self.LOG_DIR = os.path.join(comicarr.DATA_DIR, "logs")
+            self.LOG_DIR = os.path.join(runtime.current().data_dir, "logs")
 
         if not os.path.exists(self.LOG_DIR):
             try:
@@ -1694,7 +1694,7 @@ class Config(object):
                 logger.warn("[CONFIG] Unable to create the log directory. Logging to screen only.")
 
         if not self.CACHE_DIR:
-            self.CACHE_DIR = os.path.join(str(comicarr.DATA_DIR), "cache")
+            self.CACHE_DIR = os.path.join(str(runtime.current().data_dir), "cache")
             if not update:
                 logger.fdebug(
                     "[Cache Check] Cache directory not found in configuration. Defaulting location to : "
@@ -1706,7 +1706,8 @@ class Config(object):
                 os.makedirs(self.CACHE_DIR)
             except OSError:
                 logger.error(
-                    "[Cache Check] Could not create cache dir. Check permissions of datadir: %s" % comicarr.DATA_DIR
+                    "[Cache Check] Could not create cache dir. Check permissions of datadir: %s"
+                    % runtime.current().data_dir
                 )
 
         self._ensure_secure_directory()
@@ -1756,7 +1757,7 @@ class Config(object):
                     pass
 
         if not self.BACKUP_LOCATION:
-            self.BACKUP_LOCATION = os.path.join(comicarr.DATA_DIR, "backup")
+            self.BACKUP_LOCATION = os.path.join(runtime.current().data_dir, "backup")
 
         if not os.path.exists(self.BACKUP_LOCATION):
             try:
@@ -2086,7 +2087,7 @@ class Config(object):
 
         if self.AUTO_SNATCH is True and self.AUTO_SNATCH_SCRIPT is None:
             self.AUTO_SNATCH_SCRIPT = os.path.join(
-                comicarr.PROG_DIR, "post-processing", "torrent-auto-snatch", "getlftp.sh"
+                runtime.current().prog_dir, "post-processing", "torrent-auto-snatch", "getlftp.sh"
             )
             config.set("AutoSnatch", "auto_snatch_script", self.AUTO_SNATCH_SCRIPT)
         comicarr.USE_SABNZBD = False

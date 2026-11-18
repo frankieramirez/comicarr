@@ -12,7 +12,7 @@
 import pytest
 from sqlalchemy import func, select
 
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import annuals, comics, issues, metadata, storyarcs, upcoming
 from comicarr.app.search.engine import searchforissue_checker
 from comicarr.app.series import queries as series_queries
@@ -22,7 +22,7 @@ from comicarr.app.series import queries as series_queries
 def _isolated_db(tmp_path, monkeypatch):
     import comicarr as comicarr_mod
 
-    monkeypatch.setattr(comicarr_mod, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr_mod, "CONFIG", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()

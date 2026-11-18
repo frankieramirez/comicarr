@@ -21,6 +21,7 @@ from comicarr.app.activity.retention import (
     RETENTION_DAYS,
     purge_expired_activity_events,
 )
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import activity_events, metadata
 from comicarr.app.system import service as system_service
@@ -28,7 +29,7 @@ from comicarr.app.system import service as system_service
 
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()

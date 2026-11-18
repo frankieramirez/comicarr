@@ -68,8 +68,6 @@ from comicarr.app.weekly import pull_runner
 sys.modules.setdefault("comicarr.tables", importlib.import_module("comicarr.app.core.tables"))
 
 
-PROG_DIR = None
-DATA_DIR = None
 FULL_PATH = None
 MAINTENANCE = False
 ACQUISITION_SCHEMA_READY = False
@@ -111,7 +109,6 @@ VERSION_SCHEDULER = None
 UPDATER_SCHEDULER = None
 MANGA_SYNC_SCHEDULER = None
 DB_BACKFILL = False
-DB_FILE = None
 MAINTENANCE_UPDATE = []
 MAINTENANCE_DB_TOTAL = 0
 MAINTENANCE_DB_COUNT = 0
@@ -341,8 +338,6 @@ def initialize(config_file):
             USE_TRANSMISSION, \
             USE_WATCHDIR, \
             PUBLISHER_IMPRINTS, \
-            PROG_DIR, \
-            DATA_DIR, \
             KEYS_32P, \
             AUTHKEY_32P, \
             FEED_32P, \
@@ -404,9 +399,9 @@ def initialize(config_file):
                     comic_count = row[0] if row else 0
                     if comic_count > 0:
                         if comicarr.CONFIG.BACKUP_ON_START:
-                            backup_dir = os.path.join(comicarr.DATA_DIR, "backups")
+                            backup_dir = os.path.join(runtime.current().data_dir, "backups")
                             retention = comicarr.CONFIG.BACKUP_RETENTION if comicarr.CONFIG.BACKUP_RETENTION else 4
-                            maintenance.auto_backup_db(comicarr.DB_FILE, backup_dir, retention)
+                            maintenance.auto_backup_db(runtime.current().db_file, backup_dir, retention)
                     else:
                         comicarr.DB_EMPTY = True
             except Exception as e:
@@ -450,11 +445,11 @@ def initialize(config_file):
                 )
 
             if CONFIG.SYNO_FIX:
-                parsepath = os.path.join(DATA_DIR, "bs4", "builder", "_lxml.py")
+                parsepath = os.path.join(runtime.current().data_dir, "bs4", "builder", "_lxml.py")
                 if os.path.isfile(parsepath):
                     print("found bs4...renaming appropriate file.")
                     src = os.path.join(parsepath)
-                    dst = os.path.join(DATA_DIR, "bs4", "builder", "lxml.py")
+                    dst = os.path.join(runtime.current().data_dir, "bs4", "builder", "lxml.py")
                     try:
                         shutil.move(src, dst)
                     except (OSError, IOError):
@@ -516,7 +511,7 @@ def initialize(config_file):
             if CV_CACHE is None:
                 from comicarr.app.metadata import cv_cache
 
-                cache_db_path = os.path.join(comicarr.DATA_DIR, "cv_cache.db")
+                cache_db_path = os.path.join(runtime.current().data_dir, "cv_cache.db")
                 CV_CACHE = cv_cache.CVCache(cache_db_path)
                 logger.info("ComicVine cache initialized at: %s" % cache_db_path)
 

@@ -43,7 +43,7 @@ import requests
 
 import comicarr
 from comicarr.app.common.user_agent import app_user_agent
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 
 API_BASE = "https://api.mangaupdates.com/v1"
 SOURCE = "mangaupdates"
@@ -87,7 +87,7 @@ def _cache_path():
     config = comicarr.CONFIG
     folder = getattr(config, "CACHE_DIR", None) if config is not None else None
     if not folder:
-        folder = os.path.join(getattr(comicarr, "DATA_DIR", None) or ".", "cache")
+        folder = os.path.join(runtime.current().data_dir or ".", "cache")
     return os.path.join(str(folder), CACHE_FILE)
 
 

@@ -52,7 +52,7 @@ from tests.fakes import folder_request
 def _isolated_db(tmp_path, monkeypatch):
     """Each test gets its own temporary SQLite database (same convention as
     tests/unit/test_journal_pp_seam.py)."""
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
@@ -105,7 +105,7 @@ def _pp_item(issueid="I1", comicid="C1", nzb_name="Saga.001.cbz", **extra):
     see _stamped_pp_item / the producer/consumer contract tests below."""
     item = {
         "nzb_name": nzb_name,
-        "nzb_folder": str(Path(comicarr.DATA_DIR) / "dl"),
+        "nzb_folder": str(Path(runtime.current().data_dir) / "dl"),
         "failed": False,
         "issueid": issueid,
         "comicid": comicid,
@@ -251,7 +251,7 @@ def test_release_key_identical_on_8arg_and_2arg_paths():
     eight_arg = _pp_item(issueid="Isame", download_info={"provider": "DDL", "id": "x"}, ddl=True)
     two_arg_shape = {
         "nzb_name": "Saga.001.cbz",
-        "nzb_folder": str(Path(comicarr.DATA_DIR) / "dl"),
+        "nzb_folder": str(Path(runtime.current().data_dir) / "dl"),
         "failed": False,
         "issueid": "Isame",
         "comicid": "C1",

@@ -65,7 +65,7 @@ NEWZNAB_HOST = ("nzb.example", "https://nzb.example", "1", "apikey123", "42#7030
 
 @pytest.fixture
 def rss_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     if comicarr.LOG_LEVEL is None:
         monkeypatch.setattr(comicarr, "LOG_LEVEL", 0)

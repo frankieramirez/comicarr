@@ -177,7 +177,6 @@ ROWS = (
 
 # Process globals the Mylar3 import writes as it reports progress.
 _MIGRATION_GLOBALS = (
-    "DB_FILE",
     "DB_EMPTY",
     "MIGRATION_IN_PROGRESS",
     "MIGRATION_STATUS",
@@ -268,8 +267,12 @@ class Install:
             monkeypatch.delenv("DATABASE_URL", raising=False)
         # An operator maintenance override would hold the gate shut in check 4.
         monkeypatch.delenv("COMICARR_ACQUISITION_MAINTENANCE", raising=False)
-        monkeypatch.setattr(comicarr, "DATA_DIR", str(self.data_dir), raising=False)
-        monkeypatch.setattr(comicarr, "PROG_DIR", str(tmp_path), raising=False)
+        # Lifespan shutdown puts "exit" on every worker queue the runtime
+        # carries over, so give the row a fresh bootstrap context.
+        monkeypatch.setattr(runtime, "_runtime", None)
+        monkeypatch.setattr(runtime, "_bootstrap", AppContext())
+        monkeypatch.setattr(runtime.current(), "data_dir", str(self.data_dir), raising=False)
+        monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path), raising=False)
         monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
         for name in (
             "ACQUISITION_SCHEMA_READY",
@@ -280,12 +283,9 @@ class Install:
             "SIGNAL",
         ):
             monkeypatch.setattr(comicarr, name, getattr(comicarr, name, None), raising=False)
-        # Lifespan shutdown puts "exit" on every worker queue the runtime
-        # carries over, so give the row a fresh bootstrap context.
-        monkeypatch.setattr(runtime, "_bootstrap", AppContext())
         for name in _MIGRATION_GLOBALS:
             monkeypatch.setattr(comicarr, name, getattr(comicarr, name, None), raising=False)
-        monkeypatch.setattr(comicarr, "DB_FILE", str(self.database), raising=False)
+        monkeypatch.setattr(runtime.current(), "db_file", str(self.database), raising=False)
         monkeypatch.setattr(runtime, "_runtime", None)
         monkeypatch.setattr(
             "comicarr.app.system.maintenance.Maintenance.backup_files",

@@ -25,7 +25,7 @@ NOW = 1_800_000_000.0
 
 @pytest.fixture
 def pacing_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(
         comicarr,
         "CONFIG",

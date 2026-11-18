@@ -101,9 +101,6 @@ def _legacy_runtime_objects(monkeypatch):
 
     values = {
         "CONFIG": config,
-        "PROG_DIR": "/runtime/program",
-        "DATA_DIR": "/runtime/data",
-        "DB_FILE": "/runtime/data/comicarr.db",
         "SCHED": scheduler,
         "DDL_QUEUED": ddl_queued,
         "PUBLISHER_IMPRINTS": {},
@@ -130,6 +127,9 @@ def _legacy_runtime_objects(monkeypatch):
             ddl_lock=ddl_lock,
             acquisition_resume_lock=acquisition_resume_lock,
             mass_add_pool=mass_add_pool,
+            prog_dir="/runtime/program",
+            data_dir="/runtime/data",
+            db_file="/runtime/data/comicarr.db",
         ),
     )
 
@@ -498,8 +498,8 @@ def test_mylar3_migration_success_projects_db_empty(_legacy_runtime_objects, mon
     dest_db = tmp_path / "comicarr.db"
     sqlite3.connect(source_db).close()
     sqlite3.connect(dest_db).close()
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
-    monkeypatch.setattr(comicarr, "DB_FILE", str(dest_db))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "db_file", str(dest_db))
 
     ctx = create_runtime()
     set_runtime_field(ctx, "db_empty", True)

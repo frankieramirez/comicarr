@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from sqlalchemy.sql.expression import BinaryExpression
 
 import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.core.tables import TABLE_MAP, UPSERT_KEYS
 
 _engine = None
@@ -64,7 +64,7 @@ def _get_database_url() -> str:
         if config_url:
             return config_url
 
-    db_path = os.path.join(comicarr.DATA_DIR, "comicarr.db")
+    db_path = os.path.join(runtime.current().data_dir, "comicarr.db")
     return f"sqlite:///{db_path}"
 
 

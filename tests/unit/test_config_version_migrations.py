@@ -8,12 +8,12 @@
 #  (at your option) any later version.
 
 import configparser
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import comicarr
 from comicarr.app.config import ini as config_module
 from comicarr.app.config.registry import REGISTRY
+from comicarr.app.core import runtime
 
 
 def _load_config(tmp_path, monkeypatch, body: str):
@@ -29,8 +29,8 @@ def _load_config(tmp_path, monkeypatch, body: str):
     ini.write_text(body, encoding="utf-8")
 
     monkeypatch.setattr(config_module, "config", configparser.ConfigParser())
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(data_dir), raising=False)
-    monkeypatch.setattr(comicarr, "PROG_DIR", str(tmp_path), raising=False)
+    monkeypatch.setattr(runtime.current(), "data_dir", str(data_dir), raising=False)
+    monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path), raising=False)
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
 
     cfg = config_module.Config(str(ini))

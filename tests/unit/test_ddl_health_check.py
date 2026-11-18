@@ -66,7 +66,7 @@ def _health_config(**overrides):
 
 @pytest.fixture
 def health_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()

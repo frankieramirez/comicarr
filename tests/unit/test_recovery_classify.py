@@ -41,7 +41,7 @@ ISSUED_HIGHCOUNT = 900999
 def _isolated_db(tmp_path, monkeypatch):
     """Each test gets its own temporary SQLite database (same convention as
     tests/unit/test_pipeline_journal.py)."""
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:

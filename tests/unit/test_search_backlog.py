@@ -37,7 +37,7 @@ from comicarr.app.search.backlog import (
 
 @pytest.fixture
 def backlog_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(
         comicarr,
         "CONFIG",
@@ -214,7 +214,7 @@ def rss_watchlist(tmp_path, monkeypatch):
     from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
     from comicarr.app.search import engine as legacy_search
 
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(
         comicarr,
         "CONFIG",

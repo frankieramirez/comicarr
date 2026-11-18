@@ -20,7 +20,7 @@ from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import UPSERT_KEYS, metadata
 
 EXPECTED_CONSTRAINTS = {
@@ -43,7 +43,7 @@ EXPECTED_CONSTRAINTS = {
 def legacy_engine(tmp_path, monkeypatch):
     engine = create_engine(f"sqlite:///{tmp_path / 'legacy.db'}")
     monkeypatch.setattr(db, "_engine", engine)
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(BACKUP_RETENTION=7))
     monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     yield engine
@@ -365,7 +365,7 @@ def test_migration_backup_survives_same_second_normal_backup(legacy_engine):
 
     fixed_timestamp = "20260710_010203"
     source_path = os.path.abspath(legacy_engine.url.database)
-    normal_backup_dir = Path(comicarr.DATA_DIR) / "backups"
+    normal_backup_dir = Path(runtime.current().data_dir) / "backups"
     migration_backup_dir = Path(os.path.dirname(source_path)) / "backups" / "migrations"
     pin_backup = migration_backup_dir / comicarr._PRE_UNIQUE_MIGRATION_BACKUP
     with patch.object(comicarr.app.system.maintenance.time, "strftime", return_value=fixed_timestamp):
@@ -497,7 +497,7 @@ def test_sqlite_memory_like_paths_without_uri_mode_are_backed_up(tmp_path, monke
     monkeypatch.chdir(tmp_path)
     engine = create_engine(database_url)
     monkeypatch.setattr(db, "_engine", engine)
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path / "other-data-dir"))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path / "other-data-dir"))
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(BACKUP_RETENTION=7))
     with engine.begin() as conn:
         _create_legacy_table(conn, "issues", ["IssueID", "ComicName"])

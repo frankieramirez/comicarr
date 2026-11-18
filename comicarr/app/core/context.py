@@ -57,9 +57,10 @@ from comicarr.app.search.queue import FairSearchQueue
 
 @dataclass
 class AppContext:
-    prog_dir: str = ""
-    data_dir: str = ""
-    db_file: str = ""
+    # None until Comicarr.py resolves them, as the package globals were.
+    prog_dir: str = None
+    data_dir: str = None
+    db_file: str = None
     config: object = None
     jwt_secure_dir: str = None
 

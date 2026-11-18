@@ -26,14 +26,14 @@ from sqlalchemy import select
 import comicarr
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import activity_events, comics, issues, metadata
 from comicarr.app.downloads import journal
 
 
 @pytest.fixture
 def activity_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()

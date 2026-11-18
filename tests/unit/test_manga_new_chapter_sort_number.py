@@ -12,8 +12,7 @@
 import pytest
 from sqlalchemy import select
 
-import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.search import rss_feeds as rsscheck
 
@@ -22,7 +21,7 @@ MANGA_ID = "md-00000000-0000-4000-8000-000000000002"
 
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     metadata.create_all(db.get_engine())

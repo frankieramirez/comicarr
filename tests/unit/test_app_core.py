@@ -78,7 +78,7 @@ def create_test_context(**overrides):
 class TestAppContext:
     def test_create_default(self):
         ctx = AppContext()
-        assert ctx.prog_dir == ""
+        assert ctx.prog_dir is None
         assert ctx.monitor_status == "Waiting"
         assert ctx.jwt_generation == 0
 

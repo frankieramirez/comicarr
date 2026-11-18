@@ -20,6 +20,7 @@ import pytest
 from sqlalchemy import create_engine, insert, select, text
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import metadata, storyarcs
 from comicarr.app.storyarcs import queries
@@ -27,7 +28,7 @@ from comicarr.app.storyarcs import queries
 
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     metadata.create_all(get_engine())

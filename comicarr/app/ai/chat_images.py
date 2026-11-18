@@ -19,8 +19,7 @@ from pathlib import Path
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 
 MAX_IMAGES = 4
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
@@ -44,12 +43,12 @@ def safe_filename(filename):
 
 
 def attachment_root():
-    return Path(comicarr.DATA_DIR).resolve() / "chat_attachments"
+    return Path(runtime.current().data_dir).resolve() / "chat_attachments"
 
 
 def resolve_relative_path(relative_path):
     expected_root = attachment_root()
-    candidate = (Path(comicarr.DATA_DIR).resolve() / relative_path).resolve()
+    candidate = (Path(runtime.current().data_dir).resolve() / relative_path).resolve()
     if not candidate.is_relative_to(expected_root):
         raise InvalidChatImage("Invalid attachment path")
     return candidate

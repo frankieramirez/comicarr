@@ -28,7 +28,7 @@ import time
 
 import comicarr
 from comicarr.app.common import dates as common_dates
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.library import filechecker
 from comicarr.app.series.add import add_series
 
@@ -109,11 +109,11 @@ def auto_backup_db(source_path, dest_dir, retention=4):
 class Maintenance(object):
     def __init__(self, mode, file=None, output=None):
         self.mode = mode
-        self.maintenance_db = os.path.join(comicarr.DATA_DIR, ".comicarr_maintenance.db")
+        self.maintenance_db = os.path.join(runtime.current().data_dir, ".comicarr_maintenance.db")
         if self.mode == "database-import":
             self.dbfile = file
         else:
-            self.dbfile = comicarr.DB_FILE
+            self.dbfile = runtime.current().db_file
         self.file = file
         self.outputfile = output
         self.comiclist = []
@@ -516,8 +516,8 @@ class Maintenance(object):
             logger.info("Attempting to backup %s..." % cf)
             if cf == "comicarr database":
                 if location is None:
-                    cback_path = os.path.join(comicarr.DATA_DIR, "comicarr.db.backup")
-                    root_path = comicarr.DATA_DIR
+                    cback_path = os.path.join(runtime.current().data_dir, "comicarr.db.backup")
+                    root_path = runtime.current().data_dir
                 else:
                     cback_path = os.path.join(location, "comicarr.db.backup")
                     root_path = location
@@ -525,8 +525,8 @@ class Maintenance(object):
                 source_file = self.dbfile
             else:
                 if location is None:
-                    cback_path = os.path.join(comicarr.DATA_DIR, "config.ini-v%s.backup" % (config_version))
-                    root_path = comicarr.DATA_DIR
+                    cback_path = os.path.join(runtime.current().data_dir, "config.ini-v%s.backup" % (config_version))
+                    root_path = runtime.current().data_dir
                 else:
                     cback_path = os.path.join(location, "config.ini-v%s.backup" % (config_version))
                     root_path = location

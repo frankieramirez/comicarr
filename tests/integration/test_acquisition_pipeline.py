@@ -45,7 +45,7 @@ from tests.fakes.sabnzbd import FakeSabnzbd
 
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(
         comicarr,
         "CONFIG",

@@ -15,7 +15,7 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import annuals, comics, issues, metadata, storyarcs
 from comicarr.app.system import deprecations
 from comicarr.app.system import router as system_router
@@ -91,7 +91,7 @@ def test_a_predicate_that_raises_counts_as_not_in_use(monkeypatch, logged):
 
 @pytest.fixture
 def arc_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(STORYARCDIR=False))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()

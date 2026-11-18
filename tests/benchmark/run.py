@@ -34,6 +34,8 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
+from comicarr.app.core import runtime
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 RUNS = 5
@@ -127,9 +129,9 @@ def initialize(data_dir):
     """Initialize Comicarr in this process against ``data_dir``, without the scheduler."""
     import comicarr
 
-    comicarr.DATA_DIR = str(data_dir)
+    runtime.current().data_dir = str(data_dir)
     comicarr.CONFIG_FILE = str(Path(data_dir) / "config.ini")
-    comicarr.DB_FILE = str(Path(data_dir) / "comicarr.db")
+    runtime.current().db_file = str(Path(data_dir) / "comicarr.db")
     comicarr.initialize(comicarr.CONFIG_FILE)
 
 

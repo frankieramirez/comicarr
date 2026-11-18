@@ -89,7 +89,7 @@ def detect_pending(*, current: str | None, last_seen: str | None) -> DetectResul
 
 
 def _record_last_seen(version: str) -> None:
-    """Persist LAST_SEEN_VERSION to config.ini under DATA_DIR."""
+    """Persist LAST_SEEN_VERSION to config.ini in the data directory."""
     try:
         comicarr.CONFIG.LAST_SEEN_VERSION = version
         ok = comicarr.CONFIG.writeconfig(values={"last_seen_version": version})

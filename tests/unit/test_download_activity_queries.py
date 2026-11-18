@@ -15,14 +15,14 @@ from sqlalchemy import create_engine, event, insert, text
 from sqlalchemy import inspect as sa_inspect
 
 import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import ddl_info, metadata, snatched
 from comicarr.app.downloads import queries, router, service
 
 
 @pytest.fixture
 def activity_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
@@ -215,7 +215,7 @@ def test_legacy_ddl_schema_migration_adds_column_before_activity_index(tmp_path,
     """A pre-activity database gets the indexed column before the index is built."""
     engine = create_engine(f"sqlite:///{tmp_path / 'legacy-activity.db'}")
     monkeypatch.setattr(comicarr.app.core.db, "_engine", engine)
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     with engine.begin() as conn:
         metadata.create_all(conn)
         conn.execute(text("INSERT INTO mylar_info(DatabaseVersion) VALUES (0)"))

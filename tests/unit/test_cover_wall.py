@@ -16,7 +16,7 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, metadata
 from comicarr.app.system import cover_wall
 from comicarr.app.system import router as system_router
@@ -24,7 +24,7 @@ from comicarr.app.system import router as system_router
 
 @pytest.fixture
 def wall_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()

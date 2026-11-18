@@ -25,14 +25,14 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import annuals, comics, issues, metadata, storyarcs
 from tests.fakes import folder_request, pipeline
 
 
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CACHE_DIR", str(tmp_path / "cache"), raising=False)
     monkeypatch.setattr(
         comicarr,

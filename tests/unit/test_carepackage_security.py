@@ -15,13 +15,14 @@ import zipfile
 import comicarr
 from comicarr.app.config import ini as config_module
 from comicarr.app.core import encrypted as encrypted_module
+from comicarr.app.core import runtime
 from comicarr.app.system.carepackage import carePackage
 
 
 def test_carepackage_redacts_every_encrypted_config_item(tmp_path, monkeypatch):
     """Carepackages should redact the same secrets config encryption protects."""
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
-    monkeypatch.setattr(comicarr, "PROG_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path))
     configured_redactions = carePackage().cleaned_list
 
     for section, key in config_module.ENCRYPTED_CONFIG_ITEMS.values():
@@ -66,8 +67,8 @@ def test_carepackage_clean_config_and_logs_redact_newer_secrets(tmp_path, monkey
     )
     (data_dir / "comicarr.db").write_text("")
 
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(data_dir))
-    monkeypatch.setattr(comicarr, "PROG_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(data_dir))
+    monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path))
 
     package = carePackage(maintenance=True)
     package.cleaned_config()
@@ -162,8 +163,8 @@ def test_carepackage_redacts_fernet_provider_extras_without_runtime_config(tmp_p
     (data_dir / "comicarr.db").write_text("")
 
     monkeypatch.setattr(comicarr, "CONFIG", None)
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(data_dir))
-    monkeypatch.setattr(comicarr, "PROG_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(data_dir))
+    monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "KEYS_32P", {})
 
     package = carePackage(maintenance=True)
@@ -218,8 +219,8 @@ def test_carepackage_missing_provider_key_redacts_without_creating_replacement(t
     monkeypatch.setattr(encrypted_module, "_fernet_instance", None)
     monkeypatch.setattr(encrypted_module, "_fernet_secure_dir", None)
     monkeypatch.setattr(comicarr, "CONFIG", None)
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(data_dir))
-    monkeypatch.setattr(comicarr, "PROG_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(data_dir))
+    monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "KEYS_32P", {})
 
     package = carePackage(maintenance=True)
@@ -250,7 +251,7 @@ def test_encrypt_items_handles_git_token_auth_tuple(tmp_path, monkeypatch):
     cfg.WRITE_THE_CONFIG = False
 
     monkeypatch.setattr(comicarr, "CONFIG", cfg)
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
 
     parser = config_module.config
     if not parser.has_section("Git"):

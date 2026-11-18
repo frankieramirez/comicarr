@@ -32,7 +32,7 @@ from comicarr.app.common import strings as common_strings
 from comicarr.app.common.numbers import zero_suppression_prefix
 from comicarr.app.common.placement import OnExisting, Outcome, Purpose
 from comicarr.app.common.redaction import redacted_traceback
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, issues, snatched, storyarcs, weekly
 from comicarr.app.downloads import journal
 from comicarr.app.downloads import service as downloads_service
@@ -832,7 +832,7 @@ def run_script(kind, run, nzb_name, nzb_folder, filename, path, seriesmetadata):
     logger.fdebug("Absolute path to script: %s" % (script_cmd[0],))
     try:
         p = subprocess.Popen(
-            script_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=comicarr.PROG_DIR, text=text
+            script_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=runtime.current().prog_dir, text=text
         )
         out, _err = p.communicate()
         logger.fdebug("Script result: %s" % (out,))

@@ -23,7 +23,7 @@ from sqlalchemy import insert
 
 import comicarr
 from comicarr.app.common import configured as configured
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, metadata, weekly
 from comicarr.app.search import service as search_service
 from comicarr.app.series import service as series_service
@@ -32,7 +32,7 @@ from comicarr.app.weekly import pull_list as weeklypull
 
 @pytest.fixture
 def pull_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
     db.shutdown_engine()

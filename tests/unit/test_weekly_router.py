@@ -17,7 +17,7 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, issues, metadata, weekly
 from comicarr.app.storyarcs import service as storyarcs_service
 from comicarr.app.weekly import router
@@ -29,7 +29,7 @@ TODAY = datetime.date(2026, 10, 17)
 
 @pytest.fixture
 def weekly_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setattr(weekly_service, "_FETCH_ATTEMPTS", {})
