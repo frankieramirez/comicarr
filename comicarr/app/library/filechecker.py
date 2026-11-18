@@ -195,7 +195,7 @@ class FileChecker(object):
                     try:
                         if runresults["parse_status"]:
                             run_status = runresults["parse_status"]
-                    except:
+                    except Exception:
                         if runresults["process_status"]:
                             run_status = runresults["process_status"]
 
@@ -535,6 +535,8 @@ class FileChecker(object):
         datecheck = []
         lastissue_label = None
         lastissue_position = 0
+        # Always set together with lastissue_label, so it is only read once that is set.
+        lastissue_mod_position = 0
         lastmod_position = 0
         booktype = "issue"
 
@@ -1008,7 +1010,7 @@ class FileChecker(object):
                                                 "validcountchk": validcountchk,
                                             }
                                         )
-                                except:
+                                except Exception:
                                     possible_issuenumbers.append(
                                         {
                                             "number": "1",
@@ -1312,7 +1314,7 @@ class FileChecker(object):
                     highest_series_pos = possible_years[0]["yearposition"]
                 elif possible_years[0]["year_position"] == 0:
                     yearposition = 1
-            except:
+            except Exception:
                 pass
 
         splitvalue = None
@@ -1326,11 +1328,11 @@ class FileChecker(object):
                         tmpval = highest_series_pos + (issue_number_position - volume_found["position"])
                     else:
                         tmpval = yearposition - issue_number_position
-                except:
+                except Exception:
                     tmpval = yearposition - issue_number_position
             else:
                 tmpval = 1
-        except:
+        except Exception:
             pass
         else:
             if tmpval >= 2:
@@ -1358,7 +1360,7 @@ class FileChecker(object):
                     while True:
                         try:
                             fdash = split_file.index("-", c_pos)
-                        except:
+                        except Exception:
                             break
                         else:
                             c_pos = 2
@@ -1369,7 +1371,7 @@ class FileChecker(object):
                                 alt_issue = " ".join(split_file[fdash + 1 : volume_found["position"]])
                             else:
                                 alt_issue = " ".join(split_file[fdash + 1 : issue_number_position])
-                        except:
+                        except Exception:
                             alt_issue = " ".join(split_file[fdash + 1 : issue_number_position])
 
                         if alt_issue.endswith("-"):
@@ -1652,7 +1654,7 @@ class FileChecker(object):
         try:
             if self.AS_ALT[0] != "127372873872871091383 abdkhjhskjhkjdhakajhf":
                 logger.fdebug("Possible Alternate Names to match against (if necessary): %s" % self.AS_Alt)
-        except:
+        except Exception:
             pass
         justthedigits = series_info["issue_number"]
 

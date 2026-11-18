@@ -584,7 +584,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
             if "BOOK" in row:
                 break
             try:
-                cl_d = comicarr.filechecker.FileChecker()
+                cl_d = comicarr.app.library.filechecker.FileChecker()
                 cl_dyninfo = cl_d.dynamic_replace(row[3])
                 dynamic_name = re.sub(r"[\|\s]", "", cl_dyninfo["mod_seriesname"].lower()).strip()
                 controlValueDict = {"COMIC": row[3], "ISSUE": row[2], "EXTRA": row[4]}
@@ -746,7 +746,7 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                 if comicarr.CONFIG.ALT_PULL != 2:
                     lines[cnt] = lines[cnt].upper()
                 logger.fdebug("looking for : " + lines[cnt])
-                cl_d = comicarr.filechecker.FileChecker()
+                cl_d = comicarr.app.library.filechecker.FileChecker()
                 cl_dyninfo = cl_d.dynamic_replace(lines[cnt])
                 dynamic_name = re.sub(r"[\|\s]", "", cl_dyninfo["mod_seriesname"].lower()).strip()
                 sqlsearch = "%" + dynamic_name + "%"

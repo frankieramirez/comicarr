@@ -1132,7 +1132,7 @@ def test_downloadit_releases_lock_once_on_early_failures(tmp_path, monkeypatch, 
     elif failure == "directory":
         missing = tmp_path / "missing"
         comicarr.CONFIG.DDL_LOCATION = str(missing)
-        monkeypatch.setattr(comicarr.filechecker, "validateAndCreateDirectory", lambda *args: False)
+        monkeypatch.setattr(comicarr.app.library.filechecker, "validateAndCreateDirectory", lambda *args: False)
     elif failure == "timeout":
         downloader.session.get.side_effect = requests.exceptions.Timeout("timed out")
     elif failure == "download":

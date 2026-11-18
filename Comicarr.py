@@ -27,10 +27,10 @@ import threading
 
 try:
     import comicarr  # noqa: E402
-    from comicarr import filechecker
     from comicarr.app.config import log_level as log_level_source  # noqa: E402
     from comicarr.app.core import logger
     from comicarr.app.core.pidfile import check_stale_pidfile  # noqa: E402
+    from comicarr.app.library import filechecker
     from comicarr.app.system import carepackage, maintenance, versioncheck  # noqa: E402
 except ModuleNotFoundError as e:
     missing_dependency = e.name or "an application dependency"

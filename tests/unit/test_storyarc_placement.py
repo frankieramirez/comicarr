@@ -135,7 +135,7 @@ def _run(arc, *, config=None, place=None):
     filechecker.validateAndCreateDirectory.side_effect = lambda path, **_kw: os.makedirs(path, exist_ok=True) or True
     with (
         patch.object(comicarr, "CONFIG", cfg),
-        patch.object(comicarr, "filechecker", filechecker),
+        patch.object(comicarr.app.library, "filechecker", filechecker),
         patch.object(service.placement, "place", spy),
     ):
         service.updatearc_locs("SA1", arc["arc_issues"])

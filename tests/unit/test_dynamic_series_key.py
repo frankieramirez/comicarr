@@ -13,7 +13,7 @@ import re
 
 import pytest
 
-from comicarr import filechecker
+from comicarr.app.library import filechecker
 
 
 def _post_processing_key(series_name):

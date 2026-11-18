@@ -227,7 +227,7 @@ def test_pack_match_records_through_the_seam(monkeypatch):
     )
     parsed = {"parse_status": "success", "dynamic_name": "Nova"}
     monkeypatch.setattr(
-        service.comicarr.filechecker,
+        service.comicarr.app.library.filechecker,
         "FileChecker",
         lambda **kw: types.SimpleNamespace(listFiles=lambda: parsed),
     )

@@ -22,8 +22,8 @@ The values were recorded from ``FileChecker.dynamic_replace`` before it moved.
 
 import pytest
 
-from comicarr import filechecker
 from comicarr.app.common.series_names import dynamic_series_key, dynamic_series_name
+from comicarr.app.library import filechecker
 
 
 @pytest.mark.parametrize(

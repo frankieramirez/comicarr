@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 import comicarr
-from comicarr import filechecker
+from comicarr.app.library import filechecker
 
 
 @pytest.fixture(autouse=True)

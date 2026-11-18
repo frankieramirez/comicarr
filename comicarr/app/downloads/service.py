@@ -2469,7 +2469,7 @@ def lookupthebitches(
     year = dt.strftime("%Y")
     for f in filelist:
         file = re.sub(folder, "", f).strip()
-        pp = comicarr.filechecker.FileChecker(justparse=True, file=file)
+        pp = comicarr.app.library.filechecker.FileChecker(justparse=True, file=file)
         parsedinfo = pp.listFiles()
         if parsedinfo["parse_status"] == "success":
             dyncheck = re.sub(r"[\|\s]", "", parsedinfo["dynamic_name"].lower()).strip()

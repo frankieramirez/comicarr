@@ -1587,7 +1587,9 @@ def updateComicLocation():
 
     if comicarr.CONFIG.NEWCOM_DIR is not None:
         logger.info("Performing a one-time mass update to Comic Location")
-        checkdirectory = comicarr.filechecker.validateAndCreateDirectory(comicarr.CONFIG.NEWCOM_DIR, create=True)
+        checkdirectory = comicarr.app.library.filechecker.validateAndCreateDirectory(
+            comicarr.CONFIG.NEWCOM_DIR, create=True
+        )
         if not checkdirectory:
             logger.warn("Error trying to validate/create directory. Aborting this process at this time.")
             return

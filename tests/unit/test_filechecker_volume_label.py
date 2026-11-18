@@ -19,7 +19,7 @@ import pytest
 
 
 def _strip(series_name, volume_number):
-    from comicarr.filechecker import strip_trailing_volume_label
+    from comicarr.app.library.filechecker import strip_trailing_volume_label
 
     return strip_trailing_volume_label(series_name, volume_number)
 
@@ -75,7 +75,7 @@ def _parse(filename):
     from unittest.mock import MagicMock
 
     import comicarr
-    from comicarr.filechecker import FileChecker
+    from comicarr.app.library.filechecker import FileChecker
 
     if comicarr.LOG_LEVEL is None:
         comicarr.LOG_LEVEL = 0

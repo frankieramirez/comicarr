@@ -44,7 +44,6 @@ from sqlalchemy import or_, select, update
 from urllib3.util.retry import Retry
 
 import comicarr
-from comicarr import filechecker
 from comicarr.app.common import configured as configured
 from comicarr.app.common import series_kind
 from comicarr.app.common import strings as common_strings
@@ -69,6 +68,7 @@ from comicarr.app.downloads import failed, getcomics, handoff, nzbget, sabnzbd, 
 from comicarr.app.downloads import service as downloads_service
 from comicarr.app.downloads.ddl import external_server as exs
 from comicarr.app.downloads.torrent import monitor as torrent_monitor
+from comicarr.app.library import filechecker
 from comicarr.app.notifications import service as notifiers
 from comicarr.app.search import diagnostics as search_diagnostics
 from comicarr.app.search import failures as search_failures
