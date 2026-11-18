@@ -214,6 +214,48 @@ def test_runtime_access_fails_closed_before_initialization():
         get_context(request)
 
 
+def test_current_returns_the_bootstrap_context_before_the_factory_runs():
+    """``current()`` never raises: start-up code gets the bootstrap context."""
+    from comicarr.app.core import runtime
+
+    assert runtime.current() is runtime._bootstrap
+    assert runtime.current() is runtime.current()
+
+
+def test_current_returns_the_factory_context_once_it_exists(_legacy_runtime_objects):
+    from comicarr.app.core import runtime
+
+    ctx = create_runtime()
+
+    assert runtime.current() is ctx
+    assert runtime.current() is not runtime._bootstrap
+
+
+def test_factory_carries_migrated_fields_over_from_the_bootstrap(_legacy_runtime_objects, monkeypatch):
+    """A retired global's value set during start-up survives the factory.
+
+    The factory must take a migrated field from the bootstrap context, by
+    identity, and must neither adopt nor project the old ``comicarr`` global.
+    """
+    from comicarr.app.core import runtime
+
+    monkeypatch.setattr(runtime, "MIGRATED_FIELDS", frozenset({"search_status", "provider_status"}))
+    monkeypatch.setattr(runtime, "_bootstrap", AppContext())
+    provider_status = {"nzb.example": "up"}
+    runtime.current().search_status = "Running"
+    runtime.current().provider_status = provider_status
+    monkeypatch.setattr(comicarr, "SEARCH_STATUS", "stale legacy value", raising=False)
+    monkeypatch.delattr(comicarr, "PROVIDER_STATUS", raising=False)
+
+    ctx = create_runtime()
+
+    assert ctx.search_status == "Running"
+    assert ctx.provider_status is provider_status
+    assert comicarr.SEARCH_STATUS == "stale legacy value"
+    assert not hasattr(comicarr, "PROVIDER_STATUS")
+    assert runtime.current() is ctx
+
+
 def test_worker_bootstrap_refuses_to_start_before_a_runtime_exists(monkeypatch):
     """A missing context is rejected before scheduler/worker bootstrap can run."""
     scheduler = MagicMock(name="scheduler")

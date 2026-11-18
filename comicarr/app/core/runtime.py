@@ -32,6 +32,20 @@ _runtime_lock = threading.Lock()
 _runtime = None
 _UNSET = object()
 
+# The context that exists before ``create_runtime`` runs. Module-level code,
+# CLI entry points and unit tests read and write runtime state through
+# ``current()`` without waiting for the factory, so a value set during
+# start-up is never lost: the factory carries it over (see MIGRATED_FIELDS).
+_bootstrap = AppContext()
+
+# Fields whose ``comicarr.X`` global has been retired. ``create_runtime``
+# copies these from the bootstrap context instead of adopting a legacy global,
+# and ``_project_context`` no longer writes them back to the package. Each
+# 8f slice (#1478) adds its group here in the same change that deletes the
+# global, removes it from ``_CONTEXT_TO_LEGACY`` and lists it in
+# ``RETIRED_GLOBALS``.
+MIGRATED_FIELDS = frozenset()
+
 
 _CONTEXT_TO_LEGACY = {
     "prog_dir": "PROG_DIR",
@@ -149,7 +163,8 @@ def _adopt_legacy_runtime():
     return {
         field: _legacy_value(comicarr, field)
         for field in _CONTEXT_TO_LEGACY
-        if field
+        if field not in MIGRATED_FIELDS
+        and field
         not in {
             "sse_key",
             "ai_client",
@@ -197,7 +212,7 @@ def _project_context(ctx):
     import comicarr
 
     for field, legacy_name in _CONTEXT_TO_LEGACY.items():
-        if field == "disposed":
+        if field == "disposed" or field in MIGRATED_FIELDS:
             continue
         setattr(comicarr, legacy_name, getattr(ctx, field))
 
@@ -222,7 +237,10 @@ def create_runtime():
                 "Runtime context cannot be created before configuration, schema, and secret initialization"
             )
 
-        ctx = AppContext(**_adopt_legacy_runtime())
+        kwargs = _adopt_legacy_runtime()
+        for field in MIGRATED_FIELDS:
+            kwargs[field] = getattr(_bootstrap, field)
+        ctx = AppContext(**kwargs)
         ctx.sse_key = getattr(comicarr, "SSE_KEY", None) or generate_ephemeral_key()
         ctx.event_bus = EventBus()
 
@@ -242,6 +260,19 @@ def get_runtime():
     if _runtime.disposed:
         raise RuntimeNotInitializedError("Runtime context has been disposed")
     return _runtime
+
+
+def current():
+    """Return the runtime context, before or after the factory has run.
+
+    This is the accessor for state that used to live on the ``comicarr``
+    package. It never raises: before ``create_runtime`` it returns the
+    bootstrap context, whose migrated fields the factory carries over, so a
+    reader never has to care which phase of start-up it runs in. Use
+    ``get_runtime`` instead where running before start-up is a bug.
+    """
+    ctx = _runtime
+    return _bootstrap if ctx is None else ctx
 
 
 def get_runtime_if_initialized():
