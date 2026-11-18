@@ -79,35 +79,20 @@ USER_AGENT = None
 DAEMON = False
 PIDFILE = None
 CREATEPID = False
-MAX_LOGSIZE = 5000000
 SAFESTART = False
 NOWEEKLY = False
 _INITIALIZED = False
-RSS_SCHEDULER = None
-WEEKLY_SCHEDULER = None
-MONITOR_SCHEDULER = None
-IMPORTINBOX_SCHEDULER = None
-SEARCH_SCHEDULER = None
-VERSION_SCHEDULER = None
-UPDATER_SCHEDULER = None
-MANGA_SYNC_SCHEDULER = None
 DB_BACKFILL = False
 MAINTENANCE_UPDATE = []
 MAINTENANCE_DB_TOTAL = 0
 MAINTENANCE_DB_COUNT = 0
 UMASK = None
-WANTED_TAB_OFF = False
 PULLNEW = None
 CONFIG_FILE = None
-EXPURL = None
 DEMURL = None
 WWTURL = None
 WWT_CF_COOKIEVALUE = None
 KEYS_32P = None
-AUTHKEY_32P = None
-FEED_32P = None
-FEEDINFO_32P = None
-INKDROPS_32P = None
 USE_SABNZBD = False
 USE_NZBGET = False
 USE_BLACKHOLE = False
@@ -117,8 +102,6 @@ USE_TRANSMISSION = False
 USE_QBITTORRENT = False
 USE_UTORRENT = False
 USE_WATCHDIR = False
-DDL_HEALTH_SCHEDULER = None
-EXT_SERVER = False
 SEARCH_TIER_DATE = None
 PULLBYFILE = False
 CURRENT_WEEKNUMBER = None
@@ -152,7 +135,6 @@ ISSUE_EXCEPTIONS = [
     "DIRECTOR'S CUT",
     "(DC)",
 ]
-SESSION_ID = None
 REQS = {}
 GC_URL = "https://getcomics.org"
 IMPRINT_MAPPING = {
@@ -215,15 +197,12 @@ def initialize(config_file):
             OS_DETECT, \
             MAINTENANCE, \
             PULLBYFILE, \
-            INKDROPS_32P, \
             CURRENT_WEEKNUMBER, \
             CURRENT_YEAR, \
             UMASK, \
             USER_AGENT, \
             PULLNEW, \
-            WANTED_TAB_OFF, \
             DEMURL, \
-            EXPURL, \
             WWTURL, \
             WWT_CF_COOKIEVALUE, \
             USE_SABNZBD, \
@@ -236,29 +215,16 @@ def initialize(config_file):
             USE_TRANSMISSION, \
             USE_WATCHDIR, \
             KEYS_32P, \
-            AUTHKEY_32P, \
-            FEED_32P, \
-            FEEDINFO_32P, \
             DB_BACKFILL, \
             LOG_LEVEL, \
-            MONITOR_SCHEDULER, \
-            SEARCH_SCHEDULER, \
-            RSS_SCHEDULER, \
-            WEEKLY_SCHEDULER, \
-            VERSION_SCHEDULER, \
-            UPDATER_SCHEDULER, \
-            MANGA_SYNC_SCHEDULER, \
             SEARCH_TIER_DATE, \
             ISSUE_EXCEPTIONS, \
-            SESSION_ID, \
             MAINTENANCE_UPDATE, \
             MAINTENANCE_DB_COUNT, \
             MAINTENANCE_DB_TOTAL, \
             REQS, \
             IMPRINT_MAPPING, \
-            GC_URL, \
-            DDL_HEALTH_SCHEDULER, \
-            EXT_SERVER
+            GC_URL
 
         cc = comicarr.app.config.ini.Config(config_file)
         runtime.current().config = cc.read(startup=True)
@@ -367,12 +333,7 @@ def initialize(config_file):
 
             from comicarr.app.downloads.ddl import external_server as des
 
-            EXT_SERVER = des.EXT_SERVER
-            logger.info("[DDL] External server configuration available to be loaded: %s" % EXT_SERVER)
-
-        import secrets
-
-        SESSION_ID = secrets.randbelow(990000) + 10000
+            logger.info("[DDL] External server configuration available to be loaded: %s" % des.EXT_SERVER)
 
         runtime.current().cv_headers = {"User-Agent": runtime.current().config.CV_USER_AGENT}
 
@@ -442,8 +403,6 @@ def initialize(config_file):
 
         WWTURL = "https://worldwidetorrents.to/"
         DEMURL = "https://www.demonoid.pw/"
-
-        EXPURL = "https://nzbindex.nl/"
 
         try:
             pub_path = os.path.join(runtime.current().config.CACHE_DIR, "imprints.json")
@@ -719,7 +678,7 @@ def start(ctx):
 
     with runtime.current().init_lock:
         if _INITIALIZED:
-            UPDATER_SCHEDULER = _add_recurring_job(
+            updater_job = _add_recurring_job(
                 func=watchlist_refresh.run_scheduled_refresh,
                 id="dbupdater",
                 next_run_time=datetime.datetime.utcnow(),
@@ -727,31 +686,31 @@ def start(ctx):
                 args=[None, True],
                 trigger=IntervalTrigger(hours=0, minutes=runtime.current().config.DBUPDATE_INTERVAL, timezone="UTC"),
             )
-            UPDATER_SCHEDULER.pause()
+            updater_job.pause()
 
             from comicarr.app.search.service import run_scheduled_search
 
-            SEARCH_SCHEDULER = _add_recurring_job(
+            search_job = _add_recurring_job(
                 func=run_scheduled_search,
                 id="search",
                 next_run_time=datetime.datetime.utcnow(),
                 name="Auto-Search",
                 trigger=IntervalTrigger(hours=0, minutes=runtime.current().config.SEARCH_INTERVAL, timezone="UTC"),
             )
-            SEARCH_SCHEDULER.pause()
+            search_job.pause()
 
             ws = pull_runner.Weekly()
-            WEEKLY_SCHEDULER = _add_recurring_job(
+            weekly_job = _add_recurring_job(
                 func=ws.run,
                 id="weekly",
                 name="Weekly Pullist",
                 next_run_time=datetime.datetime.utcnow(),
                 trigger=IntervalTrigger(hours=4, minutes=0, timezone="UTC"),
             )
-            WEEKLY_SCHEDULER.pause()
+            weekly_job.pause()
 
             rs = rss_runner.tehMain()
-            RSS_SCHEDULER = _add_recurring_job(
+            rss_job = _add_recurring_job(
                 func=rs.run,
                 id="rss",
                 name="RSS Feeds",
@@ -761,10 +720,10 @@ def start(ctx):
                     hours=0, minutes=int(runtime.current().config.RSS_CHECKINTERVAL), timezone="UTC"
                 ),
             )
-            RSS_SCHEDULER.pause()
+            rss_job.pause()
 
             vs = versioncheckit.CheckVersion()
-            VERSION_SCHEDULER = _add_recurring_job(
+            version_job = _add_recurring_job(
                 func=vs.run,
                 id="version",
                 name="Check Version",
@@ -772,12 +731,12 @@ def start(ctx):
                     hours=0, minutes=runtime.current().config.CHECK_GITHUB_INTERVAL, timezone="UTC"
                 ),
             )
-            VERSION_SCHEDULER.pause()
+            version_job.pause()
 
             from comicarr.app.downloads.folder_monitor import FolderCheck
 
             fm = FolderCheck()
-            MONITOR_SCHEDULER = _add_recurring_job(
+            monitor_job = _add_recurring_job(
                 func=fm.run,
                 id="monitor",
                 name="Folder Monitor",
@@ -785,11 +744,11 @@ def start(ctx):
                     hours=0, minutes=int(runtime.current().config.DOWNLOAD_SCAN_INTERVAL), timezone="UTC"
                 ),
             )
-            MONITOR_SCHEDULER.pause()
+            monitor_job.pause()
 
             from comicarr.app.imports import importinbox
 
-            IMPORTINBOX_SCHEDULER = _add_recurring_job(
+            importinbox_job = _add_recurring_job(
                 func=importinbox.run,
                 id="importinbox",
                 name="Import Inbox Scanner",
@@ -797,12 +756,12 @@ def start(ctx):
                     hours=0, minutes=int(runtime.current().config.IMPORT_SCAN_INTERVAL), timezone="UTC"
                 ),
             )
-            IMPORTINBOX_SCHEDULER.pause()
+            importinbox_job.pause()
 
             from comicarr.app.manga.sync import JOB_NAME as MANGA_SYNC_JOB_NAME
             from comicarr.app.manga.sync import run_manga_sync
 
-            MANGA_SYNC_SCHEDULER = _add_recurring_job(
+            manga_sync_job = _add_recurring_job(
                 func=run_manga_sync,
                 id="manga_sync",
                 name=MANGA_SYNC_JOB_NAME,
@@ -811,7 +770,7 @@ def start(ctx):
                     hours=0, minutes=int(runtime.current().config.DBUPDATE_INTERVAL), timezone="UTC"
                 ),
             )
-            MANGA_SYNC_SCHEDULER.pause()
+            manga_sync_job.pause()
 
             from comicarr.app.acquisition.retention import run_ledger_retention
 
@@ -866,7 +825,7 @@ def start(ctx):
 
             if ctx.acquisition_workers_blocked:
                 if ctx.version_status != "Paused":
-                    VERSION_SCHEDULER.resume()
+                    version_job.resume()
                 logger.warn(
                     "[ACQUISITION] Background acquisition is blocked (%s); diagnostics remain available"
                     % (acquisition_gate.reason if acquisition_gate else ctx.acquisition_block_reason)
@@ -918,7 +877,7 @@ def start(ctx):
                 updater_diff = (common_dates.utctimestamp() - updater_timestamp) / 60
                 if updater_diff >= int(runtime.current().config.DBUPDATE_INTERVAL):
                     logger.fdebug("[DB UPDATER] DB Updater scheduled to run immediately.")
-                    UPDATER_SCHEDULER.modify(next_run_time=(datetime.datetime.utcnow()))
+                    updater_job.modify(next_run_time=(datetime.datetime.utcnow()))
                 else:
                     updater_diff = datetime.datetime.utcfromtimestamp(
                         common_dates.utctimestamp()
@@ -928,13 +887,13 @@ def start(ctx):
                         "[DB UPDATER] Scheduling next run @ %s (every %s minutes)"
                         % (common_dates.utc_date_to_local(updater_diff), runtime.current().config.DBUPDATE_INTERVAL)
                     )
-                    UPDATER_SCHEDULER.modify(next_run_time=updater_diff)
+                    updater_job.modify(next_run_time=updater_diff)
 
             from comicarr.app.manga.sync import arm_manga_sync_job
 
             if ctx.manga_sync_status != "Paused":
                 arm_manga_sync_job(
-                    MANGA_SYNC_SCHEDULER,
+                    manga_sync_job,
                     ctx.manga_sync_status,
                     sched_manga_sync_last,
                     runtime.current().config.DBUPDATE_INTERVAL,
@@ -942,7 +901,7 @@ def start(ctx):
 
             if ctx.search_status != "Paused":
                 if runtime.current().config.NZB_STARTUP_SEARCH:
-                    SEARCH_SCHEDULER.modify(next_run_time=(datetime.datetime.utcnow() + timedelta(minutes=2)))
+                    search_job.modify(next_run_time=(datetime.datetime.utcnow() + timedelta(minutes=2)))
                 else:
                     if sched_search_last is not None:
                         search_timestamp = float(sched_search_last)
@@ -961,7 +920,7 @@ def start(ctx):
                             "[AUTO-SEARCH]Auto-Search set to an initial delay of 2 minutes before initialization as it has been %s minutes since the last run"
                             % duration_diff
                         )
-                        SEARCH_SCHEDULER.modify(next_run_time=(datetime.datetime.utcnow() + timedelta(minutes=2)))
+                        search_job.modify(next_run_time=(datetime.datetime.utcnow() + timedelta(minutes=2)))
                     else:
                         search_diff = datetime.datetime.utcfromtimestamp(
                             common_dates.utctimestamp()
@@ -971,7 +930,7 @@ def start(ctx):
                             "[AUTO-SEARCH] Scheduling next run @ %s (every %s minutes)"
                             % (common_dates.utc_date_to_local(search_diff), runtime.current().config.SEARCH_INTERVAL)
                         )
-                        SEARCH_SCHEDULER.modify(next_run_time=search_diff)
+                        search_job.modify(next_run_time=search_diff)
 
             queue_schedule("search_queue", "start", ctx=ctx)
 
@@ -1049,7 +1008,7 @@ def start(ctx):
                         "[WEEKLY] Weekly Pull-Update initializing immediately as it has been %s hours since the last run"
                         % abs(duration_diff / 60)
                     )
-                    WEEKLY_SCHEDULER.modify(next_run_time=datetime.datetime.utcnow())
+                    weekly_job.modify(next_run_time=datetime.datetime.utcnow())
                 else:
                     weekly_diff = datetime.datetime.utcfromtimestamp(
                         weektimestamp + (weekly_interval - (duration_diff * 60))
@@ -1058,7 +1017,7 @@ def start(ctx):
                         "[WEEKLY] Scheduling next run for @ %s every %s hours"
                         % (common_dates.utc_date_to_local(weekly_diff), weektimer)
                     )
-                    WEEKLY_SCHEDULER.modify(next_run_time=weekly_diff)
+                    weekly_job.modify(next_run_time=weekly_diff)
 
             if ctx.rss_status != "Paused":
                 logger.info("[RSS-FEEDS] Initiating startup-RSS feed checks.")
@@ -1072,7 +1031,7 @@ def start(ctx):
                     rss_timestamp = common_dates.utctimestamp() + (int(runtime.current().config.RSS_CHECKINTERVAL) * 60)
                 duration_diff = (common_dates.utctimestamp() - rss_timestamp) / 60
                 if duration_diff >= int(runtime.current().config.RSS_CHECKINTERVAL):
-                    RSS_SCHEDULER.modify(next_run_time=datetime.datetime.utcnow())
+                    rss_job.modify(next_run_time=datetime.datetime.utcnow())
                 else:
                     rss_diff = datetime.datetime.utcfromtimestamp(
                         common_dates.utctimestamp()
@@ -1083,7 +1042,7 @@ def start(ctx):
                         "[RSS-FEEDS] Scheduling next run for @ %s every %s minutes"
                         % (common_dates.utc_date_to_local(rss_diff), runtime.current().config.RSS_CHECKINTERVAL)
                     )
-                    RSS_SCHEDULER.modify(next_run_time=rss_diff)
+                    rss_job.modify(next_run_time=rss_diff)
 
             if ctx.importinbox_status != "Paused":
                 if runtime.current().config.IMPORT_DIR is not None:
@@ -1095,16 +1054,16 @@ def start(ctx):
                             + str(runtime.current().config.IMPORT_SCAN_INTERVAL)
                             + " minutes."
                         )
-                        IMPORTINBOX_SCHEDULER.resume()
+                        importinbox_job.resume()
                     else:
                         logger.info("[IMPORT-INBOX] Import scan interval set to 0, disabling scheduled scanning")
-                        IMPORTINBOX_SCHEDULER.pause()
+                        importinbox_job.pause()
                 else:
                     logger.fdebug("[IMPORT-INBOX] No IMPORT_DIR configured, disabling scheduled scanning")
-                    IMPORTINBOX_SCHEDULER.pause()
+                    importinbox_job.pause()
 
             if ctx.version_status != "Paused":
-                VERSION_SCHEDULER.resume()
+                version_job.resume()
 
             if ctx.monitor_status != "Paused":
                 if runtime.current().config.CHECK_FOLDER is not None:
@@ -1116,17 +1075,17 @@ def start(ctx):
                             + str(runtime.current().config.DOWNLOAD_SCAN_INTERVAL)
                             + " minutes."
                         )
-                        MONITOR_SCHEDULER.resume()
+                        monitor_job.resume()
                     else:
                         logger.error(
                             "[FOLDER MONITOR] You need to specify a monitoring time for the check folder option to work"
                         )
-                        MONITOR_SCHEDULER.pause()
+                        monitor_job.pause()
                 else:
                     logger.error(
                         "[FOLDER MONITOR] You need to specify a location in order to use the Folder Monitor. Disabling Folder Monitor"
                     )
-                    MONITOR_SCHEDULER.pause()
+                    monitor_job.pause()
 
             logger.info("Firing up the Background Schedulers now....")
 
