@@ -4417,6 +4417,7 @@ msgid "Hasn't run yet"
 msgstr "Ainda não rodou"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Have"
 msgstr "Tenho"
@@ -4899,7 +4900,6 @@ msgstr "Edição removida do arco."
 
 #: src/components/ai/ChatActionCard.tsx
 #: src/components/onboarding/OnboardingDialog.tsx
-#: src/components/series/SeriesTable.tsx
 msgid "issues"
 msgstr "edições"
 

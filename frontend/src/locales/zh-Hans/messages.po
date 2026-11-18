@@ -4417,6 +4417,7 @@ msgid "Hasn't run yet"
 msgstr "尚未运行"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Have"
 msgstr "已拥有"
@@ -4899,7 +4900,6 @@ msgstr "已从故事线中移除期刊。"
 
 #: src/components/ai/ChatActionCard.tsx
 #: src/components/onboarding/OnboardingDialog.tsx
-#: src/components/series/SeriesTable.tsx
 msgid "issues"
 msgstr "期刊"
 

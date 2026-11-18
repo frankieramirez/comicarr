@@ -4416,6 +4416,7 @@ msgid "Hasn't run yet"
 msgstr "Hasn't run yet"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Have"
 msgstr "Have"
@@ -4898,7 +4899,6 @@ msgstr "Issue removed from arc."
 
 #: src/components/ai/ChatActionCard.tsx
 #: src/components/onboarding/OnboardingDialog.tsx
-#: src/components/series/SeriesTable.tsx
 msgid "issues"
 msgstr "issues"
 

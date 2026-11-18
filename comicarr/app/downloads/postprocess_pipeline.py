@@ -353,8 +353,10 @@ class PostProcessReconcileStage:
         return str(row.get("ComicSize")) == str(size)
 
     def recount_series(self, comic_id: str):
-        """Refresh a manga series' Have count after its chapters were marked."""
-        return self._series.recount_have(comic_id)
+        """Refresh a manga series' Have count after its chapters or volumes were placed."""
+        from comicarr.app.manga import volumes as manga_volumes
+
+        return manga_volumes.recount_have(comic_id)
 
 
 @dataclass(frozen=True)

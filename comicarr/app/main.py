@@ -241,6 +241,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error("[DEPRECATION] Startup deprecation check failed: %s" % e)
 
+    try:
+        from comicarr.app.manga.volumes import recount_series_with_volumes
+
+        await asyncio.to_thread(recount_series_with_volumes)
+    except Exception as e:
+        logger.error("[MANGA] Startup recount of series holding volumes failed: %s" % e)
+
     mcp = getattr(app.state, "mcp", None)
     async with mcp.run() if mcp is not None else nullcontext():
         yield
