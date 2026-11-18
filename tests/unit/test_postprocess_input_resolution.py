@@ -10,7 +10,6 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import comicarr
 from comicarr.app.core import runtime
 from tests.fakes import folder_request
 
@@ -48,8 +47,8 @@ def _run(processor, config, *, use_sab=0, use_nzbget=0):
 
     with (
         patch.object(runtime.current(), "config", config),
-        patch.object(comicarr, "USE_SABNZBD", use_sab),
-        patch.object(comicarr, "USE_NZBGET", use_nzbget),
+        patch.object(runtime.current(), "use_sabnzbd", use_sab),
+        patch.object(runtime.current(), "use_nzbget", use_nzbget),
         patch("comicarr.app.downloads.postprocess_pipeline.process_manga_download", side_effect=manga_branch) as manga,
         patch("comicarr.app.downloads.postprocess_pipeline.db") as mock_db,
     ):

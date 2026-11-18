@@ -1949,7 +1949,7 @@ def nzb_monitor(queue):
     while True:
         if runtime.current().return_nzb_queue.qsize() >= 1:
             try:
-                if comicarr.USE_SABNZBD is True:
+                if runtime.current().use_sabnzbd is True:
                     sab_params = {
                         "apikey": runtime.current().config.SAB_APIKEY,
                         "mode": "queue",
@@ -2011,10 +2011,10 @@ def nzb_monitor(queue):
                     entity_id=item.get("journal_release_key") or item.get("nzo_id") or item.get("NZBID"),
                 ) as lease:
                     controller.assert_lease_current(lease)
-                    if route == "sabnzbd" or (not route and comicarr.USE_SABNZBD is True):
+                    if route == "sabnzbd" or (not route and runtime.current().use_sabnzbd is True):
                         nz = sabnzbd.SABnzbd(item)
                         nzstat = nz.processor()
-                    elif route == "nzbget" or (not route and comicarr.USE_NZBGET is True):
+                    elif route == "nzbget" or (not route and runtime.current().use_nzbget is True):
                         nz = nzbget.NZBGet()
                         nzstat = nz.processor(item)
                     else:
@@ -2348,7 +2348,7 @@ def _cdh_monitor_owned(queue, item, nzstat, readd=False):
     if _cdh_record_terminal_outcome(item, nzstat, readd=readd):
         return
     if nzstat["status"] == "queue_paused":
-        if comicarr.USE_SABNZBD is True:
+        if runtime.current().use_sabnzbd is True:
             runtime.current().return_nzb_queue.put(item)
     elif nzstat["status"] is False:
         logger.info("Download %s failed. Requeue NZB to check later..." % known_nzb_id)

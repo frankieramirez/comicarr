@@ -37,7 +37,6 @@ is never misread as done / GONE.
 import requests
 from sqlalchemy import or_, select
 
-import comicarr
 from comicarr.app.attention import Failure, record
 from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, ddl_info, issues, nzblog, storyarcs
@@ -534,9 +533,9 @@ def _empty_details(verdict=UNKNOWN, raw_state=None):
 
 
 def _probe_nzb(row, payload=None, keep_history=False):
-    if comicarr.USE_SABNZBD is True:
+    if runtime.current().use_sabnzbd is True:
         return _sab_history_or_queue(row, payload=payload, keep_history=keep_history)
-    if comicarr.USE_NZBGET is True:
+    if runtime.current().use_nzbget is True:
         return _nzbget_history(row, payload=payload)
     logger.warn("[RECOVERY-CLASSIFY] No NZB client enabled — cannot probe %s." % row.get("release_key"))
     return "unreachable"

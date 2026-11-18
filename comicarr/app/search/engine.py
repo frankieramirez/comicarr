@@ -2518,9 +2518,9 @@ def searchforissue(
                         or all([runtime.current().config.NEWZNAB is True, len(ens) > 0])
                         and any(
                             [
-                                comicarr.USE_SABNZBD is True,
-                                comicarr.USE_NZBGET is True,
-                                comicarr.USE_BLACKHOLE is True,
+                                runtime.current().use_sabnzbd is True,
+                                runtime.current().use_nzbget is True,
+                                runtime.current().use_blackhole is True,
                             ]
                         )
                         or all([runtime.current().config.TORZNAB is True, len(ens) > 0])
@@ -3035,7 +3035,7 @@ def nzbname_create(provider, title=None, info=None):
     """
     nzbname = None
 
-    if comicarr.USE_BLACKHOLE and all([provider != "32P", provider != "WWT", provider != "DEM"]):
+    if runtime.current().use_blackhole and all([provider != "32P", provider != "WWT", provider != "DEM"]):
         if os.path.exists(runtime.current().config.BLACKHOLE_DIR):
             ComicName = info[0]["ComicName"]
             IssueNumber = info[0]["IssueNumber"]
@@ -3109,17 +3109,17 @@ def _nzb_cache_path(cache_dir, nzbname):
 
 
 def _configured_torrent_handoff_route():
-    if comicarr.USE_UTORRENT:
+    if runtime.current().use_utorrent:
         return "utorrent"
-    if comicarr.USE_RTORRENT:
+    if runtime.current().use_rtorrent:
         return "rtorrent"
-    if comicarr.USE_TRANSMISSION:
+    if runtime.current().use_transmission:
         return "transmission"
-    if comicarr.USE_DELUGE:
+    if runtime.current().use_deluge:
         return "deluge"
-    if comicarr.USE_QBITTORRENT:
+    if runtime.current().use_qbittorrent:
         return "qbittorrent"
-    if comicarr.USE_WATCHDIR:
+    if runtime.current().use_watchdir:
         return "watchdir"
     return "unknown"
 
@@ -3508,7 +3508,7 @@ def searcher(
 
         sent_to = "is downloading it directly via %s" % tnzbprov
 
-    elif comicarr.USE_BLACKHOLE and all(
+    elif runtime.current().use_blackhole and all(
         [nzbprov != "32P", nzbprov != "WWT", nzbprov != "DEM", provider_stat["type"] != "torznab"]
     ):
         logger.fdebug("Using blackhole directory at : %s" % runtime.current().config.BLACKHOLE_DIR)
@@ -3646,7 +3646,7 @@ def searcher(
             rcheck.update({"torrent_filename": nzbname})
 
             monitorable = torrent_monitor.configured_route() is not None
-            legacy_queue_route = any([comicarr.USE_RTORRENT, comicarr.USE_DELUGE])
+            legacy_queue_route = any([runtime.current().use_rtorrent, runtime.current().use_deluge])
             queued_for_monitoring = runtime.current().config.AUTO_SNATCH or runtime.current().config.LOCAL_TORRENT_PP
             if monitorable and runtime.current().config.AUTO_SNATCH:
                 runtime.current().snatched_queue.put(
@@ -3724,24 +3724,24 @@ def searcher(
                     except Exception as e:
                         logger.warn("error: %s" % e)
 
-        if comicarr.USE_WATCHDIR is True:
+        if runtime.current().use_watchdir is True:
             if runtime.current().config.TORRENT_LOCAL is True:
                 sent_to = "has sent it to your local Watch folder"
             else:
                 sent_to = "has sent it to your seedbox Watch folder"
-        elif comicarr.USE_UTORRENT is True:
+        elif runtime.current().use_utorrent is True:
             sent_to = "has sent it to your uTorrent client"
-        elif comicarr.USE_RTORRENT is True:
+        elif runtime.current().use_rtorrent is True:
             sent_to = "has sent it to your rTorrent client"
-        elif comicarr.USE_TRANSMISSION is True:
+        elif runtime.current().use_transmission is True:
             sent_to = "has sent it to your Transmission client"
-        elif comicarr.USE_DELUGE is True:
+        elif runtime.current().use_deluge is True:
             sent_to = "has sent it to your Deluge client"
-        elif comicarr.USE_QBITTORRENT is True:
+        elif runtime.current().use_qbittorrent is True:
             sent_to = "has sent it to your qBittorrent client"
 
     else:
-        if comicarr.USE_NZBGET:
+        if runtime.current().use_nzbget:
             ss = nzbget.NZBGet()
             try:
                 send_to_nzbget, _route_acceptance = handoff.perform_handoff(
@@ -3782,7 +3782,7 @@ def searcher(
                 return "nzbget-fail"
             sent_to = "has sent it to your NZBGet"
 
-        elif comicarr.USE_SABNZBD:
+        elif runtime.current().use_sabnzbd:
             sab_params = {
                 "apikey": runtime.current().config.SAB_APIKEY,
                 "mode": "addfile",
@@ -3850,10 +3850,10 @@ def searcher(
             logger.info("Successfully sent nzb file to SABnzbd")
 
         if runtime.current().config.ENABLE_SNATCH_SCRIPT:
-            if comicarr.USE_NZBGET:
+            if runtime.current().use_nzbget:
                 clientmode = "nzbget"
                 client_id = "%s" % send_to_nzbget["NZBID"]
-            elif comicarr.USE_SABNZBD:
+            elif runtime.current().use_sabnzbd:
                 clientmode = "sabnzbd"
                 client_id = sendtosab["nzo_id"]
 

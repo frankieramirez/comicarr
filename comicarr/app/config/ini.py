@@ -2090,9 +2090,9 @@ class Config(object):
                 runtime.current().prog_dir, "post-processing", "torrent-auto-snatch", "getlftp.sh"
             )
             config.set("AutoSnatch", "auto_snatch_script", self.AUTO_SNATCH_SCRIPT)
-        comicarr.USE_SABNZBD = False
-        comicarr.USE_NZBGET = False
-        comicarr.USE_BLACKHOLE = False
+        runtime.current().use_sabnzbd = False
+        runtime.current().use_nzbget = False
+        runtime.current().use_blackhole = False
 
         if (
             all([self.NZB_DOWNLOADER == 0, self.SAB_HOST is None])
@@ -2103,11 +2103,11 @@ class Config(object):
             self.NZB_DOWNLOADER = 3
 
         if self.NZB_DOWNLOADER == 0:
-            comicarr.USE_SABNZBD = True
+            runtime.current().use_sabnzbd = True
         elif self.NZB_DOWNLOADER == 1:
-            comicarr.USE_NZBGET = True
+            runtime.current().use_nzbget = True
         elif self.NZB_DOWNLOADER == 2:
-            comicarr.USE_BLACKHOLE = True
+            runtime.current().use_blackhole = True
 
         if self.SAB_PRIORITY.isdigit():
             if self.SAB_PRIORITY == "0":
@@ -2123,27 +2123,27 @@ class Config(object):
             else:
                 self.SAB_PRIORITY = "Default"
 
-        comicarr.USE_WATCHDIR = False
-        comicarr.USE_UTORRENT = False
-        comicarr.USE_RTORRENT = False
-        comicarr.USE_TRANSMISSION = False
-        comicarr.USE_DELUGE = False
-        comicarr.USE_QBITTORRENT = False
+        runtime.current().use_watchdir = False
+        runtime.current().use_utorrent = False
+        runtime.current().use_rtorrent = False
+        runtime.current().use_transmission = False
+        runtime.current().use_deluge = False
+        runtime.current().use_qbittorrent = False
         if self.TORRENT_DOWNLOADER == 0:
-            comicarr.USE_WATCHDIR = True
+            runtime.current().use_watchdir = True
         elif self.TORRENT_DOWNLOADER == 1:
-            comicarr.USE_UTORRENT = True
+            runtime.current().use_utorrent = True
         elif self.TORRENT_DOWNLOADER == 2:
-            comicarr.USE_RTORRENT = True
+            runtime.current().use_rtorrent = True
         elif self.TORRENT_DOWNLOADER == 3:
-            comicarr.USE_TRANSMISSION = True
+            runtime.current().use_transmission = True
         elif self.TORRENT_DOWNLOADER == 4:
-            comicarr.USE_DELUGE = True
+            runtime.current().use_deluge = True
         elif self.TORRENT_DOWNLOADER == 5:
-            comicarr.USE_QBITTORRENT = True
+            runtime.current().use_qbittorrent = True
         else:
             self.TORRENT_DOWNLOADER = 0
-            comicarr.USE_WATCHDIR = True
+            runtime.current().use_watchdir = True
 
     def parse_32pfeed(self, rssfeedline):
         KEYS_32P = {}

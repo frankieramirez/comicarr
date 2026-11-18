@@ -112,6 +112,16 @@ class AppContext:
     publisher_imprints: dict = field(default_factory=dict)
     provider_blocklist: list = field(default_factory=list)
     provider_start_id: int = 0
+    # Which download client each route hands off to, derived from config.
+    use_sabnzbd: bool = False
+    use_nzbget: bool = False
+    use_blackhole: bool = False
+    use_rtorrent: bool = False
+    use_deluge: bool = False
+    use_transmission: bool = False
+    use_qbittorrent: bool = False
+    use_utorrent: bool = False
+    use_watchdir: bool = False
     ddl_queued: set = field(default_factory=set)
     ddl_stuck_notified: set = field(default_factory=set)
     pack_issueids_dont_queue: dict = field(default_factory=dict)

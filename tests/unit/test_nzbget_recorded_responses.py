@@ -18,7 +18,6 @@ import xmlrpc.client
 
 import pytest
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.downloads import nzbget, recovery_classify
 from comicarr.app.system import connections
@@ -42,8 +41,8 @@ def nzb(monkeypatch, tmp_path):
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "USE_NZBGET", True, raising=False)
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_nzbget", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", False, raising=False)
     monkeypatch.setattr("comicarr.app.downloads.nzbget.time.sleep", lambda _seconds: None)
     fake.nzb = pipeline.cached_nzb(tmp_path)
     return fake

@@ -118,7 +118,8 @@ provider sessions (`cv_*`, `metron_api`, `provider_*`, `backend_status_*`;
 #1541), the configuration object (`config`; #1542), the scheduler, AI
 clients, DDL and folder-cache state, import progress, first-run secrets, and
 the lifecycle and acquisition gate state (`signal`, `started`, `start_up`,
-`db_empty`, `acquisition_*`, `migration_*`; #1543). The bootstrap context
+`db_empty`, `acquisition_*`, `migration_*`), and the download-client route
+flags (`use_*`; #1543). The bootstrap context
 builds the process's one scheduler
 (`comicarr/app/core/scheduler.py`); `runtime.new_bootstrap()` gives a test a
 fresh one.

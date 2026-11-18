@@ -411,7 +411,7 @@ def _prowlarr_usenet_only(config):
 
 def test_rss_scan_runs_with_prowlarr_usenet_as_the_only_provider(rss_watchlist, monkeypatch):
     _prowlarr_usenet_only(runtime.current().config)
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", True)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", True)
     warnings = []
     monkeypatch.setattr(rss_watchlist.search.logger, "warn", lambda msg, *a: warnings.append(msg))
     _seed_watchlist(_wanted("1"))

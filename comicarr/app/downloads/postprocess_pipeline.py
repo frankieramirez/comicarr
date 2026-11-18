@@ -2148,7 +2148,6 @@ def process_download(request: PostProcessRequest, *, match: Callable, deps: Post
     ``match`` is the folder matcher (``comicarr.app.downloads.postprocess_match.match_folder``),
     passed in by the facade like the other legacy collaborators.
     """
-    import comicarr
 
     config = runtime.current().config
     module = request.module + "[POST-PROCESSING]" if request.module is not None else "[POST-PROCESSING]"
@@ -2179,8 +2178,8 @@ def process_download(request: PostProcessRequest, *, match: Callable, deps: Post
     log = "nzb name: %s\nnzb folder: %s\n" % (request.nzb_name, request.nzb_folder)
     logger.fdebug("%s nzb name: %s" % (module, request.nzb_name))
     logger.fdebug("%s nzb folder: %s" % (module, request.nzb_folder))
-    use_sabnzbd = comicarr.USE_SABNZBD == 1
-    use_nzbget = comicarr.USE_NZBGET == 1
+    use_sabnzbd = runtime.current().use_sabnzbd == 1
+    use_nzbget = runtime.current().use_nzbget == 1
     input_result = _INPUT.resolve(
         PostProcessInputContext(
             nzb_name=request.nzb_name,
