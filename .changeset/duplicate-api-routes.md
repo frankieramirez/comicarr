@@ -1,5 +1,5 @@
 ---
-"comicarr": minor
+"comicarr": patch
 ---
 
-Three API routes that duplicated other routes are deprecated and will be removed in 1.0.0: `POST /api/metadata/search` (use `POST /api/search/comics`), `POST /api/metadata/search/manga` (use `POST /api/search/manga`) and `POST /api/ai/chat/stream` (use `POST /api/ai/chat/turns/stream`). They keep working until then. `POST /api/metadata/search/manga` now gives the same answer as `POST /api/search/manga`, so it also searches MyAnimeList when that is set up and marks the series already in your library. If a script or tool of yours still calls one of them, Comicarr logs a warning and lists it under **Activity → Health**. See [Deprecations](https://comicarr.com/docs/deprecations).
+Three API routes that duplicated other routes are removed. A script that called one should switch: `POST /api/metadata/search` to `POST /api/search/comics`, `POST /api/metadata/search/manga` to `POST /api/search/manga` (same request body for both), and `POST /api/ai/chat/stream` to `POST /api/ai/chat/turns/stream`. The Comicarr web app never used the removed routes, so nothing changes there.

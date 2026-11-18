@@ -10,8 +10,7 @@
 """
 Metadata domain router — metadata lookup, artwork, metatag operations.
 
-Series search lives under ``/api/search``; the two ``/search`` routes here are
-deprecated aliases of it.
+Series search lives under ``/api/search``.
 
 Low cross-domain dependency, well-bounded. Validates the domain pattern.
 """
@@ -25,28 +24,8 @@ from comicarr.app.core.exceptions import NotFoundError
 from comicarr.app.core.security import require_session
 from comicarr.app.metadata import service as metadata_service
 from comicarr.app.metadata.image_fetch import fetch_allowed_image
-from comicarr.app.search import router as search_router
-from comicarr.app.system import deprecated_routes
 
 router = APIRouter(prefix="/api/metadata", tags=["metadata"])
-
-
-@router.post("/search", deprecated=True, dependencies=[Depends(require_session)])
-def search_comics(
-    request_body: dict = None,
-    ctx: AppContext = Depends(get_context),
-):
-    """Deprecated alias of ``POST /api/search/comics`` (#1501)."""
-    return deprecated_routes.answer("api-metadata-search", search_router.search_comics(request_body, ctx=ctx))
-
-
-@router.post("/search/manga", deprecated=True, dependencies=[Depends(require_session)])
-def search_manga(
-    request_body: dict = None,
-    ctx: AppContext = Depends(get_context),
-):
-    """Deprecated alias of ``POST /api/search/manga`` (#1501)."""
-    return deprecated_routes.answer("api-metadata-search-manga", search_router.search_manga(request_body, ctx=ctx))
 
 
 @router.get("/comic/{comic_id}", dependencies=[Depends(require_session)])

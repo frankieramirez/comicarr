@@ -127,39 +127,6 @@ def mcp_tool_rename(old_name: str, new_name: str, *, announced_in: str, removabl
     )
 
 
-def route_usage_key(entry_id: str) -> str:
-    """The ``mcp_tool_calls`` row that records calls to a deprecated HTTP route.
-
-    The table holds one last-called time per name, which is all an HTTP route
-    needs too. The ``route:`` prefix keeps these names apart from MCP tools.
-    """
-    return "route:" + entry_id
-
-
-def api_route_alias(
-    entry_id: str, old_route: str, new_route: str, *, announced_in: str, removable_from: str, same: bool = True
-) -> Deprecation:
-    """The registry entry for a REST route kept as a deprecated alias of ``new_route``.
-
-    ``same`` says the replacement takes the same request and returns the same
-    answer. When it is false, the replacement does the job with a different
-    request shape, and the entry says so.
-    """
-    replacement = "%s, which does the same thing" % new_route if same else "%s, which replaces it" % new_route
-    return Deprecation(
-        id=entry_id,
-        name="The API route %s" % old_route,
-        announced_in=announced_in,
-        removable_from=removable_from,
-        replacement=replacement,
-        docs_url=DOCS_URL + "#" + entry_id,
-        in_use=partial(mcp_tool_called_recently, route_usage_key(entry_id)),
-    )
-
-
-DUPLICATE_ROUTES_ANNOUNCED_IN = "0.64.0"
-
-
 REGISTRY: list[Deprecation] = [
     Deprecation(
         id="storyarc-oneoff",
@@ -206,37 +173,7 @@ REGISTRY: list[Deprecation] = [
         docs_url=DOCS_URL + "#removed-gcd",
         in_use=_gcd_in_use,
     ),
-    api_route_alias(
-        "api-metadata-search",
-        "POST /api/metadata/search",
-        "POST /api/search/comics",
-        announced_in=DUPLICATE_ROUTES_ANNOUNCED_IN,
-        removable_from="1.0.0",
-    ),
-    api_route_alias(
-        "api-metadata-search-manga",
-        "POST /api/metadata/search/manga",
-        "POST /api/search/manga",
-        announced_in=DUPLICATE_ROUTES_ANNOUNCED_IN,
-        removable_from="1.0.0",
-    ),
-    api_route_alias(
-        "api-ai-chat-stream",
-        "POST /api/ai/chat/stream",
-        "POST /api/ai/chat/turns/stream",
-        announced_in=DUPLICATE_ROUTES_ANNOUNCED_IN,
-        removable_from="1.0.0",
-        same=False,
-    ),
 ]
-
-
-def entry(entry_id: str) -> Deprecation:
-    """The registry entry ``entry_id``. Raises ``KeyError`` for an unknown id."""
-    for item in REGISTRY:
-        if item.id == entry_id:
-            return item
-    raise KeyError(entry_id)
 
 
 def deprecations_in_use() -> list[Deprecation]:
