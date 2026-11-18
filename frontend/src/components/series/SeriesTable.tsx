@@ -494,7 +494,7 @@ export default function SeriesTable({
                 />
               </div>
               <span className={DESKTOP_COL}>
-                <Trans>issues</Trans>
+                <Trans>Have</Trans>
               </span>
               <span className={DESKTOP_COL}>
                 <Trans>progress</Trans>

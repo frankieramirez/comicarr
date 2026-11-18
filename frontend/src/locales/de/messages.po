@@ -4417,6 +4417,7 @@ msgid "Hasn't run yet"
 msgstr "Noch nicht gelaufen"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Have"
 msgstr "Vorhanden"
@@ -4899,7 +4900,6 @@ msgstr "Ausgabe aus dem Arc entfernt."
 
 #: src/components/ai/ChatActionCard.tsx
 #: src/components/onboarding/OnboardingDialog.tsx
-#: src/components/series/SeriesTable.tsx
 msgid "issues"
 msgstr "Ausgaben"
 

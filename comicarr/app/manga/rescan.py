@@ -180,8 +180,9 @@ def mark_parsed_files_downloaded(comic_id, files, *, directory=None):
             logger.fdebug("[MANGA-RESCAN] Volume %s is in the library: %s" % (volume_number, filename))
         count += _release_chapters_held_by_volume_files(all_issues or (), volume_files.values())
 
-    if count > 0:
-        db.upsert("comics", {"Have": owned_chapter_count(comic_id)}, {"ComicID": comic_id})
+    # Always recount: a refresh stores Have as 0, and a rescan that finds
+    # only volumes already on record changes no row but must restore it.
+    manga_volumes.recount_have(comic_id)
     return count
 
 
@@ -212,26 +213,6 @@ def _release_chapters_held_by_volume_files(issues, volume_filenames):
             % (issue["IssueID"], issue.get("Location"))
         )
     return changed
-
-
-def owned_chapter_count(comic_id):
-    """Chapters the library can read: their own file, or inside an owned volume file."""
-    from comicarr.app.manga import volumes as manga_volumes
-    from comicarr.app.manga.ledger import normalize_volume_number
-
-    placed = manga_volumes.covering_volumes(manga_volumes.volume_states(comic_id))
-    rows = db.select_all(
-        select(t_issues.c.Status, t_issues.c.ChapterNumber, t_issues.c.VolumeNumber).where(
-            t_issues.c.ComicID == comic_id
-        )
-    )
-    have = 0
-    for row in rows or ():
-        if row.get("Status") == "Downloaded":
-            have += 1
-        elif row.get("ChapterNumber") not in (None, "") and normalize_volume_number(row.get("VolumeNumber")) in placed:
-            have += 1
-    return have
 
 
 def _volume_sort_key(number):

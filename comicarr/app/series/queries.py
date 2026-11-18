@@ -663,20 +663,6 @@ def mark_issue_downloaded(issue_id, location, *, annual=False):
         db.upsert("issues", values, key)
 
 
-def recount_have(comic_id):
-    """Set a series' ``Have`` to the number of its issues marked Downloaded."""
-    count = db.select_one(
-        select(func.count())
-        .select_from(t_issues)
-        .where(and_(t_issues.c.ComicID == comic_id, t_issues.c.Status == "Downloaded"))
-    )
-    if count is None:
-        return None
-    have = list(count.values())[0] if hasattr(count, "values") else count[0]
-    db.upsert("comics", {"Have": have}, {"ComicID": comic_id})
-    return have
-
-
 def get_wanted_issues(limit=None, offset=None, search=None, comic_id=None):
     """Get all wanted issues joined with comic info.
 

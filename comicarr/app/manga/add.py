@@ -101,8 +101,8 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
 
     On refresh, existing chapter rows keep their Status and DateAdded so
     Downloaded/Snatched/Wanted/etc. survive metadata updates; only new
-    chapters get the default Status. Have is reset to 0 here and
-    recalculated by the folder rescan after a refresh.
+    chapters get the default Status. Have is recounted here from chapter
+    files and owned volumes, so a refresh never zeroes it.
 
     Args:
         mangaid: The comic ID used in the database (e.g. 'md-xxx' or 'mal-xxx')
@@ -217,6 +217,9 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
         "LatestDate": latest_date or "Unknown",
     }
     db.upsert("comics", update_values, controlValueDict)
+    from comicarr.app.manga import volumes as manga_volumes
+
+    manga_volumes.recount_have(mangaid)
 
     if total == 0:
         logger.warn(

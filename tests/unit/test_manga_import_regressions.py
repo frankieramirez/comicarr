@@ -154,9 +154,10 @@ class TestMangaDexMalMatching:
 
 
 class TestMangaChapterFallback:
+    @patch("comicarr.app.manga.volumes.recount_have")
     @patch("comicarr.app.manga.add.db")
     @patch.object(runtime.current(), "config")
-    def test_mal_total_creates_only_missing_placeholder_chapters(self, mock_config, mock_db):
+    def test_mal_total_creates_only_missing_placeholder_chapters(self, mock_config, mock_db, mock_recount):
         from comicarr.app.manga import add as manga_add
 
         mock_config.MANGADEX_LANGUAGES = "en"
@@ -174,3 +175,4 @@ class TestMangaChapterFallback:
         assert [values["IssueID"] for values in issue_upserts] == ["mal-13-ch2", "mal-13-ch3"]
         assert all(values["Status"] == "Skipped" for values in issue_upserts)
         assert result["total"] == 3
+        mock_recount.assert_called_once_with("mal-13")

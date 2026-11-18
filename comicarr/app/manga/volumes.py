@@ -24,7 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from comicarr.app.core import db
-from comicarr.app.core.tables import manga_volumes
+from comicarr.app.core.tables import issues, manga_volumes
 from comicarr.app.manga.ledger import normalize_volume_number, volume_id
 
 SNATCHED = "Snatched"
@@ -151,6 +151,66 @@ def set_volume_end(comic_id, volume_number, last_chapter):
             update(manga_volumes).where(manga_volumes.c.VolumeID == identity).values(LastChapter=end, updated_at=_now())
         )
     return end
+
+
+def owned_chapter_count(comic_id):
+    """Chapters the library holds: their own file, or inside an owned volume.
+
+    This is the series page's Have plus In a volume. It reads the same
+    ``coverage.volume_ranges``, so a chapter MangaDex never tagged with a
+    volume (or a placeholder chapter) counts once an owned volume's range
+    holds it, and it keeps ``ledger.apply_volume_coverage``'s exceptions: a
+    grab under way and an explicit Skipped or Ignored stay on the chapter.
+    """
+    from comicarr.app.acquisition.models import AcquisitionIntent
+    from comicarr.app.acquisition.policy import project_legacy_state
+    from comicarr.app.manga import coverage
+
+    chapters = db.select_all(
+        select(
+            issues.c.IssueID,
+            issues.c.Status,
+            issues.c.AcquisitionIntent,
+            issues.c.ChapterNumber,
+            issues.c.VolumeNumber,
+        ).where(issues.c.ComicID == str(comic_id))
+    )
+    rows = volume_rows(comic_id)
+    ranges = coverage.volume_ranges(chapters, rows)
+    owned = covering_volumes({row["VolumeNumber"]: row["Status"] for row in rows})
+    covered = {identity for volume in owned for identity in ranges.get(volume, {}).get("chapters", ())}
+    have = 0
+    for row in chapters or ():
+        state = project_legacy_state(row.get("AcquisitionIntent"), row.get("Status"))
+        if state.fulfillment.is_owned:
+            have += 1
+        elif state.fulfillment.is_in_flight or state.intent in {AcquisitionIntent.SKIPPED, AcquisitionIntent.IGNORED}:
+            continue
+        elif row.get("IssueID") in covered:
+            have += 1
+    return have
+
+
+def recount_have(comic_id):
+    """Store a manga series' ``Have`` (the library list's count) and return it."""
+    if not comic_id:
+        return None
+    have = owned_chapter_count(comic_id)
+    db.upsert("comics", {"Have": have}, {"ComicID": str(comic_id)})
+    return have
+
+
+def recount_series_with_volumes():
+    """Recount ``Have`` for every series that holds a volume. Called once at startup.
+
+    Counts stored before volumes counted toward ``Have`` stay wrong until the
+    series is next refreshed, which can be days away; this corrects them on
+    the first start after an upgrade. Returns how many series it recounted.
+    """
+    rows = db.select_all(select(manga_volumes.c.ComicID).where(manga_volumes.c.Status.in_(sorted(COVERING))).distinct())
+    for row in rows or ():
+        recount_have(row["ComicID"])
+    return len(rows or ())
 
 
 def series_view(comic_id, projected_issues):

@@ -79,3 +79,96 @@ def test_recording_an_existing_volume_does_not_raise_on_its_key():
     volumes.record_volume("md-x", "1", volumes.SNATCHED)
     volumes.record_volume("md-x", "1", volumes.DOWNLOADED, location="X v01.cbz")
     assert volumes.volume_states("md-x") == {"1": "Downloaded"}
+
+
+def _seed_chapters(comic_id, chapters, *, have=0):
+    """``chapters`` is ``[(number, volume tag or None, status)]``."""
+    from comicarr.app.core.tables import comics, issues
+
+    with get_engine().begin() as conn:
+        conn.execute(comics.insert().values(ComicID=comic_id, ComicName="Example", Have=have, Total=len(chapters)))
+        for number, volume, status in chapters:
+            conn.execute(
+                issues.insert().values(
+                    IssueID="%s-ch%s" % (comic_id, number),
+                    ComicID=comic_id,
+                    Issue_Number=str(number),
+                    ChapterNumber=str(number),
+                    VolumeNumber=volume,
+                    Status=status,
+                )
+            )
+
+
+def _stored_have(comic_id):
+    from sqlalchemy import select
+
+    from comicarr.app.core.tables import comics
+
+    with get_engine().connect() as conn:
+        return conn.execute(select(comics.c.Have).where(comics.c.ComicID == comic_id)).scalar_one()
+
+
+def test_owned_volumes_count_every_chapter_they_hold_tagged_or_not():
+    # Chapters 1-4 in vol 1, 5-8 in vol 2; MangaDex left 3 and 7 untagged.
+    tags = {1: "1", 2: "1", 4: "1", 5: "2", 6: "2", 8: "2"}
+    _seed_chapters("md-x", [(n, tags.get(n), "Skipped") for n in range(1, 9)] + [(9, None, "Downloaded")])
+    volumes.record_volume("md-x", "1", volumes.DOWNLOADED, location="X v01.cbz")
+    volumes.record_volume("md-x", "2", volumes.DOWNLOADED, location="X v02.cbz")
+
+    assert volumes.owned_chapter_count("md-x") == 9
+
+
+def test_a_grabbed_volume_does_not_count_until_its_file_lands():
+    _seed_chapters("md-x", [(1, "1", "Skipped"), (2, "1", "Skipped")])
+    volumes.record_volume("md-x", "1", volumes.SNATCHED)
+    assert volumes.owned_chapter_count("md-x") == 0
+
+
+def test_recount_have_stores_the_count_the_library_list_shows():
+    _seed_chapters("md-x", [(1, "1", "Skipped"), (2, "1", "Skipped"), (3, None, "Downloaded")], have=1)
+    volumes.record_volume("md-x", "1", volumes.DOWNLOADED, location="X v01.cbz")
+
+    assert volumes.recount_have("md-x") == 3
+    assert _stored_have("md-x") == 3
+
+
+def test_a_rescan_of_volumes_already_on_record_restores_a_zeroed_have():
+    """A refresh stores Have 0; a rescan that finds no new file must still recount it."""
+    from comicarr.app.manga.rescan import mark_parsed_files_downloaded
+
+    _seed_chapters("md-x", [(1, "1", "Skipped"), (2, "1", "Skipped")], have=0)
+    volumes.record_volume("md-x", "1", volumes.DOWNLOADED, location="X v01.cbz")
+
+    count = mark_parsed_files_downloaded(
+        "md-x", [("/library/X v01.cbz", {"chapter_number": None, "volume_number": "1"})]
+    )
+
+    assert count == 0
+    assert _stored_have("md-x") == 2
+
+
+def test_a_grab_under_way_and_an_explicit_skip_stay_on_the_chapter():
+    """The same exceptions the series page makes, so the two counts agree."""
+    from sqlalchemy import update
+
+    from comicarr.app.core.tables import issues
+
+    _seed_chapters("md-x", [(1, "1", "Skipped"), (2, "1", "Snatched"), (3, "1", "Skipped"), (4, "1", "Archived")])
+    with get_engine().begin() as conn:
+        conn.execute(update(issues).where(issues.c.IssueID == "md-x-ch3").values(AcquisitionIntent="skipped"))
+    volumes.record_volume("md-x", "1", volumes.DOWNLOADED, location="X v01.cbz")
+
+    # Chapter 1 is covered and chapter 4 has its own file; 2 and 3 are not held.
+    assert volumes.owned_chapter_count("md-x") == 2
+
+
+def test_the_startup_recount_corrects_only_series_that_hold_a_volume():
+    _seed_chapters("md-x", [(1, "1", "Skipped"), (2, "1", "Skipped")], have=0)
+    _seed_chapters("md-y", [(1, "1", "Skipped")], have=7)
+    volumes.record_volume("md-x", "1", volumes.DOWNLOADED, location="X v01.cbz")
+    volumes.record_volume("md-y", "1", volumes.SNATCHED)
+
+    assert volumes.recount_series_with_volumes() == 1
+    assert _stored_have("md-x") == 2
+    assert _stored_have("md-y") == 7
