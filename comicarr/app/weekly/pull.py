@@ -9,7 +9,7 @@
 
 """Seam for the legacy weekly pull list (ADR-0005, #1203).
 
-``comicarr/app/`` reaches ``weeklypull`` and ``weeklypullit`` only through
+``comicarr/app/`` reaches ``weeklypull`` only through
 these functions. Each one delegates to the legacy body unchanged; the bodies
 move behind this module later, one stage at a time.
 """
@@ -24,9 +24,9 @@ def run_weekly_refresh() -> None:
 
     Records job status as the scheduler job does and re-raises a failed pull.
     """
-    from comicarr import weeklypullit
+    from comicarr.app.weekly import pull_runner
 
-    weeklypullit.Weekly().run()
+    pull_runner.Weekly().run()
 
 
 def fetch_pull_list(

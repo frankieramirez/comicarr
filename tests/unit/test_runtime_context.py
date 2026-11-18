@@ -67,7 +67,7 @@ RUNTIME_GLOBAL_ALLOWLIST = {
     # creep back in while the larger legacy scheduler service drains later.
     "comicarr/app/system/router.py": set(),
     "comicarr/app/acquisition/maintenance.py": set(),
-    "comicarr/weeklypullit.py": set(),
+    "comicarr/app/weekly/pull_runner.py": set(),
     "comicarr/app/ai/enrichment.py": set(),
     "comicarr/app/ai/parsing.py": set(),
     "comicarr/app/ai/pull_list.py": set(),
