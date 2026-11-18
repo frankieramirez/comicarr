@@ -23,7 +23,8 @@ import sys
 import comicarr
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.core import db, logger
-from comicarr.downloaders import mega_public
+from comicarr.app.downloads.ddl import mega_public
+from comicarr.app.library import directories
 
 
 class MegaNZ(object):
@@ -35,7 +36,7 @@ class MegaNZ(object):
     def ddl_download(self, link, filename, id, issueid=None, site=None):
         self.id = id
         if self.dl_location is not None and not os.path.isdir(self.dl_location):
-            checkdirectory = comicarr.filechecker.validateAndCreateDirectory(self.dl_location, True)
+            checkdirectory = directories.validateAndCreateDirectory(self.dl_location, True)
             if not checkdirectory:
                 logger.warn("[ABORTING] Error trying to validate/create DDL download directory: %s." % self.dl_location)
                 return {"success": False, "filename": filename, "path": None}

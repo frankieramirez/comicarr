@@ -7,14 +7,14 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""DDL(External) search imports MegaNZ from downloaders.external_server."""
+"""DDL(External) search imports MegaNZ from app/downloads/ddl/external_server."""
 
 from types import SimpleNamespace
 
 import comicarr
 from comicarr import search
+from comicarr.app.downloads.ddl import external_server as exs
 from comicarr.app.search import progress
-from comicarr.downloaders import external_server as exs
 
 
 def test_search_imports_external_server_meganz():

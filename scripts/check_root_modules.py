@@ -57,7 +57,6 @@ ROOT_MODULES: dict[str, int] = {
 
 # Directory under comicarr/ other than app/ -> retiring issue.
 ROOT_PACKAGES: dict[str, int] = {
-    "downloaders": 1422,
     "torrent": 1422,
 }
 

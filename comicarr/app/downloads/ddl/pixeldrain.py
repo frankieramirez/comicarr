@@ -25,6 +25,7 @@ import requests
 import comicarr
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.core import db, logger
+from comicarr.app.library import directories
 
 
 class PixelDrain(object):
@@ -43,7 +44,7 @@ class PixelDrain(object):
         self.id = id
         self.url = link
         if self.dl_location is not None and not os.path.isdir(self.dl_location):
-            checkdirectory = comicarr.filechecker.validateAndCreateDirectory(self.dl_location, True)
+            checkdirectory = directories.validateAndCreateDirectory(self.dl_location, True)
             if not checkdirectory:
                 logger.warn(
                     "[PixelDrain][ABORTING] Error trying to validate/create DDL download"
