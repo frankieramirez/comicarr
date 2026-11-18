@@ -89,3 +89,27 @@ and the bounded AI runtime consumers are the first migrated ownership boundary.
 `app/system/service.py` scheduler surface and non-selected domains remain
 documented compatibility consumers until their coherent ownership waves,
 rather than being silently rewritten in this change.
+
+## Retiring the package globals (#1478)
+
+`runtime.current()` is the accessor that replaces a `comicarr.X` global. It
+never raises: before `create_runtime()` it returns a module-level bootstrap
+`AppContext`, and afterwards the factory context. Code that may run during
+start-up, a CLI entry point, or a unit test reads and writes through it
+without caring which phase it runs in. `get_runtime()` stays the accessor for
+code where running before start-up is a bug.
+
+Each retirement slice moves one group of globals in a single change:
+
+1. Every reader and writer, including bare-name globals inside
+   `comicarr/__init__.py` and `monkeypatch.setattr(comicarr, "X", v)` in tests
+   (which becomes `monkeypatch.setattr(runtime.current(), "x", v)`), switches
+   to `runtime.current().<field>`.
+2. The field joins `MIGRATED_FIELDS`, so the factory copies it from the
+   bootstrap context by identity instead of adopting the legacy global, and
+   the projection stops writing it back to the package.
+3. The global is deleted, its `_CONTEXT_TO_LEGACY` entry goes, and the name
+   joins `RETIRED_GLOBALS` in `scripts/check_retired_globals.py` so it cannot
+   return.
+
+The projection and `_CONTEXT_TO_LEGACY` are removed once the last group is.
