@@ -20,7 +20,6 @@ from pathlib import Path
 import requests
 from PIL import Image
 
-import comicarr
 from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.library import filers, getimage
@@ -230,7 +229,7 @@ def cmtag_series_arguments(issueid, comicid, comversion, seriesyear, agerating):
     Shared by manual metatagging and import finalization so an imported file is
     tagged with the same series fields as one tagged from the series page.
     """
-    if comicarr.CONFIG.CMTAG_START_YEAR_AS_VOLUME:
+    if runtime.current().config.CMTAG_START_YEAR_AS_VOLUME:
         if all([seriesyear is not None, seriesyear != "None"]):
             vol_label = seriesyear
         else:
@@ -298,9 +297,16 @@ def _do_manual_metatag(issueid, comicid=None, group=False):
                 dirName = str(Path(filename).parent.absolute())
 
         if not os.path.exists(filename):
-            if all([comicarr.CONFIG.MULTIPLE_DEST_DIRS is not None, comicarr.CONFIG.MULTIPLE_DEST_DIRS != "None"]):
-                if os.path.exists(os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(dirName))):
-                    secondary_folder = os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(dirName))
+            if all(
+                [
+                    runtime.current().config.MULTIPLE_DEST_DIRS is not None,
+                    runtime.current().config.MULTIPLE_DEST_DIRS != "None",
+                ]
+            ):
+                if os.path.exists(os.path.join(runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(dirName))):
+                    secondary_folder = os.path.join(
+                        runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(dirName)
+                    )
                 else:
                     ff = filers.FileHandlers(ComicID=issuedata["ComicID"])
                     secondary_folder = ff.secondary_folders(dirName)
@@ -400,13 +406,15 @@ def _do_manual_metatag(issueid, comicid=None, group=False):
                 try:
                     if all(
                         [
-                            comicarr.CONFIG.MULTIPLE_DEST_DIRS is not None,
-                            comicarr.CONFIG.MULTIPLE_DEST_DIRS != "None",
+                            runtime.current().config.MULTIPLE_DEST_DIRS is not None,
+                            runtime.current().config.MULTIPLE_DEST_DIRS != "None",
                         ]
                     ):
-                        if os.path.exists(os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(dirName))):
+                        if os.path.exists(
+                            os.path.join(runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(dirName))
+                        ):
                             secondary_folder = os.path.join(
-                                comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(dirName)
+                                runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(dirName)
                             )
                         else:
                             ff = filers.FileHandlers(ComicID=comicid)
@@ -523,7 +531,7 @@ def _do_bulk_metatag(ComicID, IssueIDs, threaded=False, registry=None):
         % placeholders,
         query_params,
     )
-    if comicarr.CONFIG.ANNUALS_ON:
+    if runtime.current().config.ANNUALS_ON:
         groupinfo += db.raw_select_all(
             "SELECT IssueID, Location FROM annuals WHERE ComicID=? and IssueID IN (%s) and Location IS NOT NULL"
             % placeholders,
@@ -534,10 +542,13 @@ def _do_bulk_metatag(ComicID, IssueIDs, threaded=False, registry=None):
         logger.warn("No issues physically exist for me to (re)-tag.")
         return
 
-    if comicarr.CONFIG.CV_BATCH_LIMIT_PROTECTION and len(groupinfo) > comicarr.CONFIG.CV_BATCH_LIMIT_THRESHOLD:
+    if (
+        runtime.current().config.CV_BATCH_LIMIT_PROTECTION
+        and len(groupinfo) > runtime.current().config.CV_BATCH_LIMIT_THRESHOLD
+    ):
         warningMessage = (
             "CV Batch Limit Protection (%s) has been triggered trying to tag %s issues.  This will likely breach ComicVine API Limits."
-            % (comicarr.CONFIG.CV_BATCH_LIMIT_THRESHOLD, len(groupinfo))
+            % (runtime.current().config.CV_BATCH_LIMIT_THRESHOLD, len(groupinfo))
         )
         logger.warn(
             "[SERIES-METATAGGER][%s (%s)] %s" % (comicinfo["ComicName"], comicinfo["ComicYear"], warningMessage)
@@ -604,7 +615,7 @@ def _do_group_metatag(ComicID, threaded=False, registry=None):
     groupinfo = db.raw_select_all(
         "SELECT IssueID, Location FROM issues WHERE ComicID=? and Location IS NOT NULL", [ComicID]
     )
-    if comicarr.CONFIG.ANNUALS_ON:
+    if runtime.current().config.ANNUALS_ON:
         groupinfo += db.raw_select_all(
             "SELECT IssueID, Location FROM annuals WHERE ComicID=? and Location IS NOT NULL", [ComicID]
         )
@@ -613,10 +624,13 @@ def _do_group_metatag(ComicID, threaded=False, registry=None):
         logger.warn("No issues physically exist within the series directory for me to (re)-tag.")
         return
 
-    if comicarr.CONFIG.CV_BATCH_LIMIT_PROTECTION and len(groupinfo) > comicarr.CONFIG.CV_BATCH_LIMIT_THRESHOLD:
+    if (
+        runtime.current().config.CV_BATCH_LIMIT_PROTECTION
+        and len(groupinfo) > runtime.current().config.CV_BATCH_LIMIT_THRESHOLD
+    ):
         warningMessage = (
             "CV Batch Limit Protection (%s) has been triggered trying to tag %s issues.  This will likely breach ComicVine API Limits."
-            % (comicarr.CONFIG.CV_BATCH_LIMIT_THRESHOLD, len(groupinfo))
+            % (runtime.current().config.CV_BATCH_LIMIT_THRESHOLD, len(groupinfo))
         )
         logger.warn(
             "[SERIES-METATAGGER][%s (%s)] %s" % (comicinfo["ComicName"], comicinfo["ComicYear"], warningMessage)
@@ -957,30 +971,35 @@ def IssueDetails(filelocation, IssueID=None, justinfo=False, comicname=None):
 
 def getImage(comicid, url, issueid=None, thumbnail_path=None, apicall=False, overwrite=False):
     if thumbnail_path is None:
-        if not os.path.exists(comicarr.CONFIG.CACHE_DIR):
+        if not os.path.exists(runtime.current().config.CACHE_DIR):
             try:
-                os.makedirs(str(comicarr.CONFIG.CACHE_DIR))
+                os.makedirs(str(runtime.current().config.CACHE_DIR))
                 if apicall is False:
-                    logger.info("Cache Directory successfully created at: %s" % comicarr.CONFIG.CACHE_DIR)
+                    logger.info("Cache Directory successfully created at: %s" % runtime.current().config.CACHE_DIR)
             except OSError:
                 if apicall is False:
                     logger.error(
-                        "Could not create cache dir. Check permissions of cache dir: %s" % comicarr.CONFIG.CACHE_DIR
+                        "Could not create cache dir. Check permissions of cache dir: %s"
+                        % runtime.current().config.CACHE_DIR
                     )
-        coverfile = os.path.join(comicarr.CONFIG.CACHE_DIR, str(comicid) + ".jpg")
+        coverfile = os.path.join(runtime.current().config.CACHE_DIR, str(comicid) + ".jpg")
     else:
         coverfile = thumbnail_path
 
-    if comicarr.CONFIG.CVAPI_RATE is None or comicarr.CONFIG.CVAPI_RATE < 2:
+    if runtime.current().config.CVAPI_RATE is None or runtime.current().config.CVAPI_RATE < 2:
         time.sleep(2)
     else:
-        time.sleep(comicarr.CONFIG.CVAPI_RATE)
+        time.sleep(runtime.current().config.CVAPI_RATE)
 
     if apicall is False:
         logger.info("Attempting to retrieve the comic image for series")
     try:
         r = requests.get(
-            url, params=None, stream=True, verify=comicarr.CONFIG.CV_VERIFY, headers=runtime.current().cv_headers
+            url,
+            params=None,
+            stream=True,
+            verify=runtime.current().config.CV_VERIFY,
+            headers=runtime.current().cv_headers,
         )
     except Exception as e:
         if apicall is False:

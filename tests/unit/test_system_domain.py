@@ -737,7 +737,7 @@ class TestConfigService:
         """Failed durable writes must not reconfigure schedulers or replace the global config."""
         ctx = _make_test_ctx()
         previous_global = object()
-        monkeypatch.setattr(comicarr, "CONFIG", previous_global)
+        monkeypatch.setattr(runtime.current(), "config", previous_global)
         ctx.config.apply_transaction.side_effect = None
         ctx.config.apply_transaction.return_value = False
 
@@ -746,7 +746,7 @@ class TestConfigService:
 
         assert result == {"success": False, "error": "Failed to persist configuration"}
         reconfigure.assert_not_called()
-        assert comicarr.CONFIG is previous_global
+        assert runtime.current().config is previous_global
 
     def test_update_config_reconfigures_scheduler_after_persistence(self):
         """Scheduler changes happen only after the transactional write succeeds."""
@@ -1828,7 +1828,7 @@ def _make_real_config(tmp_path, monkeypatch):
     config_module.config.set("General", "secure_dir", str(secure_dir))
     cfg.provider_sequence = MagicMock()
     cfg.write_out_provider_searches = MagicMock()
-    monkeypatch.setattr(comicarr, "CONFIG", cfg)
+    monkeypatch.setattr(runtime.current(), "config", cfg)
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     return cfg, config_path, config_module
 
@@ -1935,7 +1935,7 @@ class TestConfigTransactions:
         monkeypatch.setattr(encrypted_module, "_fernet_instance", None)
         monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
         cfg = config_module.Config(str(config_path))
-        monkeypatch.setattr(comicarr, "CONFIG", cfg)
+        monkeypatch.setattr(runtime.current(), "config", cfg)
         projections = []
 
         def project_providers():
@@ -2005,7 +2005,7 @@ class TestConfigTransactions:
         monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
         monkeypatch.setattr(comicarr, "CONFIG_FILE", str(config_path))
         cfg = config_module.Config(str(config_path))
-        monkeypatch.setattr(comicarr, "CONFIG", cfg)
+        monkeypatch.setattr(runtime.current(), "config", cfg)
         cfg.provider_sequence = MagicMock()
         cfg.write_out_provider_searches = MagicMock()
         cfg.configure = MagicMock()

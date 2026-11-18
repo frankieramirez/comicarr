@@ -18,7 +18,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 from xml.dom.minidom import parseString
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.search import mb
 from comicarr.app.search.mb import haveit_for_comicvine
 from comicarr.app.search.service import find_comic
@@ -68,7 +68,7 @@ def test_search_marks_only_matching_comicvine_id_as_added(monkeypatch):
         f"<response><number_of_total_results>5</number_of_total_results><results>{volumes}</results></response>"
     )
     config = SimpleNamespace(USE_METRON_SEARCH=False, COMICVINE_API="test-key", CV_SKIP_IMPRINT_VALIDATION=True)
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(mb, "listLibrary", _library_with_absolute_superman_monthly)
     monkeypatch.setattr(mb, "pullsearch", Mock(return_value=response))
     monkeypatch.setattr(mb, "ignored_publisher_check", lambda publisher: False)

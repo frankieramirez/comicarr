@@ -28,7 +28,7 @@ T0 = datetime.datetime(2026, 11, 12, 6, 0, tzinfo=datetime.timezone.utc)
 @pytest.fixture
 def health_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()
@@ -304,7 +304,7 @@ def test_folder_route_checks_the_folder(tmp_path):
 def test_router_404s_an_unconfigured_connection(monkeypatch):
     import asyncio
 
-    monkeypatch.setattr(comicarr, "CONFIG", _sab_config(SAB_HOST=None, NZB_DOWNLOADER=3))
+    monkeypatch.setattr(runtime.current(), "config", _sab_config(SAB_HOST=None, NZB_DOWNLOADER=3))
     response = asyncio.run(system_router.test_connection("sabnzbd"))
     assert response.status_code == 404
 
@@ -324,7 +324,7 @@ def test_scheduled_connection_check_runs_and_leaves_a_summary(monkeypatch):
         return FakeResponse(payload={"queue": {"noofslots": 0}})
 
     monkeypatch.setattr(connections.requests, "get", fake_get)
-    monkeypatch.setattr(comicarr, "CONFIG", _sab_config())
+    monkeypatch.setattr(runtime.current(), "config", _sab_config())
 
     rows = connections.run()
 

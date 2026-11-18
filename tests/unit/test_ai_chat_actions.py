@@ -14,7 +14,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.ai import actions as chat_actions
 from comicarr.app.ai import chat_store
 from comicarr.app.ai.chat_service import stream_turn
@@ -28,7 +27,7 @@ from comicarr.app.core.tables import annuals, issues, metadata
 @pytest.fixture
 def chat_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     metadata.create_all(db.get_engine())

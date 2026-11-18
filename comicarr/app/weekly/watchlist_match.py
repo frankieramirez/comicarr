@@ -21,7 +21,7 @@ from sqlalchemy import func, select, text
 
 import comicarr
 from comicarr.app.common import configured as configured
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, issues, upcoming, weekly
 from comicarr.app.series import add, refresh
 from comicarr.app.weekly import locg
@@ -30,7 +30,7 @@ from comicarr.app.weekly import locg
 def latest_update(ComicID, LatestIssue, LatestDate, ReleaseComicID=None):
     logger.fdebug(str(ComicID) + " - updating latest_date to : " + str(LatestDate))
     cid = ComicID
-    if comicarr.CONFIG.ANNUALS_ON:
+    if runtime.current().config.ANNUALS_ON:
         logger.fdebug("checking for releasecomicid %s reference in annuals table" % ReleaseComicID)
         db_check = db.select_one(select(annuals.c.ComicID).where(annuals.c.ReleaseComicID == ReleaseComicID))
         if not db_check:
@@ -81,7 +81,7 @@ def upcoming_update(
         "IssueDate": str(IssueDate),
     }
 
-    if comicarr.CONFIG.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
+    if runtime.current().config.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
         lastupdatechk = db.select_one(select(comics).where(comics.c.ComicID == ComicID))
         if lastupdatechk is None:
             pass
@@ -98,16 +98,16 @@ def upcoming_update(
             absdiff = abs(n_date - c_obj_date)
             hours = (absdiff.days * 24 * 60 * 60 + absdiff.seconds) / 3600.0
     else:
-        if comicarr.CONFIG.PULL_REFRESH is None:
-            comicarr.CONFIG.PULL_REFRESH = datetime.datetime.today().replace(second=0, microsecond=0)
-        logger.fdebug("pull_refresh: " + str(comicarr.CONFIG.PULL_REFRESH))
-        c_obj_date = datetime.datetime.strptime(str(comicarr.CONFIG.PULL_REFRESH), "%Y-%m-%d %H:%M:%S")
+        if runtime.current().config.PULL_REFRESH is None:
+            runtime.current().config.PULL_REFRESH = datetime.datetime.today().replace(second=0, microsecond=0)
+        logger.fdebug("pull_refresh: " + str(runtime.current().config.PULL_REFRESH))
+        c_obj_date = datetime.datetime.strptime(str(runtime.current().config.PULL_REFRESH), "%Y-%m-%d %H:%M:%S")
         n_date = datetime.datetime.now()
         absdiff = abs(n_date - c_obj_date)
         hours = (absdiff.days * 24 * 60 * 60 + absdiff.seconds) / 3600.0
 
     if any(["annual" in ComicName.lower(), "special" in ComicName.lower()]):
-        if comicarr.CONFIG.ANNUALS_ON:
+        if runtime.current().config.ANNUALS_ON:
             logger.info("checking: " + str(ComicID) + " -- issue#: " + str(IssueNumber))
             issuechk = db.select_one(
                 select(annuals).where((annuals.c.ReleaseComicID == ComicID) & (annuals.c.Issue_Number == IssueNumber))
@@ -233,8 +233,8 @@ def upcoming_update(
                     values = {"Status": "Archived"}
                     newValue["Status"] = "Archived"
                 elif og_status == "Failed":
-                    if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING:
-                        if comicarr.CONFIG.FAILED_AUTO:
+                    if runtime.current().config.FAILED_DOWNLOAD_HANDLING:
+                        if runtime.current().config.FAILED_AUTO:
                             values = {"Status": "Wanted"}
                             newValue["Status"] = "Wanted"
                         else:
@@ -253,7 +253,7 @@ def upcoming_update(
     if issuechk is None:
         if futurepull is None:
             og_status = None
-            if comicarr.CONFIG.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
+            if runtime.current().config.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
                 logger.fdebug(
                     adjComicName
                     + " Issue: "
@@ -293,7 +293,7 @@ def upcoming_update(
                 logger.fdebug("hours: " + str(hours) + " -- forcecheck: " + str(forcecheck))
                 if hours > 2 or forcecheck == "yes":
                     logger.fdebug("weekinfo:" + str(weekinfo))
-                    comicarr.CONFIG.PULL_REFRESH = datetime.datetime.today().replace(second=0, microsecond=0)
+                    runtime.current().config.PULL_REFRESH = datetime.datetime.today().replace(second=0, microsecond=0)
                     locg.locg(weeknumber=str(weekinfo["weeknumber"]), year=str(weekinfo["year"]))
 
             logger.fdebug("linking ComicID to Pull-list to reflect status.")
@@ -312,7 +312,7 @@ def upcoming_update(
                     )
             return
 
-    if comicarr.CONFIG.AUTOWANT_UPCOMING:
+    if runtime.current().config.AUTOWANT_UPCOMING:
         if og_status is None:
             newValue["Status"] = "Wanted"
             logger.fdebug(
@@ -435,7 +435,7 @@ def weekly_update(ComicName, IssueNumber, CStatus, CID, weeknumber, year, altiss
             newValue = {"STATUS": CStatus}
 
         else:
-            if comicarr.CONFIG.AUTOWANT_UPCOMING:
+            if runtime.current().config.AUTOWANT_UPCOMING:
                 newValue = {"STATUS": "Wanted"}
             else:
                 newValue = {"STATUS": "Skipped"}

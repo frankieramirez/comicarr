@@ -53,7 +53,7 @@ def torrent_client_configured(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "USE_WATCHDIR", False, raising=False)
     config = MagicMock()
     config.CACHE_DIR = str(tmp_path)
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     return tmp_path
 
 
@@ -126,8 +126,8 @@ def isolated_db(tmp_path, monkeypatch):
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
         monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(HIGHCOUNT=0, POST_PROCESSING=False),
         raising=False,
     )

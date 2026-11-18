@@ -20,7 +20,6 @@ from PIL import Image
 from sqlalchemy import text
 from starlette.datastructures import UploadFile
 
-import comicarr
 from comicarr.app.ai import chat_images, chat_store
 from comicarr.app.ai.chat_service import stream_turn
 from comicarr.app.ai.router import router
@@ -33,7 +32,7 @@ from comicarr.app.core.tables import ai_chat_messages, metadata
 @pytest.fixture
 def chat_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     metadata.create_all(db.get_engine())
@@ -49,7 +48,7 @@ def production_chat_db(tmp_path, monkeypatch):
     applies — the path that previously left GET /chat/threads returning 500.
     """
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()

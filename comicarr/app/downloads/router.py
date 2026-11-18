@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from starlette.responses import FileResponse
 
+from comicarr.app.core import runtime
 from comicarr.app.core.security import require_session
 from comicarr.app.downloads import service as dl_service
 
@@ -197,7 +198,6 @@ def download_file(issue_id: str):
     Looks up the file location from the database, validates the path
     is within allowed directories, and streams the file.
     """
-    import comicarr
     from comicarr.app.common.library_roots import is_servable_library_file
 
     pathfile, filename = dl_service.get_issue_file_path(issue_id)
@@ -207,7 +207,7 @@ def download_file(issue_id: str):
             content={"detail": "File not found for issue: %s" % issue_id},
         )
 
-    if not is_servable_library_file(pathfile, comicarr.CONFIG):
+    if not is_servable_library_file(pathfile, runtime.current().config):
         return JSONResponse(
             status_code=403,
             content={"detail": "File path outside allowed directories"},

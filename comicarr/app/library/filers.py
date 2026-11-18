@@ -32,7 +32,7 @@ import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import strings as common_strings
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, issues, storyarcs, weekly
 from comicarr.app.library import filechecker
 
@@ -68,7 +68,7 @@ class FileHandlers(object):
                 )
             else:
                 self.issue = db.select_one(select(issues).where(issues.c.IssueID == IssueID))
-                if not self.issue and entity_type != "issue" and comicarr.CONFIG.ANNUALS_ON:
+                if not self.issue and entity_type != "issue" and runtime.current().config.ANNUALS_ON:
                     self.issue = db.select_one(
                         select(annuals).where(
                             annuals.c.IssueID == IssueID,
@@ -99,9 +99,9 @@ class FileHandlers(object):
             folder_format = update_loc["tempformat"]
             comicid = update_loc["comicid"]
         else:
-            comic_location = comicarr.CONFIG.DESTINATION_DIR
+            comic_location = runtime.current().config.DESTINATION_DIR
             enforce_format = False
-            folder_format = comicarr.CONFIG.FOLDER_FORMAT
+            folder_format = runtime.current().config.FOLDER_FORMAT
 
         if folder_format is None:
             folder_format = "$Series ($Year)"
@@ -147,7 +147,7 @@ class FileHandlers(object):
             booktype = self.comic["Type"]
 
         if any([booktype is None, booktype == "None", booktype == "Print"]) or all(
-            [booktype != "Print", comicarr.CONFIG.FORMAT_BOOKTYPE is False]
+            [booktype != "Print", runtime.current().config.FORMAT_BOOKTYPE is False]
         ):
             chunk_fb = re.sub(r"\$Type", "", folder_format)
             chunk_b = re.compile(r"\s+")
@@ -209,7 +209,7 @@ class FileHandlers(object):
 
         if update_loc is not None:
             ccdir = pathlib.PurePath(comic_location)
-            ddir = pathlib.PurePath(comicarr.CONFIG.DESTINATION_DIR)
+            ddir = pathlib.PurePath(runtime.current().config.DESTINATION_DIR)
             dlc = pathlib.PurePath(self.comic["ComicLocation"])
             path_convert = True
             i = 0
@@ -265,8 +265,8 @@ class FileHandlers(object):
                 p_path = pathlib.PurePosixPath(ccdir)
             if enforce_format is True:
                 first = common_strings.replace_all(chunk_folder_format, values)
-                if comicarr.CONFIG.REPLACE_SPACES:
-                    first = first.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
+                if runtime.current().config.REPLACE_SPACES:
+                    first = first.replace(" ", runtime.current().config.REPLACE_CHAR)
                 comlocation = str(p_path.joinpath(first))
             else:
                 comlocation = str(p_path.joinpath(com_base))
@@ -276,7 +276,7 @@ class FileHandlers(object):
             if secondary is not None:
                 ppath = secondary
             else:
-                ppath = comicarr.CONFIG.DESTINATION_DIR
+                ppath = runtime.current().config.DESTINATION_DIR
 
             ddir = pathlib.PurePath(ppath)
             i = 0
@@ -298,8 +298,8 @@ class FileHandlers(object):
 
             first = common_strings.replace_all(chunk_folder_format, values)
 
-            if comicarr.CONFIG.REPLACE_SPACES:
-                first = first.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
+            if runtime.current().config.REPLACE_SPACES:
+                first = first.replace(" ", runtime.current().config.REPLACE_CHAR)
             comlocation = str(p_path.joinpath(first))
             com_parentdir = str(p_path.joinpath(first).parent)
 
@@ -324,7 +324,7 @@ class FileHandlers(object):
                         "[SERIES_FOLDER_COLLISION_DETECTION] %s already exists for %s (%s)."
                         % (ck["ComicLocation"], ck["ComicName"], ck["ComicYear"])
                     )
-                    tmp_ff = os.path.basename(comicarr.CONFIG.FOLDER_FORMAT)
+                    tmp_ff = os.path.basename(runtime.current().config.FOLDER_FORMAT)
                     if ck["ComicYear"] != comicyear:
                         volumeyear = True
                     else:
@@ -362,7 +362,7 @@ class FileHandlers(object):
                     }
 
                     update_loc = {
-                        "temppath": comicarr.CONFIG.DESTINATION_DIR,
+                        "temppath": runtime.current().config.DESTINATION_DIR,
                         "tempff": True,
                         "tempformat": new_format,
                         "comicid": ck["ComicID"],
@@ -375,7 +375,7 @@ class FileHandlers(object):
 
     def secondary_folders(self, comiclocation, secondary=None):
         if not secondary:
-            secondary = comicarr.CONFIG.MULTIPLE_DEST_DIRS
+            secondary = runtime.current().config.MULTIPLE_DEST_DIRS
 
         secondary_main = self.folder_create(secondary=secondary)
         secondaryfolders = secondary_main["comlocation"]
@@ -390,7 +390,7 @@ class FileHandlers(object):
         return secondaryfolders
 
     def walk_the_walk(self):
-        folder_location = comicarr.CONFIG.FOLDER_CACHE_LOCATION
+        folder_location = runtime.current().config.FOLDER_CACHE_LOCATION
         if folder_location is None:
             return {"status": False}
 

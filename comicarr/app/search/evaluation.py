@@ -25,10 +25,9 @@ import time
 from dataclasses import dataclass, field
 from wsgiref.handlers import format_date_time
 
-import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.common import numbers as common_numbers
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.library import filechecker
 from comicarr.app.search import _pack_membership
 from comicarr.app.search._release_identity import generate_id
@@ -459,7 +458,7 @@ class EvaluationSession:
                 break
 
         ignored = []
-        for x in comicarr.CONFIG.IGNORE_SEARCH_WORDS:
+        for x in runtime.current().config.IGNORE_SEARCH_WORDS:
             if x.lower() in ComicTitle.lower():
                 ignored.append(x)
 
@@ -502,20 +501,20 @@ class EvaluationSession:
                 if entry["title"][:17] != "0-Day Comics Pack":
                     comsize_m = common_numbers.human_size(comsize_b)
                     logger.fdebug("size given as: %s" % comsize_m)
-                    if comicarr.CONFIG.USE_MINSIZE:
-                        conv_minsize = common_numbers.human2bytes(comicarr.CONFIG.MINSIZE + "M")
+                    if runtime.current().config.USE_MINSIZE:
+                        conv_minsize = common_numbers.human2bytes(runtime.current().config.MINSIZE + "M")
                         logger.fdebug("comparing Min threshold %s .. to .. nzb %s" % (conv_minsize, comsize_b))
                         if int(conv_minsize) > int(comsize_b):
                             logger.fdebug("Failure to meet the Minimum size threshold - skipping")
                             self._reject("rejected.size_below_min")
-                    if comicarr.CONFIG.USE_MAXSIZE:
-                        conv_maxsize = common_numbers.human2bytes(comicarr.CONFIG.MAXSIZE + "M")
+                    if runtime.current().config.USE_MAXSIZE:
+                        conv_maxsize = common_numbers.human2bytes(runtime.current().config.MAXSIZE + "M")
                         logger.fdebug("comparing Max threshold %s .. to .. nzb %s" % (conv_maxsize, comsize_b))
                         if int(comsize_b) > int(conv_maxsize):
                             logger.fdebug("Failure to meet the Maximium size threshold - skipping")
                             self._reject("rejected.size_above_max")
 
-        if comicarr.CONFIG.IGNORE_COVERS is True:
+        if runtime.current().config.IGNORE_COVERS is True:
             cvrchk = re.sub(r"[\s\s+\_\.]", "", entry["title"]).lower()
             if any(["coversonly" in cvrchk, "coveronly" in cvrchk]):
                 logger.fdebug("Cover(s) only detected. Ignoring result.")

@@ -21,8 +21,7 @@ import ast
 import os
 import shutil
 
-import comicarr
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.downloads import service as downloads_service
 from comicarr.app.library.directories import validateAndCreateDirectory
 from comicarr.app.series.rescan import rescan_series
@@ -41,7 +40,7 @@ def movefiles(comicid, comlocation, imported):
     impres = imported["filelisting"]
 
     if impres is not None:
-        if all([comicarr.CONFIG.CREATE_FOLDERS is False, not os.path.isdir(comlocation)]):
+        if all([runtime.current().config.CREATE_FOLDERS is False, not os.path.isdir(comlocation)]):
             checkdirectory = validateAndCreateDirectory(comlocation, True)
             if not checkdirectory:
                 logger.warn("Error trying to validate/create directory. Aborting this process at this time.")
@@ -50,8 +49,10 @@ def movefiles(comicid, comlocation, imported):
         for impr in impres:
             srcimp = impr["comiclocation"]
             orig_filename = impr["comicfilename"]
-            if comicarr.CONFIG.IMP_RENAME and comicarr.CONFIG.FILE_FORMAT != "":
-                logger.fdebug("Renaming files according to configuration details : " + str(comicarr.CONFIG.FILE_FORMAT))
+            if runtime.current().config.IMP_RENAME and runtime.current().config.FILE_FORMAT != "":
+                logger.fdebug(
+                    "Renaming files according to configuration details : " + str(runtime.current().config.FILE_FORMAT)
+                )
                 renameit = downloads_service.rename_param(
                     comicid, imported["ComicName"], impr["issuenumber"], orig_filename
                 )

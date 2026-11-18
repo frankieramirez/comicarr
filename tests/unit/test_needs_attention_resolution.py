@@ -57,8 +57,8 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "search_queue", queuelib.Queue(), raising=False)
     monkeypatch.setattr(runtime.current(), "pp_queue", queuelib.Queue(), raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             FAILED_DOWNLOAD_HANDLING=True,
             FAILED_AUTO=False,
@@ -307,7 +307,7 @@ def test_ignore_issue_requires_audit_identity():
 
 
 def test_search_issue_blocked_when_no_viable_route(monkeypatch):
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     monkeypatch.setattr(
         "comicarr.app.search.health.get_search_health",
         lambda *a, **k: {"viable_route": False, "routes": {}},
@@ -318,7 +318,7 @@ def test_search_issue_blocked_when_no_viable_route(monkeypatch):
 
 
 def test_search_issue_enqueues_when_route_ready(monkeypatch):
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     monkeypatch.setattr(
         "comicarr.app.search.health.get_search_health",
         lambda *a, **k: {
@@ -337,7 +337,7 @@ def test_search_issue_enqueues_when_route_ready(monkeypatch):
 
 
 def test_search_issue_threads_entity_type(monkeypatch):
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     monkeypatch.setattr(
         "comicarr.app.search.health.get_search_health",
         lambda *a, **k: {
@@ -360,7 +360,7 @@ def test_search_issue_threads_entity_type(monkeypatch):
 def test_retry_failed_wants_stamps_and_searches(monkeypatch):
     _seed_issue(status="Failed")
     key = _seed_failed_row()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     monkeypatch.setattr(
         "comicarr.app.search.health.get_search_health",
         lambda *a, **k: {"viable_route": True, "routes": {"nzb": {"ready": True}}},
@@ -422,7 +422,7 @@ def test_retry_of_rejected_submission_lets_the_search_pick_the_release_again(mon
     _seed_bad_download_mark(release_id="xt=urn:btih:rejected")
     _seed_bad_download_mark(release_id="xt=urn:btih:other-indexer", provider="OtherSite (Prowlarr)")
     _seed_bad_download_mark(release_id="xt=urn:btih:other-issue", issueid="1002")
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     _ready_search(monkeypatch)
     with patch(
         "comicarr.app.search.commands.enqueue_search_command",
@@ -438,7 +438,7 @@ def test_retry_of_a_failed_download_keeps_its_bad_download_mark(monkeypatch):
     _seed_issue(status="Failed")
     key = _seed_failed_row(provider="torrentsite (prowlarr)", key="1001|torrentsite (prowlarr)")
     _seed_bad_download_mark(release_id="xt=urn:btih:broken")
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     _ready_search(monkeypatch)
     with patch(
         "comicarr.app.search.commands.enqueue_search_command",
@@ -453,7 +453,7 @@ def test_retry_of_a_failed_download_keeps_its_bad_download_mark(monkeypatch):
 def test_retry_blocked_does_not_stamp(monkeypatch):
     _seed_issue(status="Failed")
     key = _seed_failed_row()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     monkeypatch.setattr(
         "comicarr.app.search.health.get_search_health",
         lambda *a, **k: {"viable_route": False, "routes": {}},
@@ -471,7 +471,7 @@ def test_retry_missing_issue_row_is_reported(monkeypatch):
         lambda *a, **k: {"viable_route": True, "routes": {"automatic": True}},
     )
     key = _seed_failed_row(issueid="gone")
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     result = _resolve_one(ctx, key, "retry")
     assert result.ok is False
     assert _status_code(result) == 404
@@ -482,7 +482,7 @@ def test_retry_missing_issue_row_is_reported(monkeypatch):
 def test_stop_wanting_failed_stamps_and_sets_intent():
     _seed_issue(status="Failed")
     key = _seed_failed_row()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     report = _resolve(ctx, "stop_wanting", [key])
     result = report.results[0]
     assert result.ok is True
@@ -497,7 +497,7 @@ def test_stop_wanting_failed_stamps_and_sets_intent():
 
 def test_stop_wanting_without_library_row_still_dismisses():
     key = _seed_failed_row()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     result = _resolve_one(ctx, key, "stop_wanting")
     assert result.ok is True
     assert result.status == "ignored"
@@ -509,7 +509,7 @@ def test_stop_wanting_without_library_row_still_dismisses():
 def test_retired_ignore_action_id_is_rejected():
     _seed_issue(status="Failed")
     key = _seed_failed_row()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     # The canonical route answers an InvalidAttentionRequest with 400.
     with pytest.raises(InvalidAttentionRequest):
         _resolve(ctx, "ignore", [key])
@@ -519,7 +519,7 @@ def test_retired_ignore_action_id_is_rejected():
 def test_search_again_manual_review(monkeypatch):
     _seed_issue(status="Snatched")
     key = _seed_manual_review_row()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     monkeypatch.setattr(
         "comicarr.app.search.health.get_search_health",
         lambda *a, **k: {"viable_route": True, "routes": {"nzb": {"ready": True}}},
@@ -542,8 +542,8 @@ def test_import_stamps_only_on_success(tmp_path, monkeypatch):
     folder = root / "job"
     folder.mkdir()
     key = _seed_manual_review_row(nzb_folder=str(folder), nzb_name="Saga.001.cbz")
-    monkeypatch.setattr(comicarr, "CONFIG", _manual_pp_config(tmp_path, root), raising=False)
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    monkeypatch.setattr(runtime.current(), "config", _manual_pp_config(tmp_path, root), raising=False)
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     processed = []
     monkeypatch.setattr(
         "comicarr.app.downloads.postprocessing._execute",
@@ -592,8 +592,8 @@ def test_import_finds_the_job_folder_when_the_row_never_recorded_one(tmp_path, m
     key = _seed_unlocated_download()
     config = _manual_pp_config(tmp_path, tmp_path / "pp")
     config.SAB_DIRECTORY = str(completed)
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     result = _resolve_one(ctx, key, "import")
 
@@ -609,8 +609,8 @@ def test_import_without_a_recorded_or_findable_folder_still_reports_it(tmp_path,
     key = _seed_unlocated_download()
     config = _manual_pp_config(tmp_path, tmp_path / "pp")
     config.SAB_DIRECTORY = str(tmp_path / "completed")
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     result = _resolve_one(ctx, key, "import")
 
@@ -623,8 +623,8 @@ def test_import_validation_failure_keeps_band(tmp_path, monkeypatch):
     # folder outside any configured root / missing
     key = _seed_manual_review_row(nzb_folder=str(tmp_path / "evil" / "path"), nzb_name="Saga.001.cbz")
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             MANUAL_PP_FOLDER=str(tmp_path / "pp"),
             DDL_LOCATION=str(tmp_path / "ddl"),
@@ -633,7 +633,7 @@ def test_import_validation_failure_keeps_band(tmp_path, monkeypatch):
         ),
         raising=False,
     )
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     result = _resolve_one(ctx, key, "import")
     assert result.ok is False
     assert result.message
@@ -659,13 +659,13 @@ def test_import_uses_row_scoped_key_despite_prior_keyless_post_processed(tmp_pat
         nzb_folder=str(folder),
         nzb_name="Saga.001.cbz",
     )
-    monkeypatch.setattr(comicarr, "CONFIG", _manual_pp_config(tmp_path, root), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _manual_pp_config(tmp_path, root), raising=False)
     processed = []
     monkeypatch.setattr(
         "comicarr.app.downloads.postprocessing._execute",
         lambda item: processed.append(item),
     )
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     result = _resolve_one(ctx, key, "import")
     assert result.ok is True
@@ -689,7 +689,7 @@ def test_import_refused_claim_does_not_stamp_band_row(tmp_path, monkeypatch):
     folder = root / "job"
     folder.mkdir()
     key = _seed_manual_review_row(nzb_folder=str(folder), nzb_name="Saga.001.cbz")
-    monkeypatch.setattr(comicarr, "CONFIG", _manual_pp_config(tmp_path, root), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _manual_pp_config(tmp_path, root), raising=False)
     original = journal.record_transition
 
     def refuse_import_claim(release_key, stage, *args, **kwargs):
@@ -704,7 +704,7 @@ def test_import_refused_claim_does_not_stamp_band_row(tmp_path, monkeypatch):
         "comicarr.app.downloads.postprocessing._execute",
         lambda item: processed.append(item),
     )
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     result = _resolve_one(ctx, key, "import")
     assert result.ok is True
@@ -722,8 +722,8 @@ def test_force_process_stays_unjournaled(tmp_path, monkeypatch):
     folder = root / "job"
     folder.mkdir()
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             FAILED_DOWNLOAD_HANDLING=True,
             FAILED_AUTO=False,
@@ -768,13 +768,13 @@ def test_import_busy_lock_does_not_fail_http(tmp_path, monkeypatch):
     folder = root / "job"
     folder.mkdir()
     key = _seed_manual_review_row(nzb_folder=str(folder), nzb_name="Saga.001.cbz")
-    monkeypatch.setattr(comicarr, "CONFIG", _manual_pp_config(tmp_path, root), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _manual_pp_config(tmp_path, root), raising=False)
     processed = []
     monkeypatch.setattr(
         "comicarr.app.downloads.postprocessing._execute",
         lambda item: processed.append(item),
     )
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     lock = runtime.current().api_lock
     assert lock.acquire(blocking=False)
     try:
@@ -804,13 +804,13 @@ def test_failed_import_does_not_leave_two_band_rows(tmp_path, monkeypatch):
     folder = root / "job"
     folder.mkdir()
     key = _seed_manual_review_row(nzb_folder=str(folder), nzb_name="Saga.001.cbz")
-    monkeypatch.setattr(comicarr, "CONFIG", _manual_pp_config(tmp_path, root), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _manual_pp_config(tmp_path, root), raising=False)
 
     def boom(item):
         raise RuntimeError("pp exploded")
 
     monkeypatch.setattr("comicarr.app.downloads.postprocessing._execute", boom)
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     result = _resolve_one(ctx, key, "import")
     assert result.ok is True
     _drain_pp()
@@ -831,13 +831,13 @@ def test_double_import_reuses_attempt_key(tmp_path, monkeypatch):
     folder = root / "job"
     folder.mkdir()
     key = _seed_manual_review_row(nzb_folder=str(folder), nzb_name="Saga.001.cbz")
-    monkeypatch.setattr(comicarr, "CONFIG", _manual_pp_config(tmp_path, root), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _manual_pp_config(tmp_path, root), raising=False)
     processed = []
     monkeypatch.setattr(
         "comicarr.app.downloads.postprocessing._execute",
         lambda item: processed.append(dict(item)),
     )
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     first = _resolve_one(ctx, key, "import")
     second = _resolve_one(ctx, key, "import")
     assert first.ok is True
@@ -863,7 +863,7 @@ def test_force_process_failure_does_not_write_shared_key(tmp_path, monkeypatch):
     root.mkdir()
     folder = root / "job"
     folder.mkdir()
-    monkeypatch.setattr(comicarr, "CONFIG", _manual_pp_config(tmp_path, root), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _manual_pp_config(tmp_path, root), raising=False)
 
     def boom(item):
         raise RuntimeError("pp exploded")
@@ -892,7 +892,7 @@ def test_import_attempt_key_is_derived_from_the_band_row():
 def test_retry_not_allowed_on_manual_review():
     _seed_issue()
     key = _seed_manual_review_row()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     result = _resolve_one(ctx, key, "retry")
     assert result.ok is False
 
@@ -900,7 +900,7 @@ def test_retry_not_allowed_on_manual_review():
 def test_import_not_allowed_on_failed():
     _seed_issue()
     key = _seed_failed_row()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     result = _resolve_one(ctx, key, "import")
     assert result.ok is False
 
@@ -908,7 +908,7 @@ def test_import_not_allowed_on_failed():
 def test_already_resolved_returns_409_without_side_effects(monkeypatch):
     _seed_issue(status="Failed")
     key = _seed_failed_row(status=journal.STATUS_RETRIED, retry_count=1)
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     enqueued = []
     monkeypatch.setattr(
         "comicarr.app.search.commands.enqueue_search_command",
@@ -934,7 +934,7 @@ def test_batch_stop_wanting_clears_every_member():
         _seed_failed_row(key="1001|a", issueid="1001"),
         _seed_failed_row(key="1002|b", issueid="1002"),
     ]
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     report = _resolve(ctx, "stop_wanting", keys)
 
@@ -955,7 +955,7 @@ def test_batch_is_best_effort_and_reports_partials():
     orphan = journal.release_key("orphan", "p")
     journal.record_transition(orphan, journal.SNATCHED, payload={"provider": "p"}, provider="p")
     journal.mark_failed(orphan, "download_failed_no_auto_handling", provider="p")
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     report = _resolve(ctx, "stop_wanting", [good, orphan])
 
@@ -974,7 +974,7 @@ def test_batch_is_best_effort_and_reports_partials():
 
 
 def test_batch_caps_at_25_newest_first():
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     keys = []
     for index in range(30):
         issueid = "20%02d" % index
@@ -1025,7 +1025,7 @@ def test_batch_keeps_unknown_keys_where_they_were_submitted():
 
     # Unknown keys both before and between the dated rows.
     submitted = ["ghost-a", older, "ghost-b", newer]
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     report = _resolve(ctx, "stop_wanting", submitted)
     ordered = [item.release_key for item in report.results]
 
@@ -1200,8 +1200,8 @@ def test_batch_import_derives_paths_from_each_row_payload(tmp_path, monkeypatch)
     folder.mkdir()
     key = _seed_manual_review_row(nzb_folder=str(folder), nzb_name="Saga.001.cbz")
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             FAILED_DOWNLOAD_HANDLING=True,
             FAILED_AUTO=False,
@@ -1218,7 +1218,7 @@ def test_batch_import_derives_paths_from_each_row_payload(tmp_path, monkeypatch)
         "comicarr.app.downloads.postprocessing._execute",
         lambda item: processed.append(item),
     )
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     report = _resolve(ctx, "import", [key])
 
@@ -1235,7 +1235,7 @@ def test_batch_import_derives_paths_from_each_row_payload(tmp_path, monkeypatch)
 
 
 def test_batch_rejects_unknown_action_and_empty_keys():
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     # Both are InvalidAttentionRequest, which the canonical route answers with 400.
     with pytest.raises(InvalidAttentionRequest):
@@ -1248,7 +1248,7 @@ def test_batch_rejects_unknown_action_and_empty_keys():
 def test_batch_rejects_action_the_member_stage_disallows():
     _seed_issue(status="Snatched")
     key = _seed_manual_review_row()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     report = _resolve(ctx, "retry", [key])
 
@@ -1349,7 +1349,7 @@ def test_retry_annual_updates_annuals_without_phantom_issues_row(monkeypatch):
             "mode": "want_ann",
         },
     )
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     _ready_search(monkeypatch)
     with patch(
         "comicarr.app.search.commands.enqueue_search_command",
@@ -1374,7 +1374,7 @@ def test_stop_wanting_annual_marks_annual_ignored_without_phantom():
         issueid="A1",
         payload={"issueid": "A1", "provider": "nzbgeek", "nzbname": "Saga.Annual.001", "mode": "want_ann"},
     )
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     result = _resolve_one(ctx, key, "stop_wanting")
 
     assert result.ok is True
@@ -1393,7 +1393,7 @@ def test_retry_story_arc_updates_status_only_without_phantom(monkeypatch):
         issueid="SA1",
         payload={"issueid": "SA1", "provider": "nzbgeek", "nzbname": "Saga.Arc.001", "mode": "story_arc"},
     )
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     _ready_search(monkeypatch)
     with patch(
         "comicarr.app.search.commands.enqueue_search_command",
@@ -1416,7 +1416,7 @@ def test_stop_wanting_story_arc_marks_ignored_without_intent_column():
         issueid="SA1",
         payload={"issueid": "SA1", "provider": "nzbgeek", "nzbname": "Saga.Arc.001", "mode": "story_arc"},
     )
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     result = _resolve_one(ctx, key, "stop_wanting")
 
     assert result.ok is True
@@ -1431,7 +1431,7 @@ def test_retry_without_mode_probes_annual_ahead_of_phantom_issues_row(monkeypatc
     with get_engine().begin() as conn:
         conn.execute(issues.insert().values(IssueID="A1", ComicID=None, Status="Wanted"))
     key = _seed_failed_row(key="A1|nzbgeek", issueid="A1")
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     _ready_search(monkeypatch)
     with patch(
         "comicarr.app.search.commands.enqueue_search_command",
@@ -1451,7 +1451,7 @@ def test_retry_without_mode_probes_annual_ahead_of_phantom_issues_row(monkeypatc
 
 def test_retry_missing_library_row_does_not_insert_or_stamp(monkeypatch):
     key = _seed_failed_row(key="gone|nzbgeek", issueid="gone")
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     _ready_search(monkeypatch)
     enqueued = []
     monkeypatch.setattr(

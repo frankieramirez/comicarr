@@ -11,15 +11,15 @@
 
 import pytest
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.system import service as system_service
 from tests.unit.test_system_domain import _make_test_ctx
 
 
 @pytest.fixture(autouse=True)
 def _restore_global_config(monkeypatch):
-    # A successful settings save publishes ctx.config as comicarr.CONFIG.
-    monkeypatch.setattr(comicarr, "CONFIG", comicarr.CONFIG)
+    # A successful settings save publishes ctx.config as runtime.current().config.
+    monkeypatch.setattr(runtime.current(), "config", runtime.current().config)
 
 
 def _ctx(destination=None):

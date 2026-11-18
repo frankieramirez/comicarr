@@ -140,7 +140,6 @@ def api_client():
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    import comicarr
     from comicarr.app.core.context import AppContext, get_context
     from comicarr.app.core.security import require_session
     from comicarr.app.dashboard.router import router as dashboard_router
@@ -150,7 +149,7 @@ def api_client():
     app.include_router(series_router)
     app.include_router(dashboard_router)
     app.dependency_overrides[require_session] = lambda: "benchmark"
-    app.dependency_overrides[get_context] = lambda: AppContext(config=comicarr.CONFIG)
+    app.dependency_overrides[get_context] = lambda: AppContext(config=runtime.current().config)
     return TestClient(app)
 
 

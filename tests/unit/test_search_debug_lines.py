@@ -16,6 +16,7 @@ import types
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.search import engine as search
 from comicarr.app.search.diagnostics import log_query, quoted, safe_provider_name
 from comicarr.app.search.evaluation import EvaluationSession
@@ -63,7 +64,7 @@ def captured():
 def providers(monkeypatch):
     """Stub the network and the handoff; keep the real parser and evaluator."""
     for name, value in dict(ENABLE_TORRENT_SEARCH=False, USENET_RETENTION=None, SEARCH_DELAY=0).items():
-        setattr(comicarr.CONFIG, name, value)
+        setattr(runtime.current().config, name, value)
     record = types.SimpleNamespace(requests=[], selected=[])
     monkeypatch.setattr(search, "_indexer_cooldowns", {})
     monkeypatch.setattr(search, "last_run_check", lambda **kwargs: {})

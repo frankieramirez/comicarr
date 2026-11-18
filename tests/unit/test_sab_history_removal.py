@@ -18,7 +18,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.downloads import sabnzbd
 
 
@@ -34,7 +34,7 @@ def sab_config(monkeypatch):
         SAB_REMOVE_COMPLETED=True,
         SAB_REMOVE_FAILED=True,
     )
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     monkeypatch.setattr(sabnzbd.time, "sleep", lambda _s: None)
     return config
 

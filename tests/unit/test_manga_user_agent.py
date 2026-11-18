@@ -20,8 +20,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import comicarr
 from comicarr.app.common.user_agent import app_user_agent
+from comicarr.app.core import runtime
 
 BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36"
 
@@ -34,7 +34,7 @@ def browser_cv_config(monkeypatch):
         MANGADEX_CONTENT_RATING="safe",
         CACHE_DIR=None,
     )
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     return config
 
 

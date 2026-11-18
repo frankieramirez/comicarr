@@ -33,7 +33,6 @@ import time
 import zipfile
 from types import SimpleNamespace
 
-import comicarr
 from comicarr.app.config.ini import _CONFIG_DEFINITIONS, Config
 from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
@@ -188,7 +187,7 @@ def send_to_sab(nzb_path, name=RELEASE, **grab):
     ``grab`` may name the ``issueid``, ``comicid`` and ``series`` the search
     was for; they default to the comic fixture.
     """
-    config = comicarr.CONFIG
+    config = runtime.current().config
     params = {"apikey": config.SAB_APIKEY, "mode": "addfile", "nzbname": name, "output": "json", "priority": "-100"}
     if config.SAB_CATEGORY:
         params["cat"] = config.SAB_CATEGORY

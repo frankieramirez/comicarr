@@ -39,8 +39,8 @@ from comicarr.app.search.backlog import (
 def backlog_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(WANTED_SEARCH_PASS_ITEMS=250, WANTED_SEARCH_PASS_SECONDS=120),
         raising=False,
     )
@@ -216,8 +216,8 @@ def rss_watchlist(tmp_path, monkeypatch):
 
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             EXTRA_NEWZNABS=[],
             EXTRA_TORZNABS=[],
@@ -353,7 +353,7 @@ def test_rss_scan_marks_skipped_rows_seen_so_the_cycle_completes(rss_watchlist):
 
 
 def test_rss_scan_resumes_after_the_item_budget(rss_watchlist):
-    comicarr.CONFIG.WANTED_SEARCH_PASS_ITEMS = 1
+    runtime.current().config.WANTED_SEARCH_PASS_ITEMS = 1
     _seed_watchlist(_wanted("1", release_date="2020-02-01"), _wanted("2", release_date="2020-01-01"))
     mark_rssdb_refreshed("gen-1")
 
@@ -410,7 +410,7 @@ def _prowlarr_usenet_only(config):
 
 
 def test_rss_scan_runs_with_prowlarr_usenet_as_the_only_provider(rss_watchlist, monkeypatch):
-    _prowlarr_usenet_only(comicarr.CONFIG)
+    _prowlarr_usenet_only(runtime.current().config)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True)
     warnings = []
     monkeypatch.setattr(rss_watchlist.search.logger, "warn", lambda msg, *a: warnings.append(msg))
@@ -427,7 +427,7 @@ def test_rss_scan_runs_with_prowlarr_usenet_as_the_only_provider(rss_watchlist, 
 def test_issue_list_search_queues_with_prowlarr_usenet_as_the_only_provider(rss_watchlist, monkeypatch):
     from comicarr.app.search import commands
 
-    _prowlarr_usenet_only(comicarr.CONFIG)
+    _prowlarr_usenet_only(runtime.current().config)
     queued = []
     monkeypatch.setattr(commands, "enqueue_search_command", lambda payload, **_kw: queued.append(payload))
     _seed_watchlist(_wanted("1"))

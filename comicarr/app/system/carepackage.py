@@ -111,7 +111,7 @@ class carePackage(object):
         logger.info("vers_vals: %s" % (vers_vals,))
         if not vers_vals:
             vers_vals = {
-                "current_branch": comicarr.CONFIG.GIT_BRANCH,
+                "current_branch": runtime.current().config.GIT_BRANCH,
                 "current_version": runtime.current().current_version,
                 "current_version_name": runtime.current().current_version_name,
                 "current_release_name": runtime.current().current_release_name,
@@ -226,7 +226,7 @@ class carePackage(object):
                 "check_github": check_github,
             }
         else:
-            self.log_dir = comicarr.CONFIG.LOG_DIR
+            self.log_dir = runtime.current().config.LOG_DIR
 
         self.cleanpath = os.path.join(self.log_dir, "clean_config.ini")
 

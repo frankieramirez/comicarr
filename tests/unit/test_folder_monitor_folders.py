@@ -77,8 +77,8 @@ def test_monitor_scans_each_folder_and_skips_missing_ones(tmp_path, monkeypatch,
     magazines.mkdir()
     missing = tmp_path / "Gone"
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         _config(CHECK_FOLDER=str(main), ADDITIONAL_CHECK_FOLDERS="%s\n%s" % (missing, magazines)),
     )
 
@@ -90,7 +90,7 @@ def test_monitor_scans_each_folder_and_skips_missing_ones(tmp_path, monkeypatch,
 
 
 def test_only_check_folder_scans_it_once(tmp_path, monkeypatch, monitor):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CHECK_FOLDER=str(tmp_path)))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(CHECK_FOLDER=str(tmp_path)))
 
     FolderCheck().run()
 
@@ -103,7 +103,9 @@ def test_busy_processing_stops_the_pass_and_defers(tmp_path, monkeypatch, monito
     main.mkdir()
     magazines.mkdir()
     monitor.outcomes[str(main)] = "busy"
-    monkeypatch.setattr(comicarr, "CONFIG", _config(CHECK_FOLDER=str(main), ADDITIONAL_CHECK_FOLDERS=str(magazines)))
+    monkeypatch.setattr(
+        runtime.current(), "config", _config(CHECK_FOLDER=str(main), ADDITIONAL_CHECK_FOLDERS=str(magazines))
+    )
 
     result = FolderCheck().run()
 

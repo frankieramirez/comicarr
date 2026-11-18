@@ -14,7 +14,6 @@ import datetime
 import pytest
 from sqlalchemy import insert, select
 
-import comicarr
 from comicarr.app.activity.retention import (
     JOB_ID,
     JOB_NAME,
@@ -30,7 +29,7 @@ from comicarr.app.system import service as system_service
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()
     metadata.create_all(get_engine())

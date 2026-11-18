@@ -174,7 +174,7 @@ def retry_post_processing(release_key):
     row = journal.read_one(key) if key else None
     if row is None:
         return {"success": False, "status": "not_found", "detail": "No download has release key %s." % key}
-    if acquisition_paused(getattr(comicarr, "CONFIG", None)):
+    if acquisition_paused(runtime.current().config):
         return {"success": False, "status": "maintenance", "detail": "Post-processing is paused for maintenance."}
     if row.get("stage") in (journal.MOVED, journal.POST_PROCESSING):
         result = postprocessing.recover(key)
@@ -500,10 +500,10 @@ def get_issue_file_path(issue_id):
     if os.path.isfile(pathfile):
         return pathfile, os.path.basename(issue["Location"])
 
-    if comicarr.CONFIG.MULTIPLE_DEST_DIRS:
+    if runtime.current().config.MULTIPLE_DEST_DIRS:
         try:
             secondary = os.path.join(
-                comicarr.CONFIG.MULTIPLE_DEST_DIRS,
+                runtime.current().config.MULTIPLE_DEST_DIRS,
                 os.path.basename(issue["ComicLocation"]),
             )
             alt_path = os.path.join(secondary, issue["Location"])
@@ -537,7 +537,7 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
             )
         else:
             chkissue = db.select_one(select(issues).where(issues.c.ComicID == comicid, issues.c.Issue_Number == issue))
-            if all([chkissue is None, annualize is None, not comicarr.CONFIG.ANNUALS_ON]):
+            if all([chkissue is None, annualize is None, not runtime.current().config.ANNUALS_ON]):
                 chkissue = db.select_one(
                     select(annuals).where(
                         annuals.c.ComicID == comicid, annuals.c.Issue_Number == issue, annuals.c.Deleted != 1
@@ -555,7 +555,7 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
                 chkissue = db.select_one(
                     select(issues).where(issues.c.ComicID == comicid, issues.c.Int_IssueNumber == issuedigits(issue))
                 )
-                if all([chkissue is None, annualize == "yes", comicarr.CONFIG.ANNUALS_ON]):
+                if all([chkissue is None, annualize == "yes", runtime.current().config.ANNUALS_ON]):
                     chkissue = db.select_one(
                         select(annuals).where(
                             annuals.c.ComicID == comicid,
@@ -607,17 +607,17 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
         seriesfilename = series
         seriesyear = issuenzb["SeriesYear"]
         arcdir = filesafe(issuenzb["StoryArc"])
-        if comicarr.CONFIG.REPLACE_SPACES:
-            arcdir = arcdir.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
-        if comicarr.CONFIG.STORYARCDIR:
-            if comicarr.CONFIG.STORYARC_LOCATION is None:
-                storyarcd = os.path.join(comicarr.CONFIG.DESTINATION_DIR, "StoryArcs", arcdir)
+        if runtime.current().config.REPLACE_SPACES:
+            arcdir = arcdir.replace(" ", runtime.current().config.REPLACE_CHAR)
+        if runtime.current().config.STORYARCDIR:
+            if runtime.current().config.STORYARC_LOCATION is None:
+                storyarcd = os.path.join(runtime.current().config.DESTINATION_DIR, "StoryArcs", arcdir)
             else:
-                storyarcd = os.path.join(comicarr.CONFIG.STORYARC_LOCATION, arcdir)
+                storyarcd = os.path.join(runtime.current().config.STORYARC_LOCATION, arcdir)
             logger.fdebug("Story Arc Directory set to : " + storyarcd)
         else:
-            logger.fdebug("Story Arc Directory set to : " + comicarr.CONFIG.GRABBAG_DIR)
-            storyarcd = os.path.join(comicarr.CONFIG.DESTINATION_DIR, comicarr.CONFIG.GRABBAG_DIR)
+            logger.fdebug("Story Arc Directory set to : " + runtime.current().config.GRABBAG_DIR)
+            storyarcd = os.path.join(runtime.current().config.DESTINATION_DIR, runtime.current().config.GRABBAG_DIR)
         comlocation = storyarcd
         comversion = None
     else:
@@ -693,14 +693,14 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
         iss = issuenum
         issueno = iss
 
-    if comicarr.CONFIG.ZERO_LEVEL is False:
+    if runtime.current().config.ZERO_LEVEL is False:
         zeroadd = ""
     else:
-        if any([comicarr.CONFIG.ZERO_LEVEL_N == "none", comicarr.CONFIG.ZERO_LEVEL_N is None]):
+        if any([runtime.current().config.ZERO_LEVEL_N == "none", runtime.current().config.ZERO_LEVEL_N is None]):
             zeroadd = ""
-        elif comicarr.CONFIG.ZERO_LEVEL_N == "0x":
+        elif runtime.current().config.ZERO_LEVEL_N == "0x":
             zeroadd = "0"
-        elif comicarr.CONFIG.ZERO_LEVEL_N == "00x":
+        elif runtime.current().config.ZERO_LEVEL_N == "00x":
             zeroadd = "00"
 
     prettycomiss = None
@@ -737,9 +737,9 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
         elif int(issueno) >= 10 and int(issueno) < 100:
             if any(
                 [
-                    comicarr.CONFIG.ZERO_LEVEL_N == "none",
-                    comicarr.CONFIG.ZERO_LEVEL_N is None,
-                    comicarr.CONFIG.ZERO_LEVEL is False,
+                    runtime.current().config.ZERO_LEVEL_N == "none",
+                    runtime.current().config.ZERO_LEVEL_N is None,
+                    runtime.current().config.ZERO_LEVEL is False,
                 ]
             ):
                 zeroadd = ""
@@ -768,7 +768,7 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
     elif len(str(issueno)) == 0:
         prettycomiss = str(issueno)
 
-    if comicarr.CONFIG.UNICODE_ISSUENUMBER:
+    if runtime.current().config.UNICODE_ISSUENUMBER:
         prettycomiss = unicodeissue
 
     issueyear = issuedate[:4]
@@ -780,18 +780,18 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
     if comversion is None:
         comversion = "None"
     if comversion == "None":
-        chunk_f_f = re.sub(r"\$VolumeN", "", comicarr.CONFIG.FILE_FORMAT)
+        chunk_f_f = re.sub(r"\$VolumeN", "", runtime.current().config.FILE_FORMAT)
         chunk_f = re.compile(r"\s+")
         chunk_file_format = chunk_f.sub(" ", chunk_f_f)
     else:
-        chunk_file_format = comicarr.CONFIG.FILE_FORMAT
+        chunk_file_format = runtime.current().config.FILE_FORMAT
 
     if annualize is None:
         chunk_f_f = re.sub(r"\$Annual", "", chunk_file_format)
         chunk_f = re.compile(r"\s+")
         chunk_file_format = chunk_f.sub(" ", chunk_f_f)
     else:
-        if comicarr.CONFIG.ANNUALS_ON:
+        if runtime.current().config.ANNUALS_ON:
             if "annual" in series.lower():
                 if "$Annual" not in chunk_file_format:
                     pass
@@ -844,19 +844,19 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
     if ofilename.lower().endswith(extensions):
         path, ext = os.path.splitext(ofilename)
 
-    if comicarr.CONFIG.FILE_FORMAT == "":
+    if runtime.current().config.FILE_FORMAT == "":
         if ofilename.lower().endswith(extensions):
             nfilename = ofilename[:-4]
         else:
             nfilename = ofilename
     else:
         nfilename = replace_all(chunk_file_format, file_values)
-        if comicarr.CONFIG.REPLACE_SPACES:
-            nfilename = nfilename.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
+        if runtime.current().config.REPLACE_SPACES:
+            nfilename = nfilename.replace(" ", runtime.current().config.REPLACE_CHAR)
 
     nfilename = re.sub(r"[\,\:]", "", nfilename) + ext.lower()
 
-    if comicarr.CONFIG.LOWERCASE_FILENAMES:
+    if runtime.current().config.LOWERCASE_FILENAMES:
         nfilename = nfilename.lower()
         dst = os.path.join(comlocation, nfilename)
     else:
@@ -935,8 +935,10 @@ def duplicate_filecheck(filename, ComicID=None, IssueID=None, StoryArcID=None, r
                     rtnval = {"action": "dupe_file", "to_dupe": filename}
                     return rtnval
 
-            tmp_dupeconstraint = comicarr.CONFIG.DUPECONSTRAINT
-            if not fixed and (comicarr.CONFIG.DUPECONSTRAINT == "filesize" or tmp_dupeconstraint == "filesize"):
+            tmp_dupeconstraint = runtime.current().config.DUPECONSTRAINT
+            if not fixed and (
+                runtime.current().config.DUPECONSTRAINT == "filesize" or tmp_dupeconstraint == "filesize"
+            ):
                 if filesz <= int(dupsize) and int(dupsize) != 0:
                     rtnval = {"action": "dupe_file", "to_dupe": filename}
                 else:
@@ -1059,7 +1061,7 @@ def _finalize_ddl_download(item, ddzstat, release_key):
             )
         raise
 
-    if comicarr.CONFIG.POST_PROCESSING is True:
+    if runtime.current().config.POST_PROCESSING is True:
         runtime.current().pp_queue.put(
             {
                 "nzb_name": nzb_name,
@@ -1423,7 +1425,7 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                         pass
                     continue
 
-            if all([ddzstat["success"] is True, comicarr.CONFIG.POST_PROCESSING is True]):
+            if all([ddzstat["success"] is True, runtime.current().config.POST_PROCESSING is True]):
                 try:
                     if ddzstat["filename"] is None:
                         runtime.current().pp_queue.put(
@@ -1473,7 +1475,7 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                     pass
                 ddl_cleanup(item["id"])
 
-            elif all([ddzstat["success"] is True, comicarr.CONFIG.POST_PROCESSING is False]):
+            elif all([ddzstat["success"] is True, runtime.current().config.POST_PROCESSING is False]):
                 ddl_cleanup(item["id"])
             else:
                 if item["site"] == "DDL(GetComics)":
@@ -1526,7 +1528,7 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
 def ddl_cleanup(id):
     tlnk = "getcomics-%s.html" % id
     try:
-        os.remove(os.path.join(comicarr.CONFIG.CACHE_DIR, "html_cache", tlnk))
+        os.remove(os.path.join(runtime.current().config.CACHE_DIR, "html_cache", tlnk))
     except Exception:
         logger.fdebug("[HTML-cleanup] Unable to remove html used for item from html_cache folder.")
 
@@ -1557,7 +1559,7 @@ def _notify_ddl_stuck_once(item, age_minutes):
         return
     comicarr.DDL_STUCK_NOTIFIED.add(item_id)
     logger.warn("[DDL-HEALTH] Download stuck for %d minutes: %s (%s)" % (int(age_minutes), item.get("series"), item_id))
-    if not comicarr.CONFIG.DDL_STUCK_NOTIFY:
+    if not runtime.current().config.DDL_STUCK_NOTIFY:
         return
     try:
         from comicarr.app.system.service import notify_ddl_stuck
@@ -1640,7 +1642,7 @@ def ddl_health_check():
     Downloading row is an orphan and leaves Downloading, so it cannot be
     re-notified after a restart.
     """
-    if not comicarr.CONFIG.ENABLE_DDL:
+    if not runtime.current().config.ENABLE_DDL:
         return
 
     from sqlalchemy import select
@@ -1649,7 +1651,7 @@ def ddl_health_check():
     if not stuck_items:
         return
 
-    threshold_minutes = comicarr.CONFIG.DDL_STUCK_THRESHOLD
+    threshold_minutes = runtime.current().config.DDL_STUCK_THRESHOLD
     now = datetime.datetime.now()
 
     for item in stuck_items:
@@ -1947,7 +1949,7 @@ def nzb_monitor(queue):
             try:
                 if comicarr.USE_SABNZBD is True:
                     sab_params = {
-                        "apikey": comicarr.CONFIG.SAB_APIKEY,
+                        "apikey": runtime.current().config.SAB_APIKEY,
                         "mode": "queue",
                         "start": 0,
                         "limit": 5,
@@ -2314,7 +2316,7 @@ def _cdh_record_terminal_outcome(item, nzstat, readd=False):
             _cdh_record_entry(ManualReview(reason="sab_job_missing_from_client", **fields))
         return True
     if status in ("failed_no_auto_handling", "failed_in_sab"):
-        handling_on = bool(getattr(getattr(comicarr, "CONFIG", None), "FAILED_DOWNLOAD_HANDLING", False))
+        handling_on = bool(getattr(runtime.current().config, "FAILED_DOWNLOAD_HANDLING", False))
         if status == "failed_in_sab" and handling_on:
             logger.warn("Failure returned from SAB for %s; failed-download handling is on — retrying." % known_nzb_id)
             _cdh_prepare_failed_job(item, nzstat)
@@ -2494,10 +2496,10 @@ def lookupthebitches(
 
     if len(matchlist) > 0:
         for x in matchlist:
-            if all([x["comicid"] not in watchlist, comicarr.CONFIG.PACK_0DAY_WATCHLIST_ONLY is False]):
+            if all([x["comicid"] not in watchlist, runtime.current().config.PACK_0DAY_WATCHLIST_ONLY is False]):
                 oneoff = True
                 mode = "pullwant"
-            elif all([x["comicid"] not in watchlist, comicarr.CONFIG.PACK_0DAY_WATCHLIST_ONLY is True]):
+            elif all([x["comicid"] not in watchlist, runtime.current().config.PACK_0DAY_WATCHLIST_ONLY is True]):
                 continue
             else:
                 oneoff = False

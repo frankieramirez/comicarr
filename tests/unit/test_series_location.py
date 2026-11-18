@@ -13,7 +13,6 @@ from types import SimpleNamespace
 
 import pytest
 
-import comicarr
 from comicarr.app.common import placement
 from comicarr.app.core import db, runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
@@ -48,7 +47,7 @@ def library(tmp_path, monkeypatch):
         ANNUALS_ON=False,
     )
     monkeypatch.setattr(runtime.current(), "data_dir", str(data_dir))
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()
     metadata.create_all(get_engine())

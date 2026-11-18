@@ -20,8 +20,7 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy import create_engine, select
 
-import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.series import folder_rescan, rescan
 
@@ -51,7 +50,7 @@ def engine(monkeypatch):
     engine = create_engine("sqlite://")
     metadata.create_all(engine)
     monkeypatch.setattr(db, "get_engine", lambda: engine)
-    monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _config(), raising=False)
     yield engine
     engine.dispose()
 

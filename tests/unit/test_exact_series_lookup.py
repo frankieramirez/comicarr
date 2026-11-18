@@ -15,7 +15,6 @@ from mokkari.exceptions import ApiError
 from requests import Response
 from requests.exceptions import HTTPError
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.search import mb
 from comicarr.app.search.service import find_comic
@@ -24,7 +23,7 @@ from comicarr.app.search.service import find_comic
 @pytest.fixture
 def providers(monkeypatch):
     config = SimpleNamespace(COMICVINE_API="mock-key", CV_VERIFY=True, USE_METRON_SEARCH=True)
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(runtime.current(), "cv_url", "https://comicvine.gamespot.com/api/")
     monkeypatch.setattr(runtime.current(), "cv_rate_limiter", MagicMock())
     session = MagicMock()

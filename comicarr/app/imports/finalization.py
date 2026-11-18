@@ -19,9 +19,8 @@ from collections.abc import Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 
-import comicarr
 from comicarr.app.common import placement
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.imports import queries as import_queries
 from comicarr.app.series import queries as series_queries
@@ -519,7 +518,7 @@ def _finalize_locked(
                 if os.path.isfile(existing_path) and not os.path.samefile(existing_path, row["ComicLocation"]):
                     raise ImportDuplicateError("Possible duplicate: issue already has a file: %s" % existing_path)
     _ensure_target_directory(target_directory)
-    config = getattr(ctx, "config", None) or getattr(comicarr, "CONFIG", None)
+    config = getattr(ctx, "config", None) or runtime.current().config
     move_enabled = bool(getattr(config, "IMP_MOVE", False))
     moved_files = []
     if move_enabled:

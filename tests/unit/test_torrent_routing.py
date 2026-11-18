@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from comicarr.app.core import runtime
 from comicarr.app.downloads import pp_commands, torrent_routing
 from comicarr.app.downloads.torrent_routing import QbittorrentDestination
 
@@ -94,11 +95,10 @@ def test_route_save_paths_are_post_processing_roots():
 
 
 def test_qbittorrent_add_uses_routed_category_and_reports_it(monkeypatch):
-    import comicarr
     from comicarr.app.downloads.torrent.clients import qbittorrent
 
     _locate(monkeypatch, "/comics/Magazines/Wizard")
-    monkeypatch.setattr(comicarr, "CONFIG", _config(QBITTORRENT_LOADACTION="default"))
+    monkeypatch.setattr(runtime.current(), "config", _config(QBITTORRENT_LOADACTION="default"))
     monkeypatch.setattr(qbittorrent.time, "sleep", lambda _seconds: None)
     added = {}
 

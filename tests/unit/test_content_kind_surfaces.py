@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy import insert, select
 
-import comicarr
 from comicarr.app.common import series_kind
 from comicarr.app.common.series_kind import manga_sql_clause
 from comicarr.app.core import db, runtime
@@ -30,7 +29,7 @@ from tests.fakes import folder_request
 @pytest.fixture
 def query_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()
@@ -76,7 +75,7 @@ def _postprocess_uses_manga_branch(row):
     mock_apilock.locked.return_value = False
     with (
         patch.object(runtime.current(), "api_lock", mock_apilock),
-        patch.object(comicarr, "CONFIG", _config()),
+        patch.object(runtime.current(), "config", _config()),
         patch("comicarr.app.downloads.postprocess_pipeline.process_manga_download", return_value=None) as process_manga,
         patch("comicarr.app.downloads.postprocess_match.filechecker") as filechecker,
         patch("comicarr.app.downloads.postprocess_pipeline.db") as mock_db,

@@ -14,7 +14,6 @@ from types import SimpleNamespace
 
 import pytest
 
-import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema, refresh_runtime_state
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
@@ -28,7 +27,7 @@ from comicarr.app.search import service as search_service
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()
     engine = get_engine()

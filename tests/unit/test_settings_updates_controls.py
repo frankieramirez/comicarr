@@ -89,7 +89,7 @@ def ctx(monkeypatch):
         update_state="unknown",
         update_reason="never_checked",
     )
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     context.install_type = "docker"
     monkeypatch.setattr(runtime, "_runtime", context)
     with (

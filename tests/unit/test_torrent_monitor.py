@@ -23,6 +23,7 @@ from unittest.mock import MagicMock, create_autospec, patch
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.downloads.torrent import monitor
 
 ROUTE_FLAGS = ("USE_RTORRENT", "USE_DELUGE", "USE_QBITTORRENT", "USE_TRANSMISSION", "USE_UTORRENT")
@@ -33,8 +34,8 @@ def _clients_off(monkeypatch):
     for flag in ROUTE_FLAGS:
         monkeypatch.setattr(comicarr, flag, False, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             DELUGE_HOST="d",
             DELUGE_USERNAME="u",
@@ -418,7 +419,7 @@ class TestUtorrentHostNormalisation:
     def test_the_probe_connects_to_the_normalised_url(self, monkeypatch):
         """The vendored client does urljoin(base_url, 'token.html') with no fix-up."""
         _use(monkeypatch, "USE_UTORRENT")
-        comicarr.CONFIG.UTORRENT_HOST = "utorrent.local:8080"
+        runtime.current().config.UTORRENT_HOST = "utorrent.local:8080"
         client = _spec_client("comicarr.app.downloads.torrent.clients.utorrent")
         client.find_torrent.return_value = False
 

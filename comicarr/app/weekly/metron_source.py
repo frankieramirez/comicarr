@@ -22,7 +22,6 @@ Walksoftly produces.
 
 import threading
 
-import comicarr
 from comicarr.app.common.series_names import dynamic_series_key
 from comicarr.app.core import logger, runtime
 from comicarr.app.weekly import cv_source, locg
@@ -35,7 +34,7 @@ _api = [None]
 
 
 def _setting(name):
-    value = getattr(comicarr.CONFIG, name, None)
+    value = getattr(runtime.current().config, name, None)
     return value.strip() if isinstance(value, str) else ""
 
 

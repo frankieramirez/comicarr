@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.system import dependency_check
 
 
@@ -19,7 +20,7 @@ def _config(tmp_path, unrar_command=None):
 
 
 def test_runtime_capabilities_report_an_available_unrar_without_running_pip(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", _config(tmp_path), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _config(tmp_path), raising=False)
     monkeypatch.setattr(comicarr, "REQS", {}, raising=False)
 
     diagnostics = dependency_check.RuntimeCapabilityDiagnostics()
@@ -40,7 +41,7 @@ def test_runtime_capabilities_report_an_available_unrar_without_running_pip(tmp_
 
 
 def test_runtime_capabilities_report_a_missing_unrar_without_crashing(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", _config(tmp_path), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _config(tmp_path), raising=False)
     monkeypatch.setattr(comicarr, "REQS", {}, raising=False)
 
     diagnostics = dependency_check.RuntimeCapabilityDiagnostics()

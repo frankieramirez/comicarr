@@ -22,7 +22,6 @@ without terminalising can only mean stuck.
 import pytest
 from sqlalchemy import select, update
 
-import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS, RunLedger
@@ -34,7 +33,7 @@ from comicarr.app.core.tables import acquisition_run_items, metadata
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()
     engine = get_engine()

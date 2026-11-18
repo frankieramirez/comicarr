@@ -18,6 +18,7 @@ import pytest
 import requests
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.downloads import recovery_classify, sabnzbd
 from comicarr.app.system import connections
 from tests.fakes import pipeline
@@ -29,8 +30,8 @@ from tests.fakes.sabnzbd import FakeSabnzbd
 def sab(monkeypatch, tmp_path):
     fake = FakeSabnzbd().install(monkeypatch)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         pipeline.default_config(
             SAB_HOST=fake.host,
             SAB_APIKEY=fake.apikey,
@@ -48,7 +49,12 @@ def sab(monkeypatch, tmp_path):
 
 
 def _send(sab, path=None):
-    params = {"apikey": comicarr.CONFIG.SAB_APIKEY, "mode": "addfile", "nzbname": pipeline.RELEASE, "output": "json"}
+    params = {
+        "apikey": runtime.current().config.SAB_APIKEY,
+        "mode": "addfile",
+        "nzbname": pipeline.RELEASE,
+        "output": "json",
+    }
     params["cat"] = sab.category
     return sabnzbd.SABnzbd(params).sender(str(path or sab.nzb))
 
@@ -131,16 +137,16 @@ def test_queue_reports_a_downloading_job(sab):
 
 
 def test_wrong_api_key_is_reported_as_rejected(sab, monkeypatch):
-    monkeypatch.setattr(comicarr.CONFIG, "SAB_APIKEY", "a-stale-key")
+    monkeypatch.setattr(runtime.current().config, "SAB_APIKEY", "a-stale-key")
 
-    probe = connections._probe_sabnzbd(comicarr.CONFIG)
+    probe = connections._probe_sabnzbd(runtime.current().config)
 
     assert probe.ok is False
     assert probe.result == "SABnzbd rejected the API key"
 
 
 def test_wrong_api_key_upload_is_not_an_acceptance(sab, monkeypatch):
-    monkeypatch.setattr(comicarr.CONFIG, "SAB_APIKEY", "a-stale-key")
+    monkeypatch.setattr(runtime.current().config, "SAB_APIKEY", "a-stale-key")
 
     assert _send(sab) == {"status": False}
     assert sab.jobs == {}

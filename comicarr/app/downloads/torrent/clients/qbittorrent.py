@@ -16,8 +16,7 @@ from base64 import b16encode, b32decode
 
 import qbittorrentapi
 
-import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.downloads.torrent.contracts import connection_failure
 
 # Seconds to wait on any single WebUI call. The monitor polls this client from
@@ -107,7 +106,7 @@ class TorrentClient(object):
     def load_torrent(self, filepath, comicid=None):
         from comicarr.app.downloads.torrent_routing import qbittorrent_destination
 
-        destination = qbittorrent_destination(comicarr.CONFIG, comicid)
+        destination = qbittorrent_destination(runtime.current().config, comicid)
 
         if not filepath.startswith("magnet"):
             logger.info("filepath to torrent file set to : %s" % filepath)
@@ -143,7 +142,7 @@ class TorrentClient(object):
             if destination.savepath is not None:
                 addargs.update({"save_path": destination.savepath})
                 logger.info("Forcing download location to: %s" % destination.savepath)
-            if comicarr.CONFIG.QBITTORRENT_LOADACTION == "pause":
+            if runtime.current().config.QBITTORRENT_LOADACTION == "pause":
                 addargs.update({"is_paused": True})
                 logger.info("Attempting to add torrent in paused state")
 
@@ -165,7 +164,7 @@ class TorrentClient(object):
                 else:
                     logger.debug("Successfully submitted for add via file. Verifying item is now on client.")
 
-        if comicarr.CONFIG.QBITTORRENT_LOADACTION == "force_start":
+        if runtime.current().config.QBITTORRENT_LOADACTION == "force_start":
             logger.info("Attempting to force start torrent")
             try:
                 self.client.torrents_set_force_start(enable=True, torrent_hashes=hash.lower())

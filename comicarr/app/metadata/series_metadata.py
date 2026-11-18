@@ -24,9 +24,8 @@ import re
 
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.common import dates as common_dates
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import comics
 from comicarr.app.library.directories import validateAndCreateDirectory
 from comicarr.app.metadata.series_type import resolve_series_edition
@@ -50,7 +49,7 @@ class metadata_Series(object):
 
             if comic:
                 description_load = None
-                if not os.path.exists(comic["ComicLocation"]) and comicarr.CONFIG.CREATE_FOLDERS is True:
+                if not os.path.exists(comic["ComicLocation"]) and runtime.current().config.CREATE_FOLDERS is True:
                     try:
                         checkdirectory = validateAndCreateDirectory(comic["ComicLocation"], True)
                     except Exception as e:
@@ -105,7 +104,7 @@ class metadata_Series(object):
                 if comic["Collects"] != "None":
                     clean_issue_list = comic["Collects"]
 
-                if comicarr.CONFIG.SERIESJSON_FILE_PRIORITY is True:
+                if runtime.current().config.SERIESJSON_FILE_PRIORITY is True:
                     if description_load is not None:
                         cdes_removed = re.sub(r"\n", "", description_load).strip()
                         cdes_formatted = description_load
@@ -139,13 +138,13 @@ class metadata_Series(object):
                         cdes_formatted = comic["Description"]
 
                 comicVol = comic["ComicVersion"]
-                if all([comicarr.CONFIG.SETDEFAULTVOLUME is True, comicVol is None]):
+                if all([runtime.current().config.SETDEFAULTVOLUME is True, comicVol is None]):
                     comicVol = 1
                 elif comicVol is not None:
                     if comicVol.isdigit():
                         comicVol = int(comicVol)
                         logger.info("Updated version to :" + str(comicVol))
-                        if all([comicarr.CONFIG.SETDEFAULTVOLUME is False, comicVol == "v1"]):
+                        if all([runtime.current().config.SETDEFAULTVOLUME is False, comicVol == "v1"]):
                             comicVol = None
                     else:
                         comicVol = int(re.sub("[^0-9]", "", comicVol).strip())

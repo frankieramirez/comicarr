@@ -18,6 +18,7 @@ from xmlrpc.server import SimpleXMLRPCDispatcher, SimpleXMLRPCRequestHandler, Si
 
 import pytest
 
+from comicarr.app.core import runtime
 from comicarr.app.downloads import rtorrent_rpc
 from comicarr.app.downloads.torrent.clients import rtorrent
 
@@ -279,8 +280,8 @@ def test_adapter_send_and_check_round_trip(http_daemon, monkeypatch, tmp_path):
     daemon, url = http_daemon()
     monkeypatch.setattr(rtorrent_rpc.time, "sleep", _no_sleep)
     monkeypatch.setattr(
-        rtorrent.comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             RTORRENT_HOST=url.rsplit("/", 1)[0],
             RTORRENT_RPC_URL="RPC2",
@@ -310,8 +311,8 @@ def test_adapter_send_and_check_round_trip(http_daemon, monkeypatch, tmp_path):
 
 def test_adapter_unreachable_daemon_raises(monkeypatch):
     monkeypatch.setattr(
-        rtorrent.comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             RTORRENT_HOST="http://127.0.0.1:9",
             RTORRENT_RPC_URL="RPC2",

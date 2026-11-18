@@ -22,7 +22,7 @@ import sys
 
 import comicarr
 from comicarr.app.common import numbers as common_numbers
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.downloads.ddl import mega_public
 from comicarr.app.library import directories
 
@@ -30,7 +30,7 @@ from comicarr.app.library import directories
 class MegaNZ(object):
     def __init__(self, query=None):
         self.query = query
-        self.dl_location = os.path.join(comicarr.CONFIG.DDL_LOCATION, "mega")
+        self.dl_location = os.path.join(runtime.current().config.DDL_LOCATION, "mega")
         self.wrote_tmp = False
 
     def ddl_download(self, link, filename, id, issueid=None, site=None):

@@ -685,7 +685,7 @@ def torrent_create(site, linkid, alt=None):
 
 def parse_32pfeed(rssfeedline):
     KEYS_32P = {}
-    if comicarr.CONFIG.ENABLE_32P and len(rssfeedline) > 1:
+    if runtime.current().config.ENABLE_32P and len(rssfeedline) > 1:
         userid_st = rssfeedline.find("&user")
         userid_en = rssfeedline.find("&", userid_st + 1)
         if userid_en == -1:
@@ -711,7 +711,7 @@ def parse_32pfeed(rssfeedline):
             "user": USERID_32P,
             "auth": AUTH_32P,
             "authkey": AUTHKEY_32P,
-            "passkey": comicarr.CONFIG.PASSKEY_32P,
+            "passkey": runtime.current().config.PASSKEY_32P,
         }
 
     return KEYS_32P
@@ -820,9 +820,9 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                 return torrent_files[0]
             return torrent_folder
 
-        auto_snatch_script = getattr(comicarr.CONFIG, "AUTO_SNATCH_SCRIPT", None)
-        auto_snatch_ready = bool(getattr(comicarr.CONFIG, "AUTO_SNATCH", False)) and bool(auto_snatch_script)
-        local_torrent_pp = bool(getattr(comicarr.CONFIG, "LOCAL_TORRENT_PP", False))
+        auto_snatch_script = getattr(runtime.current().config, "AUTO_SNATCH_SCRIPT", None)
+        auto_snatch_ready = bool(getattr(runtime.current().config, "AUTO_SNATCH", False)) and bool(auto_snatch_script)
+        local_torrent_pp = bool(getattr(runtime.current().config, "LOCAL_TORRENT_PP", False))
 
         if all([torrent_status is True, download is True, auto_snatch_ready]):
             if not issueid:
@@ -845,16 +845,16 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
             autosnatch_env = os.environ.copy()
             autosnatch_env["downlocation"] = downlocation.replace("'", "\\'")
 
-            autosnatch_env["host"] = comicarr.CONFIG.PP_SSHHOST
-            autosnatch_env["port"] = comicarr.CONFIG.PP_SSHPORT
-            autosnatch_env["user"] = comicarr.CONFIG.PP_SSHUSER
-            autosnatch_env["localcd"] = comicarr.CONFIG.PP_SSHLOCALCD
-            if comicarr.CONFIG.PP_SSHKEYFILE is not None:
-                autosnatch_env["keyfile"] = comicarr.CONFIG.PP_SSHKEYFILE
+            autosnatch_env["host"] = runtime.current().config.PP_SSHHOST
+            autosnatch_env["port"] = runtime.current().config.PP_SSHPORT
+            autosnatch_env["user"] = runtime.current().config.PP_SSHUSER
+            autosnatch_env["localcd"] = runtime.current().config.PP_SSHLOCALCD
+            if runtime.current().config.PP_SSHKEYFILE is not None:
+                autosnatch_env["keyfile"] = runtime.current().config.PP_SSHKEYFILE
             else:
                 autosnatch_env["keyfile"] = ""
-            if comicarr.CONFIG.PP_SSHPASSWD is not None:
-                autosnatch_env["passwd"] = comicarr.CONFIG.PP_SSHPASSWD
+            if runtime.current().config.PP_SSHPASSWD is not None:
+                autosnatch_env["passwd"] = runtime.current().config.PP_SSHPASSWD
             else:
                 autosnatch_env["passwd"] = ""
 
@@ -885,7 +885,9 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                 torrent_info["completed"] = torrent_status
                 torrent_info["files"] = torrent_files
                 torrent_info["folder"] = torrent_folder
-                torrent_info["copied_filepath"] = os.path.join(comicarr.CONFIG.PP_SSHLOCALCD, torrent_info["name"])
+                torrent_info["copied_filepath"] = os.path.join(
+                    runtime.current().config.PP_SSHLOCALCD, torrent_info["name"]
+                )
                 torrent_info["snatch_status"] = snatch_status
         else:
             snatch_status = "IN PROGRESS"
@@ -1032,8 +1034,8 @@ def provider_unreachable(exc):
 
 def disable_provider(site, reason=None, delay=0):
     if not delay:
-        if comicarr.CONFIG.BLOCKLIST_TIMER > 0:
-            delay = int(comicarr.CONFIG.BLOCKLIST_TIMER)
+        if runtime.current().config.BLOCKLIST_TIMER > 0:
+            delay = int(runtime.current().config.BLOCKLIST_TIMER)
         else:
             delay = 3600
     mins = int(delay / 60) + (delay % 60 > 0)
@@ -1059,9 +1061,9 @@ def disable_provider(site, reason=None, delay=0):
 
 def ignored_publisher_check(publisher):
     if publisher is not None:
-        if comicarr.CONFIG.IGNORED_PUBLISHERS is not None and any(
+        if runtime.current().config.IGNORED_PUBLISHERS is not None and any(
             x
-            for x in comicarr.CONFIG.IGNORED_PUBLISHERS
+            for x in runtime.current().config.IGNORED_PUBLISHERS
             if any(
                 [
                     x.lower() == publisher.lower(),

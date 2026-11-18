@@ -13,13 +13,13 @@ from types import SimpleNamespace
 
 import pytest
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.manga import add as manga_add
 
 
 @pytest.fixture(autouse=True)
 def _config(monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(FOLDER_FORMAT="$Series ($Year)"), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(FOLDER_FORMAT="$Series ($Year)"), raising=False)
 
 
 def test_an_existing_plain_title_folder_is_reused(tmp_path):

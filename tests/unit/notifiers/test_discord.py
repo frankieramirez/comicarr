@@ -9,7 +9,7 @@ class TestDiscordInit:
     """Test DISCORD initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use comicarr.CONFIG values by default."""
+        """Init should use runtime.current().config values by default."""
         discord = notifiers_module.DISCORD()
 
         assert discord.webhook_url == "https://discord.com/api/webhooks/test/webhook"

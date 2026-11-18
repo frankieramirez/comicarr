@@ -15,14 +15,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from comicarr.app.core import runtime
 from comicarr.app.dashboard import service
 
 
 @pytest.fixture(autouse=True)
 def _dashboard_dependencies(monkeypatch):
     """Keep service tests focused on panel shape, not database transport."""
-    runtime = SimpleNamespace(CONFIG=SimpleNamespace(COMIC_DIR=None, MANGA_DIR=None))
-    monkeypatch.setattr(service, "comicarr", runtime)
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(COMIC_DIR=None, MANGA_DIR=None))
     monkeypatch.setattr(service.dashboard_queries, "get_recent_activity", lambda cutoff, limit: [])
     monkeypatch.setattr(service.dashboard_queries, "get_library_stats", lambda content_type=None: None)
     monkeypatch.setattr(service.storyarcs_service, "get_upcoming", lambda include_downloaded: [])
@@ -104,9 +104,7 @@ class TestActivityPanel:
     def test_uses_an_inclusive_30_day_cutoff(self, monkeypatch):
         seen = []
         monkeypatch.setattr(service, "recent_activity_cutoff", lambda: datetime(2026, 6, 10, 12, 0, 0))
-        monkeypatch.setattr(
-            service.dashboard_queries, "get_recent_activity", lambda cutoff, limit: seen.append(cutoff)
-        )
+        monkeypatch.setattr(service.dashboard_queries, "get_recent_activity", lambda cutoff, limit: seen.append(cutoff))
 
         service.get_activity_panel()
 
@@ -147,8 +145,8 @@ class TestScanTargets:
     """Which libraries the header's scan action can start."""
 
     def test_reports_each_configured_directory(self):
-        service.comicarr.CONFIG.COMIC_DIR = "/comics"
-        service.comicarr.CONFIG.MANGA_DIR = "/manga"
+        runtime.current().config.COMIC_DIR = "/comics"
+        runtime.current().config.MANGA_DIR = "/manga"
 
         assert service.get_scan_targets() == {"comic": True, "manga": True}
 
@@ -156,15 +154,15 @@ class TestScanTargets:
         assert service.get_scan_targets() == {"comic": False, "manga": False}
 
     def test_a_whitespace_only_path_is_not_a_scan_target(self):
-        service.comicarr.CONFIG.COMIC_DIR = "   "
+        runtime.current().config.COMIC_DIR = "   "
 
         assert service.get_scan_targets()["comic"] is False
 
     def test_the_library_folder_is_a_comic_scan_target_but_never_a_manga_one(self):
-        service.comicarr.CONFIG.DESTINATION_DIR = "/comics"
+        runtime.current().config.DESTINATION_DIR = "/comics"
 
         assert service.get_scan_targets() == {"comic": True, "manga": False}
 
-        service.comicarr.CONFIG.MANGA_DESTINATION_DIR = "/manga"
+        runtime.current().config.MANGA_DESTINATION_DIR = "/manga"
 
         assert service.get_scan_targets() == {"comic": True, "manga": True}

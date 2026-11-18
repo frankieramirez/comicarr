@@ -117,7 +117,10 @@ def _process(nzb_name, nzb_folder, comicid=None, issueid=None, apicall=False):
     """Run one whole request through ``process_download``."""
     mock_apilock = MagicMock()
     mock_apilock.locked.return_value = False
-    with patch.object(runtime.current(), "api_lock", mock_apilock), patch.object(comicarr, "CONFIG", _config()):
+    with (
+        patch.object(runtime.current(), "api_lock", mock_apilock),
+        patch.object(runtime.current(), "config", _config()),
+    ):
         return folder_request.process(nzb_name, nzb_folder, issueid, comicid=comicid, apicall=apicall)
 
 
@@ -150,7 +153,7 @@ class TestMangaPlacementHonoursFileOpts:
 
         comic_row = {"ComicName": "Chainsaw Man", "ComicLocation": str(dest_dir)}
         with (
-            patch.object(comicarr, "CONFIG", config),
+            patch.object(runtime.current(), "config", config),
             patch(
                 "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
             ),
@@ -426,7 +429,7 @@ class TestProcessMangaHonorsChosenFolder:
             ADDITIONAL_LIBRARY_ROOTS=roots,
         )
         with (
-            patch.object(comicarr, "CONFIG", config),
+            patch.object(runtime.current(), "config", config),
             patch(
                 "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
             ),
@@ -607,7 +610,7 @@ class TestProcessMangaExistingDestination:
 
         comic_row = {"ComicName": "Chainsaw Man", "ComicLocation": str(dest_dir)}
         with (
-            patch.object(comicarr, "CONFIG", config),
+            patch.object(runtime.current(), "config", config),
             patch(
                 "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
             ),
@@ -721,7 +724,7 @@ class TestProcessMangaChapterMatch:
         config.ENABLE_META = False
 
         with (
-            patch.object(comicarr, "CONFIG", config),
+            patch.object(runtime.current(), "config", config),
             patch(
                 "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
             ),
@@ -833,7 +836,7 @@ class TestMangaTidiesTheEmptiedDownloadFolder:
         config.ENABLE_META = False
 
         with (
-            patch.object(comicarr, "CONFIG", config),
+            patch.object(runtime.current(), "config", config),
             patch(
                 "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
             ),
@@ -939,7 +942,7 @@ class TestMangaMetatagOnImport:
             patch("comicarr.app.downloads.journal.record_transition", return_value=True),
             patch("comicarr.app.downloads.postprocess_match.place", return_value=placement_result()) as mock_place,
             patch("comicarr.app.metadata.tagging.run", return_value=resolved) as mock_cmtag,
-            patch.object(comicarr, "CONFIG", config),
+            patch.object(runtime.current(), "config", config),
             _mock_db() as mock_db,
         ):
             mock_db.select_one.side_effect = lookups
@@ -1326,7 +1329,7 @@ class TestRestoreTaggedFileMode:
         f = tmp_path / "One-Punch Man v01.cbz"
         f.write_bytes(b"x")
         os.chmod(f, 0o600)
-        with patch.object(comicarr, "CONFIG", self._cfg()):
+        with patch.object(runtime.current(), "config", self._cfg()):
             assert cmtag.restore_tagged_file_mode(str(f), 0o644) is True
         assert os.stat(f).st_mode & 0o7777 == 0o644
 
@@ -1336,7 +1339,7 @@ class TestRestoreTaggedFileMode:
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
         os.chmod(f, 0o644)
-        with patch.object(comicarr, "CONFIG", self._cfg()):
+        with patch.object(runtime.current(), "config", self._cfg()):
             assert cmtag.restore_tagged_file_mode(str(f), 0o644) is False
         assert os.stat(f).st_mode & 0o7777 == 0o644
 
@@ -1346,7 +1349,7 @@ class TestRestoreTaggedFileMode:
 
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
-        with patch.object(comicarr, "CONFIG", self._cfg(enforce=True)):
+        with patch.object(runtime.current(), "config", self._cfg(enforce=True)):
             with patch.object(cmtag.directories, "setperms", return_value=True) as setperms:
                 assert cmtag.restore_tagged_file_mode(str(f), 0o644) is True
         setperms.assert_called_once_with(str(f))
@@ -1360,7 +1363,7 @@ class TestRestoreTaggedFileMode:
 
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
-        with patch.object(comicarr, "CONFIG", self._cfg(enforce=True)):
+        with patch.object(runtime.current(), "config", self._cfg(enforce=True)):
             with patch.object(cmtag.directories, "setperms", return_value=False):
                 assert cmtag.restore_tagged_file_mode(str(f), 0o644) is False
 
@@ -1376,7 +1379,7 @@ class TestRestoreTaggedFileMode:
 
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
-        with patch.object(comicarr, "CONFIG", self._cfg(enforce=True)):
+        with patch.object(runtime.current(), "config", self._cfg(enforce=True)):
             with patch.object(
                 cmtag.directories,
                 "setperms",
@@ -1391,7 +1394,7 @@ class TestRestoreTaggedFileMode:
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
         os.chmod(f, 0o600)
-        with patch.object(comicarr, "CONFIG", self._cfg()):
+        with patch.object(runtime.current(), "config", self._cfg()):
             assert cmtag.restore_tagged_file_mode(str(f), None) is False
         assert os.stat(f).st_mode & 0o7777 == 0o600
 
@@ -1402,7 +1405,7 @@ class TestRestoreTaggedFileMode:
         f = tmp_path / "a.cbz"
         f.write_bytes(b"x")
         os.chmod(f, 0o600)
-        with patch.object(comicarr, "CONFIG", self._cfg()):
+        with patch.object(runtime.current(), "config", self._cfg()):
             with patch("os.chmod", side_effect=OSError("read-only fs")):
                 assert cmtag.restore_tagged_file_mode(str(f), 0o644) is False
 
@@ -1515,33 +1518,33 @@ class TestVolumeMetadataField:
         """The file IS volume 7, so it is tagged volume 7 -- not volume 2015."""
         from comicarr.app.metadata import tagging as cmtag
 
-        monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
+        monkeypatch.setattr(runtime.current(), "config", self._cfg())
         assert cmtag.volume_value("2015", "7") == "7"
 
     def test_a_manga_volume_wins_even_with_no_series_label(self, monkeypatch):
         from comicarr.app.metadata import tagging as cmtag
 
-        monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
+        monkeypatch.setattr(runtime.current(), "config", self._cfg())
         assert cmtag.volume_value(None, "7") == "7"
 
     def test_a_manga_volume_wins_over_the_default_volume_setting(self, monkeypatch):
         """SETDEFAULTVOLUME forces 1; the book's own volume must still win."""
         from comicarr.app.metadata import tagging as cmtag
 
-        monkeypatch.setattr(comicarr, "CONFIG", self._cfg(SETDEFAULTVOLUME=True))
+        monkeypatch.setattr(runtime.current(), "config", self._cfg(SETDEFAULTVOLUME=True))
         assert cmtag.volume_value(None, "7") == "7"
 
     def test_a_periodical_keeps_its_series_volume_label(self, monkeypatch):
         """Control: with no manga volume the comic behaviour is untouched."""
         from comicarr.app.metadata import tagging as cmtag
 
-        monkeypatch.setattr(comicarr, "CONFIG", self._cfg())
+        monkeypatch.setattr(runtime.current(), "config", self._cfg())
         assert cmtag.volume_value("2015", None) == "2015"
 
     def test_volume_tagging_off_removes_the_field(self, monkeypatch):
         from comicarr.app.metadata import tagging as cmtag
 
-        monkeypatch.setattr(comicarr, "CONFIG", self._cfg(CMTAG_VOLUME=False))
+        monkeypatch.setattr(runtime.current(), "config", self._cfg(CMTAG_VOLUME=False))
         assert cmtag.volume_value("2015", None) == ""
 
 
@@ -1602,7 +1605,7 @@ class TestMangaKeepsTheFileWhenTheDownloadFolderIsTheSeriesFolder:
             return placement_result(destination)
 
         with (
-            patch.object(comicarr, "CONFIG", config),
+            patch.object(runtime.current(), "config", config),
             patch(
                 "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
             ),

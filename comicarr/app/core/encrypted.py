@@ -26,7 +26,7 @@ import threading
 import bcrypt
 from cryptography.fernet import Fernet
 
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 
 _fernet_instance = None
 _fernet_secure_dir = None
@@ -166,12 +166,10 @@ def _get_fernet(secure_dir=None, create=True):
     global _fernet_instance, _fernet_secure_dir
 
     if secure_dir is None:
-        import comicarr
-
-        if not comicarr.CONFIG or not comicarr.CONFIG.SECURE_DIR:
+        if not runtime.current().config or not runtime.current().config.SECURE_DIR:
             logger.error("[ENCRYPTION] SECURE_DIR not configured — cannot load master key")
             return None
-        secure_dir = comicarr.CONFIG.SECURE_DIR
+        secure_dir = runtime.current().config.SECURE_DIR
 
     secure_dir = os.path.abspath(secure_dir)
     with _fernet_lock:

@@ -15,7 +15,6 @@ import time
 import requests
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
@@ -66,14 +65,14 @@ def _remaining(deadline):
 
 
 def _cv_request(endpoint, params, deadline):
-    if not comicarr.CONFIG.COMICVINE_API or comicarr.CONFIG.COMICVINE_API == "None":
+    if not runtime.current().config.COMICVINE_API or runtime.current().config.COMICVINE_API == "None":
         raise ValueError("ComicVine API key is required")
     runtime.current().cv_rate_limiter.acquire(timeout=_remaining(deadline))
     try:
         response = runtime.current().cv_session.get(
             runtime.current().cv_url + endpoint,
-            params={**params, "api_key": comicarr.CONFIG.COMICVINE_API, "format": "json"},
-            verify=comicarr.CONFIG.CV_VERIFY,
+            params={**params, "api_key": runtime.current().config.COMICVINE_API, "format": "json"},
+            verify=runtime.current().config.CV_VERIFY,
             timeout=min(20, _remaining(deadline)),
         )
         response.raise_for_status()
@@ -218,7 +217,7 @@ def _manga_metadata(series_id, deadline):
     destination = get_manga_destination()
     if not destination:
         raise ValueError("Manga library destination must be configured")
-    folder_format = comicarr.CONFIG.FOLDER_FORMAT or "$Series ($Year)"
+    folder_format = runtime.current().config.FOLDER_FORMAT or "$Series ($Year)"
     folder = common_strings.filesafe(folder_format.replace("$Series", name).replace("$Year", year))
     values = {
         "ComicName": name,
@@ -260,7 +259,7 @@ def add_series_metadata(series_id):
             raise ValueError("A library destination must be configured before importing")
         if existing and existing.get("ComicLocation"):
             values["ComicLocation"] = existing["ComicLocation"]
-        if not is_strict_library_descendant(values["ComicLocation"], comicarr.CONFIG):
+        if not is_strict_library_descendant(values["ComicLocation"], runtime.current().config):
             raise ValueError("Series folder must be inside a configured library root")
         for other in db.select_all(select(comics).where(comics.c.ComicID != series_id)):
             taken = other.get("ComicLocation")

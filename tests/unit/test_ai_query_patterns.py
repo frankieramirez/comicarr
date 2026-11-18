@@ -11,7 +11,6 @@
 
 import pytest
 
-import comicarr
 from comicarr.app.ai.query_patterns import execute_pattern
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, metadata
@@ -21,7 +20,7 @@ from comicarr.app.core.tables import comics, metadata
 def completion_series(tmp_path, monkeypatch):
     """Create completion-filter fixtures in a real temporary SQLite database."""
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
 

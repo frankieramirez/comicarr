@@ -22,8 +22,7 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from sqlalchemy import select, update
 
-import comicarr
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, issues
 
 ACTION_PATTERNS = {
@@ -85,7 +84,7 @@ def _annuals_enabled(ctx):
     config = getattr(ctx, "config", None)
     if config is not None:
         return bool(getattr(config, "ANNUALS_ON", False))
-    return bool(getattr(comicarr, "CONFIG", None) and comicarr.CONFIG.ANNUALS_ON)
+    return bool(runtime.current().config and runtime.current().config.ANNUALS_ON)
 
 
 def _markable(row, target_status):

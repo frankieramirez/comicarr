@@ -29,10 +29,9 @@ from datetime import datetime
 
 import requests
 
-import comicarr
 from comicarr.app.common import series_kind
 from comicarr.app.common.user_agent import app_user_agent
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.series.service import listLibrary
 
 MAL_API_BASE = "https://api.myanimelist.net/v2"
@@ -77,7 +76,7 @@ def _make_request(endpoint, params=None):
 
     Returns JSON response data or None on error.
     """
-    client_id = getattr(comicarr.CONFIG, "MAL_CLIENT_ID", None) if comicarr.CONFIG else None
+    client_id = getattr(runtime.current().config, "MAL_CLIENT_ID", None) if runtime.current().config else None
     if not client_id:
         logger.error("[MAL] No MAL_CLIENT_ID configured")
         return None

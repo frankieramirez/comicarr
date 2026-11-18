@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from comicarr.app.core import runtime
+
 
 def run_weekly_refresh() -> None:
     """Run the scheduled Weekly Pullist job once: fetch, match, future check.
@@ -69,7 +71,7 @@ def match_new_series(comic_name: str, comic_id: str, issue: str | None = None) -
     import comicarr
     from comicarr.app.weekly import pull_list
 
-    if comicarr.CONFIG.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
+    if runtime.current().config.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
         pull_list.pullitcheck(comic1off_name=comic_name, comic1off_id=comic_id, issue=issue)
     else:
         pull_list.new_pullcheck(

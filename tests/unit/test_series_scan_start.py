@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.series import service
 
 
@@ -26,7 +26,7 @@ from comicarr.app.series import service
     ],
 )
 def test_library_scan_rejects_missing_mount(monkeypatch, scan, config_key, path, error):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(**{config_key: path}))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(**{config_key: path}))
     monkeypatch.setattr(service.os.path, "isdir", MagicMock(return_value=False))
     start_background_thread = MagicMock()
     monkeypatch.setattr(service, "start_background_thread", start_background_thread)
@@ -63,7 +63,7 @@ def test_library_scan_rejects_duplicate_request_before_starting_another_worker(
     monkeypatch, scan, scanner, config_key, path, status_attr, lock_attr
 ):
     scanner_module = importlib.import_module(scanner)
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(**{config_key: path}))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(**{config_key: path}))
     monkeypatch.setattr(service.os.path, "isdir", MagicMock(return_value=True))
     monkeypatch.setattr(scanner_module, status_attr, None)
     monkeypatch.setattr(scanner_module, lock_attr, threading.Lock())

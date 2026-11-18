@@ -179,7 +179,7 @@ class TestCheckGithubCachesReleaseBody:
 
         changelog_notes.clear_cached_release_body()
         config = MagicMock(GIT_TOKEN=None, CHECK_GITHUB=True)
-        monkeypatch.setattr("comicarr.CONFIG", config, raising=False)
+        monkeypatch.setattr(runtime.current(), "config", config, raising=False)
         monkeypatch.setattr(runtime.current(), "install_type", "git", raising=False)
         monkeypatch.setattr(runtime.current(), "current_version", "aaaaaaa", raising=False)
 
@@ -209,7 +209,7 @@ class TestCheckGithubCachesReleaseBody:
 
         changelog_notes.set_cached_release_body("0.22.0", "stale body")
         config = MagicMock(GIT_TOKEN=None, CHECK_GITHUB=True)
-        monkeypatch.setattr("comicarr.CONFIG", config, raising=False)
+        monkeypatch.setattr(runtime.current(), "config", config, raising=False)
         monkeypatch.setattr(runtime.current(), "install_type", "git", raising=False)
         monkeypatch.setattr(runtime.current(), "current_version", "aaaaaaa", raising=False)
 

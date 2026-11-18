@@ -1,8 +1,7 @@
 """Tests for PUSHOVER notifier."""
 
-import json
 import urllib.parse
-import pytest
+
 import responses
 
 
@@ -10,7 +9,7 @@ class TestPushoverInit:
     """Test PUSHOVER initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use comicarr.CONFIG values by default."""
+        """Init should use runtime.current().config values by default."""
         pushover = notifiers_module.PUSHOVER()
 
         assert pushover.apikey == "test_pushover_apikey"
@@ -20,9 +19,7 @@ class TestPushoverInit:
         assert pushover.test is False
         assert pushover.PUSHOVER_URL == "https://api.pushover.net/1/messages.json"
 
-    def test_init_test_params_override_config(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_init_test_params_override_config(self, notifiers_module, mock_notifier_config):
         """Test parameters should override config values."""
         pushover = notifiers_module.PUSHOVER(
             test_apikey="override_apikey",
@@ -85,9 +82,7 @@ class TestPushoverNotify:
         assert "SABnzbd" in decoded_body
 
     @responses.activate
-    def test_notify_strips_trailing_period_from_nzb_name(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_strips_trailing_period_from_nzb_name(self, notifiers_module, mock_notifier_config):
         """Trailing period should be stripped from NZB name."""
         responses.add(
             responses.POST,
@@ -127,9 +122,7 @@ class TestPushoverNotify:
         assert "my-device" in request_body
 
     @responses.activate
-    def test_notify_with_image(
-        self, notifiers_module, mock_notifier_config, sample_image_base64
-    ):
+    def test_notify_with_image(self, notifiers_module, mock_notifier_config, sample_image_base64):
         """Notification with image attachment."""
         responses.add(
             responses.POST,
@@ -147,14 +140,10 @@ class TestPushoverNotify:
 
         assert result is True
         # Should be multipart with image
-        assert "multipart/form-data" in responses.calls[0].request.headers.get(
-            "Content-Type", ""
-        )
+        assert "multipart/form-data" in responses.calls[0].request.headers.get("Content-Type", "")
 
     @responses.activate
-    def test_notify_test_mode_validates_then_sends(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_test_mode_validates_then_sends(self, notifiers_module, mock_notifier_config):
         """Test mode validates credentials then sends actual notification."""
         # First call validates
         responses.add(
@@ -181,9 +170,7 @@ class TestPushoverNotify:
         assert result is True
         assert len(responses.calls) == 2
 
-    def test_notify_returns_false_when_apikey_none(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_returns_false_when_apikey_none(self, notifiers_module, mock_notifier_config):
         """Notification returns False when apikey is None."""
         pushover = notifiers_module.PUSHOVER()
         pushover.apikey = None
@@ -196,9 +183,7 @@ class TestPushoverNotifyErrors:
     """Test PUSHOVER error handling."""
 
     @responses.activate
-    def test_notify_client_error_returns_false(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_client_error_returns_false(self, notifiers_module, mock_notifier_config):
         """4xx error returns False."""
         responses.add(
             responses.POST,
@@ -213,9 +198,7 @@ class TestPushoverNotifyErrors:
         assert result is False
 
     @responses.activate
-    def test_notify_server_error_returns_false(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_server_error_returns_false(self, notifiers_module, mock_notifier_config):
         """5xx error returns False."""
         responses.add(
             responses.POST,
@@ -230,9 +213,7 @@ class TestPushoverNotifyErrors:
         assert result is False
 
     @responses.activate
-    def test_notify_json_parse_error_returns_false(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_json_parse_error_returns_false(self, notifiers_module, mock_notifier_config):
         """JSON parse error returns False."""
         responses.add(
             responses.POST,
@@ -251,9 +232,7 @@ class TestPushoverTestNotify:
     """Test PUSHOVER test_notify method."""
 
     @responses.activate
-    def test_test_notify_sends_correct_message(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_test_notify_sends_correct_message(self, notifiers_module, mock_notifier_config):
         """test_notify sends expected test message."""
         responses.add(
             responses.POST,

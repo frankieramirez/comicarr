@@ -15,7 +15,6 @@ from types import SimpleNamespace
 
 import pytest
 
-import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema, maintenance_retry_delay
 from comicarr.app.attention import Failure, ManualReview
 from comicarr.app.core import db, runtime
@@ -29,8 +28,8 @@ def sqlite_ddl_db(tmp_path, monkeypatch):
     db.shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             DDL_LOCATION=str(tmp_path / "downloads"),
             CACHE_DIR=str(tmp_path / "cache"),

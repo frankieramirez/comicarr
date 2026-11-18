@@ -22,6 +22,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
+from comicarr.app.core import runtime
 from comicarr.app.downloads.torrent.clients import qbittorrent
 
 HASH = "A" * 40
@@ -114,9 +115,8 @@ def webui():
 
 @pytest.fixture
 def config(monkeypatch):
-    import comicarr
 
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(QBITTORRENT_LOADACTION="default"))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(QBITTORRENT_LOADACTION="default"))
     monkeypatch.setattr(
         "comicarr.app.downloads.torrent_routing.qbittorrent_destination",
         lambda _config, _comicid: SimpleNamespace(category="comics", savepath=None),

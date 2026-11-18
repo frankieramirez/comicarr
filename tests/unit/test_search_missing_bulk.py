@@ -15,7 +15,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.core import db, runtime
@@ -27,7 +26,7 @@ from comicarr.app.series import service as series_service
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.setattr(runtime.current(), "search_queue", queue.Queue(), raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("COMICARR_ACQUISITION_MAINTENANCE", raising=False)

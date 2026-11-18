@@ -22,7 +22,6 @@ import pytest
 from sqlalchemy import MetaData, insert
 from sqlalchemy.engine import make_url
 
-import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
@@ -107,7 +106,7 @@ def test_support_bundle_projection_equivalent_across_dialects(monkeypatch, tmp_p
         pytest.skip("DATABASE_URL not set")
 
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.setenv("DATABASE_URL", database_url)
     shutdown_engine()
 

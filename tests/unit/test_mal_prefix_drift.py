@@ -45,7 +45,7 @@ def _process(comicid):
     config.FILE_OPTS = "move"
     config.IGNORE_SEARCH_WORDS = []
     config.PRE_SCRIPTS = None
-    with patch.object(runtime.current(), "api_lock", lock), patch.object(comicarr, "CONFIG", config):
+    with patch.object(runtime.current(), "api_lock", lock), patch.object(runtime.current(), "config", config):
         return folder_request.process("Chapter 1.cbz", "/tmp/downloads", comicid=comicid, apicall=True)
 
 
@@ -175,8 +175,8 @@ class TestMangaDexAddRecordsItsId:
         monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
         monkeypatch.setattr(
-            comicarr,
-            "CONFIG",
+            runtime.current(),
+            "config",
             SimpleNamespace(
                 MANGA_DIR=str(tmp_path),
                 FOLDER_FORMAT="$Series",

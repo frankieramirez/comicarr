@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
+from comicarr.app.core import runtime
+
 
 def _mal_payload():
     return {
@@ -153,7 +155,7 @@ class TestMangaDexMalMatching:
 
 class TestMangaChapterFallback:
     @patch("comicarr.app.manga.add.db")
-    @patch("comicarr.CONFIG")
+    @patch.object(runtime.current(), "config")
     def test_mal_total_creates_only_missing_placeholder_chapters(self, mock_config, mock_db):
         from comicarr.app.manga import add as manga_add
 

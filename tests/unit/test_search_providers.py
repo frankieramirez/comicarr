@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.search import engine as search
 from comicarr.app.search import service as search_service
 from comicarr.app.search.providers import effective_provider_plan
@@ -42,7 +42,7 @@ def test_effective_provider_plan_includes_enabled_torznab_missing_from_saved_ord
 
 def test_provider_order_routes_enabled_torznab_even_when_provider_order_is_stale(monkeypatch):
     config = _config()
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(search_service, "block_provider_check", lambda _site: False)
 
     result = search.provider_order(initial_run=True)
@@ -68,7 +68,7 @@ def test_unnamed_provider_uses_safe_identity_during_legacy_execution(monkeypatch
     config = _config(
         EXTRA_TORZNABS=[["", "https://user:secret@indexer.test/api?apikey=token", "1", "secret", "5070", "1", 1]]
     )
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(search_service, "block_provider_check", lambda _site: False)
 
     result = search.provider_order()
@@ -92,7 +92,7 @@ def test_encrypted_provider_key_is_plaintext_only_in_runtime_plan(tmp_path, monk
     runtime_config.ENCRYPT_PASSWORDS = True
     runtime_config.EXTRA_NEWZNABS = []
     runtime_config.EXTRA_TORZNABS = [("Nyaa", "https://indexer.test", "1", token, "5070", "1", 101)]
-    monkeypatch.setattr(comicarr, "CONFIG", runtime_config)
+    monkeypatch.setattr(runtime.current(), "config", runtime_config)
 
     runtime_config._load_provider_extra_credentials()
     plan = effective_provider_plan(_config(EXTRA_TORZNABS=runtime_config.EXTRA_TORZNABS))
@@ -203,7 +203,7 @@ def test_series_override_orders_several_names_and_matches_case_insensitively():
 
 
 def test_excluded_provider_is_absent_for_that_series_only(monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", _override_config())
+    monkeypatch.setattr(runtime.current(), "config", _override_config())
     monkeypatch.setattr(search_service, "block_provider_check", lambda _site: False)
     stored = {"wizard": '{"order": ["MagIndex"], "exclude": ["DDL(GetComics)"]}'}
     monkeypatch.setattr(series_queries, "get_comic_provider_override", lambda comic_id: stored.get(comic_id))
@@ -246,7 +246,7 @@ def test_override_keeps_blocked_providers_blocked():
 
 def _logged_search_init(monkeypatch, *, override, content_type, config=None):
     messages = []
-    monkeypatch.setattr(comicarr, "CONFIG", config or _override_config())
+    monkeypatch.setattr(runtime.current(), "config", config or _override_config())
     monkeypatch.setattr(search_service, "block_provider_check", lambda _site: False)
     monkeypatch.setattr(series_service, "get_issue_title", lambda *a, **k: None)
     monkeypatch.setattr(series_queries, "get_comic_provider_override", lambda comic_id: override)

@@ -61,7 +61,7 @@ def ctx(monkeypatch):
         update_state="unknown",
         update_reason="never_checked",
     )
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     context.install_type = "git"
     monkeypatch.setattr(runtime, "_runtime", context)
     with (
@@ -234,7 +234,7 @@ class TestGithubRequestTimeout:
 
     def test_check_github_preserves_auth_with_timeout(self, ctx):
         token = ("ghp_test", "x-oauth-basic")
-        comicarr.CONFIG.GIT_TOKEN = token
+        runtime.current().config.GIT_TOKEN = token
         with patch.object(
             versioncheck.requests,
             "get",

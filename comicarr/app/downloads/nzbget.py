@@ -25,8 +25,7 @@ import time
 import xmlrpc.client
 from base64 import standard_b64encode
 
-import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.downloads import cdh_mapping
 
 
@@ -43,69 +42,74 @@ def failure_cause(status):
 class NZBGet(object):
     def __init__(self):
 
-        if comicarr.CONFIG.NZBGET_HOST[:5] == "https":
+        if runtime.current().config.NZBGET_HOST[:5] == "https":
             protocol = "https"
-            nzbget_host = comicarr.CONFIG.NZBGET_HOST[8:]
-        elif comicarr.CONFIG.NZBGET_HOST[:4] == "http":
+            nzbget_host = runtime.current().config.NZBGET_HOST[8:]
+        elif runtime.current().config.NZBGET_HOST[:4] == "http":
             protocol = "http"
-            nzbget_host = comicarr.CONFIG.NZBGET_HOST[7:]
+            nzbget_host = runtime.current().config.NZBGET_HOST[7:]
         else:
             logger.warn(
                 "[NZB-GET] You need to specify the protocol for your nzbget instance (ie. http:// or https://). You provided: %s"
-                % (comicarr.CONFIG.NZBGET_HOST)
+                % (runtime.current().config.NZBGET_HOST)
             )
             return {"status": False}
         url = "%s://%s:%s"
-        val = (protocol, nzbget_host, comicarr.CONFIG.NZBGET_PORT)
-        if comicarr.CONFIG.NZBGET_SUB:
-            if not comicarr.CONFIG.NZBGET_SUB.startswith("/"):
-                comicarr.CONFIG.NZBGET_SUB = "/" + comicarr.CONFIG.NZBGET_SUB
-            if comicarr.CONFIG.NZBGET_SUB.endswith("/"):
-                comicarr.CONFIG.NZBGET_SUB = comicarr.CONFIG.NZBGET_SUB[:-1]
+        val = (protocol, nzbget_host, runtime.current().config.NZBGET_PORT)
+        if runtime.current().config.NZBGET_SUB:
+            if not runtime.current().config.NZBGET_SUB.startswith("/"):
+                runtime.current().config.NZBGET_SUB = "/" + runtime.current().config.NZBGET_SUB
+            if runtime.current().config.NZBGET_SUB.endswith("/"):
+                runtime.current().config.NZBGET_SUB = runtime.current().config.NZBGET_SUB[:-1]
             url = "%s://%s:%s%s"
-            val = val + (comicarr.CONFIG.NZBGET_SUB,)
+            val = val + (runtime.current().config.NZBGET_SUB,)
 
         logon_info = ""
-        if comicarr.CONFIG.NZBGET_USERNAME is not None:
+        if runtime.current().config.NZBGET_USERNAME is not None:
             logon_info = "%s:"
-            val = val + (comicarr.CONFIG.NZBGET_USERNAME,)
-        if comicarr.CONFIG.NZBGET_PASSWORD is not None:
+            val = val + (runtime.current().config.NZBGET_USERNAME,)
+        if runtime.current().config.NZBGET_PASSWORD is not None:
             if logon_info == "":
                 logon_info = ":%s"
             else:
                 logon_info += "%s"
-            val = val + (comicarr.CONFIG.NZBGET_PASSWORD,)
+            val = val + (runtime.current().config.NZBGET_PASSWORD,)
         if logon_info != "":
             url = url + "/" + logon_info
         url = url + "/xmlrpc"
 
-        if comicarr.CONFIG.NZBGET_SUB:
+        if runtime.current().config.NZBGET_SUB:
             self.display_url = "%s://%s:%s%s/xmlrpc" % (
                 protocol,
                 nzbget_host,
-                comicarr.CONFIG.NZBGET_PORT,
-                comicarr.CONFIG.NZBGET_SUB,
+                runtime.current().config.NZBGET_PORT,
+                runtime.current().config.NZBGET_SUB,
             )
         else:
-            self.display_url = "%s://%s:%s/xmlrpc" % (protocol, nzbget_host, comicarr.CONFIG.NZBGET_PORT)
+            self.display_url = "%s://%s:%s/xmlrpc" % (protocol, nzbget_host, runtime.current().config.NZBGET_PORT)
 
         self.nzb_url = url % val
 
         self.server = xmlrpc.client.ServerProxy(self.nzb_url)
 
     def sender(self, filename, test=False):
-        if comicarr.CONFIG.NZBGET_PRIORITY:
-            if any([comicarr.CONFIG.NZBGET_PRIORITY == "Default", comicarr.CONFIG.NZBGET_PRIORITY == "Normal"]):
+        if runtime.current().config.NZBGET_PRIORITY:
+            if any(
+                [
+                    runtime.current().config.NZBGET_PRIORITY == "Default",
+                    runtime.current().config.NZBGET_PRIORITY == "Normal",
+                ]
+            ):
                 nzbgetpriority = 0
-            elif comicarr.CONFIG.NZBGET_PRIORITY == "Low":
+            elif runtime.current().config.NZBGET_PRIORITY == "Low":
                 nzbgetpriority = -50
-            elif comicarr.CONFIG.NZBGET_PRIORITY == "High":
+            elif runtime.current().config.NZBGET_PRIORITY == "High":
                 nzbgetpriority = 50
-            elif comicarr.CONFIG.NZBGET_PRIORITY == "Very High":
+            elif runtime.current().config.NZBGET_PRIORITY == "Very High":
                 nzbgetpriority = 100
-            elif comicarr.CONFIG.NZBGET_PRIORITY == "Force":
+            elif runtime.current().config.NZBGET_PRIORITY == "Force":
                 nzbgetpriority = 900
-            elif comicarr.CONFIG.NZBGET_PRIORITY == "Paused":
+            elif runtime.current().config.NZBGET_PRIORITY == "Paused":
                 nzbgetpriority = -100
         else:
             nzbgetpriority = 0
@@ -116,15 +120,15 @@ class NZBGet(object):
 
         try:
             logger.fdebug("sending now to %s" % self.display_url)
-            if comicarr.CONFIG.NZBGET_CATEGORY is None:
+            if runtime.current().config.NZBGET_CATEGORY is None:
                 nzb_category = ""
             else:
-                nzb_category = comicarr.CONFIG.NZBGET_CATEGORY
+                nzb_category = runtime.current().config.NZBGET_CATEGORY
             sendresponse = self.server.append(
                 filename, nzbcontent64, nzb_category, nzbgetpriority, False, False, "", 0, "SCORE"
             )
         except http.client.socket.error as e:
-            nzb_url = re.sub(comicarr.CONFIG.NZBGET_PASSWORD, "REDACTED", str(e))
+            nzb_url = re.sub(runtime.current().config.NZBGET_PASSWORD, "REDACTED", str(e))
             logger.error("Please check your NZBget host and port (if it is running). Tested against: %s" % nzb_url)
             return {"status": False}
         except xmlrpc.client.ProtocolError as e:
@@ -132,15 +136,15 @@ class NZBGet(object):
                 e,
             )
             if e.errmsg == "Unauthorized":
-                err = re.sub(comicarr.CONFIG.NZBGET_PASSWORD, "REDACTED", e.errmsg)
+                err = re.sub(runtime.current().config.NZBGET_PASSWORD, "REDACTED", e.errmsg)
                 logger.error("Unauthorized username / password provided: %s" % err)
                 return {"status": False}
             else:
-                err = "Protocol Error: %s" % re.sub(comicarr.CONFIG.NZBGET_PASSWORD, "REDACTED", e.errmsg)
+                err = "Protocol Error: %s" % re.sub(runtime.current().config.NZBGET_PASSWORD, "REDACTED", e.errmsg)
                 logger.error("Protocol error returned: %s" % err)
                 return {"status": False}
         except Exception as e:
-            logger.warn("uh-oh: %s" % re.sub(comicarr.CONFIG.NZBGET_PASSWORD, "REDACTED", str(e)))
+            logger.warn("uh-oh: %s" % re.sub(runtime.current().config.NZBGET_PASSWORD, "REDACTED", str(e)))
             return {"status": False}
         else:
             if sendresponse <= 0:
@@ -273,7 +277,7 @@ class NZBGet(object):
                 if os.path.isdir(hq[0]["DestDir"]):
                     destdir = hq[0]["DestDir"]
                     logger.fdebug("location found @ %s" % destdir)
-                elif comicarr.CONFIG.NZBGET_DIRECTORY is None:
+                elif runtime.current().config.NZBGET_DIRECTORY is None:
                     logger.fdebug(
                         "Unable to locate path (%s) on the machine that is running Comicarr. If Comicarr and nzbget are on separate machines, you need to set a directory location that is accessible to both"
                         % hq[0]["DestDir"]
@@ -346,7 +350,7 @@ class NZBGet(object):
                 )
                 return {"status": "file not found", "failed": False}
 
-            if comicarr.CONFIG.NZBGET_DIRECTORY is not None:
+            if runtime.current().config.NZBGET_DIRECTORY is not None:
                 logger.fdebug("DestDir being passed to cdh conversion is: %s" % hq[0]["DestDir"])
                 cdh = cdh_mapping.CDH_MAP(hq[0]["DestDir"], nzbget=True, nzbget_server=self.server)
                 destdir = cdh.the_sequence()

@@ -14,7 +14,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import insert
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, metadata
 from comicarr.app.series import queries as series_queries
@@ -27,7 +26,7 @@ MAL_COVER = "https://cdn.myanimelist.net/images/manga/2/253146l.jpg"
 @pytest.fixture
 def query_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()

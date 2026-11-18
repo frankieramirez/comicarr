@@ -23,7 +23,7 @@ from types import SimpleNamespace
 import pytest
 import requests
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.search import rss_feeds as rsscheck
 
 NEWZNAB_API_FEED = b"""<?xml version="1.0" encoding="UTF-8"?>
@@ -63,8 +63,8 @@ def _fake_requests(monkeypatch, respond):
 
 def test_a_web_page_on_the_rss_url_falls_back_to_the_api(monkeypatch, captured):
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(NEWZNAB=True, EXPERIMENTAL=False, EXTRA_NEWZNABS=[PROWLARR_HOST]),
         raising=False,
     )

@@ -18,7 +18,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy import create_engine, select
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.tables import annuals, issues
@@ -1301,7 +1300,7 @@ class TestHaveitForSeriesId:
             CV_SKIP_IMPRINT_VALIDATION=True,
         )
         with (
-            patch.object(comicarr, "CONFIG", config),
+            patch.object(runtime.current(), "config", config),
             patch.object(runtime.current(), "cv_url", "https://comicvine.gamespot.com/api/"),
             patch.object(runtime.current(), "cv_session") as session,
             patch.object(runtime.current(), "cv_rate_limiter"),

@@ -6,9 +6,9 @@
 - Always prefix with context in brackets
 
 ### Configuration Access
-- Import: `import comicarr`
-- Usage: `comicarr.CONFIG.option_name`
-- Global config object is initialized at startup
+- Import: `from comicarr.app.core import runtime`
+- Usage: `runtime.current().config.option_name` (a route handler with a `ctx` uses `ctx.config`)
+- The config object is loaded at startup; process state lives on `AppContext`, not on the `comicarr` package (`docs/architecture/runtime-context.md`)
 
 ### Database Queries
 - Import: `from comicarr.app.core import db` (plus the table from `comicarr.app.core.tables`)

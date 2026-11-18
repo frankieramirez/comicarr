@@ -13,8 +13,8 @@ import types
 
 import pytest
 
-import comicarr
 from comicarr.app.config.registry import REGISTRY
+from comicarr.app.core import runtime
 from comicarr.app.search import engine as search
 from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import EvaluationSession
@@ -43,8 +43,8 @@ def _torznab_providers(count):
 
 def _patch_search_env(monkeypatch, providers):
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(
             ENABLE_RSS=True,
             ENABLE_TORRENT_SEARCH=True,

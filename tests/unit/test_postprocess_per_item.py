@@ -202,7 +202,7 @@ def test_a_comic_issue_is_placed_reconciled_and_completed(library):
     fakes = Fakes()
     run = _run(library.download)
 
-    with patch.object(comicarr, "CONFIG", Config()):
+    with patch.object(runtime.current(), "config", Config()):
         result = process_comic_issue(PostProcessComicMatch("C1", "I1", "1"), run, fakes.deps())
 
     placed = library.series_folder / "Saga 001.cbz"
@@ -230,7 +230,7 @@ def test_a_failed_placement_stops_with_the_release_still_owed(library):
         raise PlacementError("library is read-only")
 
     run = _run(library.download)
-    with patch.object(comicarr, "CONFIG", Config()):
+    with patch.object(runtime.current(), "config", Config()):
         result = process_comic_issue(PostProcessComicMatch("C1", "I1", "1"), run, Fakes(_refuse).deps())
 
     assert result.outcome == "stopped"
@@ -264,7 +264,7 @@ def test_an_annual_is_reconciled_as_an_annual(library):
     fakes = Fakes()
     run = _run(library.download, issue_id="AN1", release_key="rk-AN1", nzb_name="Saga Annual 001.cbz")
 
-    with patch.object(comicarr, "CONFIG", Config()):
+    with patch.object(runtime.current(), "config", Config()):
         result = process_comic_issue(PostProcessComicMatch("C1", "AN1", "1"), run, fakes.deps())
 
     assert result.outcome == COMPLETED
@@ -288,7 +288,7 @@ def test_a_duplicate_run_writes_nothing_twice_and_notifies_once(library):
 
     first = Fakes()
     (library.download / "Saga 001.cbz").write_bytes(b"issue one")
-    with patch.object(comicarr, "CONFIG", config), patch("comicarr.app.notifications.service", notifiers):
+    with patch.object(runtime.current(), "config", config), patch("comicarr.app.notifications.service", notifiers):
         process_comic_issue(PostProcessComicMatch("C1", "I1", "1"), _run(library.download), first.deps())
 
         # What the real foundsearch records, and what marks the issue as
@@ -371,7 +371,7 @@ def test_an_arc_issue_is_copied_to_the_arc_under_its_own_journal_key(library, ar
     fakes = Fakes()
     run = _run(library.download)
 
-    with patch.object(comicarr, "CONFIG", _arc_config(arc)):
+    with patch.object(runtime.current(), "config", _arc_config(arc)):
         result = process_comic_issue(_arc_match(library), run, fakes.deps())
 
     library_file = library.series_folder / "Saga 001.cbz"
@@ -404,7 +404,7 @@ def test_a_restart_before_the_arc_copy_finishes_it_on_recover(library, arc, monk
     """
     _claim("rk-I1", "I1")
     fakes = Fakes(_die_on_arc)
-    with patch.object(comicarr, "CONFIG", _arc_config(arc)):
+    with patch.object(runtime.current(), "config", _arc_config(arc)):
         result = process_comic_issue(_arc_match(library), _run(library.download), fakes.deps())
 
     library_file = library.series_folder / "Saga 001.cbz"
@@ -420,7 +420,7 @@ def test_a_restart_before_the_arc_copy_finishes_it_on_recover(library, arc, monk
     executed = []
     monkeypatch.setattr(runtime.current(), "api_lock", threading.Lock(), raising=False)
     with (
-        patch.object(comicarr, "CONFIG", _arc_config(arc)),
+        patch.object(runtime.current(), "config", _arc_config(arc)),
         patch.object(postprocessing, "_execute", side_effect=lambda item: executed.append(item)),
     ):
         outcome = postprocessing.recover(arc_key)
@@ -436,7 +436,7 @@ def test_a_restart_before_the_arc_copy_finishes_it_on_recover(library, arc, monk
 def test_recovering_an_arc_copy_already_made_only_records_it(library, arc, monkeypatch):
     """A crash after the arc copy's ``moved``: recovery records it, copies nothing."""
     _claim("rk-I1", "I1")
-    with patch.object(comicarr, "CONFIG", _arc_config(arc)):
+    with patch.object(runtime.current(), "config", _arc_config(arc)):
         process_comic_issue(_arc_match(library), _run(library.download), Fakes(_die_on_arc).deps())
     arc_key = _arc_key()
     arc_file = arc / "The Chosen" / "Saga 001.cbz"
@@ -448,7 +448,7 @@ def test_recovering_an_arc_copy_already_made_only_records_it(library, arc, monke
 
     monkeypatch.setattr(runtime.current(), "api_lock", threading.Lock(), raising=False)
     with (
-        patch.object(comicarr, "CONFIG", _arc_config(arc)),
+        patch.object(runtime.current(), "config", _arc_config(arc)),
         patch("comicarr.app.common.placement.place", side_effect=AssertionError("must not copy again")),
     ):
         outcome = postprocessing.recover(arc_key)
@@ -505,7 +505,7 @@ def test_an_arc_only_move_interrupted_after_placement_finishes_on_recover(librar
     config = _arc_config(arc, ARC_FILEOPS="move")
     (arc / "The Chosen").mkdir()  # validate_directory is faked
     with (
-        patch.object(comicarr, "CONFIG", config),
+        patch.object(runtime.current(), "config", config),
         patch.object(postprocess_pipeline, "_mark_arc_row_downloaded", side_effect=RuntimeError("process killed")),
         pytest.raises(RuntimeError),
     ):
@@ -521,7 +521,7 @@ def test_an_arc_only_move_interrupted_after_placement_finishes_on_recover(librar
     executed = []
     monkeypatch.setattr(runtime.current(), "api_lock", threading.Lock(), raising=False)
     with (
-        patch.object(comicarr, "CONFIG", config),
+        patch.object(runtime.current(), "config", config),
         patch.object(postprocessing, "_execute", side_effect=lambda item: executed.append(item)),
     ):
         outcome = postprocessing.recover(key)
@@ -541,7 +541,7 @@ def test_an_arc_only_claim_without_the_placed_file_is_re_driven(library, arc, mo
     ml = _arc_only_match(library)
     run = _run(library.download, issue_id=None)
     with (
-        patch.object(comicarr, "CONFIG", _arc_config(arc, ARC_FILEOPS="move")),
+        patch.object(runtime.current(), "config", _arc_config(arc, ARC_FILEOPS="move")),
         patch.object(system_service, "get_free_space", return_value=False),
     ):
         place_arc_only_matches(run, Fakes().deps(), [ml])
@@ -587,7 +587,7 @@ def test_a_manga_chapter_is_placed_and_marked_downloaded(tmp_path):
     fakes = Fakes()
     run = _run(download, comic_id="md-csm", issue_id=None, release_key="rk-manga", nzb_name="Chainsaw Man 165.cbz")
 
-    with patch.object(comicarr, "CONFIG", Config(MANGA_DESTINATION_DIR=str(manga_root))):
+    with patch.object(runtime.current(), "config", Config(MANGA_DESTINATION_DIR=str(manga_root))):
         result = process_manga_download(run, fakes.deps(manga_destination=str(manga_root)))
 
     placed = manga_root / "Chainsaw Man" / "Chainsaw Man 165.cbz"
@@ -613,7 +613,7 @@ def test_a_manga_download_with_no_destination_stops(tmp_path):
         conn.execute(insert(comics).values(ComicID="md-csm", ComicName="Chainsaw Man"))
     run = _run(download, comic_id="md-csm", issue_id=None, release_key="rk-manga")
 
-    with patch.object(comicarr, "CONFIG", Config()):
+    with patch.object(runtime.current(), "config", Config()):
         result = process_manga_download(run, Fakes().deps(manga_destination=None))
 
     assert result.outcome == "stopped"

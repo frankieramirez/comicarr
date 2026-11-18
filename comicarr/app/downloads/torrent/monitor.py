@@ -30,7 +30,7 @@ idiom silently treats a dead client as connected. Everything here routes through
 import os
 
 import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.downloads.torrent.contracts import normalize_connection_result
 
 _TORRENT_FIELDS = (
@@ -138,9 +138,9 @@ def _probe_deluge(torrent_hash):
     client = deluge.TorrentClient()
     conn = normalize_connection_result(
         client.connect(
-            comicarr.CONFIG.DELUGE_HOST,
-            comicarr.CONFIG.DELUGE_USERNAME,
-            comicarr.CONFIG.DELUGE_PASSWORD,
+            runtime.current().config.DELUGE_HOST,
+            runtime.current().config.DELUGE_USERNAME,
+            runtime.current().config.DELUGE_PASSWORD,
         )
     )
     if isinstance(conn, dict) and conn.get("status") is False:
@@ -177,9 +177,9 @@ def _probe_qbittorrent(torrent_hash):
     client = qbittorrent.TorrentClient()
     conn = normalize_connection_result(
         client.connect(
-            comicarr.CONFIG.QBITTORRENT_HOST,
-            comicarr.CONFIG.QBITTORRENT_USERNAME,
-            comicarr.CONFIG.QBITTORRENT_PASSWORD,
+            runtime.current().config.QBITTORRENT_HOST,
+            runtime.current().config.QBITTORRENT_USERNAME,
+            runtime.current().config.QBITTORRENT_PASSWORD,
         )
     )
     if isinstance(conn, dict) and conn.get("status") is False:
@@ -221,9 +221,9 @@ def _probe_transmission(torrent_hash):
     client = transmission.TorrentClient()
     conn = normalize_connection_result(
         client.connect(
-            comicarr.CONFIG.TRANSMISSION_HOST,
-            comicarr.CONFIG.TRANSMISSION_USERNAME,
-            comicarr.CONFIG.TRANSMISSION_PASSWORD,
+            runtime.current().config.TRANSMISSION_HOST,
+            runtime.current().config.TRANSMISSION_USERNAME,
+            runtime.current().config.TRANSMISSION_PASSWORD,
         )
     )
     if isinstance(conn, dict) and conn.get("status") is False:
@@ -264,9 +264,9 @@ def _probe_utorrent(torrent_hash):
     client = utorrent.TorrentClient()
     conn = normalize_connection_result(
         client.connect(
-            utorrent_base_url(comicarr.CONFIG.UTORRENT_HOST),
-            comicarr.CONFIG.UTORRENT_USERNAME,
-            comicarr.CONFIG.UTORRENT_PASSWORD,
+            utorrent_base_url(runtime.current().config.UTORRENT_HOST),
+            runtime.current().config.UTORRENT_USERNAME,
+            runtime.current().config.UTORRENT_PASSWORD,
         )
     )
     if isinstance(conn, dict) and conn.get("status") is False:
@@ -307,27 +307,27 @@ def _pause_credentials(route):
 
         return (
             module,
-            comicarr.CONFIG.DELUGE_HOST,
-            comicarr.CONFIG.DELUGE_USERNAME,
-            comicarr.CONFIG.DELUGE_PASSWORD,
+            runtime.current().config.DELUGE_HOST,
+            runtime.current().config.DELUGE_USERNAME,
+            runtime.current().config.DELUGE_PASSWORD,
         )
     if route == "transmission":
         from comicarr.app.downloads.torrent.clients import transmission as module
 
         return (
             module,
-            comicarr.CONFIG.TRANSMISSION_HOST,
-            comicarr.CONFIG.TRANSMISSION_USERNAME,
-            comicarr.CONFIG.TRANSMISSION_PASSWORD,
+            runtime.current().config.TRANSMISSION_HOST,
+            runtime.current().config.TRANSMISSION_USERNAME,
+            runtime.current().config.TRANSMISSION_PASSWORD,
         )
     if route == "utorrent":
         from comicarr.app.downloads.torrent.clients import utorrent as module
 
         return (
             module,
-            utorrent_base_url(comicarr.CONFIG.UTORRENT_HOST),
-            comicarr.CONFIG.UTORRENT_USERNAME,
-            comicarr.CONFIG.UTORRENT_PASSWORD,
+            utorrent_base_url(runtime.current().config.UTORRENT_HOST),
+            runtime.current().config.UTORRENT_USERNAME,
+            runtime.current().config.UTORRENT_PASSWORD,
         )
     return None
 

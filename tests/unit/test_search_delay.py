@@ -9,15 +9,15 @@
 
 import types
 
-import comicarr
 from comicarr.app.config.ini import clamp_search_delay, minutes_to_search_delay_seconds
+from comicarr.app.core import runtime
 from comicarr.app.search import engine as search
 
 
 def test_configured_search_delay_is_seconds(monkeypatch):
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(SEARCH_DELAY=10),
         raising=False,
     )

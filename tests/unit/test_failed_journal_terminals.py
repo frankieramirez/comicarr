@@ -45,8 +45,8 @@ def _isolated_db(tmp_path, monkeypatch):
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
         monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(FAILED_DOWNLOAD_HANDLING=True, FAILED_AUTO=False, HIGHCOUNT=0),
         raising=False,
     )
@@ -190,7 +190,7 @@ def test_process_failed_auto_stamps_retried_off_band():
     _seed_watchlist_and_nzblog(issueid=issueid, provider=provider, nzbname=nzbname, nzb_id="nzo-2")
     _open_downloaded(key, issueid=issueid, provider=provider, nzbname=nzbname)
 
-    comicarr.CONFIG.FAILED_AUTO = True
+    runtime.current().config.FAILED_AUTO = True
     band_before = len(_band_rows())
     open_before = len(journal.read_open())
 
@@ -229,8 +229,8 @@ def test_handling_disabled_process_terminalizes_open_stage(monkeypatch):
     _open_downloaded(key, issueid=issueid, provider=provider, nzbname=nzbname)
 
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False, HIGHCOUNT=0),
         raising=False,
     )

@@ -17,6 +17,8 @@ named the short way -- parsed correctly.
 
 import pytest
 
+from comicarr.app.core import runtime
+
 
 def _strip(series_name, volume_number):
     from comicarr.app.library.filechecker import strip_trailing_volume_label
@@ -82,7 +84,7 @@ def _parse(filename):
     config = MagicMock()
     config.IGNORE_SEARCH_WORDS = []
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(comicarr, "CONFIG", config)
+        mp.setattr(runtime.current(), "config", config)
         return FileChecker(dir="/tmp", file=filename, justparse=True).listFiles()
 
 

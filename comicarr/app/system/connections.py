@@ -30,10 +30,9 @@ from typing import Callable
 
 import requests
 
-import comicarr
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.common.user_agent import app_user_agent
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 
 JOB_ID = "connection_check"
 JOB_NAME = "Connection Check"
@@ -101,7 +100,7 @@ _LOCK = threading.Lock()
 
 
 def _config(config=None):
-    return config if config is not None else comicarr.CONFIG
+    return config if config is not None else runtime.current().config
 
 
 def _text(value) -> str:

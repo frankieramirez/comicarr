@@ -18,6 +18,7 @@ import os
 from dataclasses import dataclass
 
 from comicarr.app.common import placement
+from comicarr.app.core import runtime
 
 
 @dataclass(frozen=True)
@@ -92,9 +93,7 @@ def copy_issue_to_arc(
     from comicarr.app.system import service as system_service
 
     if config is None:
-        import comicarr
-
-        config = comicarr.CONFIG
+        config = runtime.current().config
     if free_space is None:
         free_space = system_service.get_free_space
     if create_directory is None:

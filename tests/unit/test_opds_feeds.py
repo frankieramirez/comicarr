@@ -19,8 +19,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
 
-import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.series import service as series_service
 
@@ -74,7 +73,7 @@ def opds(monkeypatch, tmp_path):
         GRABBAG_DIR=str(grabbag),
         STORYARC_LOCATION=None,
     )
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
 
     with engine.begin() as conn:
         for comic_id, name, publisher in (("2914", "Star Wars", "DC & Vertigo"), ("5000", "Other", "Image")):
@@ -209,7 +208,7 @@ def test_comic_feed_pages_with_next_and_previous_links(opds):
 
 
 def test_all_titles_paging_links_resolve(opds, monkeypatch):
-    monkeypatch.setattr(comicarr.CONFIG, "OPDS_PAGESIZE", 1)
+    monkeypatch.setattr(runtime.current().config, "OPDS_PAGESIZE", 1)
     _, first = _feed(opds, "/opds/titles")
     (next_href,) = _links(first, "next")
     _, second = _feed(opds, next_href)
@@ -226,7 +225,7 @@ def test_one_off_entry_downloads_from_grabbag(opds):
 
 
 def test_links_keep_http_root_prefix(opds, monkeypatch):
-    monkeypatch.setattr(comicarr.CONFIG, "HTTP_ROOT", "/comicarr/")
+    monkeypatch.setattr(runtime.current().config, "HTTP_ROOT", "/comicarr/")
     raw, _ = _feed(opds, "/opds/")
     assert 'href="/comicarr/opds/publishers"' in raw
 

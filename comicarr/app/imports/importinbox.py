@@ -30,8 +30,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from sqlalchemy import select
 
-import comicarr
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import comics
 from comicarr.app.imports.scanutil import COMIC_EXTENSIONS, name_similarity, normalize_title
 from comicarr.app.manga import manga_parser
@@ -64,7 +63,7 @@ def inboxScan():
         logger.warning("[IMPORT-INBOX] Scan already in progress, skipping")
         return {"status": "already_running"}
 
-    import_dir = getattr(comicarr.CONFIG, "IMPORT_DIR", None) if comicarr.CONFIG else None
+    import_dir = getattr(runtime.current().config, "IMPORT_DIR", None) if runtime.current().config else None
     if not import_dir:
         _SCAN_LOCK.release()
         logger.warning("[IMPORT-INBOX] Import directory not configured, skipping scan")
@@ -257,11 +256,11 @@ def _match_group(group_key, group_info, series_list):
     confidence = int(best_score * 100)
 
     if (
-        getattr(comicarr.CONFIG, "AUTO_IMPORT_ENABLED", True)
+        getattr(runtime.current().config, "AUTO_IMPORT_ENABLED", True)
         and best_match
         and len(tied_ids) == 1
         and len(years) <= 1
-        and confidence >= comicarr.CONFIG.AUTO_IMPORT_CONFIDENCE
+        and confidence >= runtime.current().config.AUTO_IMPORT_CONFIDENCE
     ):
         from comicarr.app.imports.queries import get_issue_id
 
@@ -281,7 +280,7 @@ def _match_group(group_key, group_info, series_list):
                 or not any(
                     candidate
                     and re.findall(r"\d+", file_identity) == re.findall(r"\d+", normalize_title(candidate))
-                    and name_similarity(file_title, candidate) * 100 >= comicarr.CONFIG.AUTO_IMPORT_CONFIDENCE
+                    and name_similarity(file_title, candidate) * 100 >= runtime.current().config.AUTO_IMPORT_CONFIDENCE
                     for candidate in selected_titles
                 )
             )
@@ -447,7 +446,7 @@ def _finalize_auto_import_group(files, series, confidence):
     imp_ids = [_filepath_to_impid(filepath) for filepath in files]
     ctx = get_runtime_if_initialized()
     if ctx is None:
-        ctx = SimpleNamespace(config=comicarr.CONFIG)
+        ctx = SimpleNamespace(config=runtime.current().config)
 
     try:
         finalize_manual_match(
@@ -539,7 +538,7 @@ def _format_chapter_number(chapter_number):
 
 def run():
     """Entry point for APScheduler — wraps inboxScan with graceful skip."""
-    import_dir = getattr(comicarr.CONFIG, "IMPORT_DIR", None) if comicarr.CONFIG else None
+    import_dir = getattr(runtime.current().config, "IMPORT_DIR", None) if runtime.current().config else None
     if not import_dir:
         logger.info("[IMPORT-INBOX] Import directory not configured, skipping scan")
         return

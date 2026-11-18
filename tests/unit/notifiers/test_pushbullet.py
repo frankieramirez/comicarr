@@ -1,7 +1,7 @@
 """Tests for PUSHBULLET notifier."""
 
 import json
-import pytest
+
 import responses
 
 
@@ -9,7 +9,7 @@ class TestPushbulletInit:
     """Test PUSHBULLET initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use comicarr.CONFIG values by default."""
+        """Init should use runtime.current().config values by default."""
         pushbullet = notifiers_module.PUSHBULLET()
 
         assert pushbullet.apikey == "test_pushbullet_apikey"
@@ -17,9 +17,7 @@ class TestPushbulletInit:
         assert pushbullet.channel_tag is None
         assert pushbullet.PUSH_URL == "https://api.pushbullet.com/v2/pushes"
 
-    def test_init_test_apikey_overrides_config(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_init_test_apikey_overrides_config(self, notifiers_module, mock_notifier_config):
         """Test API key should override config."""
         pushbullet = notifiers_module.PUSHBULLET(test_apikey="override_apikey")
 
@@ -45,9 +43,7 @@ class TestPushbulletGetDevices:
     """Test PUSHBULLET get_devices method."""
 
     @responses.activate
-    def test_get_devices_returns_device_list(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_get_devices_returns_device_list(self, notifiers_module, mock_notifier_config):
         """get_devices returns list of devices."""
         responses.add(
             responses.POST,
@@ -181,9 +177,7 @@ class TestPushbulletNotify:
         )
 
         pushbullet = notifiers_module.PUSHBULLET()
-        result = pushbullet.notify(
-            prline="Test Comic", prline2="Issue downloaded", module="[TEST]"
-        )
+        result = pushbullet.notify(prline="Test Comic", prline2="Issue downloaded", module="[TEST]")
         assert result["status"] is True
 
 
@@ -191,9 +185,7 @@ class TestPushbulletNotifyErrors:
     """Test PUSHBULLET error handling."""
 
     @responses.activate
-    def test_notify_client_error_returns_false_status(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_client_error_returns_false_status(self, notifiers_module, mock_notifier_config):
         """4xx error returns dict with status False."""
         responses.add(
             responses.POST,
@@ -210,9 +202,7 @@ class TestPushbulletNotifyErrors:
         assert "401" in result["message"]
 
     @responses.activate
-    def test_notify_server_error_returns_false_status(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_server_error_returns_false_status(self, notifiers_module, mock_notifier_config):
         """5xx error returns dict with status False."""
         responses.add(
             responses.POST,
@@ -232,9 +222,7 @@ class TestPushbulletTestNotify:
     """Test PUSHBULLET test_notify method."""
 
     @responses.activate
-    def test_test_notify_sends_correct_message(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_test_notify_sends_correct_message(self, notifiers_module, mock_notifier_config):
         """test_notify sends expected test message."""
         responses.add(
             responses.POST,

@@ -27,8 +27,7 @@ from __future__ import annotations
 import os
 import time
 
-import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 
 SEND_ATTEMPTS = 3
 SETTLE_SECONDS = 5
@@ -58,14 +57,14 @@ def put_torrent(localpath: str, filename: str) -> str:
         )
         return "fail"
 
-    host = comicarr.CONFIG.SEEDBOX_HOST
-    port = int(comicarr.CONFIG.SEEDBOX_PORT)
-    username = comicarr.CONFIG.SEEDBOX_USER
-    password = comicarr.CONFIG.SEEDBOX_PASS
+    host = runtime.current().config.SEEDBOX_HOST
+    port = int(runtime.current().config.SEEDBOX_PORT)
+    username = runtime.current().config.SEEDBOX_USER
+    password = runtime.current().config.SEEDBOX_PASS
 
     if not filename.endswith("torrent"):
         filename += ".torrent"
-    rempath = os.path.join(comicarr.CONFIG.SEEDBOX_WATCHDIR, filename)
+    rempath = os.path.join(runtime.current().config.SEEDBOX_WATCHDIR, filename)
     logger.fdebug("[SEEDBOX] Sending %s to %s:%s as %s" % (localpath, host, port, rempath))
 
     if not os.path.exists(localpath):

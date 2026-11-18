@@ -16,7 +16,7 @@ that accepts one. That is the whole point of the module. Reading `FILE_OPTS`
 early and passing it down is what let manga post-processing destroy the
 operator's download while the setting said `hardlink`.
 
-Config is injected as a *source* (`config`), defaulting to `comicarr.CONFIG`, so
+Config is injected as a *source* (`config`), defaulting to `runtime.current().config`, so
 tests swap the object rather than the values.
 
 Failures always raise `PlacementError`. It subclasses `OSError` so callers that
@@ -107,9 +107,9 @@ def place(source, destination, purpose, *, on_existing, multiple=False, config=N
     callers inherit it silently.
     """
     if config is None:
-        import comicarr
+        from comicarr.app.core import runtime
 
-        config = comicarr.CONFIG
+        config = runtime.current().config
 
     mode = _resolve_mode(config, purpose, multiple)
     arc = purpose is Purpose.ARC

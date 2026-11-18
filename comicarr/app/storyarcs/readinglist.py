@@ -22,9 +22,8 @@ import os
 
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.common import dates as common_dates
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, issues, readlist, storyarcs
 from comicarr.app.library import filers
 
@@ -81,12 +80,19 @@ class Readinglist(object):
             return {"status": "failure", "message": "Unable to locate issue in your watchlist. Does it exist?"}
         else:
             locpath = None
-            if all([comicarr.CONFIG.MULTIPLE_DEST_DIRS is not None, comicarr.CONFIG.MULTIPLE_DEST_DIRS != "None"]):
+            if all(
+                [
+                    runtime.current().config.MULTIPLE_DEST_DIRS is not None,
+                    runtime.current().config.MULTIPLE_DEST_DIRS != "None",
+                ]
+            ):
                 if os.path.exists(
-                    os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comicinfo["ComicLocation"]))
+                    os.path.join(
+                        runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(comicinfo["ComicLocation"])
+                    )
                 ):
                     secondary_folders = os.path.join(
-                        comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comicinfo["ComicLocation"])
+                        runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(comicinfo["ComicLocation"])
                     )
                 else:
                     ff = filers.FileHandlers(ComicID=rl["ComicID"])
@@ -109,7 +115,7 @@ class Readinglist(object):
                     comicname = comicinfo["ComicName"]
                 dspinfo = comicname + " #" + comicissue
                 if annualize is True:
-                    if comicarr.CONFIG.ANNUALS_ON is True:
+                    if runtime.current().config.ANNUALS_ON is True:
                         dspinfo = comicname + " #" + rl["Issue_Number"]
                         if "annual" in comicname.lower():
                             comicissue = "Annual " + rl["Issue_Number"]

@@ -15,7 +15,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.weekly import metron_source
 
@@ -32,7 +31,7 @@ def _issue(name, number, year_began, store_date="2026-10-21"):
 @pytest.fixture
 def metron(monkeypatch):
     monkeypatch.setattr(
-        comicarr, "CONFIG", SimpleNamespace(METRON_USERNAME="reader", METRON_PASSWORD="secret"), raising=False
+        runtime.current(), "config", SimpleNamespace(METRON_USERNAME="reader", METRON_PASSWORD="secret"), raising=False
     )
     api = MagicMock()
     monkeypatch.setattr(runtime.current(), "metron_api", api, raising=False)
@@ -51,11 +50,11 @@ def metron(monkeypatch):
 
 
 def test_is_available_needs_both_login_fields(monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(METRON_USERNAME="reader", METRON_PASSWORD=""))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(METRON_USERNAME="reader", METRON_PASSWORD=""))
     assert metron_source.is_available() is False
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(METRON_USERNAME="reader", METRON_PASSWORD="pw"))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(METRON_USERNAME="reader", METRON_PASSWORD="pw"))
     assert metron_source.is_available() is True
-    monkeypatch.setattr(comicarr, "CONFIG", MagicMock())
+    monkeypatch.setattr(runtime.current(), "config", MagicMock())
     assert metron_source.is_available() is False
 
 

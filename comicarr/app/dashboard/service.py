@@ -19,8 +19,8 @@ panel and a broken panel must never look alike — see §5 of
 
 from datetime import datetime, timedelta
 
-import comicarr
 from comicarr.app.common.library_roots import library_scan_dir
+from comicarr.app.core import runtime
 from comicarr.app.dashboard import queries as dashboard_queries
 from comicarr.app.storyarcs import service as storyarcs_service
 
@@ -103,6 +103,6 @@ def _is_configured_path(value):
 def get_scan_targets():
     """Return which libraries the dashboard's scan action can start."""
     return {
-        "comic": _is_configured_path(library_scan_dir(comicarr.CONFIG, "comic")),
-        "manga": _is_configured_path(library_scan_dir(comicarr.CONFIG, "manga")),
+        "comic": _is_configured_path(library_scan_dir(runtime.current().config, "comic")),
+        "manga": _is_configured_path(library_scan_dir(runtime.current().config, "manga")),
     }

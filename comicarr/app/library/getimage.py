@@ -28,7 +28,6 @@ from operator import itemgetter
 import rarfile
 import requests
 
-import comicarr
 from comicarr.app.core import logger, runtime
 
 try:
@@ -94,7 +93,7 @@ def extract_image(location, single=False, imquality=None, comicname=None):
     issue_ends = ("1", "0")
     os.path.getmtime(location)
     low_infile = 999999999999999999
-    local_filename = os.path.join(comicarr.CONFIG.CACHE_DIR, "temp_notif")
+    local_filename = os.path.join(runtime.current().config.CACHE_DIR, "temp_notif")
     cb_filename = None
     cb_filenames = []
     metadata = None
@@ -218,7 +217,9 @@ def extract_image(location, single=False, imquality=None, comicname=None):
 
 def retrieve_image(url):
     try:
-        r = requests.get(url, params=None, verify=comicarr.CONFIG.CV_VERIFY, headers=runtime.current().cv_headers)
+        r = requests.get(
+            url, params=None, verify=runtime.current().config.CV_VERIFY, headers=runtime.current().cv_headers
+        )
     except Exception as e:
         logger.warn("[ERROR: %s] Unable to download image from CV URL link: %s" % (e, url))
         ComicImage = None

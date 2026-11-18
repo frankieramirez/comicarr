@@ -58,8 +58,8 @@ def _isolated_db(tmp_path, monkeypatch):
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
         monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(HIGHCOUNT=0, POST_PROCESSING=True, MANUAL_PP_FOLDER=str(tmp_path)),
         raising=False,
     )

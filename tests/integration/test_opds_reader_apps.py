@@ -35,8 +35,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
 from starlette.routing import Match, Mount
 
-import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, issues, metadata, snatched
 from comicarr.app.series import service as series_service
 
@@ -221,7 +220,7 @@ def library(monkeypatch, tmp_path):
         GRABBAG_DIR=None,
         STORYARC_LOCATION=None,
     )
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
 
     downloadable = []
     added = 0

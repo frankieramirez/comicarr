@@ -19,6 +19,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from comicarr.app.core import runtime
+
 BRACKETED = [
     ("[Zentak, Tome 1 - La Passe des Argonautes.cbz]", "Zentak Tome", "1"),
     (
@@ -39,7 +41,7 @@ def config(monkeypatch):
     cfg.IGNORE_SEARCH_WORDS = []
     cfg.READ2FILENAME = False
     cfg.AI_FILENAME_FALLBACK = False
-    monkeypatch.setattr(comicarr, "CONFIG", cfg)
+    monkeypatch.setattr(runtime.current(), "config", cfg)
     return cfg
 
 

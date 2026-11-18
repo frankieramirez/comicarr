@@ -24,7 +24,7 @@ from comicarr.app.downloads import progress
 @pytest.fixture
 def progress_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(SAB_HOST="http://sab:8080", SAB_APIKEY="k"))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(SAB_HOST="http://sab:8080", SAB_APIKEY="k"))
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
     monkeypatch.setattr(comicarr, "USE_QBITTORRENT", False, raising=False)

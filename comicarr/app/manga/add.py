@@ -24,7 +24,7 @@ from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common import strings as common_strings
 from comicarr.app.common.series_names import dynamic_series_key
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import comics, issues
 from comicarr.app.library import directories
 from comicarr.app.metadata import service as metadata_service
@@ -158,7 +158,7 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
                 }
                 if issue_id not in existing_issue_ids:
                     issue_status = "Skipped"
-                    if comicarr.CONFIG.AUTOWANT_ALL:
+                    if runtime.current().config.AUTOWANT_ALL:
                         issue_status = "Wanted"
                     issue_values["Status"] = issue_status
                     issue_values["DateAdded"] = common_dates.now()
@@ -223,7 +223,7 @@ def _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapter
         logger.warn(
             "[MANGA-IMPORT] 0 chapters found for %s (languages: %s). "
             "Check MangaDex content rating and language settings."
-            % (manga_name, comicarr.CONFIG.MANGADEX_LANGUAGES or "en")
+            % (manga_name, runtime.current().config.MANGADEX_LANGUAGES or "en")
         )
 
     return {"total": total, "issue_count": issue_count, "latest_chapter": latest_chapter}
@@ -238,7 +238,7 @@ def _manga_series_folder(manga_dest, manga_name, manga_year):
     the formatted folder beside it left two folders for one Series, with
     Comicarr watching the empty one.
     """
-    folder_format = comicarr.CONFIG.FOLDER_FORMAT or "$Series ($Year)"
+    folder_format = runtime.current().config.FOLDER_FORMAT or "$Series ($Year)"
     formatted = common_strings.filesafe(folder_format.replace("$Series", manga_name).replace("$Year", str(manga_year)))
     root = os.path.normpath(os.path.abspath(manga_dest))
     formatted_path = os.path.join(manga_dest, formatted)
@@ -337,7 +337,7 @@ def add_mangadex(mangaid, imported=None, calledfrom=None, location=None):
     if manga_dest and not comlocation:
         comlocation = _manga_series_folder(manga_dest, manga_name, manga_year)
 
-        if comicarr.CONFIG.CREATE_FOLDERS:
+        if runtime.current().config.CREATE_FOLDERS:
             checkdirectory = directories.validateAndCreateDirectory(comlocation, True)
             if not checkdirectory:
                 logger.warn("[MANGADEX] Error creating directory for %s" % manga_name)
@@ -508,7 +508,7 @@ def add_myanimelist(mangaid, imported=None, calledfrom=None, location=None):
     if manga_dest and not comlocation:
         comlocation = _manga_series_folder(manga_dest, manga_name, manga_year)
 
-        if comicarr.CONFIG.CREATE_FOLDERS:
+        if runtime.current().config.CREATE_FOLDERS:
             checkdirectory = directories.validateAndCreateDirectory(comlocation, True)
             if not checkdirectory:
                 logger.warn("[MAL] Error creating directory for %s" % manga_name)

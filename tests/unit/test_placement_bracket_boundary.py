@@ -126,5 +126,5 @@ def test_the_placement_stage_reads_config_lazily():
     ]
 
     assert not any("comicarr" in line for line in module_level_imports), (
-        "placement.py must import comicarr inside place(), so CONFIG is resolved at call time"
+        "placement.py must import comicarr inside place(), so the config is resolved at call time"
     )

@@ -11,7 +11,7 @@
 
 from types import SimpleNamespace
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.downloads.ddl import external_server as exs
 from comicarr.app.search import engine as search
 from comicarr.app.search import progress
@@ -78,8 +78,8 @@ def test_ddl_external_snatch_constructor_matches_search_py():
 
 def test_nzb_search_ddl_external_does_not_raise_missing_meganz(monkeypatch):
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(ENABLE_TORRENT_SEARCH=False),
         raising=False,
     )

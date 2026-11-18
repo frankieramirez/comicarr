@@ -41,7 +41,6 @@ from urllib.parse import quote
 
 import requests
 
-import comicarr
 from comicarr.app.common.user_agent import app_user_agent
 from comicarr.app.core import logger, runtime
 
@@ -76,7 +75,7 @@ class SourceError(RuntimeError):
 
 def is_enabled(config=None) -> bool:
     """Manga rows only help when Comicarr can add a manga series."""
-    config = config if config is not None else comicarr.CONFIG
+    config = config if config is not None else runtime.current().config
     if config is None:
         return False
     mal_ok = bool(getattr(config, "MAL_ENABLED", False) and getattr(config, "MAL_CLIENT_ID", None))
@@ -84,7 +83,7 @@ def is_enabled(config=None) -> bool:
 
 
 def _cache_path():
-    config = comicarr.CONFIG
+    config = runtime.current().config
     folder = getattr(config, "CACHE_DIR", None) if config is not None else None
     if not folder:
         folder = os.path.join(runtime.current().data_dir or ".", "cache")

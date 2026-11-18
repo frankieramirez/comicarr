@@ -21,8 +21,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import comicarr
 from comicarr.app.config.registry import REGISTRY
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.system import service as system_service
 from comicarr.app.system import whats_new
@@ -87,7 +87,7 @@ class TestResolveAndDismiss:
             config=config,
             scheduler=MagicMock(),
         )
-        monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+        monkeypatch.setattr(runtime.current(), "config", config, raising=False)
         return context
 
     def test_seed_writes_current_and_returns_null(self, ctx):
@@ -95,46 +95,42 @@ class TestResolveAndDismiss:
             pending = whats_new.resolve_pending_whats_new(ctx)
 
         assert pending is None
-        assert comicarr.CONFIG.LAST_SEEN_VERSION == "0.21.0"
-        comicarr.CONFIG.writeconfig.assert_called_once_with(
-            values={"last_seen_version": "0.21.0"}
-        )
+        assert runtime.current().config.LAST_SEEN_VERSION == "0.21.0"
+        runtime.current().config.writeconfig.assert_called_once_with(values={"last_seen_version": "0.21.0"})
 
     def test_pending_does_not_write(self, ctx):
-        comicarr.CONFIG.LAST_SEEN_VERSION = "0.20.0"
+        runtime.current().config.LAST_SEEN_VERSION = "0.20.0"
         with patch.object(system_service, "get_release_version", return_value="0.21.0"):
             pending = whats_new.resolve_pending_whats_new(ctx)
 
         assert pending == {"from": "0.20.0", "to": "0.21.0"}
-        comicarr.CONFIG.writeconfig.assert_not_called()
+        runtime.current().config.writeconfig.assert_not_called()
 
     def test_equal_quiet_does_not_write(self, ctx):
-        comicarr.CONFIG.LAST_SEEN_VERSION = "0.21.0"
+        runtime.current().config.LAST_SEEN_VERSION = "0.21.0"
         with patch.object(system_service, "get_release_version", return_value="0.21.0"):
             pending = whats_new.resolve_pending_whats_new(ctx)
 
         assert pending is None
-        comicarr.CONFIG.writeconfig.assert_not_called()
+        runtime.current().config.writeconfig.assert_not_called()
 
     def test_downgrade_quiet_does_not_write(self, ctx):
-        comicarr.CONFIG.LAST_SEEN_VERSION = "0.22.0"
+        runtime.current().config.LAST_SEEN_VERSION = "0.22.0"
         with patch.object(system_service, "get_release_version", return_value="0.21.0"):
             pending = whats_new.resolve_pending_whats_new(ctx)
 
         assert pending is None
-        assert comicarr.CONFIG.LAST_SEEN_VERSION == "0.22.0"
-        comicarr.CONFIG.writeconfig.assert_not_called()
+        assert runtime.current().config.LAST_SEEN_VERSION == "0.22.0"
+        runtime.current().config.writeconfig.assert_not_called()
 
     def test_dismiss_writes_current(self, ctx):
-        comicarr.CONFIG.LAST_SEEN_VERSION = "0.20.0"
+        runtime.current().config.LAST_SEEN_VERSION = "0.20.0"
         with patch.object(system_service, "get_release_version", return_value="0.21.0"):
             result = whats_new.dismiss_whats_new(ctx)
 
         assert result == {"success": True, "last_seen_version": "0.21.0"}
-        assert comicarr.CONFIG.LAST_SEEN_VERSION == "0.21.0"
-        comicarr.CONFIG.writeconfig.assert_called_once_with(
-            values={"last_seen_version": "0.21.0"}
-        )
+        assert runtime.current().config.LAST_SEEN_VERSION == "0.21.0"
+        runtime.current().config.writeconfig.assert_called_once_with(values={"last_seen_version": "0.21.0"})
 
 
 class TestVersionInfoIncludesPending:
@@ -151,17 +147,17 @@ class TestVersionInfoIncludesPending:
             update_state="current",
             update_reason=None,
         )
-        monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+        monkeypatch.setattr(runtime.current(), "config", config, raising=False)
         return context
 
     def test_get_version_info_exposes_pending_whats_new(self, ctx):
         with patch.object(system_service, "get_release_version", return_value="0.21.0"):
             info = system_service.get_version_info(ctx)
         assert info["pending_whats_new"] == {"from": "0.20.0", "to": "0.21.0"}
-        comicarr.CONFIG.writeconfig.assert_not_called()
+        runtime.current().config.writeconfig.assert_not_called()
 
     def test_get_version_info_null_when_caught_up(self, ctx):
-        comicarr.CONFIG.LAST_SEEN_VERSION = "0.21.0"
+        runtime.current().config.LAST_SEEN_VERSION = "0.21.0"
         with patch.object(system_service, "get_release_version", return_value="0.21.0"):
             info = system_service.get_version_info(ctx)
         assert info["pending_whats_new"] is None

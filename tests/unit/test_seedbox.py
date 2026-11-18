@@ -21,7 +21,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.downloads import seedbox
 
 
@@ -74,8 +74,8 @@ class FakeParamiko:
 @pytest.fixture
 def config(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             SEEDBOX_HOST="seedbox.example",
             SEEDBOX_PORT="2222",

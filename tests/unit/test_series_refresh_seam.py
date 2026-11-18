@@ -21,6 +21,7 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.tables import annuals, comics, issues, metadata
 from comicarr.app.downloads import service as downloads_service
 from comicarr.app.series import comic_add, folder_rescan, watchlist_refresh
@@ -50,7 +51,7 @@ def engine(monkeypatch):
     metadata.create_all(eng)
     monkeypatch.setattr(comicarr.app.core.db, "get_engine", lambda: eng)
     monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
-    monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _config(), raising=False)
     return eng
 
 
@@ -271,7 +272,7 @@ def test_dupecheck_refreshes_series_when_have_exceeds_total(engine, tmp_path, mo
 def test_new_annual_status_is_written_against_the_annual(engine, fakes, monkeypatch):
     # #1291: the new-annual status loop reads the annual's own dates and writes
     # its status against the annual's IssueID, not the last new issue's.
-    monkeypatch.setattr(comicarr, "CONFIG", _config(ANNUALS_ON=True))
+    monkeypatch.setattr(runtime.current(), "config", _config(ANNUALS_ON=True))
     _insert_comic(engine)
     with engine.begin() as conn:
         conn.execute(issues.insert(), {"IssueID": "i1", "ComicID": "100", "Status": "Skipped"})
@@ -299,7 +300,7 @@ def test_new_annual_status_is_written_against_the_annual(engine, fakes, monkeypa
 
 @pytest.mark.parametrize("release_date", ["2026-02-30", "0000-00-00", None])
 def test_new_annual_with_an_unusable_date_is_skipped(engine, fakes, monkeypatch, release_date):
-    monkeypatch.setattr(comicarr, "CONFIG", _config(ANNUALS_ON=True))
+    monkeypatch.setattr(runtime.current(), "config", _config(ANNUALS_ON=True))
     _insert_comic(engine)
     with engine.begin() as conn:
         conn.execute(issues.insert(), {"IssueID": "i1", "ComicID": "100", "Status": "Skipped"})

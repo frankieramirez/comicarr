@@ -14,7 +14,7 @@ from threading import Thread
 import pytest
 import requests
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.search import engine as search
 from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import EvaluationSession
@@ -27,8 +27,8 @@ def indexer_env(monkeypatch):
     clock = [1000.0]
     monkeypatch.setattr(search, "_indexer_cooldowns", {})
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(
             ENABLE_TORRENT_SEARCH=True,
             USENET_RETENTION=None,
@@ -124,7 +124,7 @@ def test_cooldown_is_scoped_to_indexer_endpoint(indexer_env):
 @pytest.mark.parametrize("review", [False, True])
 def test_search_continues_to_next_provider(indexer_env, monkeypatch, review):
     calls, _, get = indexer_env
-    monkeypatch.setattr(comicarr.CONFIG, "ENABLE_RSS", False, raising=False)
+    monkeypatch.setattr(runtime.current().config, "ENABLE_RSS", False, raising=False)
     monkeypatch.setattr(series_service, "get_issue_title", lambda *args, **kwargs: None)
     monkeypatch.setattr(search_service, "block_provider_check", lambda *args, **kwargs: False)
     monkeypatch.setattr(
@@ -195,8 +195,8 @@ def test_real_transport_large_retry_after_completes_promptly(indexer_env, monkey
         monkeypatch.setattr(search, "_indexer_http_session", None)
         monkeypatch.setattr(search, "_indexer_cooldowns", {})
         monkeypatch.setattr(
-            comicarr,
-            "CONFIG",
+            runtime.current(),
+            "config",
             types.SimpleNamespace(
                 ENABLE_TORRENT_SEARCH=True,
                 USENET_RETENTION=None,

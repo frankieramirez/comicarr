@@ -17,7 +17,6 @@ rather than that a mock was called twice.
 import pytest
 from sqlalchemy import insert, select
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import annuals, comics, issues, metadata, snatched
 from comicarr.app.downloads import snatch_record
@@ -38,7 +37,7 @@ _CLOCK_COLUMNS = {"DateAdded", "FilesUpdated"}
 def library(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     db.shutdown_engine()
     engine = db.get_engine()
     metadata.create_all(engine)

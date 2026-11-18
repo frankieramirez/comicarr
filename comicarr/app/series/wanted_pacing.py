@@ -111,7 +111,7 @@ def pacing(rows, *, config=None, now=None):
     Returns ``(summary, eta_by_comic)`` where ``eta_by_comic`` maps a ComicID
     to hours until the pass reaches that series' last unchecked issue.
     """
-    config = config if config is not None else getattr(comicarr, "CONFIG", None)
+    config = config if config is not None else runtime.current().config
     now = now if now is not None else time.time()
     interval = max(1, _config_int("RSS_CHECKINTERVAL", 20))
     per_pass = max(0, _config_int("WANTED_SEARCH_PASS_ITEMS", DEFAULT_ITEM_BUDGET))

@@ -29,7 +29,6 @@ import time
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import comicarr
 from comicarr.app.core import logger, runtime
 from comicarr.app.series.service import listLibrary
 
@@ -100,8 +99,8 @@ def initialize_metron_api():
         logger.warn("[METRON] mokkari library not installed. Run: pip install mokkari")
         return None
 
-    username = comicarr.CONFIG.METRON_USERNAME
-    password = comicarr.CONFIG.METRON_PASSWORD
+    username = runtime.current().config.METRON_USERNAME
+    password = runtime.current().config.METRON_PASSWORD
 
     if not username or not password:
         logger.warn("[METRON] Metron credentials not configured")

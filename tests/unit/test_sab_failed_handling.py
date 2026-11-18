@@ -43,7 +43,7 @@ def sab_config(monkeypatch):
         SAB_REMOVE_FAILED=True,
         FAILED_DOWNLOAD_HANDLING=True,
     )
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     monkeypatch.setattr(sabnzbd.time, "sleep", lambda _s: None)
     monkeypatch.setattr(sabnzbd.SABnzbd, "remove_history", lambda *a, **k: None)
     return config

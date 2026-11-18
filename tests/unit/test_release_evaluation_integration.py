@@ -15,7 +15,7 @@ import pytest
 from sqlalchemy import create_engine
 
 import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import issues, metadata
 from comicarr.app.search.evaluation import EvaluationSession
 from comicarr.app.search.evaluation_handoff import handoff_matches
@@ -28,8 +28,8 @@ def library(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "get_engine", lambda: engine)
     monkeypatch.setattr(comicarr, "PACK_ISSUEIDS_DONT_QUEUE", {})
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             IGNORE_SEARCH_WORDS=[],
             USE_MINSIZE=False,
@@ -243,9 +243,9 @@ def test_reported_grab_overrides_accept_the_issue_and_keep_later_rejections():
 
 
 def test_override_stays_local_and_bypasses_only_the_requested_reason():
-    comicarr.CONFIG.IGNORE_SEARCH_WORDS = ["REPACK"]
-    comicarr.CONFIG.USE_MAXSIZE = True
-    comicarr.CONFIG.MAXSIZE = "1"
+    runtime.current().config.IGNORE_SEARCH_WORDS = ["REPACK"]
+    runtime.current().config.USE_MAXSIZE = True
+    runtime.current().config.MAXSIZE = "1"
     candidate = entry(title="Example Series 001 REPACK (2024)")
     normal = EvaluationSession().evaluate([candidate], info()).evaluations[0]
     overridden = EvaluationSession(override_reason="ignored.search_word").evaluate([candidate], info()).evaluations[0]
@@ -306,7 +306,7 @@ def test_manga_volume_query_uses_series_name_and_book_number(volume, accepted):
 def test_getcomics_caller_uses_the_supplied_evaluation_session(monkeypatch, review, expected_count, priority):
     from comicarr.app.downloads.getcomics import GC
 
-    comicarr.CONFIG.PACK_PRIORITY = priority
+    runtime.current().config.PACK_PRIORITY = priority
     source = object.__new__(GC)
     source.search_format = ["%s %s"]
     source.query = {"comicname": "Example Series", "issue": "1", "year": "2024"}

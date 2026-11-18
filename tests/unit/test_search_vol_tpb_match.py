@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.search import evaluation
 from comicarr.app.search.evaluation import EvaluationSession
 
@@ -21,8 +21,8 @@ from comicarr.app.search.evaluation import EvaluationSession
 @pytest.fixture(autouse=True)
 def _search_environment(monkeypatch):
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             IGNORE_SEARCH_WORDS=[],
             USE_MINSIZE=False,

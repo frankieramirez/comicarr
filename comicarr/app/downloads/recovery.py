@@ -392,7 +392,7 @@ def release_sab_history(nzo_id, failed):
     try:
         from comicarr.app.downloads import sabnzbd
 
-        client = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
+        client = sabnzbd.SABnzbd({"queue": {"apikey": runtime.current().config.SAB_APIKEY}})
         client.remove_history(str(nzo_id), "Failed" if failed else "Completed")
     except Exception as e:
         logger.warn("[RECOVERY] could not remove SABnzbd history for %s: %s" % (nzo_id, type(e).__name__))
@@ -553,7 +553,7 @@ def _resume_item_from_row(row, payload):
                     "mode": "queue",
                     "search": nzo_id,
                     "output": "json",
-                    "apikey": comicarr.CONFIG.SAB_APIKEY,
+                    "apikey": runtime.current().config.SAB_APIKEY,
                 },
             }
         )

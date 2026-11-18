@@ -80,14 +80,14 @@ Post-processing callers use `app/downloads/postprocessing.py`: `run(request)` fo
 ## Common patterns
 
 ```python
-from comicarr import logger
+from comicarr.app.core import logger
 logger.fdebug('[MODULE-CONTEXT] message')
 
-import comicarr
-comicarr.CONFIG.option_name
+from comicarr.app.core import runtime
+runtime.current().config.option_name
 
-from comicarr import db
-from comicarr.tables import issues
+from comicarr.app.core import db
+from comicarr.app.core.tables import issues
 from sqlalchemy import select
 
 db.select_one(select(issues).where(issues.c.IssueID == issueid))

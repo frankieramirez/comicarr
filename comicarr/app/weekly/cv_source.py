@@ -21,8 +21,7 @@ them unchanged.
 
 import datetime
 
-import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.metadata import cv
 from comicarr.app.search.service import ignored_publisher_check
 from comicarr.app.weekly import locg
@@ -39,7 +38,7 @@ MAX_PAGES = 30
 
 def is_available() -> bool:
     """Whether a ComicVine API key is configured to query with."""
-    key = comicarr.CONFIG.COMICVINE_API
+    key = runtime.current().config.COMICVINE_API
     return bool(key) and key != "None"
 
 

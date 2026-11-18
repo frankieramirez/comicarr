@@ -29,7 +29,7 @@ def issuedigits(issnum):
 
 
 def checkFolder(folderpath=None):
-    return _checkFolder_impl(folderpath=folderpath, check_folder=comicarr.CONFIG.CHECK_FOLDER)
+    return _checkFolder_impl(folderpath=folderpath, check_folder=runtime.current().config.CHECK_FOLDER)
 
 
 def weekly_info(week=None, year=None, current=None):
@@ -37,9 +37,9 @@ def weekly_info(week=None, year=None, current=None):
         week=week,
         year=year,
         current=current,
-        weekfolder_loc=comicarr.CONFIG.WEEKFOLDER_LOC,
-        destination_dir=comicarr.CONFIG.DESTINATION_DIR,
-        weekfolder_format=comicarr.CONFIG.WEEKFOLDER_FORMAT,
+        weekfolder_loc=runtime.current().config.WEEKFOLDER_LOC,
+        destination_dir=runtime.current().config.DESTINATION_DIR,
+        weekfolder_format=runtime.current().config.WEEKFOLDER_FORMAT,
         sched_weekly_last=runtime.current().sched_weekly_last,
     )
 
@@ -55,6 +55,6 @@ def log_that_exception(except_info):
         except_info,
         db=db,
         now_func=now,
-        log_dir=comicarr.CONFIG.LOG_DIR,
+        log_dir=runtime.current().config.LOG_DIR,
         tail_func=tail_that_log,
     )

@@ -46,8 +46,8 @@ def _isolated_db(tmp_path, monkeypatch):
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
         monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(
             HIGHCOUNT=0,
             SAB_APIKEY="k",
@@ -170,7 +170,7 @@ def test_complete_sab_recovery_keeps_historycheck_folder(queues, tmp_path, monke
     sab_root.mkdir()
     completed = sab_root / "Spawn.344"
     completed.mkdir()
-    monkeypatch.setattr(comicarr.CONFIG, "SAB_DIRECTORY", str(sab_root), raising=False)
+    monkeypatch.setattr(runtime.current().config, "SAB_DIRECTORY", str(sab_root), raising=False)
 
     nzb_name = "Spawn.344.cbz"
     history = {

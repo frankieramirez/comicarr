@@ -23,7 +23,6 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import comicarr
 from comicarr.app.core import access_log, runtime
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.indexer_sync import service
@@ -54,7 +53,7 @@ def config(tmp_path, monkeypatch):
     cfg.provider_sequence = MagicMock()
     cfg.write_out_provider_searches = MagicMock()
     cfg.API_KEY = API_KEY
-    monkeypatch.setattr(comicarr, "CONFIG", cfg)
+    monkeypatch.setattr(runtime.current(), "config", cfg)
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     return cfg
 

@@ -22,7 +22,6 @@ as this module's implementation.
 
 from __future__ import annotations
 
-import comicarr
 from comicarr.app.core import runtime
 
 ROUTES = ("ddl", "nzb", "torrent")
@@ -70,7 +69,7 @@ def _from_stats_row(row) -> str:
 
 def _from_site_name(site, config=None) -> str:
     """Classify a configured provider name without persisting its URL or credentials."""
-    config = config or getattr(comicarr, "CONFIG", None)
+    config = config or runtime.current().config
     name = str(site or "").strip().lower()
     if name.startswith("ddl(") or "getcomics" in name or name == "external":
         return "ddl"

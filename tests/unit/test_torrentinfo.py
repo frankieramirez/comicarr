@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.search import service
 
 HASH40 = "a" * 40
@@ -29,8 +30,8 @@ def _torrent_flags(monkeypatch):
     monkeypatch.setattr(comicarr, "USE_RTORRENT", False, raising=False)
     monkeypatch.setattr(comicarr, "USE_DELUGE", False, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         type(
             "C",
             (),
@@ -200,9 +201,9 @@ def test_a_non_pausable_client_is_monitored_without_being_paused(monkeypatch):
     monkeypatch.setattr(comicarr, "USE_DELUGE", False)
     monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
     monkeypatch.setattr(comicarr, "USE_QBITTORRENT", True, raising=False)
-    comicarr.CONFIG.QBITTORRENT_HOST = "qb"
-    comicarr.CONFIG.QBITTORRENT_USERNAME = "u"
-    comicarr.CONFIG.QBITTORRENT_PASSWORD = "p"
+    runtime.current().config.QBITTORRENT_HOST = "qb"
+    runtime.current().config.QBITTORRENT_USERNAME = "u"
+    runtime.current().config.QBITTORRENT_PASSWORD = "p"
 
     fake_client = MagicMock()
     fake_client.connect.return_value = True
@@ -264,8 +265,8 @@ def test_invalid_hash_is_not_a_client_outage():
 def test_autosnatch_script_oserror_is_not_a_client_outage(monkeypatch, tmp_path):
     script = tmp_path / "autosnatch.sh"
     script.write_text("#!/bin/bash\n")
-    comicarr.CONFIG.AUTO_SNATCH = True
-    comicarr.CONFIG.AUTO_SNATCH_SCRIPT = str(script)
+    runtime.current().config.AUTO_SNATCH = True
+    runtime.current().config.AUTO_SNATCH_SCRIPT = str(script)
 
     with (
         patch("comicarr.app.search.service.torrent_monitor.probe") as probe,
@@ -322,7 +323,7 @@ def test_completed_download_without_auto_snatch_does_not_open_script(monkeypatch
 def test_local_torrent_pp_copies_a_completed_download(monkeypatch):
     monkeypatch.setattr(comicarr, "USE_DELUGE", True)
     monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
-    comicarr.CONFIG.LOCAL_TORRENT_PP = True
+    runtime.current().config.LOCAL_TORRENT_PP = True
 
     fake_client = MagicMock()
     fake_client.connect.return_value = True
@@ -343,10 +344,10 @@ def test_local_torrent_pp_copies_a_completed_qbittorrent_download(monkeypatch):
     monkeypatch.setattr(comicarr, "USE_DELUGE", False)
     monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
     monkeypatch.setattr(comicarr, "USE_QBITTORRENT", True, raising=False)
-    comicarr.CONFIG.LOCAL_TORRENT_PP = True
-    comicarr.CONFIG.QBITTORRENT_HOST = "qb"
-    comicarr.CONFIG.QBITTORRENT_USERNAME = "u"
-    comicarr.CONFIG.QBITTORRENT_PASSWORD = "p"
+    runtime.current().config.LOCAL_TORRENT_PP = True
+    runtime.current().config.QBITTORRENT_HOST = "qb"
+    runtime.current().config.QBITTORRENT_USERNAME = "u"
+    runtime.current().config.QBITTORRENT_PASSWORD = "p"
 
     fake_client = MagicMock()
     fake_client.connect.return_value = True

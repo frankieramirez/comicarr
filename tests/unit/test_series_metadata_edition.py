@@ -14,8 +14,7 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import create_engine
 
-import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics
 from comicarr.app.metadata.series_metadata import metadata_Series
 
@@ -48,8 +47,8 @@ def _run_metadata(tmp_path, monkeypatch, *, year, latest=None):
     monkeypatch.setattr(db, "get_engine", lambda: engine)
     monkeypatch.setattr(db, "upsert", lambda *args: None)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(CREATE_FOLDERS=False, SETDEFAULTVOLUME=True, SERIESJSON_FILE_PRIORITY=False),
         raising=False,
     )

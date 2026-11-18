@@ -39,7 +39,7 @@ from comicarr.app.series import queries as series_queries
 @pytest.fixture
 def acquisition_ledger(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()
     metadata.create_all(get_engine())
@@ -682,8 +682,8 @@ def test_manual_wanted_scan_queues_eligible_backlog_outside_automatic_tier(acqui
     from comicarr.app.search import engine as legacy_search
 
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             EXTRA_NEWZNABS=[],
             EXTRA_TORZNABS=[],

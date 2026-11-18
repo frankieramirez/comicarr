@@ -327,7 +327,7 @@ class Maintenance(object):
             "CREATE TABLE IF NOT EXISTS provider_searches(id INTEGER UNIQUE, provider TEXT UNIQUE, type TEXT, lastrun INTEGER, active TEXT, hits INTEGER DEFAULT 0)"
         )
         self.sql_close_db()
-        comicarr.CONFIG.writeconfig(values={"clear_provider_table": False})
+        runtime.current().config.writeconfig(values={"clear_provider_table": False})
         logger.info("[MAINTENANCE-MODE][%s] Successfully cleared the provider_searches table" % (self.mode.upper()))
 
     def check_status(self):
@@ -495,9 +495,9 @@ class Maintenance(object):
         rtn_message = []
 
         if backupinfo is None:
-            location = comicarr.CONFIG.BACKUP_LOCATION
-            config_version = comicarr.CONFIG.CONFIG_VERSION
-            backup_retention = comicarr.CONFIG.BACKUP_RETENTION
+            location = runtime.current().config.BACKUP_LOCATION
+            config_version = runtime.current().config.CONFIG_VERSION
+            backup_retention = runtime.current().config.BACKUP_RETENTION
         else:
             location = backupinfo["location"]
             config_version = backupinfo["config_version"]

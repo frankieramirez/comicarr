@@ -39,7 +39,7 @@ from sqlalchemy import or_, select
 
 import comicarr
 from comicarr.app.attention import Failure, record
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, ddl_info, issues, nzblog, storyarcs
 from comicarr.app.downloads import journal
 
@@ -381,7 +381,7 @@ def _sab_history_or_queue(row, payload=None, keep_history=False):
         from comicarr.app.downloads import sabnzbd
 
         names = sabnzbd.release_names(payload, di, row)
-        s = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
+        s = sabnzbd.SABnzbd({"queue": {"apikey": runtime.current().config.SAB_APIKEY}})
         if not nzo_id:
             if not names:
                 logger.warn(
@@ -413,7 +413,7 @@ def _sab_history_or_queue(row, payload=None, keep_history=False):
                 "mode": "queue",
                 "search": nzo_id,
                 "output": "json",
-                "apikey": comicarr.CONFIG.SAB_APIKEY,
+                "apikey": runtime.current().config.SAB_APIKEY,
             },
         }
         # Bypass SAB's category filter: change_cat can move a live NZO out of

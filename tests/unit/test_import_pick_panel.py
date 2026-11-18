@@ -16,7 +16,6 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy import insert
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, importresults, metadata
 from comicarr.app.imports import candidates, finalization, folder_memory, importinbox
@@ -26,7 +25,7 @@ from comicarr.app.imports import candidates, finalization, folder_memory, import
 def pick_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     config = SimpleNamespace(IMPORT_DIR=str(tmp_path / "inbox"), AUTO_IMPORT_CONFIDENCE=80, AUTO_IMPORT_ENABLED=True)
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()

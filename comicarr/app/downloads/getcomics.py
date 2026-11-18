@@ -54,8 +54,8 @@ class GC(object):
 
         flare_test = False
         if main_url is None:
-            if comicarr.CONFIG.ENABLE_FLARESOLVERR:
-                main_url = comicarr.CONFIG.FLARESOLVERR_URL
+            if runtime.current().config.ENABLE_FLARESOLVERR:
+                main_url = runtime.current().config.FLARESOLVERR_URL
             else:
                 main_url = comicarr.GC_URL
         else:
@@ -63,12 +63,12 @@ class GC(object):
 
         test_success = False
         if not os.path.exists(self.session_path):
-            if any([comicarr.CONFIG.ENABLE_FLARESOLVERR, flare_test is True]):
+            if any([runtime.current().config.ENABLE_FLARESOLVERR, flare_test is True]):
                 logger.fdebug("[GC_Cookie_Creator] GetComics Session cookie does not exist. Attempting to create.")
                 get_cookies = self.session.post(
                     main_url,
                     json={"url": comicarr.GC_URL, "cmd": "request.get"},
-                    verify=comicarr.CONFIG.PUBLIC_VERIFY,
+                    verify=runtime.current().config.PUBLIC_VERIFY,
                     headers=self.flare_headers,
                     timeout=30,
                 )
@@ -118,11 +118,15 @@ class GC(object):
 
         self.session = requests.Session()
 
-        if comicarr.CONFIG.ENABLE_PROXY:
-            self.session.proxies.update({"http": comicarr.CONFIG.HTTP_PROXY, "https": comicarr.CONFIG.HTTPS_PROXY})
+        if runtime.current().config.ENABLE_PROXY:
+            self.session.proxies.update(
+                {"http": runtime.current().config.HTTP_PROXY, "https": runtime.current().config.HTTPS_PROXY}
+            )
 
         self.session_path = (
-            session_path if session_path is not None else os.path.join(comicarr.CONFIG.SECURE_DIR, ".gc_cookies.dat")
+            session_path
+            if session_path is not None
+            else os.path.join(runtime.current().config.SECURE_DIR, ".gc_cookies.dat")
         )
 
         self.url = comicarr.GC_URL
@@ -164,7 +168,7 @@ class GC(object):
                     self.search_format.insert(0, self.query["comicname"])
                     logger.debug("setting no issue number query to be first due to no issue number")
 
-            if comicarr.CONFIG.PACK_PRIORITY:
+            if runtime.current().config.PACK_PRIORITY:
                 self.search_format.insert(0, "%s %s" % (self.query["comicname"], self.query["year"]))
 
             for sf in self.search_format:
@@ -212,14 +216,14 @@ class GC(object):
 
                 result_generator = self.perform_search_queries(queryline)
                 selected = evaluator.evaluate(
-                    result_generator, is_info, prefer_pack=bool(comicarr.CONFIG.PACK_PRIORITY)
+                    result_generator, is_info, prefer_pack=bool(runtime.current().config.PACK_PRIORITY)
                 ).selected
                 if selected:
                     verified_matches = selected
                     logger.fdebug("verified_matches: %s" % (verified_matches,))
                     break
-                logger.fdebug("sleep...%s%s" % (comicarr.CONFIG.DDL_QUERY_DELAY, "s"))
-                time.sleep(comicarr.CONFIG.DDL_QUERY_DELAY)
+                logger.fdebug("sleep...%s%s" % (runtime.current().config.DDL_QUERY_DELAY, "s"))
+                time.sleep(runtime.current().config.DDL_QUERY_DELAY)
 
         except requests.exceptions.Timeout as e:
             logger.warn("Timeout occured fetching data from DDL: %s" % e)
@@ -265,7 +269,7 @@ class GC(object):
 
     def loadsite(self, id, link):
 
-        title = os.path.join(comicarr.CONFIG.CACHE_DIR, "html_cache", "getcomics-" + id)
+        title = os.path.join(runtime.current().config.CACHE_DIR, "html_cache", "getcomics-" + id)
         logger.fdebug("now loading info from local html to resolve via url: %s" % link)
 
         self.cookie_receipt()
@@ -282,7 +286,7 @@ class GC(object):
         total_pages = 1
         seen_urls = set()
         while page_no <= total_pages:
-            pause_the_search = comicarr.CONFIG.DDL_QUERY_DELAY
+            pause_the_search = runtime.current().config.DDL_QUERY_DELAY
             diff = comicarr.app.search.engine.check_time(self.provider_stat["lastrun"])
             if diff < pause_the_search:
                 logger.warn(
@@ -524,7 +528,7 @@ class GC(object):
         series = None
         year = None
         size = None
-        title = os.path.join(comicarr.CONFIG.CACHE_DIR, "html_cache", "getcomics-" + id)
+        title = os.path.join(runtime.current().config.CACHE_DIR, "html_cache", "getcomics-" + id)
 
         if not os.path.exists(title):
             logger.fdebug("Unable to locate local cached html file - attempting to retrieve page results again..")
@@ -734,12 +738,12 @@ class GC(object):
                 % (" ,".join(tmp_sites))
             )
             site_check = [y for x in link_types for y in tmp_sites if x in y]
-            for ddlp in comicarr.CONFIG.DDL_PRIORITY_ORDER:
+            for ddlp in runtime.current().config.DDL_PRIORITY_ORDER:
                 force_title = False
                 site_lp = ddlp
                 logger.fdebug("priority ddl enabled - checking %s" % site_lp)
                 if site_check:
-                    if comicarr.CONFIG.DDL_PREFER_UPSCALED:
+                    if runtime.current().config.DDL_PREFER_UPSCALED:
                         if not link_matched and site_lp == "mega":
                             sub_site_chk = [y for y in tmp_sites if "mega" in y]
                             if sub_site_chk:
@@ -1225,16 +1229,18 @@ class GC(object):
                     {"ID": id},
                 )
 
-                if comicarr.CONFIG.DDL_LOCATION is not None and not os.path.isdir(comicarr.CONFIG.DDL_LOCATION):
-                    checkdirectory = directories.validateAndCreateDirectory(comicarr.CONFIG.DDL_LOCATION, True)
+                if runtime.current().config.DDL_LOCATION is not None and not os.path.isdir(
+                    runtime.current().config.DDL_LOCATION
+                ):
+                    checkdirectory = directories.validateAndCreateDirectory(runtime.current().config.DDL_LOCATION, True)
                     if not checkdirectory:
                         logger.warn(
                             "[ABORTING] Error trying to validate/create DDL download"
-                            " directory: %s." % comicarr.CONFIG.DDL_LOCATION
+                            " directory: %s." % runtime.current().config.DDL_LOCATION
                         )
                         return {"success": False, "filename": filename, "path": None, "link_type": link_type}
 
-                dst_path = resolve_remote_artifact_path(comicarr.CONFIG.DDL_LOCATION, filename)
+                dst_path = resolve_remote_artifact_path(runtime.current().config.DDL_LOCATION, filename)
 
                 t.headers["Accept-encoding"] = "gzip"
                 if resume is not None:
@@ -1263,7 +1269,7 @@ class GC(object):
 
     def zip_zip(self, id, dst_path, filename):
         try:
-            dst_path = ensure_path_within_directory(comicarr.CONFIG.DDL_LOCATION, dst_path)
+            dst_path = ensure_path_within_directory(runtime.current().config.DDL_LOCATION, dst_path)
         except ValueError as e:
             logger.warn("[ERROR: %s] Refusing archive outside the DDL download directory." % e)
             return {"success": False, "filename": filename, "path": None}
@@ -1273,7 +1279,7 @@ class GC(object):
                 try:
                     archive_name = safe_remote_filename(filename)
                     extraction_name = os.path.splitext(archive_name)[0]
-                    new_path = resolve_remote_artifact_path(comicarr.CONFIG.DDL_LOCATION, extraction_name)
+                    new_path = resolve_remote_artifact_path(runtime.current().config.DDL_LOCATION, extraction_name)
                 except ValueError as e:
                     logger.warn("[ERROR: %s] Refusing unsafe archive filename." % e)
                     return {"success": False, "filename": filename, "path": None}

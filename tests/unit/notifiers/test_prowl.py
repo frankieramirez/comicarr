@@ -1,14 +1,11 @@
 """Tests for PROWL notifier."""
 
-import pytest
-from unittest.mock import MagicMock
-
 
 class TestProwlInit:
     """Test PROWL initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use comicarr.CONFIG values by default."""
+        """Init should use runtime.current().config values by default."""
         prowl = notifiers_module.PROWL()
 
         assert prowl.enabled is True
@@ -19,9 +16,7 @@ class TestProwlInit:
 class TestProwlNotify:
     """Test PROWL notify method."""
 
-    def test_notify_success(
-        self, notifiers_module, mock_notifier_config, mock_https_connection
-    ):
+    def test_notify_success(self, notifiers_module, mock_notifier_config, mock_https_connection):
         """Successful notification returns True."""
         mock_https_connection["response"].status = 200
 
@@ -31,9 +26,7 @@ class TestProwlNotify:
         assert result is True
         mock_https_connection["connection"].request.assert_called_once()
 
-    def test_notify_request_format(
-        self, notifiers_module, mock_notifier_config, mock_https_connection
-    ):
+    def test_notify_request_format(self, notifiers_module, mock_notifier_config, mock_https_connection):
         """Verify request format is correct."""
         mock_https_connection["response"].status = 200
 
@@ -47,9 +40,7 @@ class TestProwlNotify:
         assert method == "POST"
         assert path == "/publicapi/add"
 
-    def test_notify_includes_apikey_and_message(
-        self, notifiers_module, mock_notifier_config, mock_https_connection
-    ):
+    def test_notify_includes_apikey_and_message(self, notifiers_module, mock_notifier_config, mock_https_connection):
         """Request body should include API key and message."""
         mock_https_connection["response"].status = 200
 
@@ -64,9 +55,7 @@ class TestProwlNotify:
         assert "Test+message" in body or "Test%20message" in body
         assert "Comicarr" in body  # Application name
 
-    def test_notify_disabled_returns_none(
-        self, notifiers_module, mock_notifier_config, mock_https_connection
-    ):
+    def test_notify_disabled_returns_none(self, notifiers_module, mock_notifier_config, mock_https_connection):
         """Notification when disabled returns None."""
         mock_notifier_config.PROWL_ENABLED = False
 
@@ -76,9 +65,7 @@ class TestProwlNotify:
         assert result is None
         mock_https_connection["connection"].request.assert_not_called()
 
-    def test_notify_module_appended(
-        self, notifiers_module, mock_notifier_config, mock_https_connection
-    ):
+    def test_notify_module_appended(self, notifiers_module, mock_notifier_config, mock_https_connection):
         """Module name should be appended for logging."""
         mock_https_connection["response"].status = 200
 
@@ -91,9 +78,7 @@ class TestProwlNotify:
 class TestProwlNotifyErrors:
     """Test PROWL error handling."""
 
-    def test_notify_auth_error_returns_false(
-        self, notifiers_module, mock_notifier_config, mock_https_connection
-    ):
+    def test_notify_auth_error_returns_false(self, notifiers_module, mock_notifier_config, mock_https_connection):
         """401 auth error returns False."""
         mock_https_connection["response"].status = 401
         mock_https_connection["response"].reason = "Unauthorized"
@@ -103,9 +88,7 @@ class TestProwlNotifyErrors:
 
         assert result is False
 
-    def test_notify_other_error_returns_false(
-        self, notifiers_module, mock_notifier_config, mock_https_connection
-    ):
+    def test_notify_other_error_returns_false(self, notifiers_module, mock_notifier_config, mock_https_connection):
         """Other HTTP errors return False."""
         mock_https_connection["response"].status = 500
         mock_https_connection["response"].reason = "Internal Server Error"
@@ -119,9 +102,7 @@ class TestProwlNotifyErrors:
 class TestProwlTestNotify:
     """Test PROWL test_notify method."""
 
-    def test_test_notify_sends_test_message(
-        self, notifiers_module, mock_notifier_config, mock_https_connection
-    ):
+    def test_test_notify_sends_test_message(self, notifiers_module, mock_notifier_config, mock_https_connection):
         """test_notify sends the expected test message."""
         mock_https_connection["response"].status = 200
 

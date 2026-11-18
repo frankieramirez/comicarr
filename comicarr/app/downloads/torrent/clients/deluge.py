@@ -3,8 +3,7 @@ import os
 
 from deluge_client import DelugeRPCClient
 
-import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.downloads.torrent.contracts import connection_failure
 
 
@@ -109,15 +108,15 @@ class TorrentClient(object):
 
         options = {}
 
-        if comicarr.CONFIG.DELUGE_DOWNLOAD_DIRECTORY:
-            options["download_location"] = comicarr.CONFIG.DELUGE_DOWNLOAD_DIRECTORY
+        if runtime.current().config.DELUGE_DOWNLOAD_DIRECTORY:
+            options["download_location"] = runtime.current().config.DELUGE_DOWNLOAD_DIRECTORY
 
-        if comicarr.CONFIG.DELUGE_DONE_DIRECTORY:
+        if runtime.current().config.DELUGE_DONE_DIRECTORY:
             options["move_completed"] = 1
-            options["move_completed_path"] = comicarr.CONFIG.DELUGE_DONE_DIRECTORY
+            options["move_completed_path"] = runtime.current().config.DELUGE_DONE_DIRECTORY
 
-        if comicarr.CONFIG.DELUGE_PAUSE:
-            options["add_paused"] = int(comicarr.CONFIG.DELUGE_PAUSE)
+        if runtime.current().config.DELUGE_PAUSE:
+            options["add_paused"] = int(runtime.current().config.DELUGE_PAUSE)
 
         logger.info("filepath to torrent file set to : " + filepath)
         torrent_id = False
@@ -153,20 +152,20 @@ class TorrentClient(object):
                     logger.debug("Torrent not added")
                     return False
 
-            if torrent_id and comicarr.CONFIG.DELUGE_LABEL:
-                logger.info("Setting label to " + comicarr.CONFIG.DELUGE_LABEL)
+            if torrent_id and runtime.current().config.DELUGE_LABEL:
+                logger.info("Setting label to " + runtime.current().config.DELUGE_LABEL)
                 try:
-                    self.client.call("label.set_torrent", torrent_id, comicarr.CONFIG.DELUGE_LABEL)
+                    self.client.call("label.set_torrent", torrent_id, runtime.current().config.DELUGE_LABEL)
                 except Exception:
                     try:
-                        self.client.call("label.add", comicarr.CONFIG.DELUGE_LABEL)
-                        self.client.call("label.set_torrent", torrent_id, comicarr.CONFIG.DELUGE_LABEL)
+                        self.client.call("label.add", runtime.current().config.DELUGE_LABEL)
+                        self.client.call("label.set_torrent", torrent_id, runtime.current().config.DELUGE_LABEL)
                     except Exception:
                         logger.warning(
                             "Unable to set label - Either try to create it manually within Deluge, and/or ensure there are no spaces, capitalization or special characters in label"
                         )
                     else:
-                        logger.info("Succesfully set label to " + comicarr.CONFIG.DELUGE_LABEL)
+                        logger.info("Succesfully set label to " + runtime.current().config.DELUGE_LABEL)
 
         try:
             torrent_info = self.get_torrent(torrent_id)
@@ -178,7 +177,7 @@ class TorrentClient(object):
             logger.info("Torrent successfully added!")
             return {
                 "hash": torrent_info["hash"],
-                "label": comicarr.CONFIG.DELUGE_LABEL,
+                "label": runtime.current().config.DELUGE_LABEL,
                 "folder": torrent_info["save_path"],
                 "move path": torrent_info["move_completed_path"],
                 "total_filesize": torrent_info["total_size"],

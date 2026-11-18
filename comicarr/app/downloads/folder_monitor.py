@@ -31,7 +31,7 @@ class FolderCheck:
                 "There is an import currently running. In order to ensure successful import - deferring this until the import is finished."
             )
             return
-        if comicarr.CONFIG.CHECK_FOLDER is None:
+        if runtime.current().config.CHECK_FOLDER is None:
             logger.warn(
                 "%s Unable to initialise folder monitor properly - you need to specify a folder to monitor first"
                 % self.module
@@ -47,7 +47,7 @@ class FolderCheck:
             from comicarr.app.downloads import postprocessing
             from comicarr.app.downloads.pp_commands import monitored_folders
 
-            for folder in monitored_folders(comicarr.CONFIG):
+            for folder in monitored_folders(runtime.current().config):
                 if not os.path.isdir(folder) or not os.access(folder, os.R_OK | os.X_OK):
                     logger.warn("%s Skipping monitored folder %s: it is missing or unreadable" % (self.module, folder))
                     continue

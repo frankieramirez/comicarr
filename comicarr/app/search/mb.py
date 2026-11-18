@@ -28,7 +28,6 @@ import time
 from xml.dom.minidom import parseString
 from xml.parsers.expat import ExpatError
 
-import comicarr
 from comicarr.app.core import logger, runtime
 from comicarr.app.metadata import cv
 from comicarr.app.search.service import ignored_publisher_check
@@ -90,7 +89,7 @@ def pullsearch(comicapi, comicquery, offset, search_type, sort=None, limit=None)
 
     try:
         r = runtime.current().cv_session.get(
-            PULLURL, params=payload, verify=comicarr.CONFIG.CV_VERIFY, timeout=runtime.current().cv_timeout
+            PULLURL, params=payload, verify=runtime.current().config.CV_VERIFY, timeout=runtime.current().cv_timeout
         )
     except Exception as e:
         logger.warn("Error fetching data from ComicVine: %s" % e)
@@ -142,7 +141,7 @@ def findComic(
         % (name, limit, offset, sort, content_type)
     )
 
-    if content_type == "manga" and comicarr.CONFIG.MANGADEX_ENABLED:
+    if content_type == "manga" and runtime.current().config.MANGADEX_ENABLED:
         logger.info("[MANGADEX] Using MangaDex API for manga search")
         from comicarr.app.manga import mangadex
 
@@ -151,7 +150,7 @@ def findComic(
     if (
         search_type != "story_arc"
         and not annual_check
-        and comicarr.CONFIG.USE_METRON_SEARCH
+        and runtime.current().config.USE_METRON_SEARCH
         and runtime.current().metron_api
     ):
         logger.info("[METRON] Using Metron API for search")
@@ -201,13 +200,13 @@ def findComic(
 
     comicquery = name
 
-    if comicarr.CONFIG.COMICVINE_API == "None" or comicarr.CONFIG.COMICVINE_API is None:
+    if runtime.current().config.COMICVINE_API == "None" or runtime.current().config.COMICVINE_API is None:
         logger.warn(
             "You have not specified your own ComicVine API key - this is a requirement. Get your own @ http://api.comicvine.com."
         )
         return
     else:
-        comicapi = comicarr.CONFIG.COMICVINE_API
+        comicapi = runtime.current().config.COMICVINE_API
 
     if search_type is None:
         search_type = "volume"
@@ -259,18 +258,18 @@ def findComic(
         pages_needed = (totalResults_int + 99) // 100
 
         all_pages = []
-        if comicarr.CONFIG.CV_PARALLEL_PAGINATION and pages_needed > 1:
+        if runtime.current().config.CV_PARALLEL_PAGINATION and pages_needed > 1:
             parallel_start = time.time()
             logger.info(
                 "[PARALLEL] Fetching %d pages in parallel (max %d workers)"
-                % (pages_needed, comicarr.CONFIG.CV_MAX_PARALLEL_REQUESTS)
+                % (pages_needed, runtime.current().config.CV_MAX_PARALLEL_REQUESTS)
             )
             from concurrent.futures import ThreadPoolExecutor, as_completed
 
             all_pages = [(0, searched)]
 
             with ThreadPoolExecutor(
-                max_workers=min(comicarr.CONFIG.CV_MAX_PARALLEL_REQUESTS, pages_needed - 1)
+                max_workers=min(runtime.current().config.CV_MAX_PARALLEL_REQUESTS, pages_needed - 1)
             ) as executor:
                 futures = {
                     executor.submit(
@@ -524,7 +523,7 @@ def findComic(
                             xmldeck = "None"
 
                         IMPRINT_PUBLISHERS = ["Marvel", "DC Comics", "Image Comics"]
-                        if not comicarr.CONFIG.CV_SKIP_IMPRINT_VALIDATION and xmlpub in IMPRINT_PUBLISHERS:
+                        if not runtime.current().config.CV_SKIP_IMPRINT_VALIDATION and xmlpub in IMPRINT_PUBLISHERS:
                             givb = cv.get_imprint_volume_and_booktype(
                                 True,
                                 xmlYr,
@@ -619,13 +618,13 @@ def storyarcinfo(xmlid):
 
     arcinfo = {}
 
-    if comicarr.CONFIG.COMICVINE_API == "None" or comicarr.CONFIG.COMICVINE_API is None:
+    if runtime.current().config.COMICVINE_API == "None" or runtime.current().config.COMICVINE_API is None:
         logger.warn(
             "You have not specified your own ComicVine API key - this is a requirement. Get your own @ http://api.comicvine.com."
         )
         return
     else:
-        comicapi = comicarr.CONFIG.COMICVINE_API
+        comicapi = runtime.current().config.COMICVINE_API
 
     ARCPULL_URL = (
         runtime.current().cv_url
@@ -642,7 +641,7 @@ def storyarcinfo(xmlid):
 
     try:
         r = runtime.current().cv_session.get(
-            ARCPULL_URL, params=payload, verify=comicarr.CONFIG.CV_VERIFY, timeout=runtime.current().cv_timeout
+            ARCPULL_URL, params=payload, verify=runtime.current().config.CV_VERIFY, timeout=runtime.current().cv_timeout
         )
     except Exception as e:
         logger.warn("While parsing data from ComicVine, got exception: %s" % e)

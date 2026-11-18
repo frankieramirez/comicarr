@@ -26,7 +26,7 @@ import os
 import platform
 
 import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 
 if "windows" not in platform.system().lower():
     from grp import getgrnam
@@ -51,12 +51,13 @@ def validateAndCreateDirectory(dir, create=False, module=None, dmode=None):
                 if dir.strip():
                     logger.info("%s %s directory does not exist yet: %s" % (module, dirmode.capitalize(), dir))
                     logger.info(
-                        "%s Creating %s directory (%s) : %s" % (module, dirmode, comicarr.CONFIG.CHMOD_DIR, dir)
+                        "%s Creating %s directory (%s) : %s"
+                        % (module, dirmode, runtime.current().config.CHMOD_DIR, dir)
                     )
                     try:
                         os.umask(0)
-                        if comicarr.CONFIG.ENFORCE_PERMS:
-                            permission = int(comicarr.CONFIG.CHMOD_DIR, 8)
+                        if runtime.current().config.ENFORCE_PERMS:
+                            permission = int(runtime.current().config.CHMOD_DIR, 8)
                             os.makedirs(dir.rstrip(), permission)
                             s_perms = setperms(dir.rstrip(), True)
                             if not s_perms:
@@ -90,35 +91,37 @@ def setperms(path, dir=False):
     if "windows" not in comicarr.OS_DETECT.lower():
         try:
             os.umask(0)
-            if comicarr.CONFIG.CHGROUP:
+            if runtime.current().config.CHGROUP:
                 if (
-                    comicarr.CONFIG.CHOWNER is None
-                    or comicarr.CONFIG.CHOWNER == "None"
-                    or comicarr.CONFIG.CHOWNER == ""
+                    runtime.current().config.CHOWNER is None
+                    or runtime.current().config.CHOWNER == "None"
+                    or runtime.current().config.CHOWNER == ""
                 ):
-                    comicarr.CONFIG.CHOWNER = getpass.getuser()
+                    runtime.current().config.CHOWNER = getpass.getuser()
 
-                if not comicarr.CONFIG.CHOWNER.isdigit():
+                if not runtime.current().config.CHOWNER.isdigit():
                     try:
-                        chowner = getpwnam(comicarr.CONFIG.CHOWNER)[2]
+                        chowner = getpwnam(runtime.current().config.CHOWNER)[2]
                     except Exception:
                         logger.warn(
-                            "[PERMISSIONS] %s does not exist on this system as a user" % comicarr.CONFIG.CHOWNER
+                            "[PERMISSIONS] %s does not exist on this system as a user"
+                            % runtime.current().config.CHOWNER
                         )
                         chowner = -1
                 else:
-                    chowner = int(comicarr.CONFIG.CHOWNER)
+                    chowner = int(runtime.current().config.CHOWNER)
 
-                if not comicarr.CONFIG.CHGROUP.isdigit():
+                if not runtime.current().config.CHGROUP.isdigit():
                     try:
-                        chgroup = getgrnam(comicarr.CONFIG.CHGROUP)[2]
+                        chgroup = getgrnam(runtime.current().config.CHGROUP)[2]
                     except Exception:
                         logger.warn(
-                            "[PERMISSIONS] %s does not exist on this system as a group" % comicarr.CONFIG.CHGROUP
+                            "[PERMISSIONS] %s does not exist on this system as a group"
+                            % runtime.current().config.CHGROUP
                         )
                         chgroup = -1
                 else:
-                    chgroup = int(comicarr.CONFIG.CHGROUP)
+                    chgroup = int(runtime.current().config.CHGROUP)
 
                 validity_perm = check_valid_perms(chowner, chgroup)
                 logger.fdebug("validity_perm: %s" % validity_perm)
@@ -127,47 +130,48 @@ def setperms(path, dir=False):
                     chgroup = validity_perm["group"]
 
                 if dir:
-                    permission = int(comicarr.CONFIG.CHMOD_DIR, 8)
+                    permission = int(runtime.current().config.CHMOD_DIR, 8)
                     if validity_perm["status"]:
                         os.chown(path, chowner, chgroup)
                     os.chmod(path, permission)
                 elif os.path.isfile(path):
-                    permission = int(comicarr.CONFIG.CHMOD_FILE, 8)
+                    permission = int(runtime.current().config.CHMOD_FILE, 8)
                     if validity_perm["status"]:
                         os.chown(path, chowner, chgroup)
                     os.chmod(path, permission)
                 else:
                     for root, dirs, files in os.walk(path):
                         for momo in dirs:
-                            permission = int(comicarr.CONFIG.CHMOD_DIR, 8)
+                            permission = int(runtime.current().config.CHMOD_DIR, 8)
                             if validity_perm["status"]:
                                 os.chown(os.path.join(root, momo), chowner, chgroup)
                             os.chmod(os.path.join(root, momo), permission)
                         for momo in files:
-                            permission = int(comicarr.CONFIG.CHMOD_FILE, 8)
+                            permission = int(runtime.current().config.CHMOD_FILE, 8)
                             if validity_perm["status"]:
                                 os.chown(os.path.join(root, momo), chowner, chgroup)
                             os.chmod(os.path.join(root, momo), permission)
 
                 logger.fdebug(
                     "Successfully changed ownership and permissions [%s:%s] / [%s/%s]"
-                    % (chowner, chgroup, comicarr.CONFIG.CHMOD_DIR, comicarr.CONFIG.CHMOD_FILE)
+                    % (chowner, chgroup, runtime.current().config.CHMOD_DIR, runtime.current().config.CHMOD_FILE)
                 )
 
             elif os.path.isfile(path):
-                permission = int(comicarr.CONFIG.CHMOD_FILE, 8)
+                permission = int(runtime.current().config.CHMOD_FILE, 8)
                 os.chmod(path, permission)
             else:
                 for root, dirs, files in os.walk(path):
                     for momo in dirs:
-                        permission = int(comicarr.CONFIG.CHMOD_DIR, 8)
+                        permission = int(runtime.current().config.CHMOD_DIR, 8)
                         os.chmod(os.path.join(root, momo), permission)
                     for momo in files:
-                        permission = int(comicarr.CONFIG.CHMOD_FILE, 8)
+                        permission = int(runtime.current().config.CHMOD_FILE, 8)
                         os.chmod(os.path.join(root, momo), permission)
 
                 logger.fdebug(
-                    "Successfully changed permissions [%s/%s]" % (comicarr.CONFIG.CHMOD_DIR, comicarr.CONFIG.CHMOD_FILE)
+                    "Successfully changed permissions [%s/%s]"
+                    % (runtime.current().config.CHMOD_DIR, runtime.current().config.CHMOD_FILE)
                 )
 
         except OSError as e:
@@ -181,7 +185,7 @@ def check_valid_perms(chowner, chgroup):
     if all([chowner == -1, chgroup == -1]):
         logger.warn(
             "[PERMISSONS] Unable to set ownership due to both owner:group [%s:%s] being invalid."
-            % (comicarr.CONFIG.CHOWNER, comicarr.CONFIG.CHGROUP)
+            % (runtime.current().config.CHOWNER, runtime.current().config.CHGROUP)
         )
         return {"status": False, "owner": chowner, "group": chgroup}
     else:

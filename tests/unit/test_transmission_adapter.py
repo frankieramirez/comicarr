@@ -17,6 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from comicarr.app.core import runtime
 from comicarr.app.downloads.torrent.clients import transmission
 
 HASH = "b" * 40
@@ -155,8 +156,8 @@ def test_wrong_credentials_are_a_connection_failure(daemon):
 def test_load_torrent_sends_the_file_and_reports_its_files(daemon, monkeypatch, tmp_path):
     state, port = daemon()
     monkeypatch.setattr(
-        transmission.comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(TRANSMISSION_DIRECTORY="/downloads/comics", CHECK_FOLDER="/unused"),
     )
     torrent_file = tmp_path / "saga.torrent"

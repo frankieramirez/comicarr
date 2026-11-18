@@ -20,7 +20,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy import event
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, metadata, rssdb
@@ -68,7 +67,7 @@ def _make_chapter(comic_id="md-abc123", issue_id="md-abc123-ch100", ch_num="100"
 class TestMangaCheck:
     """Tests for mangaCheck() — wanted chapter search triggering."""
 
-    @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
+    @patch.object(runtime.current(), "config", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
     @patch("comicarr.app.search.rss_feeds.series_service")
     @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.app.search.engine.search_init")
@@ -79,7 +78,7 @@ class TestMangaCheck:
 
         mock_search_init.assert_not_called()
 
-    @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
+    @patch.object(runtime.current(), "config", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
     @patch("comicarr.app.search.rss_feeds.series_service")
     @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.app.search.engine.search_init")
@@ -101,7 +100,7 @@ class TestMangaCheck:
         assert call_kwargs[0][0] == "One Piece"
         assert call_kwargs[1]["booktype"] == "manga"
 
-    @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
+    @patch.object(runtime.current(), "config", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
     @patch("comicarr.app.search.rss_feeds.series_service")
     @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.app.search.engine.search_init")
@@ -120,7 +119,7 @@ class TestMangaCheck:
 
         mock_search_init.assert_not_called()
 
-    @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
+    @patch.object(runtime.current(), "config", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
     @patch("comicarr.app.search.rss_feeds.series_service")
     @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.app.search.engine.search_init")
@@ -141,7 +140,7 @@ class TestMangaCheck:
 
         assert mock_search_init.call_count == 2
 
-    @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
+    @patch.object(runtime.current(), "config", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
     @patch("comicarr.app.search.rss_feeds.series_service")
     @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.app.search.engine.search_init")
@@ -169,7 +168,10 @@ class TestMangaCheckRssdb:
     def rss_db(self, tmp_path, monkeypatch):
         monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
         monkeypatch.setattr(
-            comicarr, "CONFIG", SimpleNamespace(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False), raising=False
+            runtime.current(),
+            "config",
+            SimpleNamespace(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False),
+            raising=False,
         )
         monkeypatch.delenv("DATABASE_URL", raising=False)
         shutdown_engine()
@@ -304,7 +306,7 @@ class TestMangaCheckRssdb:
 # ---------------------------------------------------------------------------
 
 
-@patch("comicarr.CONFIG", MagicMock())
+@patch.object(runtime.current(), "config", MagicMock())
 class TestMangadexNewChapterCheck:
     """Tests for mangadexNewChapterCheck() — MangaDex polling for new chapters."""
 

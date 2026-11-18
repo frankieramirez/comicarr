@@ -246,4 +246,4 @@ def store_week(pull, weeknumber, year):
 
     logger.info("[PULL-LIST] Successfully populated pull-list into Comicarr for week %s of %s" % (weeknumber, year))
     pull_refresh = todaydate.strftime("%Y-%m-%d %H:%M:%S")
-    comicarr.CONFIG.writeconfig(values={"pull_refresh": pull_refresh})
+    runtime.current().config.writeconfig(values={"pull_refresh": pull_refresh})
