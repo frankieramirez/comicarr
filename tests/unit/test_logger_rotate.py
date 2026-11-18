@@ -20,8 +20,8 @@ import logging
 
 import pytest
 
-import comicarr
 from comicarr.app.core import logger as comicarr_logger
+from comicarr.app.core import runtime
 
 
 @pytest.fixture
@@ -31,8 +31,8 @@ def isolated_logger(tmp_path, monkeypatch):
     saved_handlers = lg.handlers[:]
     saved_level = lg.level
     saved_propagate = lg.propagate
-    monkeypatch.setattr(comicarr, "LOG_LEVEL", 1, raising=False)
-    monkeypatch.setattr(comicarr, "LOGLIST", [], raising=False)
+    monkeypatch.setattr(runtime.current(), "log_level", 1, raising=False)
+    monkeypatch.setattr(runtime.current(), "loglist", [], raising=False)
 
     def configure(console=False, log_dir=str(tmp_path)):
         comicarr_logger.initLogger(console=console, log_dir=log_dir, loglevel=1)
@@ -73,35 +73,35 @@ def test_rotate_starts_a_fresh_file_and_keeps_the_old_one(isolated_logger, tmp_p
 def test_rotate_empties_the_web_ui_buffer(isolated_logger):
     lg = isolated_logger()
     lg.info("a line the viewer buffered")
-    assert comicarr.LOGLIST, "sanity: the LogListHandler buffered the line"
+    assert runtime.current().loglist, "sanity: the LogListHandler buffered the line"
 
     comicarr_logger.rotate_log_file()
 
-    assert comicarr.LOGLIST == []
+    assert runtime.current().loglist == []
 
 
 def test_rotate_without_a_file_handler_still_clears_the_buffer(isolated_logger):
     lg = isolated_logger(log_dir=False)
     lg.info("buffered but never written to disk")
-    assert comicarr.LOGLIST
+    assert runtime.current().loglist
 
     rotated = comicarr_logger.rotate_log_file()
 
     assert rotated is False
-    assert comicarr.LOGLIST == []
+    assert runtime.current().loglist == []
 
 
 def test_rotate_preserves_loglist_identity(isolated_logger):
-    """LogListHandler mutates comicarr.LOGLIST in place; rotation must too."""
+    """LogListHandler mutates runtime.current().loglist in place; rotation must too."""
     lg = isolated_logger()
-    buffer_before = comicarr.LOGLIST
+    buffer_before = runtime.current().loglist
     lg.info("line")
 
     comicarr_logger.rotate_log_file()
 
-    assert comicarr.LOGLIST is buffer_before
+    assert runtime.current().loglist is buffer_before
     lg.info("line after")
-    assert comicarr.LOGLIST, "handler must keep feeding the same buffer"
+    assert runtime.current().loglist, "handler must keep feeding the same buffer"
 
 
 class TestStartNewLogService:

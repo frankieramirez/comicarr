@@ -15,13 +15,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import runtime
 
 # Ensure LOG_LEVEL is set for tests (logger.info checks LOG_LEVEL > 0)
-if comicarr.LOG_LEVEL is None:
-    comicarr.LOG_LEVEL = 0
+if runtime.current().log_level is None:
+    runtime.current().log_level = 0
 
 from comicarr.app.config import log_level
 from comicarr.app.core.context import AppContext
@@ -335,7 +334,7 @@ class TestAnnounceSetupToken:
 
     def test_level_zero_prints_token_to_stdout(self, monkeypatch, capsys):
         """At level 0 the console sink is at WARNING, so the INFO lines never land."""
-        monkeypatch.setattr(comicarr, "LOG_LEVEL", 0)
+        monkeypatch.setattr(runtime.current(), "log_level", 0)
 
         with patch.object(system_service.logger, "info") as mock_info:
             system_service.announce_setup_token("secret-token")
@@ -346,7 +345,7 @@ class TestAnnounceSetupToken:
 
     def test_unconfigured_level_prints_token_to_stdout(self, monkeypatch, capsys):
         """LOG_LEVEL is None until config is read; treat that as level 0, not INFO."""
-        monkeypatch.setattr(comicarr, "LOG_LEVEL", None)
+        monkeypatch.setattr(runtime.current(), "log_level", None)
 
         with patch.object(system_service.logger, "info") as mock_info:
             system_service.announce_setup_token("secret-token")
@@ -358,7 +357,7 @@ class TestAnnounceSetupToken:
     @pytest.mark.parametrize("level", [1, 2])
     def test_visible_levels_log_without_stdout_duplicate(self, monkeypatch, capsys, level):
         """Once the console sink shows INFO, the logger alone carries the token."""
-        monkeypatch.setattr(comicarr, "LOG_LEVEL", level)
+        monkeypatch.setattr(runtime.current(), "log_level", level)
 
         with patch.object(system_service.logger, "info") as mock_info:
             system_service.announce_setup_token("secret-token")

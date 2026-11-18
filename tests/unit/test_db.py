@@ -7,7 +7,6 @@ import pytest
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import OperationalError
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.core.db import (
     DBConnection,
@@ -34,8 +33,8 @@ def _isolated_db(tmp_path, monkeypatch):
     # Ensure CONFIG is absent so default SQLite path is used
     monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     # Ensure LOG_LEVEL is set (logger.fdebug compares it with >)
-    if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
-        monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
+    if not hasattr(runtime.current(), "log_level") or runtime.current().log_level is None:
+        monkeypatch.setattr(runtime.current(), "log_level", 0, raising=False)
     yield
     shutdown_engine()
 

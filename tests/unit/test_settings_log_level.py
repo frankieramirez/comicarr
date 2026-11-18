@@ -33,7 +33,6 @@ import threading
 
 import pytest
 
-import comicarr
 from comicarr.app.config.ini import config_transaction_lock
 from comicarr.app.config.log_level import ACCEPTED_FORMS
 from comicarr.app.core import logger as comicarr_logger
@@ -75,8 +74,8 @@ def _make_save(tmp_path, monkeypatch):
     config = FakeConfig(str(tmp_path))
     ctx = AppContext(config=config, data_dir=str(tmp_path))
     monkeypatch.setattr(runtime.current(), "config", config, raising=False)
-    monkeypatch.setattr(comicarr, "LOG_LEVEL", 1, raising=False)
-    monkeypatch.setattr(comicarr, "LOGLIST", [], raising=False)
+    monkeypatch.setattr(runtime.current(), "log_level", 1, raising=False)
+    monkeypatch.setattr(runtime.current(), "loglist", [], raising=False)
 
     def save(**key_values):
         return system_service.update_config(ctx, key_values)
@@ -90,14 +89,14 @@ def _make_save(tmp_path, monkeypatch):
 def stubbed_save(tmp_path, monkeypatch):
     """Save config through the real service, standing in for the handler rebuild.
 
-    The stub still moves ``comicarr.LOG_LEVEL``, because that is what
+    The stub still moves ``runtime.current().log_level``, because that is what
     ``configure_log_level`` does and what everything else reads the dial from.
     """
     save = _make_save(tmp_path, monkeypatch)
     save.applied = []
 
     def record(level):
-        comicarr.LOG_LEVEL = level
+        runtime.current().log_level = level
         save.applied.append(level)
 
     monkeypatch.setattr(comicarr_logger, "configure_log_level", record)
@@ -134,7 +133,7 @@ def settings_save(tmp_path, monkeypatch):
 
 def _emitted(message):
     """Whether a record reached the Web UI sink, rather than merely being sent."""
-    return any(message in entry[1] for entry in comicarr.LOGLIST)
+    return any(message in entry[1] for entry in runtime.current().loglist)
 
 
 class TestASavedLevelChangesWhatIsEmitted:

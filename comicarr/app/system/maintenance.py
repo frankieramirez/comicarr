@@ -26,7 +26,6 @@ import shutil
 import sqlite3
 import time
 
-import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import logger, runtime
 from comicarr.app.library import filechecker
@@ -582,7 +581,7 @@ class Maintenance(object):
                             % dmode["resume"]
                         )
 
-                prev_log_level = comicarr.LOG_LEVEL
+                prev_log_level = runtime.current().log_level
                 self.toggle_logging(level=0)
 
                 if dmode["mode"] == "rss update":

@@ -182,14 +182,14 @@ def test_configure_log_level_keeps_the_console_attached_at_every_level(monkeypat
     calls = []
     config = SimpleNamespace(LOG_DIR="/tmp/logs", MAX_LOGSIZE=1024, MAX_LOGFILES=3)
     monkeypatch.setattr(runtime.current(), "config", config, raising=False)
-    monkeypatch.setattr(comicarr, "LOG_LEVEL", 1, raising=False)
+    monkeypatch.setattr(runtime.current(), "log_level", 1, raising=False)
     monkeypatch.setattr(logger, "initLogger", lambda **kwargs: calls.append(kwargs), raising=False)
 
     logger.configure_log_level(0)
     logger.configure_log_level(2)
     logger.configure_log_level(None)
 
-    assert comicarr.LOG_LEVEL == 1
+    assert runtime.current().log_level == 1
     assert calls == [
         {"console": True, "log_dir": "/tmp/logs", "max_logsize": 1024, "max_logfiles": 3, "loglevel": 0},
         {"console": True, "log_dir": "/tmp/logs", "max_logsize": 1024, "max_logfiles": 3, "loglevel": 2},

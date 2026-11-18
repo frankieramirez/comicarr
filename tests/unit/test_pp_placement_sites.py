@@ -36,7 +36,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy import insert
 
-import comicarr
 from comicarr.app.common.placement import OnExisting, PlacementError, Purpose
 from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
@@ -85,8 +84,8 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    if getattr(comicarr, "LOG_LEVEL", None) is None:
-        monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
+    if runtime.current().log_level is None:
+        monkeypatch.setattr(runtime.current(), "log_level", 0, raising=False)
     metadata.create_all(get_engine())
     yield
     shutdown_engine()

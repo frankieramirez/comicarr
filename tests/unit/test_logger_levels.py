@@ -18,8 +18,8 @@ import logging
 
 import pytest
 
-import comicarr
 from comicarr.app.core import logger as comicarr_logger
+from comicarr.app.core import runtime
 
 LEVEL_THRESHOLDS = {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG}
 
@@ -31,10 +31,10 @@ def isolated_logger(tmp_path, monkeypatch):
     saved_handlers = lg.handlers[:]
     saved_level = lg.level
     saved_propagate = lg.propagate
-    monkeypatch.setattr(comicarr, "LOG_LEVEL", 1, raising=False)
+    monkeypatch.setattr(runtime.current(), "log_level", 1, raising=False)
 
     def configure(level, console=True):
-        comicarr.LOG_LEVEL = level
+        runtime.current().log_level = level
         comicarr_logger.initLogger(console=console, log_dir=str(tmp_path), loglevel=level)
         return lg
 
@@ -116,7 +116,7 @@ def test_no_log_dir_degrades_to_screen_only(monkeypatch):
     lg = logging.getLogger("comicarr")
     saved_handlers = lg.handlers[:]
     saved_level = lg.level
-    monkeypatch.setattr(comicarr, "LOG_LEVEL", 1, raising=False)
+    monkeypatch.setattr(runtime.current(), "log_level", 1, raising=False)
     try:
         comicarr_logger.initLogger(console=True, log_dir=None, loglevel=1)
         sinks = _sink_levels(lg)
@@ -149,7 +149,7 @@ def test_threshold_for_level_maps_the_whole_dial(level, threshold):
 
 @pytest.mark.parametrize("configured, expected", [(None, 0), (0, 0), (1, 1), (2, 2)])
 def test_current_log_level_treats_unconfigured_as_quiet(monkeypatch, configured, expected):
-    monkeypatch.setattr(comicarr, "LOG_LEVEL", configured, raising=False)
+    monkeypatch.setattr(runtime.current(), "log_level", configured, raising=False)
 
     assert comicarr_logger.current_log_level() == expected
 
@@ -169,7 +169,7 @@ def test_every_logging_helper_the_codebase_calls_exists(name):
 
 def test_warnings_and_exceptions_reach_the_sinks(isolated_logger, monkeypatch):
     """The two helpers the retired branch omitted must actually emit."""
-    monkeypatch.setattr(comicarr, "LOGLIST", [], raising=False)
+    monkeypatch.setattr(runtime.current(), "loglist", [], raising=False)
     isolated_logger(0)
 
     comicarr_logger.warning("[COMIC-SCAN] No COMIC_DIR configured")
@@ -178,26 +178,26 @@ def test_warnings_and_exceptions_reach_the_sinks(isolated_logger, monkeypatch):
     except ValueError:
         comicarr_logger.exception("handled")
 
-    emitted = [entry[1] for entry in comicarr.LOGLIST]
+    emitted = [entry[1] for entry in runtime.current().loglist]
     assert any("No COMIC_DIR configured" in line for line in emitted)
     assert any("handled" in line for line in emitted)
 
 
 def test_the_web_ui_log_list_is_bounded(isolated_logger, monkeypatch):
-    """LOGLIST is an in-memory buffer for the life of the process, so it needs a cap.
+    """The Web UI log list is an in-memory buffer for the life of the process, so it needs a cap.
 
     The retired locale branch trimmed at 2500; ``LogListHandler`` never did.
     Retiring that branch without carrying the cap across would have handed every
     Docker install an unbounded list.
     """
-    monkeypatch.setattr(comicarr, "LOGLIST", [], raising=False)
+    monkeypatch.setattr(runtime.current(), "loglist", [], raising=False)
     monkeypatch.setattr(comicarr_logger, "MAX_LOGLIST_ENTRIES", 10)
     isolated_logger(2)
 
     for index in range(25):
         comicarr_logger.info("entry-%s" % index)
 
-    assert len(comicarr.LOGLIST) == 10
+    assert len(runtime.current().loglist) == 10
     # Newest first, so the cap must drop the *oldest* entries.
-    assert "entry-24" in comicarr.LOGLIST[0][1]
-    assert not any("entry-0 " in entry[1] for entry in comicarr.LOGLIST)
+    assert "entry-24" in runtime.current().loglist[0][1]
+    assert not any("entry-0 " in entry[1] for entry in runtime.current().loglist)

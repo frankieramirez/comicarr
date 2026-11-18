@@ -33,10 +33,9 @@ BRACKETED = [
 
 @pytest.fixture
 def config(monkeypatch):
-    import comicarr
 
-    if comicarr.LOG_LEVEL is None:
-        monkeypatch.setattr(comicarr, "LOG_LEVEL", 0)
+    if runtime.current().log_level is None:
+        monkeypatch.setattr(runtime.current(), "log_level", 0)
     cfg = MagicMock()
     cfg.IGNORE_SEARCH_WORDS = []
     cfg.READ2FILENAME = False

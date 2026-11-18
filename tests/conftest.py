@@ -331,13 +331,8 @@ def mock_comicarr_globals(tmp_path, monkeypatch):
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
 
-    # Import comicarr and patch globals
-    import comicarr
-
     monkeypatch.setattr(runtime.current(), "data_dir", str(data_dir))
     monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CACHE_DIR", str(cache_dir))
-    monkeypatch.setattr(comicarr, "LOG_DIR", str(log_dir))
 
     return {
         "data_dir": data_dir,
@@ -479,11 +474,9 @@ def capture_logs(caplog):
     """
     import logging
 
-    import comicarr
-
     caplog.set_level(logging.DEBUG)
 
-    # comicarr's custom logger gates fdebug/debug/info on comicarr.LOG_LEVEL
+    # comicarr's custom logger gates fdebug/debug/info on runtime.current().log_level
     # (fdebug only emits when LOG_LEVEL > 1) and sets propagate=False once
     # initLogger() runs. Both are process-global and order-dependent, so a
     # capture_logs test can silently see nothing depending on what ran before
@@ -493,8 +486,8 @@ def capture_logs(caplog):
     comicarr_logger = logging.getLogger("comicarr")
     prev_propagate = comicarr_logger.propagate
     prev_level = comicarr_logger.level
-    prev_log_level = getattr(comicarr, "LOG_LEVEL", 0)
-    comicarr.LOG_LEVEL = 2
+    prev_log_level = runtime.current().log_level
+    runtime.current().log_level = 2
     comicarr_logger.propagate = True
     comicarr_logger.setLevel(logging.DEBUG)
     comicarr_logger.addHandler(caplog.handler)
@@ -504,7 +497,7 @@ def capture_logs(caplog):
         comicarr_logger.removeHandler(caplog.handler)
         comicarr_logger.propagate = prev_propagate
         comicarr_logger.setLevel(prev_level)
-        comicarr.LOG_LEVEL = prev_log_level
+        runtime.current().log_level = prev_log_level
 
 
 # =============================================================================

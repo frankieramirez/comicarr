@@ -67,8 +67,8 @@ NEWZNAB_HOST = ("nzb.example", "https://nzb.example", "1", "apikey123", "42#7030
 def rss_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    if comicarr.LOG_LEVEL is None:
-        monkeypatch.setattr(comicarr, "LOG_LEVEL", 0)
+    if runtime.current().log_level is None:
+        monkeypatch.setattr(runtime.current(), "log_level", 0)
     shutdown_engine()
     engine = get_engine()
     metadata.create_all(engine)

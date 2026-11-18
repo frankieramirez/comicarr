@@ -104,3 +104,57 @@ def test_a_historical_release_driver_is_still_checked_for_other_names(tmp_path, 
 def test_the_runtime_field_exemption_is_limited_to_historical_files(tmp_path, monkeypatch):
     name = sorted(GUARD._RUNTIME_FIELD_NAMES)[0]
     assert _scan_file(tmp_path, monkeypatch, "tests/unit/test_new.py", "comicarr.%s = data_dir" % name) == 1
+
+
+# The general package-global gate (#1543): any uppercase name, registered or
+# not. The name is built at run time so this file never holds the forms itself.
+NEW_NAME = "_".join(("BRAND", "NEW", "GLOBAL"))
+
+
+@pytest.mark.parametrize(
+    "form",
+    [
+        "comicarr.%s = True",
+        "if comicarr.%s:",
+        "value = getattr(comicarr, '%s', None)",
+        'monkeypatch.setattr(comicarr, "%s", 1)',
+        'with patch.object(comicarr, "%s", 1):',
+        "_comicarr.%s = 1",
+    ],
+)
+def test_any_new_package_global_is_caught(scan, form):
+    assert scan(form % NEW_NAME) == 1
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "from comicarr.app.core import runtime",
+        "comicarr.app.search.engine.searchforissue()",
+        "comicarr._INITIALIZED = False",
+        "runtime.current().log_level = 1",
+        "comicarr.initialize(config_file)",
+    ],
+)
+def test_package_attributes_that_are_not_globals_pass(scan, line):
+    assert scan(line) == 0
+
+
+def _scan_package_init(tmp_path, monkeypatch, source):
+    result = _scan_file(tmp_path, monkeypatch, "comicarr/__init__.py", source)
+    monkeypatch.setattr(GUARD, "SCAN_ROOTS", ("comicarr",))
+    return GUARD.main() if result == 0 else result
+
+
+def test_a_public_uppercase_assignment_in_the_package_init_is_caught(tmp_path, monkeypatch):
+    assert _scan_package_init(tmp_path, monkeypatch, "%s = None" % NEW_NAME) == 1
+
+
+def test_a_private_or_local_assignment_in_the_package_init_passes(tmp_path, monkeypatch):
+    source = "_%s = frozenset()\n\ndef f():\n    %s = 1" % (NEW_NAME, NEW_NAME.lower())
+    assert _scan_package_init(tmp_path, monkeypatch, source) == 0
+
+
+def test_the_historical_release_driver_may_use_package_globals(tmp_path, monkeypatch):
+    relative = sorted(GUARD.HISTORICAL_FILES)[0]
+    assert _scan_file(tmp_path, monkeypatch, relative, "comicarr.%s = data_dir" % NEW_NAME) == 0

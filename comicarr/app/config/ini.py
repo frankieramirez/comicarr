@@ -360,9 +360,9 @@ class Config(object):
                     self.LOG_DIR = None
                     print("Unable to create the log directory. Logging to screen only.")
 
-            record_startup_argument(comicarr.LOG_LEVEL)
+            record_startup_argument(runtime.current().log_level)
             resolution = resolve_startup_log_level(
-                argument_level=comicarr.LOG_LEVEL,
+                argument_level=runtime.current().log_level,
                 config_level=self.LOG_LEVEL,
             )
             for notice in resolution.notices:
@@ -371,7 +371,7 @@ class Config(object):
             if self.LOG_LEVEL is None:
                 self.LOG_LEVEL = 1
 
-            comicarr.LOG_LEVEL = log_level
+            runtime.current().log_level = log_level
             logger.initLogger(
                 console=True,
                 log_dir=self.LOG_DIR,
