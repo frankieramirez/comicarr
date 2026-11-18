@@ -72,7 +72,7 @@ class MegaNZ(object):
         else:
             logger.info("ddl_linked - filename: %s" % filename)
         if ext == ".zip":
-            ggc = comicarr.getcomics.GC()
+            ggc = comicarr.app.downloads.getcomics.GC()
             return ggc.zip_zip(id, str(filepath), filename)
         return {"success": True, "filename": filename, "path": str(filepath)}
 

@@ -139,7 +139,7 @@ class MediaFire(object):
 
         file, ext = os.path.splitext(fileinfo["filename"])
         if ext == ".zip":
-            ggc = comicarr.getcomics.GC()
+            ggc = comicarr.app.downloads.getcomics.GC()
             return ggc.zip_zip(id, str(filepath), fileinfo["filename"])
         else:
             return {"success": True, "filename": fileinfo["filename"], "path": str(filepath)}

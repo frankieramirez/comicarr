@@ -304,7 +304,7 @@ def test_manga_volume_query_uses_series_name_and_book_number(volume, accepted):
 @pytest.mark.parametrize("review,expected_count", [(False, 2), (True, 3)])
 @pytest.mark.parametrize("priority", [False, None])
 def test_getcomics_caller_uses_the_supplied_evaluation_session(monkeypatch, review, expected_count, priority):
-    from comicarr.getcomics import GC
+    from comicarr.app.downloads.getcomics import GC
 
     comicarr.CONFIG.PACK_PRIORITY = priority
     source = object.__new__(GC)

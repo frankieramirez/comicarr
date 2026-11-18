@@ -19,11 +19,10 @@ import requests
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import getcomics
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.core import db
 from comicarr.app.core.tables import ddl_info, metadata
-from comicarr.app.downloads import postprocessing, pp_commands, recovery, router, service
+from comicarr.app.downloads import getcomics, postprocessing, pp_commands, recovery, router, service
 from comicarr.app.downloads import service as downloads_service
 from comicarr.app.downloads.ddl_commands import DDLCommand
 from comicarr.downloaders import mediafire

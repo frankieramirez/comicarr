@@ -93,7 +93,6 @@ DEFERRED = "a change that moves this module's behavior under comicarr/app/; not 
 
 DEFERRED_ALLOWLIST = {
     ("comicarr/app/downloads/service.py", "filechecker"): ("FileChecker for duplicate checks", DEFERRED),
-    ("comicarr/app/downloads/service.py", "getcomics"): ("GetComics direct downloads (GC)", DEFERRED),
     ("comicarr/app/downloads/service.py", "search"): ("FailedMark and searchforissue for retries", DEFERRED),
     ("comicarr/app/imports/finalization.py", "filechecker"): ("validateAndCreateDirectory", DEFERRED),
     ("comicarr/app/system/maintenance.py", "filechecker"): (
@@ -118,6 +117,10 @@ DEFERRED_ALLOWLIST = {
     ),
     ("comicarr/app/search/rss_runner.py", "search"): (
         "the RSS pass ends with searchforissue over the Wanted list; carried over when rsscheckit.py moved (#1523)",
+        "#1422 moves search under comicarr/app/",
+    ),
+    ("comicarr/app/downloads/getcomics.py", "search"): (
+        "provider pacing (check_time, last_run_check) lives in search; carried over when getcomics.py moved (#1530)",
         "#1422 moves search under comicarr/app/",
     ),
     ("comicarr/app/series/comic_add.py", "filechecker"): (

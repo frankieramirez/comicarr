@@ -144,7 +144,7 @@ class PixelDrain(object):
         logger.info("[PixelDrain] ddl_linked - filename: %s" % filename)
 
         if ext == ".zip":
-            ggc = comicarr.getcomics.GC()
+            ggc = comicarr.app.downloads.getcomics.GC()
             return ggc.zip_zip(self.id, str(filepath), filename)
         else:
             return {"success": True, "filename": filename, "path": str(filepath)}
