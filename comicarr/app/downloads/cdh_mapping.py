@@ -68,7 +68,7 @@ class CDH_MAP(object):
             from requests.packages.urllib3 import disable_warnings
 
             disable_warnings()
-        except:
+        except Exception:
             pass
 
     def the_sequence(self):
