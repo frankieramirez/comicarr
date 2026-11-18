@@ -1300,6 +1300,10 @@ msgstr "Aktionen"
 msgid "Actions for {ComicName} #{IssueNumber}"
 msgstr "Aktionen für {ComicName} #{IssueNumber}"
 
+#: src/components/queue/upcomingColumns.tsx
+msgid "Actions for {series} {release}"
+msgstr "Aktionen für {series} {release}"
+
 #: src/components/ai/ChatThreadList.tsx
 msgid "Actions for {title}"
 msgstr "Aktionen für {title}"
@@ -6598,6 +6602,10 @@ msgstr "Zustand öffnen"
 msgid "Open in Activity"
 msgstr "In Aktivität öffnen"
 
+#: src/components/queue/upcomingColumns.tsx
+msgid "Open issue"
+msgstr "Ausgabe öffnen"
+
 #: src/components/dashboard/LibraryHighlights.tsx
 msgid "Open library"
 msgstr "Bibliothek öffnen"
@@ -6611,6 +6619,7 @@ msgid "Open search settings"
 msgstr "Sucheinstellungen öffnen"
 
 #: src/components/ai/ChatActionCard.tsx
+#: src/components/queue/upcomingColumns.tsx
 msgid "Open series"
 msgstr "Serie öffnen"
 

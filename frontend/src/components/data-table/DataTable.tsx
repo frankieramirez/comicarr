@@ -116,7 +116,10 @@ export function DataTable<TData extends RowData>({
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
-                        className="px-3 py-1.5 first:ps-2 last:pe-2"
+                        className={cn(
+                          "px-3 py-1.5 first:ps-2 last:pe-2",
+                          cell.column.columnDef.meta?.cellClassName,
+                        )}
                       >
                         {flexRender(
                           cell.column.columnDef.cell,
