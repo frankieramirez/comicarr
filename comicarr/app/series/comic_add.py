@@ -49,6 +49,19 @@ from comicarr.app.series.add_activity import emit_add_activity
 from comicarr.app.weekly import pull
 
 
+def cover_cache_path(comicid):
+    """Return the cached cover path for a series, refusing any id that escapes the cache folder.
+
+    Series ids come from metadata providers and API callers, so an id holding a
+    path separator or ``..`` must not reach the filesystem.
+    """
+    cache_root = os.path.realpath(runtime.current().config.CACHE_DIR)
+    candidate = os.path.realpath(os.path.join(cache_root, str(comicid) + ".jpg"))
+    if not candidate.startswith(cache_root + os.sep):
+        raise ValueError("Invalid series id for cover cache: %r" % (comicid,))
+    return candidate
+
+
 def mark_series_wanted(comicid):
     """Mark every issue and annual of a series Wanted, right after its add.
 
@@ -477,9 +490,9 @@ def add_comic(
         )
         return {"status": "incomplete"}
 
-    cimage = os.path.join(runtime.current().config.CACHE_DIR, str(comicid) + ".jpg")
+    cimage = cover_cache_path(comicid)
     if runtime.current().config.ALTERNATE_LATEST_SERIES_COVERS is False or not os.path.isfile(cimage):
-        cimage = os.path.join(runtime.current().config.CACHE_DIR, str(comicid) + ".jpg")
+        cimage = cover_cache_path(comicid)
         PRComicImage = os.path.join("cache", str(comicid) + ".jpg")
         ComicImage = common_strings.replacetheslash(PRComicImage)
         coversize = 0
@@ -669,7 +682,7 @@ def add_comic(
             add_manual_annual(annchk=anndata, series_status=series_status)
 
     if runtime.current().config.ALTERNATE_LATEST_SERIES_COVERS is True:
-        cimage = os.path.join(runtime.current().config.CACHE_DIR, comicid + ".jpg")
+        cimage = cover_cache_path(comicid)
         coversize = 0
         if os.path.isfile(cimage):
             statinfo = os.stat(cimage)
@@ -1871,7 +1884,7 @@ def check_annuals(ComicName, SeriesYear, comicid, issuetype, issuechk, annualsli
 
 def fetch_series_image(comicid, latestissueid, comlocation, ComicImage):
 
-    cimage = os.path.join(runtime.current().config.CACHE_DIR, str(comicid) + ".jpg")
+    cimage = cover_cache_path(comicid)
     imageurl = cv.getComic(comicid, "image", issueid=latestissueid)
     if imageurl is None:
         return
