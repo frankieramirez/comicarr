@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from comicarr.torrent.clients import transmission
+from comicarr.app.downloads.torrent.clients import transmission
 
 HASH = "b" * 40
 SESSION_ID = "fake-session"

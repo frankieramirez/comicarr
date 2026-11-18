@@ -85,7 +85,7 @@ def test_rtorrent_import_path_no_importerror_and_status(monkeypatch):
     def send_or_check(torrent_hash=None, check=False):
         return {"completed": False, "files": ["a.cbz"], "folder": "/dl"}
 
-    with patch("comicarr.torrent.clients.rtorrent.send_or_check", side_effect=send_or_check):
+    with patch("comicarr.app.downloads.torrent.clients.rtorrent.send_or_check", side_effect=send_or_check):
         result = service.torrentinfo(torrent_hash=HASH40, download=True)
 
     assert isinstance(result, dict)
@@ -101,7 +101,7 @@ def test_deluge_unfinished_download_true_is_in_progress(monkeypatch):
     fake_client.connect.return_value = True
     fake_client.get_torrent.return_value = _deluge_torrent(finished=False)
 
-    with patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client):
+    with patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=fake_client):
         result = service.torrentinfo(torrent_hash=HASH40, download=True)
 
     assert isinstance(result, dict)
@@ -125,7 +125,7 @@ def test_not_found_path_still_works(monkeypatch):
     fake_client.connect.return_value = True
     fake_client.get_torrent.return_value = False
 
-    with patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client):
+    with patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=fake_client):
         result = service.torrentinfo(torrent_hash=HASH40, download=True)
 
     assert isinstance(result, dict)
@@ -142,7 +142,7 @@ def test_download_false_present_incomplete_is_in_progress(monkeypatch):
     fake_client.connect.return_value = True
     fake_client.get_torrent.return_value = _deluge_torrent(finished=False)
 
-    with patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client):
+    with patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=fake_client):
         result = service.torrentinfo(torrent_hash=HASH40, download=False, monitor=False)
 
     assert isinstance(result, dict)
@@ -159,7 +159,7 @@ def test_deluge_monitor_copies_the_resolved_incomplete_file(monkeypatch):
     fake_client.get_torrent.return_value = _deluge_torrent(finished=False)
 
     with (
-        patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client),
+        patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=fake_client),
         patch("shutil.copy") as copy,
     ):
         result = service.torrentinfo(torrent_hash=HASH40, download=False, monitor=True)
@@ -185,7 +185,7 @@ def test_a_failed_copy_still_resumes_the_paused_torrent(monkeypatch):
     fake_client.get_torrent.return_value = _deluge_torrent(finished=False)
 
     with (
-        patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client),
+        patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=fake_client),
         patch("shutil.copy", side_effect=OSError("disk full")),
     ):
         result = service.torrentinfo(torrent_hash=HASH40, download=False, monitor=True)
@@ -210,7 +210,7 @@ def test_a_non_pausable_client_is_monitored_without_being_paused(monkeypatch):
     fake_client.torrent_files.return_value = [{"name": "Saga.cbz"}]
 
     with (
-        patch("comicarr.torrent.clients.qbittorrent.TorrentClient", return_value=fake_client),
+        patch("comicarr.app.downloads.torrent.clients.qbittorrent.TorrentClient", return_value=fake_client),
         patch("shutil.copy") as copy,
     ):
         result = service.torrentinfo(torrent_hash=HASH40, download=False, monitor=True)
@@ -229,7 +229,7 @@ def test_deluge_connect_failure_dict_is_monitor_error_not_not_found(monkeypatch)
     fake_client.connect.return_value = {"status": False, "error": "connection refused"}
     fake_client.get_torrent.return_value = False
 
-    with patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client):
+    with patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=fake_client):
         result = service.torrentinfo(torrent_hash=HASH40, download=True)
 
     assert isinstance(result, dict)
@@ -245,7 +245,7 @@ def test_deluge_connect_false_is_monitor_error(monkeypatch):
     fake_client = MagicMock()
     fake_client.connect.return_value = False
 
-    with patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client):
+    with patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=fake_client):
         result = service.torrentinfo(torrent_hash=HASH40, download=True)
 
     assert isinstance(result, dict)
@@ -294,7 +294,7 @@ def test_rtorrent_none_missing_hash_is_not_found_dict(monkeypatch):
     def send_or_check(torrent_hash=None, check=False):
         return None
 
-    with patch("comicarr.torrent.clients.rtorrent.send_or_check", side_effect=send_or_check):
+    with patch("comicarr.app.downloads.torrent.clients.rtorrent.send_or_check", side_effect=send_or_check):
         result = service.torrentinfo(torrent_hash=HASH40, download=True)
 
     assert isinstance(result, dict)
@@ -311,7 +311,7 @@ def test_completed_download_without_auto_snatch_does_not_open_script(monkeypatch
     fake_client.get_torrent.return_value = _deluge_torrent(finished=True)
 
     with (
-        patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client),
+        patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=fake_client),
         patch("builtins.open", side_effect=AssertionError("auto-snatch script must not open")),
     ):
         result = service.torrentinfo(torrent_hash=HASH40, download=True)
@@ -329,7 +329,7 @@ def test_local_torrent_pp_copies_a_completed_download(monkeypatch):
     fake_client.get_torrent.return_value = _deluge_torrent(finished=True)
 
     with (
-        patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=fake_client),
+        patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=fake_client),
         patch("shutil.copy") as copy,
     ):
         result = service.torrentinfo(torrent_hash=HASH40, download=True)
@@ -356,7 +356,7 @@ def test_local_torrent_pp_copies_a_completed_qbittorrent_download(monkeypatch):
     fake_client.torrent_files.return_value = [{"name": "Saga.cbz"}]
 
     with (
-        patch("comicarr.torrent.clients.qbittorrent.TorrentClient", return_value=fake_client),
+        patch("comicarr.app.downloads.torrent.clients.qbittorrent.TorrentClient", return_value=fake_client),
         patch("shutil.copy") as copy,
     ):
         result = service.torrentinfo(torrent_hash=HASH40, download=True)

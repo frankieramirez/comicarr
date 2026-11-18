@@ -22,7 +22,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from comicarr.torrent.clients import qbittorrent
+from comicarr.app.downloads.torrent.clients import qbittorrent
 
 HASH = "A" * 40
 MAGNET = "magnet:?xt=urn:btih:" + HASH

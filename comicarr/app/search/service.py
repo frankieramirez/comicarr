@@ -29,11 +29,11 @@ from comicarr.app.acquisition.models import DispatchState, ItemOutcome, RunState
 from comicarr.app.core import db, logger
 from comicarr.app.core.tables import issues, ref32p
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.downloads.torrent import monitor as torrent_monitor
 from comicarr.app.library import filers
 from comicarr.app.search import rss
 from comicarr.app.search.commands import SearchCommand, SearchCommandError
 from comicarr.app.search.routes import classify, route_health
-from comicarr.torrent import monitor as torrent_monitor
 
 
 def find_comic(

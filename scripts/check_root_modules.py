@@ -56,9 +56,7 @@ ROOT_MODULES: dict[str, int] = {
 }
 
 # Directory under comicarr/ other than app/ -> retiring issue.
-ROOT_PACKAGES: dict[str, int] = {
-    "torrent": 1422,
-}
+ROOT_PACKAGES: dict[str, int] = {}
 
 # Top-level entry under comicarr/_vendor/ -> retiring issue.
 VENDOR_ROOTS: dict[str, int] = {}

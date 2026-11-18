@@ -68,6 +68,7 @@ from comicarr.app.core.workers import submit_background_future
 from comicarr.app.downloads import failed, getcomics, handoff, nzbget, sabnzbd, snatch_record
 from comicarr.app.downloads import service as downloads_service
 from comicarr.app.downloads.ddl import external_server as exs
+from comicarr.app.downloads.torrent import monitor as torrent_monitor
 from comicarr.app.notifications import service as notifiers
 from comicarr.app.search import diagnostics as search_diagnostics
 from comicarr.app.search import failures as search_failures
@@ -87,7 +88,6 @@ from comicarr.app.search.health import search_providers_available
 from comicarr.app.search.provider_config import provider_enabled, split_newznab_category_field
 from comicarr.app.series import service as series_service
 from comicarr.app.system import service as system_service
-from comicarr.torrent import monitor as torrent_monitor
 
 _search_executor = None
 _indexer_cooldowns = {}

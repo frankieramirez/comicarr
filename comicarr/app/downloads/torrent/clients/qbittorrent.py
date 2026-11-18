@@ -18,7 +18,7 @@ import qbittorrentapi
 
 import comicarr
 from comicarr.app.core import logger
-from comicarr.torrent.contracts import connection_failure
+from comicarr.app.downloads.torrent.contracts import connection_failure
 
 # Seconds to wait on any single WebUI call. The monitor polls this client from
 # a single-threaded worker, so an unbounded request would stall monitoring for

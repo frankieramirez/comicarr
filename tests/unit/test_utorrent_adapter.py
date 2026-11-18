@@ -22,7 +22,7 @@ from urllib.parse import parse_qsl, urlsplit
 
 import pytest
 
-from comicarr.torrent.clients import utorrent
+from comicarr.app.downloads.torrent.clients import utorrent
 
 USERNAME = "admin"
 PASSWORD = "secret"
