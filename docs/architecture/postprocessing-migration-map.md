@@ -124,7 +124,7 @@ Decided on the [Foundations map](https://github.com/frankieramirez/comicarr/issu
 - The success, failed-download and "outside" retry loop that `process.py` runs
   today lives in `app/downloads/postprocessing.py`.
 - What remains at the root is one module-level function in
-  `comicarr/postprocessor.py` that matches the files in a folder and returns
+  `comicarr/app/downloads/postprocess_match.py` (formerly `comicarr/postprocessor.py`) that matches the files in a folder and returns
   typed matches. A match is one of two kinds: a library issue, or an arc-only
   match for a file that belongs to a watched story arc and to no watched
   series. The pipeline places arc-only matches in the arc folder under an
@@ -166,7 +166,7 @@ All eight stages have landed:
    `fail_reason` next to `status`, which keeps its old values so the 409,
    queue-retry and monitor-deferral contracts are unchanged.
 8. Folder matching (landed). The class is deleted. The body of `Process()`
-   is `match_folder` in `comicarr/postprocessor.py`: it returns
+   is `match_folder` in `comicarr/app/downloads/postprocess_match.py`: it returns
    `FolderMatches`, whose `library` holds `LibraryIssueMatch` and whose
    `arc_only` holds `ArcOnlyMatch`, plus the downloads identified from what
    was snatched and how the rules ended the request. It moves no files,

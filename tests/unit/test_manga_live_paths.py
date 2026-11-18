@@ -435,7 +435,7 @@ def test_folder_scan_numbers_a_watchlisted_manga_series_by_volume():
     Deriving the number inline meant a manga series fell through to the issue
     branch, so a volume file yielded no number and matched no issue.
     """
-    pp_path = Path(__file__).resolve().parents[2] / "comicarr" / "postprocessor.py"
+    pp_path = Path(__file__).resolve().parents[2] / "comicarr" / "app" / "downloads" / "postprocess_match.py"
     tree = ast.parse(pp_path.read_text(encoding="utf-8"))
 
     called = {node.func.id for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
@@ -493,7 +493,7 @@ def test_every_volume_predicate_is_guarded_against_a_chapter_named_file():
     so wherever it decides a branch, the chapter exclusion has to decide it
     too.
     """
-    pp_path = Path(__file__).resolve().parents[2] / "comicarr" / "postprocessor.py"
+    pp_path = Path(__file__).resolve().parents[2] / "comicarr" / "app" / "downloads" / "postprocess_match.py"
     tree = ast.parse(pp_path.read_text(encoding="utf-8"))
 
     def calls(node, name):
@@ -536,7 +536,7 @@ def test_the_volume_numbered_type_list_has_a_single_owner():
     blind to a duplicate written with single quotes, and fails on a mere
     mention of TPB in a comment or docstring.
     """
-    pp_path = Path(__file__).resolve().parents[2] / "comicarr" / "postprocessor.py"
+    pp_path = Path(__file__).resolve().parents[2] / "comicarr" / "app" / "downloads" / "postprocess_match.py"
     tree = ast.parse(pp_path.read_text(encoding="utf-8"))
 
     definitions = [

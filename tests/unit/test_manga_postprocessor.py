@@ -20,7 +20,7 @@ Unit tests for manga post-processing.
 
 Tests cover ``process_manga_download`` in
 ``comicarr/app/downloads/postprocess_pipeline.py`` and the manga branch in
-``process_download``, plus the matching helpers in ``comicarr/postprocessor.py``.
+``process_download``, plus the matching helpers in ``comicarr/app/downloads/postprocess_match.py``.
 """
 
 import os
@@ -31,8 +31,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
-from comicarr import postprocessor
 from comicarr.app.common.placement import OnExisting, PlacementError, Purpose
+from comicarr.app.downloads import postprocess_match as postprocessor
 from comicarr.app.downloads import postprocess_pipeline
 from tests.conftest import placement_result
 from tests.fakes import folder_request
@@ -43,7 +43,7 @@ def _mock_db():
     """One mock behind the facade's db and the query boundaries the stages write through."""
     mock_db = MagicMock()
     with (
-        patch("comicarr.postprocessor.db", mock_db),
+        patch("comicarr.app.downloads.postprocess_match.db", mock_db),
         patch("comicarr.app.downloads.postprocess_pipeline.db", mock_db),
         patch("comicarr.app.series.queries.db", mock_db),
         patch("comicarr.app.downloads.queries.db", mock_db),
@@ -56,7 +56,7 @@ def _mock_db():
 if comicarr.LOG_LEVEL is None:
     comicarr.LOG_LEVEL = 0
 
-from comicarr.postprocessor import (
+from comicarr.app.downloads.postprocess_match import (
     chapter_named_file,
     log_scan_summary,
     manga_volume_rows,
@@ -70,7 +70,7 @@ from comicarr.postprocessor import (
 
 def test_scan_summary_emits_one_bounded_line_without_candidate_chatter():
     selected = [{"ComicID": "42", "ComicName": "Saga"}]
-    with patch("comicarr.postprocessor.logger.fdebug") as fdebug:
+    with patch("comicarr.app.downloads.postprocess_match.logger.fdebug") as fdebug:
         log_scan_summary("[PP] ", "Saga 1.cbz", 3, selected, 1, True)
 
     fdebug.assert_called_once()
@@ -150,7 +150,9 @@ class TestMangaPlacementHonoursFileOpts:
         comic_row = {"ComicName": "Chainsaw Man", "ComicLocation": str(dest_dir)}
         with (
             patch.object(comicarr, "CONFIG", config),
-            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch(
+                "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
+            ),
             _mock_db() as mock_db,
         ):
             mock_db.select_one.side_effect = [comic_row, None, None, None]
@@ -189,7 +191,7 @@ class TestMangaBranchDetection:
         """A non-md ComicID should NOT call process_manga_download."""
         with (
             _patch_manga_branch() as mock_pm,
-            patch("comicarr.postprocessor.filechecker") as mock_fc,
+            patch("comicarr.app.downloads.postprocess_match.filechecker") as mock_fc,
             _mock_db() as mock_db,
         ):
             mock_db.select_one.return_value = {"ComicID": "12345"}
@@ -213,7 +215,7 @@ class TestMangaBranchDetection:
     def test_operator_comic_kind_overrides_mangadex_prefix(self):
         with (
             _patch_manga_branch() as mock_pm,
-            patch("comicarr.postprocessor.filechecker") as mock_fc,
+            patch("comicarr.app.downloads.postprocess_match.filechecker") as mock_fc,
             _mock_db() as mock_db,
         ):
             mock_db.select_one.return_value = {
@@ -314,7 +316,7 @@ class TestProcessMangaNoDestination:
 
         with (
             _mock_db() as mock_db,
-            patch("comicarr.postprocessor.get_manga_destination", return_value=None),
+            patch("comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=None),
         ):
             mock_db.select_one.return_value = comic_row
             _process_manga(pp)
@@ -351,12 +353,12 @@ class TestProcessMangaHealsMisplacedLocation:
         }
 
         with (
-            patch("comicarr.postprocessor.get_manga_destination", return_value=str(manga_dest)),
+            patch("comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(manga_dest)),
             _mock_db() as mock_db,
             patch("comicarr.app.series.queries.update_comic_content_kind") as update,
         ):
             mock_db.select_one.side_effect = [comic_row, None, None, None]
-            with patch("comicarr.postprocessor.place", return_value=placement_result()) as placer:
+            with patch("comicarr.app.downloads.postprocess_match.place", return_value=placement_result()) as placer:
                 _process_manga(pp)
 
         expected = os.path.join(str(manga_dest), "Berserk")
@@ -387,7 +389,7 @@ class TestProcessMangaHealsMisplacedLocation:
         }
 
         with (
-            patch("comicarr.postprocessor.get_manga_destination", return_value=str(manga_dest)),
+            patch("comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(manga_dest)),
             _mock_db() as mock_db,
             patch("comicarr.app.series.queries.update_comic_content_kind") as update,
         ):
@@ -424,10 +426,12 @@ class TestProcessMangaHonorsChosenFolder:
         )
         with (
             patch.object(comicarr, "CONFIG", config),
-            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch(
+                "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
+            ),
             _mock_db() as mock_db,
             patch("comicarr.app.series.queries.update_comic_content_kind") as update,
-            patch("comicarr.postprocessor.place", return_value=placement_result()) as placer,
+            patch("comicarr.app.downloads.postprocess_match.place", return_value=placement_result()) as placer,
         ):
             mock_db.select_one.side_effect = [comic_row, None, None, None]
             _process_manga(pp)
@@ -474,12 +478,14 @@ class TestProcessMangaFileMove:
         comic_row = {"ComicName": "Bleach", "ComicLocation": str(dest_dir)}
 
         with (
-            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch(
+                "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
+            ),
             _mock_db() as mock_db,
         ):
             # First call: comic lookup. Remaining: chapter/issue lookups return None
             mock_db.select_one.side_effect = [comic_row, None, None, None]
-            with patch("comicarr.postprocessor.place", return_value=placement_result()) as placer:
+            with patch("comicarr.app.downloads.postprocess_match.place", return_value=placement_result()) as placer:
                 _process_manga(pp)
 
         # the placement stage should have been called for the file
@@ -517,11 +523,13 @@ class TestProcessMangaFileMove:
         comic_row = {"ComicName": "Bleach", "ComicLocation": str(dest_dir)}
 
         with (
-            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch(
+                "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
+            ),
             _mock_db() as mock_db,
         ):
             mock_db.select_one.return_value = comic_row
-            with patch("comicarr.postprocessor.place", **placement_kwargs):
+            with patch("comicarr.app.downloads.postprocess_match.place", **placement_kwargs):
                 _process_manga(pp)
 
         assert len(messages) == 1
@@ -550,12 +558,14 @@ class TestProcessMangaFileMove:
         issue_row = {"IssueID": "md-bleach-v1", "Issue_Number": "1"}
 
         with (
-            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch(
+                "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
+            ),
             _mock_db() as mock_db,
         ):
             # a chapter match IS available -- only the falsy placement stops it
             mock_db.select_one.side_effect = [comic_row, issue_row, None, None]
-            with patch("comicarr.postprocessor.place", side_effect=PlacementError("no space")):
+            with patch("comicarr.app.downloads.postprocess_match.place", side_effect=PlacementError("no space")):
                 _process_manga(pp)
 
         assert mock_db.upsert.call_count == 0, "an unplaced chapter must not be marked Downloaded"
@@ -597,14 +607,16 @@ class TestProcessMangaExistingDestination:
         comic_row = {"ComicName": "Chainsaw Man", "ComicLocation": str(dest_dir)}
         with (
             patch.object(comicarr, "CONFIG", config),
-            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch(
+                "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
+            ),
             _mock_db() as mock_db,
         ):
             mock_db.select_one.side_effect = [comic_row, None, None, None]
             if placement is None:
                 _process_manga(pp)
             else:
-                with patch("comicarr.postprocessor.place", **placement):
+                with patch("comicarr.app.downloads.postprocess_match.place", **placement):
                     _process_manga(pp)
 
         return cbz, placed, pp
@@ -709,9 +721,11 @@ class TestProcessMangaChapterMatch:
 
         with (
             patch.object(comicarr, "CONFIG", config),
-            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch(
+                "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
+            ),
             patch("comicarr.app.downloads.journal.record_transition", return_value=True),
-            patch("comicarr.postprocessor.place", return_value=placement_result()),
+            patch("comicarr.app.downloads.postprocess_match.place", return_value=placement_result()),
             _mock_db() as mock_db,
         ):
             # select_one calls: 1) comic lookup, 2) chapter match, 3) re-run check, 4) have count
@@ -748,8 +762,10 @@ class TestProcessMangaChapterMatch:
         comic_row = {"ComicName": "Chainsaw Man", "ComicLocation": str(dest_dir)}
 
         with (
-            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
-            patch("comicarr.postprocessor.place", return_value=placement_result()),
+            patch(
+                "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
+            ),
+            patch("comicarr.app.downloads.postprocess_match.place", return_value=placement_result()),
             _mock_db() as mock_db,
         ):
             # comic lookup succeeds, all chapter/issue lookups return None
@@ -817,7 +833,9 @@ class TestMangaTidiesTheEmptiedDownloadFolder:
 
         with (
             patch.object(comicarr, "CONFIG", config),
-            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch(
+                "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
+            ),
             patch("comicarr.app.downloads.journal.record_transition", return_value=True),
             _mock_db() as mock_db,
         ):
@@ -914,9 +932,11 @@ class TestMangaMetatagOnImport:
         resolved = str(tagged) if cmtag_return == "TAGGED" else cmtag_return
 
         with (
-            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch(
+                "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
+            ),
             patch("comicarr.app.downloads.journal.record_transition", return_value=True),
-            patch("comicarr.postprocessor.place", return_value=placement_result()) as mock_place,
+            patch("comicarr.app.downloads.postprocess_match.place", return_value=placement_result()) as mock_place,
             patch("comicarr.app.metadata.tagging.run", return_value=resolved) as mock_cmtag,
             patch.object(comicarr, "CONFIG", config),
             _mock_db() as mock_db,
@@ -1582,9 +1602,11 @@ class TestMangaKeepsTheFileWhenTheDownloadFolderIsTheSeriesFolder:
 
         with (
             patch.object(comicarr, "CONFIG", config),
-            patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+            patch(
+                "comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")
+            ),
             patch("comicarr.app.downloads.journal.record_transition", return_value=True),
-            patch("comicarr.postprocessor.place", side_effect=fake_place),
+            patch("comicarr.app.downloads.postprocess_match.place", side_effect=fake_place),
             patch("comicarr.app.metadata.tagging.run", return_value=str(tagged)),
             _mock_db() as mock_db,
         ):

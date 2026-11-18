@@ -53,7 +53,8 @@ def isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "USE_SABNZBD", False, raising=False)
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
     monkeypatch.setattr(
-        "comicarr.postprocessor.time", SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _s: None)
+        "comicarr.app.downloads.postprocess_match.time",
+        SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _s: None),
     )
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
@@ -79,7 +80,7 @@ def _download(tmp_path, name):
 
 def _scan(folder):
     """The matches a manual scan of ``folder`` hands on, by kind."""
-    from comicarr import postprocessor
+    from comicarr.app.downloads import postprocess_match as postprocessor
 
     refreshed = []
     matches = postprocessor.match_folder(
@@ -294,7 +295,7 @@ def test_only_the_facade_imports_the_folder_matcher_module():
     import ast
 
     root = pathlib.Path(__file__).resolve().parents[2]
-    source = (root / "comicarr" / "postprocessor.py").read_text(encoding="utf-8")
+    source = (root / "comicarr" / "app" / "downloads" / "postprocess_match.py").read_text(encoding="utf-8")
     assert "class PostProcessor" not in source
     assert "class FolderCheck" not in source
     importers = set()
@@ -302,11 +303,13 @@ def test_only_the_facade_imports_the_folder_matcher_module():
         if "_vendor" in path.parts:
             continue
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, ast.Import) and any(a.name == "comicarr.postprocessor" for a in node.names):
+            if isinstance(node, ast.Import) and any(
+                a.name == "comicarr.app.downloads.postprocess_match" for a in node.names
+            ):
                 importers.add(path.relative_to(root).as_posix())
             elif isinstance(node, ast.ImportFrom) and (
-                node.module == "comicarr.postprocessor"
-                or (node.module == "comicarr" and any(a.name == "postprocessor" for a in node.names))
+                node.module == "comicarr.app.downloads.postprocess_match"
+                or (node.module == "comicarr.app.downloads" and any(a.name == "postprocess_match" for a in node.names))
             ):
                 importers.add(path.relative_to(root).as_posix())
     assert importers == {"comicarr/app/downloads/postprocessing.py"}
@@ -314,7 +317,7 @@ def test_only_the_facade_imports_the_folder_matcher_module():
 
 def test_the_snatch_lookup_runs_after_the_arc_only_files_are_placed(tmp_path, monkeypatch):
     """Placing an arc-only file can complete its snatch, so the lookup waits."""
-    from comicarr import postprocessor
+    from comicarr.app.downloads import postprocess_match as postprocessor
     from comicarr.app.downloads import postprocess_pipeline
 
     order = []
@@ -362,7 +365,7 @@ def _arc_row_for(issue_arc_id):
 
 
 def test_an_arc_only_file_whose_tagging_fails_is_still_copied(tmp_path, library, monkeypatch):
-    from comicarr import postprocessor
+    from comicarr.app.downloads import postprocess_match as postprocessor
 
     _arc_folder_config(monkeypatch)
     monkeypatch.setattr(comicarr.CONFIG, "ENABLE_META", True)

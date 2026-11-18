@@ -70,9 +70,7 @@ INFRASTRUCTURE = frozenset()
 
 # Foundations legacy module -> the seam modules allowed to import it under
 # comicarr/app/. Most seams do not exist yet; each seam ticket creates its file.
-SEAMS = {
-    "postprocessor": frozenset({"comicarr/app/downloads/postprocessing.py"}),
-}
+SEAMS = {}
 
 # --------------------------------------------------------------------------
 # Foundations legacy crossings that do not go through the module's seam.

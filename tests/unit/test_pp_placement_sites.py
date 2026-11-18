@@ -37,10 +37,10 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import postprocessor
 from comicarr.app.common.placement import OnExisting, PlacementError, Purpose
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, issues, metadata
+from comicarr.app.downloads import postprocess_match as postprocessor
 from comicarr.app.downloads import postprocess_pipeline
 from tests.fakes import folder_request
 
