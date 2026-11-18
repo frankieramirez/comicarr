@@ -1300,6 +1300,10 @@ msgstr "操作"
 msgid "Actions for {ComicName} #{IssueNumber}"
 msgstr "{ComicName} #{IssueNumber} 的操作"
 
+#: src/components/queue/upcomingColumns.tsx
+msgid "Actions for {series} {release}"
+msgstr "{series} {release} 的操作"
+
 #: src/components/ai/ChatThreadList.tsx
 msgid "Actions for {title}"
 msgstr "{title} 的操作"
@@ -6597,6 +6601,10 @@ msgstr "打开健康状况"
 #: src/components/dashboard/NeedsAttentionBand.tsx
 msgid "Open in Activity"
 msgstr "在活动中打开"
+
+#: src/components/queue/upcomingColumns.tsx
+msgid "Open issue"
+msgstr "打开期刊"
 
 #: src/components/dashboard/LibraryHighlights.tsx
 msgid "Open library"
