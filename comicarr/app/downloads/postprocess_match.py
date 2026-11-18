@@ -43,7 +43,6 @@ from dataclasses import dataclass
 
 from sqlalchemy import Integer, and_, func, inspect, or_, select
 
-import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
@@ -724,7 +723,7 @@ def match_folder(
                                     try:
                                         if all(
                                             [
-                                                pathlib.Path(tpath) != pathlib.Path(comicarr.CACHE_DIR),
+                                                pathlib.Path(tpath) != pathlib.Path(runtime.current().config.CACHE_DIR),
                                                 pathlib.Path(tpath)
                                                 != pathlib.Path(runtime.current().config.DDL_LOCATION),
                                                 pathlib.Path(tpath)

@@ -277,7 +277,7 @@ def main():
         print(
             "[MAINTENANCE-MODE][CAREPACKAGE] Please wait....attempting to generate carepackage (this can take a few seconds)..."
         )
-        comicarr.LOG_LEVEL = 0
+        runtime.current().log_level = 0
         if args_datadir:
             runtime.current().data_dir = args_datadir
         else:
@@ -303,7 +303,7 @@ def main():
     # `--log-level` accepts a number or a name; an unusable value supplies
     # nothing, so it falls through to the aliases and then to the layers below
     # rather than blocking the boot over a typo.
-    comicarr.LOG_LEVEL = None
+    runtime.current().log_level = None
     if args_log_level is not None:
         argument_level, argument_notices = log_level_source.parse_level(
             args_log_level, log_level_source.SOURCE_ARGUMENT
@@ -311,14 +311,14 @@ def main():
         for notice in argument_notices:
             print(notice)
         if argument_level is not None:
-            comicarr.LOG_LEVEL = argument_level
+            runtime.current().log_level = argument_level
             print("Log level set to %s by startup argument." % log_level_source.describe_level(argument_level))
-    if comicarr.LOG_LEVEL is None and args_verbose:
+    if runtime.current().log_level is None and args_verbose:
         print("--verbose is deprecated; use --log-level debug. Log level set to 2 (debug).")
-        comicarr.LOG_LEVEL = 2
-    if comicarr.LOG_LEVEL is None and args_quiet:
+        runtime.current().log_level = 2
+    if runtime.current().log_level is None and args_quiet:
         print("--quiet is deprecated; use --log-level warning. Log level set to 0 (warning).")
-        comicarr.LOG_LEVEL = 0
+        runtime.current().log_level = 0
 
     if args_ignoreupdate:
         runtime.current().maintenance = False

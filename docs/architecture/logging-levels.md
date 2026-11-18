@@ -1,6 +1,6 @@
 # The log level contract
 
-Comicarr has exactly one verbosity control: the numeric level `comicarr.LOG_LEVEL`.
+Comicarr has exactly one verbosity control: the numeric level `runtime.current().log_level`.
 It resolves to a single stdlib threshold, and that same threshold is applied to
 the logger and to every sink it feeds. There is no second dial.
 
@@ -139,7 +139,7 @@ half is the startup chain *re-run now*, not a replay of the boot resolution:
 the environment and the config file are read fresh, and only the startup
 argument is remembered, because it is the one input that cannot be re-read
 later. `record_startup_argument` captures it in `comicarr/app/config/ini.py` before
-`comicarr.LOG_LEVEL` is overwritten with the resolved level.
+`runtime.current().log_level` is overwritten with the resolved level.
 
 `pinned` is true when the winner is a startup argument or `COMICARR_LOG_LEVEL`.
 Settings → Logs shows its override callout on exactly that flag, and on nothing
@@ -164,7 +164,7 @@ level down.
 
 ### The two helpers disagree about `None`, on purpose
 
-`comicarr.LOG_LEVEL` is `None` until configuration is read, and the two helpers
+`runtime.current().log_level` is `None` until configuration is read, and the two helpers
 resolve that differently. This is deliberate, not an oversight:
 
 - `threshold_for_level(None)` → `INFO`. It answers *"how should the sinks be

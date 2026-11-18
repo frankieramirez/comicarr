@@ -76,11 +76,10 @@ def _parse(filename):
     """Parse one filename the way the scan does, and return the result."""
     from unittest.mock import MagicMock
 
-    import comicarr
     from comicarr.app.library.filechecker import FileChecker
 
-    if comicarr.LOG_LEVEL is None:
-        comicarr.LOG_LEVEL = 0
+    if runtime.current().log_level is None:
+        runtime.current().log_level = 0
     config = MagicMock()
     config.IGNORE_SEARCH_WORDS = []
     with pytest.MonkeyPatch.context() as mp:

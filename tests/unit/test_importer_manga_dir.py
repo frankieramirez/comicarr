@@ -22,12 +22,11 @@ Unit tests for get_manga_destination() fallback chain in comicarr/config.py.
 
 from unittest.mock import MagicMock, patch
 
-import comicarr
 from comicarr.app.core import runtime
 
 # Ensure LOG_LEVEL is set for tests
-if comicarr.LOG_LEVEL is None:
-    comicarr.LOG_LEVEL = 0
+if runtime.current().log_level is None:
+    runtime.current().log_level = 0
 
 from comicarr.app.config.ini import get_manga_destination
 

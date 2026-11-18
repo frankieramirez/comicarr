@@ -149,6 +149,11 @@ class AppContext:
     os_detect: str = field(default_factory=platform.system)
     user_agent: str = None
     umask: int = None
+    # Logging: the one verbosity dial (docs/architecture/logging-levels.md),
+    # the rotating-handler flavour, and the Web UI's recent-log buffer.
+    log_level: int = None
+    logtype: str = "log"
+    loglist: list = field(default_factory=list)
     ddl_queued: set = field(default_factory=set)
     ddl_stuck_notified: set = field(default_factory=set)
     pack_issueids_dont_queue: dict = field(default_factory=dict)

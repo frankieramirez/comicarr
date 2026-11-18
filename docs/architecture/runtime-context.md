@@ -124,7 +124,14 @@ flags (`use_*`) and the search, pull-list and provider state (`keys_32p`,
 `db_backfill`), and maintenance-mode progress (`maintenance`,
 `maintenance_update`, `maintenance_db_*`), and process and command-line state
 (`full_path`, `args`, `config_file`, `daemon`, `pidfile`, `createpid`,
-`sys_encoding`, `os_detect`, `user_agent`, `umask`; #1543). Values that never changed after start-up became module
+`sys_encoding`, `os_detect`, `user_agent`, `umask`), and logging state
+(`log_level`, `logtype`, `loglist`; #1543).
+
+That was the last group: the `comicarr` package holds no process state. Beyond
+the per-name word list, `scripts/check_retired_globals.py` fails on any
+`comicarr.<UPPER>` attribute, any `(comicarr, "UPPER")` string form, and any
+public uppercase assignment at module level in `comicarr/__init__.py`, so a new
+global cannot appear under a name nobody thought to ban. Values that never changed after start-up became module
 constants beside their readers instead: `ISSUE_EXCEPTIONS`
 (`app/common/numbers.py`), `IMPRINT_MAPPING` (`app/metadata/cv.py`), `GC_URL`
 (`app/downloads/getcomics.py`), `DEMURL` and `WWTURL` (`app/search/service.py`). The bootstrap context

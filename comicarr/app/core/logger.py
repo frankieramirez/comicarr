@@ -26,7 +26,6 @@ import threading
 import traceback
 from logging import Formatter
 
-import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import runtime
 
@@ -35,7 +34,7 @@ MAX_LOGLIST_ENTRIES = 2500
 
 def current_log_level():
     """Return the numeric log level, treating startup/unconfigured state as quiet."""
-    return comicarr.LOG_LEVEL or 0
+    return runtime.current().log_level or 0
 
 
 def threshold_for_level(loglevel):
@@ -66,8 +65,8 @@ class LogListHandler(logging.Handler):
     def emit(self, record):
         message = self.format(record)
         message = message.replace("\n", "<br />")
-        comicarr.LOGLIST.insert(0, (common_dates.now(), message, record.levelname, record.threadName))
-        del comicarr.LOGLIST[MAX_LOGLIST_ENTRIES:]
+        runtime.current().loglist.insert(0, (common_dates.now(), message, record.levelname, record.threadName))
+        del runtime.current().loglist[MAX_LOGLIST_ENTRIES:]
 
 
 def initLogger(console=True, log_dir=False, init=False, loglevel=1, max_logsize=None, max_logfiles=5):
@@ -75,12 +74,12 @@ def initLogger(console=True, log_dir=False, init=False, loglevel=1, max_logsize=
         try:
             from ConcurrentLogHandler.cloghandler import ConcurrentRotatingFileHandler as RFHandler
 
-            comicarr.LOGTYPE = "clog"
+            runtime.current().logtype = "clog"
         except ImportError:
-            comicarr.LOGTYPE = "log"
+            runtime.current().logtype = "log"
             from logging.handlers import RotatingFileHandler as RFHandler
     else:
-        comicarr.LOGTYPE = "log"
+        runtime.current().logtype = "log"
         from logging.handlers import RotatingFileHandler as RFHandler
 
     if all([init is True, max_logsize is None]):
@@ -224,7 +223,7 @@ def rotate_log_file():
             finally:
                 handler.release()
             rotated = True
-    del comicarr.LOGLIST[:]
+    del runtime.current().loglist[:]
     return rotated
 
 
@@ -232,7 +231,7 @@ def configure_log_level(level):
     """Reconfigure application logging without depending on a web controller."""
     if level is None:
         level = 1
-    comicarr.LOG_LEVEL = level
+    runtime.current().log_level = level
     initLogger(
         console=True,
         log_dir=runtime.current().config.LOG_DIR,

@@ -19,7 +19,6 @@ from types import SimpleNamespace
 
 import pytest
 
-import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.attention import ResolutionRequest, read, resolve
 from comicarr.app.attention._policy import is_actionable
@@ -37,7 +36,7 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
+    monkeypatch.setattr(runtime.current(), "log_level", 0, raising=False)
     monkeypatch.setattr(runtime.current(), "provider_blocklist", {}, raising=False)
     monkeypatch.setattr(
         runtime.current(),

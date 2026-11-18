@@ -24,11 +24,10 @@ def mock_notifier_config(monkeypatch):
 
     Returns a mock CONFIG object that can be modified in individual tests.
     """
-    import comicarr
 
     # Mock LOG_LEVEL to prevent TypeError in logger.py
-    # The logger checks `comicarr.LOG_LEVEL > 0` which fails if LOG_LEVEL is None
-    monkeypatch.setattr(comicarr, "LOG_LEVEL", 1)
+    # The logger checks `runtime.current().log_level > 0` which fails if LOG_LEVEL is None
+    monkeypatch.setattr(runtime.current(), "log_level", 1)
 
     config = MagicMock()
 

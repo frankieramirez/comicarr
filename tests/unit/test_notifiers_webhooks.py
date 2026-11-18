@@ -22,9 +22,8 @@ WEBHOOK_URL = "https://example.test/webhook"
 @pytest.fixture
 def mock_webhook_config(monkeypatch):
     """Minimal runtime.current().config for Slack/Mattermost/Discord/Gotify constructors."""
-    import comicarr
 
-    monkeypatch.setattr(comicarr, "LOG_LEVEL", 1)
+    monkeypatch.setattr(runtime.current(), "log_level", 1)
 
     config = MagicMock()
     config.SLACK_WEBHOOK_URL = WEBHOOK_URL

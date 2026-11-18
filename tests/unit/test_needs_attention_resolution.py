@@ -51,8 +51,8 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
-        monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
+    if not hasattr(runtime.current(), "log_level") or runtime.current().log_level is None:
+        monkeypatch.setattr(runtime.current(), "log_level", 0, raising=False)
     monkeypatch.setattr(runtime.current(), "provider_blocklist", {}, raising=False)
     monkeypatch.setattr(runtime.current(), "search_queue", queuelib.Queue(), raising=False)
     monkeypatch.setattr(runtime.current(), "pp_queue", queuelib.Queue(), raising=False)

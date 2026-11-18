@@ -45,7 +45,7 @@ def legacy_engine(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "_engine", engine)
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(BACKUP_RETENTION=7))
-    monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
+    monkeypatch.setattr(runtime.current(), "log_level", 0, raising=False)
     yield engine
     engine.dispose()
     monkeypatch.setattr(db, "_engine", None)

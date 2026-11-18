@@ -66,10 +66,6 @@ from comicarr.app.weekly import pull_runner
 sys.modules.setdefault("comicarr.tables", importlib.import_module("comicarr.app.core.tables"))
 
 
-LOG_DIR = None
-LOGTYPE = "log"
-LOG_LEVEL = None
-LOGLIST = []
 _INITIALIZED = False
 
 
@@ -117,7 +113,7 @@ def ensure_sab_completed_reconcile():
 
 def initialize(config_file):
     with runtime.current().init_lock:
-        global _INITIALIZED, LOG_LEVEL
+        global _INITIALIZED
 
         cc = comicarr.app.config.ini.Config(config_file)
         runtime.current().config = cc.read(startup=True)
@@ -179,13 +175,13 @@ def initialize(config_file):
         if runtime.current().maintenance is False:
             comicarr.app.config.ini.ddl_creations()
 
-            if LOGTYPE == "clog":
+            if runtime.current().logtype == "clog":
                 logprog = "Concurrent Rotational Log Handler"
             else:
                 logprog = "Rotational Log Handler (default)"
 
             logger.fdebug("Logger set to use : " + logprog)
-            if LOGTYPE == "log" and runtime.current().os_detect == "Windows":
+            if runtime.current().logtype == "log" and runtime.current().os_detect == "Windows":
                 logger.fdebug(
                     "ConcurrentLogHandler package not installed. Using builtin log handler for Rotational logs (default)"
                 )

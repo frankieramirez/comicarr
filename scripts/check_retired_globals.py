@@ -234,6 +234,12 @@ _RUNTIME_FIELD_GROUPS = {
         "SAFESTART",
         "NOWEEKLY",
     ),
+    # LOG_LEVEL and LOG_DIR are config keys as well; the general gate below
+    # covers the package copies.
+    "logging state (#1543)": (
+        "LOGLIST",
+        "LOGTYPE",
+    ),
 }
 
 # Retired names whose context field is not simply the lowercased name.
@@ -297,6 +303,39 @@ HISTORICAL_FILES = {"tests/fixtures/upgrade_matrix/build.py"}
 _RUNTIME_FIELD_NAMES = {name for names in _RUNTIME_FIELD_GROUPS.values() for name in names}
 
 
+# The general gate (#1543). Every piece of process state now lives on
+# ``AppContext`` and every fixed value beside the module that reads it, so no
+# ``comicarr.<UPPER>`` package global may exist at all, whatever its name. The
+# word list above still catches a retired name written bare; this catches any
+# new name, including ones that are also ordinary words (CONFIG, LOG_LEVEL,
+# MAINTENANCE) and so could never be banned as words. Python only: the forms
+# are attribute access on the package, the string forms of
+# setattr/getattr/patch.object, and a public uppercase assignment at module
+# level in the package ``__init__``.
+_PACKAGE = r"(?:_?comicarr|comicarr_mod)"
+PACKAGE_GLOBAL_PATTERNS = (
+    re.compile(r"(?<![\w.])%s\.([A-Z][A-Z0-9_]*)(?![\w])" % _PACKAGE),
+    re.compile(r"\(\s*%s\s*,\s*[\"']([A-Z][A-Z0-9_]*)[\"']" % _PACKAGE),
+)
+PACKAGE_INIT = "comicarr/__init__.py"
+PACKAGE_INIT_ASSIGNMENT = re.compile(r"^([A-Z][A-Z0-9_]*)\s*(?::[^=]*)?=(?!=)")
+
+
+def _package_global(rel: str, line: str):
+    """Return the package-global name a Python line introduces, or None."""
+    if not rel.endswith(".py") or rel in HISTORICAL_FILES:
+        return None
+    for pattern in PACKAGE_GLOBAL_PATTERNS:
+        match = pattern.search(line)
+        if match:
+            return match.group(1)
+    if rel == PACKAGE_INIT:
+        match = PACKAGE_INIT_ASSIGNMENT.match(line)
+        if match:
+            return match.group(1)
+    return None
+
+
 def _iter_source_files():
     for name in SCAN_FILES:
         path = ROOT / name
@@ -322,6 +361,7 @@ def _is_comment(line: str) -> bool:
 
 def main() -> int:
     violations: list[str] = []
+    package_globals: list[str] = []
 
     for path in sorted(_iter_source_files()):
         try:
@@ -337,9 +377,26 @@ def main() -> int:
                     continue
                 if pattern.search(line):
                     violations.append("%s:%d: %s" % (rel, lineno, line.strip()))
+            name = _package_global(rel, line)
+            if name is not None:
+                package_globals.append("%s:%d: %s" % (rel, lineno, line.strip()))
 
-    if not violations:
+    if not violations and not package_globals:
         return 0
+
+    if package_globals:
+        print("comicarr package global introduced:", file=sys.stderr)
+        for violation in package_globals:
+            print("  %s" % violation, file=sys.stderr)
+        print(
+            "  Process state lives on AppContext: read and write runtime.current().<field>\n"
+            "  (comicarr.app.core.runtime). A fixed value belongs beside the module that\n"
+            "  reads it. See docs/architecture/runtime-context.md.",
+            file=sys.stderr,
+        )
+        if not violations:
+            return 1
+        print("", file=sys.stderr)
 
     print("Retired global reintroduced:", file=sys.stderr)
     for violation in violations:

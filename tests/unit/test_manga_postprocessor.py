@@ -30,7 +30,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import comicarr
 from comicarr.app.common.placement import OnExisting, PlacementError, Purpose
 from comicarr.app.core import runtime
 from comicarr.app.downloads import postprocess_match as postprocessor
@@ -54,8 +53,8 @@ def _mock_db():
 
 
 # Ensure LOG_LEVEL is set for tests
-if comicarr.LOG_LEVEL is None:
-    comicarr.LOG_LEVEL = 0
+if runtime.current().log_level is None:
+    runtime.current().log_level = 0
 
 from comicarr.app.downloads.postprocess_match import (
     chapter_named_file,
