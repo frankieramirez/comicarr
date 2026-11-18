@@ -1241,19 +1241,19 @@ def test_manga_add_failure_is_narrated_in_activity(recorded, monkeypatch):
     monkeypatch.setattr("comicarr.app.series.add_workers.time.sleep", lambda _seconds: None)
     monkeypatch.setattr(runtime.current(), "add_list", queue.Queue(), raising=False)
     monkeypatch.setattr(runtime.current(), "issue_watch_list", queue.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "MASS_ADD", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "mass_add_pool", None, raising=False)
     missing = "md-" + manga_fake.MISSING_MANGADEX_ID
 
     queued = add_manga(AppContext(config=comicarr.CONFIG), manga_fake.MISSING_MANGADEX_ID)
     # An idle worker unpublishes itself as it retires (#1322), so it may be
     # gone already; a None pool means it has finished.
-    worker = comicarr.MASS_ADD
+    worker = runtime.current().mass_add_pool
     if worker is not None:
         worker.join(timeout=30)
 
     assert queued["success"] is True and queued["comicid"] == missing
     assert worker is None or not worker.is_alive()
-    assert comicarr.MASS_ADD is None
+    assert runtime.current().mass_add_pool is None
     [event] = [event for event in _add_events(missing) if event.get("status") == "failed"]
     assert "MangaDex details fetch failed" in str(event.get("reason_detail"))
     assert any(call["path"] == "/manga/%s" % manga_fake.MISSING_MANGADEX_ID for call in recorded.mangadex.calls)

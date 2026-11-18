@@ -809,11 +809,11 @@ async def test_ae5_inflight_write_completes_before_dispose_then_replay_finishes(
     pool = _SlowWorkerPool()
     with (
         patch("comicarr.app.main.get_runtime", return_value=ctx),
-        patch.object(comicarr, "SNPOOL", pool, create=True),
-        patch.object(comicarr, "NZBPOOL", None, create=True),
-        patch.object(comicarr, "SEARCHPOOL", None, create=True),
-        patch.object(comicarr, "PPPOOL", None, create=True),
-        patch.object(comicarr, "DDLPOOL", None, create=True),
+        patch.object(ctx, "sn_pool", pool),
+        patch.object(ctx, "nzb_pool", None),
+        patch.object(ctx, "search_pool", None),
+        patch.object(ctx, "pp_pool", None),
+        patch.object(ctx, "ddl_pool", None),
         patch.object(get_engine(), "dispose", side_effect=_capture_then_dispose),
     ):
         await cm.__aenter__()

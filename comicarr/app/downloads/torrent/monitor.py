@@ -87,7 +87,7 @@ def is_monitorable_downloader(downloader):
     """Whether a TORRENT_DOWNLOADER value yields an identity ``probe()`` can poll.
 
     The snatched-queue producer (``comicarr/app/search/engine.py``) and the consumer that
-    drains it (``SNPOOL`` in ``comicarr/__init__.py``) must agree on this, or
+    drains it (the ``sn_pool`` worker) must agree on this, or
     releases pile up on a queue nothing reads.
     """
     return route_for_downloader(downloader) is not None

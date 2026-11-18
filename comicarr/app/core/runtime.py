@@ -38,6 +38,17 @@ _UNSET = object()
 # start-up is never lost: the factory carries it over (see MIGRATED_FIELDS).
 _bootstrap = AppContext()
 
+# The worker-pool references a shutdown drain joins.
+POOL_FIELDS = (
+    "sn_pool",
+    "nzb_pool",
+    "search_pool",
+    "pp_pool",
+    "ddl_pool",
+    "mass_add_pool",
+    "mass_refresh_pool",
+)
+
 # Fields whose ``comicarr.X`` global has been retired. ``create_runtime``
 # copies these from the bootstrap context instead of adopting a legacy global,
 # and ``_project_context`` no longer writes them back to the package. Each
@@ -80,6 +91,8 @@ MIGRATED_FIELDS = frozenset(
         "api_lock",
         "search_lock",
         "ddl_lock",
+        # Worker-pool references (#1540).
+        *POOL_FIELDS,
     }
 )
 
@@ -90,13 +103,6 @@ _CONTEXT_TO_LEGACY = {
     "db_file": "DB_FILE",
     "config": "CONFIG",
     "scheduler": "SCHED",
-    "sn_pool": "SNPOOL",
-    "nzb_pool": "NZBPOOL",
-    "search_pool": "SEARCHPOOL",
-    "pp_pool": "PPPOOL",
-    "ddl_pool": "DDLPOOL",
-    "mass_add_pool": "MASS_ADD",
-    "mass_refresh_pool": "MASS_REFRESH",
     "cv_session": "CV_SESSION",
     "cv_rate_limiter": "CV_RATE_LIMITER",
     "cv_cache": "CV_CACHE",
@@ -151,17 +157,6 @@ _CONTEXT_TO_LEGACY = {
     "migration_tables_total": "MIGRATION_TABLES_TOTAL",
     "migration_error": "MIGRATION_ERROR",
     "migration_reconciliation": "MIGRATION_RECONCILIATION",
-}
-
-
-POOL_CONTEXT_FIELDS = {
-    "SNPOOL": "sn_pool",
-    "NZBPOOL": "nzb_pool",
-    "SEARCHPOOL": "search_pool",
-    "PPPOOL": "pp_pool",
-    "DDLPOOL": "ddl_pool",
-    "MASS_ADD": "mass_add_pool",
-    "MASS_REFRESH": "mass_refresh_pool",
 }
 
 

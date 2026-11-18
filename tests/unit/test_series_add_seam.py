@@ -268,7 +268,7 @@ def test_queue_series_adds_and_issue_wants_feed_the_mass_add_worker(monkeypatch)
     monkeypatch.setattr(add_workers, "_mass_add_runtime_context", lambda: None)
     monkeypatch.setattr(runtime.current(), "add_list", add_list)
     monkeypatch.setattr(runtime.current(), "issue_watch_list", issue_watch_list)
-    monkeypatch.setattr(comicarr, "MASS_ADD", running, raising=False)
+    monkeypatch.setattr(runtime.current(), "mass_add_pool", running, raising=False)
     watch = {"comicid": "123", "comicname": None, "seriesyear": None, "location": "/library/Example"}
 
     series_add.queue_series_adds([watch])
@@ -276,4 +276,4 @@ def test_queue_series_adds_and_issue_wants_feed_the_mass_add_worker(monkeypatch)
 
     assert add_list.get_nowait() == watch
     assert issue_watch_list.get_nowait() == "456"
-    assert comicarr.MASS_ADD is running
+    assert runtime.current().mass_add_pool is running

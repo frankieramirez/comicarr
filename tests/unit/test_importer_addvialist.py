@@ -14,7 +14,6 @@ Tests for add_workers.run_mass_add_queue — mass-add queue handling.
 import queue
 from unittest.mock import MagicMock, patch
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.series import add_workers, comic_add
@@ -92,17 +91,17 @@ class TestAddComicPayloads:
 
 
 def test_importer_thread_projects_mass_add_pool_to_canonical_runtime(monkeypatch):
-    """The DB-writing MASS_ADD thread must share the lifecycle-owned pool reference."""
+    """The DB-writing mass-add thread must share the lifecycle-owned pool reference."""
     ctx = AppContext()
     pool = MagicMock(name="mass_add_pool")
     monkeypatch.setattr(runtime, "_runtime", ctx)
-    monkeypatch.setattr(comicarr, "MASS_ADD", None)
+    monkeypatch.setattr(runtime.current(), "mass_add_pool", None)
     monkeypatch.setattr(add_workers.threading, "Thread", MagicMock(return_value=pool))
 
     add_workers.queue_series_adds([{"comicid": "12345", "comicname": None}])
 
     assert ctx.mass_add_pool is pool
-    assert comicarr.MASS_ADD is pool
+    assert runtime.current().mass_add_pool is pool
     assert ctx.add_list.get_nowait() == {"comicid": "12345", "comicname": None}
     pool.start.assert_called_once()
 
@@ -113,13 +112,13 @@ def test_refresh_worker_projects_pool_to_canonical_runtime(monkeypatch):
     pool = MagicMock(name="mass_refresh_pool")
     thread = MagicMock(return_value=pool)
     monkeypatch.setattr(runtime, "_runtime", ctx)
-    monkeypatch.setattr(comicarr, "MASS_REFRESH", None)
+    monkeypatch.setattr(runtime.current(), "mass_refresh_pool", None)
     monkeypatch.setattr(add_workers.threading, "Thread", thread)
 
     assert add_workers._start_refresh_worker() is True
 
     assert ctx.mass_refresh_pool is pool
-    assert comicarr.MASS_REFRESH is pool
+    assert runtime.current().mass_refresh_pool is pool
     thread.assert_called_once_with(
         target=add_workers.watchlist_refresh.run_refresh_queue, args=(ctx.refresh_queue,), name="mass-refresh"
     )
@@ -128,7 +127,7 @@ def test_refresh_worker_projects_pool_to_canonical_runtime(monkeypatch):
     monkeypatch.setattr(add_workers.threading, "current_thread", lambda: pool)
     assert add_workers.refresh_worker_should_retire(ctx.refresh_queue) is True
     assert ctx.mass_refresh_pool is None
-    assert comicarr.MASS_REFRESH is None
+    assert runtime.current().mass_refresh_pool is None
 
 
 def test_add_queued_while_mass_add_worker_retires_still_runs(monkeypatch):
@@ -138,7 +137,7 @@ def test_add_queued_while_mass_add_worker_retires_still_runs(monkeypatch):
     ctx = AppContext()
     monkeypatch.setattr(runtime, "_runtime", ctx)
     # set_runtime_field mirrors the pool onto the legacy global; restore it.
-    monkeypatch.setattr(comicarr, "MASS_ADD", None)
+    monkeypatch.setattr(runtime.current(), "mass_add_pool", None)
     monkeypatch.setattr(add_workers.time, "sleep", lambda *_: None)
     added = []
     done = threading.Event()
@@ -183,7 +182,7 @@ def test_add_queued_while_mass_add_worker_retires_still_runs(monkeypatch):
 def test_mass_add_worker_does_not_retire_while_work_is_queued(monkeypatch):
     ctx = AppContext()
     monkeypatch.setattr(runtime, "_runtime", ctx)
-    monkeypatch.setattr(comicarr, "MASS_ADD", None)
+    monkeypatch.setattr(runtime.current(), "mass_add_pool", None)
     sentinel = MagicMock(name="other_worker")
     add_workers._set_mass_add_pool(ctx, sentinel)
 

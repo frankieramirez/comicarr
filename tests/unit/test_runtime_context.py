@@ -105,7 +105,6 @@ def _legacy_runtime_objects(monkeypatch):
         "DATA_DIR": "/runtime/data",
         "DB_FILE": "/runtime/data/comicarr.db",
         "SCHED": scheduler,
-        "MASS_ADD": mass_add_pool,
         "DDL_QUEUED": ddl_queued,
         "PUBLISHER_IMPRINTS": {},
         "PROVIDER_BLOCKLIST": [],
@@ -130,6 +129,7 @@ def _legacy_runtime_objects(monkeypatch):
             search_lock=search_lock,
             ddl_lock=ddl_lock,
             acquisition_resume_lock=acquisition_resume_lock,
+            mass_add_pool=mass_add_pool,
         ),
     )
 

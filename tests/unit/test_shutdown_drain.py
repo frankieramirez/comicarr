@@ -68,6 +68,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy import select
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.events import EventBus
@@ -259,11 +260,11 @@ class TestHappyPath:
 
         snpool = _FakePool(drain_after=0.0)
         with (
-            patch.object(comicarr, "SNPOOL", snpool, create=True),
-            patch.object(comicarr, "NZBPOOL", None, create=True),
-            patch.object(comicarr, "SEARCHPOOL", None, create=True),
-            patch.object(comicarr, "PPPOOL", None, create=True),
-            patch.object(comicarr, "DDLPOOL", None, create=True),
+            patch.object(ctx, "sn_pool", snpool),
+            patch.object(ctx, "nzb_pool", None),
+            patch.object(ctx, "search_pool", None),
+            patch.object(ctx, "pp_pool", None),
+            patch.object(ctx, "ddl_pool", None),
         ):
 
             def _track_dispose():
@@ -314,12 +315,12 @@ class TestHappyPath:
             return real_dispose()
 
         with (
-            patch.object(comicarr, "SNPOOL", None, create=True),
-            patch.object(comicarr, "NZBPOOL", None, create=True),
-            patch.object(comicarr, "SEARCHPOOL", None, create=True),
-            patch.object(comicarr, "PPPOOL", None, create=True),
-            patch.object(comicarr, "DDLPOOL", None, create=True),
-            patch.object(comicarr, "MASS_REFRESH", None, create=True),
+            patch.object(ctx, "sn_pool", None),
+            patch.object(ctx, "nzb_pool", None),
+            patch.object(ctx, "search_pool", None),
+            patch.object(ctx, "pp_pool", None),
+            patch.object(ctx, "ddl_pool", None),
+            patch.object(ctx, "mass_refresh_pool", None),
             patch.object(get_engine(), "dispose", side_effect=_track_dispose),
         ):
             await _run_shutdown(ctx)
@@ -493,13 +494,13 @@ class TestHappyPath:
 
         ctx.sn_pool = _LatePublisherPool()
         with (
-            patch.object(comicarr, "SNPOOL", None, create=True),
-            patch.object(comicarr, "NZBPOOL", None, create=True),
-            patch.object(comicarr, "SEARCHPOOL", None, create=True),
-            patch.object(comicarr, "PPPOOL", None, create=True),
-            patch.object(comicarr, "DDLPOOL", None, create=True),
-            patch.object(comicarr, "MASS_ADD", None, create=True),
-            patch.object(comicarr, "MASS_REFRESH", None, create=True),
+            patch.object(ctx, "sn_pool", None),
+            patch.object(ctx, "nzb_pool", None),
+            patch.object(ctx, "search_pool", None),
+            patch.object(ctx, "pp_pool", None),
+            patch.object(ctx, "ddl_pool", None),
+            patch.object(ctx, "mass_add_pool", None),
+            patch.object(ctx, "mass_refresh_pool", None),
         ):
             await _run_shutdown(ctx)
 
@@ -556,11 +557,11 @@ class TestAE5InFlightJournal:
 
         pool = _SlowWorkerPool()
         with (
-            patch.object(comicarr, "SNPOOL", pool, create=True),
-            patch.object(comicarr, "NZBPOOL", None, create=True),
-            patch.object(comicarr, "SEARCHPOOL", None, create=True),
-            patch.object(comicarr, "PPPOOL", None, create=True),
-            patch.object(comicarr, "DDLPOOL", None, create=True),
+            patch.object(ctx, "sn_pool", pool),
+            patch.object(ctx, "nzb_pool", None),
+            patch.object(ctx, "search_pool", None),
+            patch.object(ctx, "pp_pool", None),
+            patch.object(ctx, "ddl_pool", None),
             patch.object(get_engine(), "dispose", side_effect=_capture_then_dispose),
         ):
             await _run_shutdown(ctx, scheduler)
@@ -600,9 +601,9 @@ class TestBoundedDrainExceeded:
 
         assert stopped.join_calls
         assert stuck.join_calls
-        assert result.live_owners == ("NZBPOOL",)
+        assert result.live_owners == ("nzb_pool",)
         assert not result.all_stopped
-        assert any("NZBPOOL" in call.args[0] for call in warn.call_args_list)
+        assert any("nzb_pool" in call.args[0] for call in warn.call_args_list)
 
     def test_pool_can_handoff_registered_child_work_during_its_join(self, monkeypatch):
         from comicarr.app.core import runtime
@@ -646,13 +647,12 @@ class TestBoundedDrainExceeded:
         engine = get_engine()
 
         with (
-            patch.object(comicarr, "SNPOOL", None, create=True),
-            patch.object(comicarr, "NZBPOOL", None, create=True),
-            patch.object(comicarr, "SEARCHPOOL", None, create=True),
-            patch.object(comicarr, "PPPOOL", None, create=True),
-            patch.object(comicarr, "DDLPOOL", None, create=True),
-            patch.object(comicarr, "MASS_ADD", None, create=True),
-            patch.object(comicarr, "MASS_REFRESH", None, create=True),
+            patch.object(ctx, "nzb_pool", None),
+            patch.object(ctx, "search_pool", None),
+            patch.object(ctx, "pp_pool", None),
+            patch.object(ctx, "ddl_pool", None),
+            patch.object(ctx, "mass_add_pool", None),
+            patch.object(ctx, "mass_refresh_pool", None),
             patch.object(engine, "dispose") as dispose,
         ):
             await _run_shutdown(ctx)
@@ -835,11 +835,11 @@ class TestBoundedDrainExceeded:
         stuck = _FakePool(never_joins=True)
         t0 = time.monotonic()
         with (
-            patch.object(comicarr, "SNPOOL", stuck, create=True),
-            patch.object(comicarr, "NZBPOOL", None, create=True),
-            patch.object(comicarr, "SEARCHPOOL", None, create=True),
-            patch.object(comicarr, "PPPOOL", None, create=True),
-            patch.object(comicarr, "DDLPOOL", None, create=True),
+            patch.object(ctx, "sn_pool", stuck),
+            patch.object(ctx, "nzb_pool", None),
+            patch.object(ctx, "search_pool", None),
+            patch.object(ctx, "pp_pool", None),
+            patch.object(ctx, "ddl_pool", None),
         ):
             await _run_shutdown(ctx, scheduler)
         elapsed = time.monotonic() - t0
@@ -867,11 +867,11 @@ class TestRestartIntentPreserved:
         ctx = _make_ctx(scheduler=scheduler)
 
         with (
-            patch.object(comicarr, "SNPOOL", _FakePool(), create=True),
-            patch.object(comicarr, "NZBPOOL", None, create=True),
-            patch.object(comicarr, "SEARCHPOOL", None, create=True),
-            patch.object(comicarr, "PPPOOL", None, create=True),
-            patch.object(comicarr, "DDLPOOL", None, create=True),
+            patch.object(ctx, "sn_pool", _FakePool()),
+            patch.object(ctx, "nzb_pool", None),
+            patch.object(ctx, "search_pool", None),
+            patch.object(ctx, "pp_pool", None),
+            patch.object(ctx, "ddl_pool", None),
         ):
             await _run_shutdown(ctx, scheduler)
 
@@ -912,11 +912,11 @@ class TestAssertionLandmineRemoved:
 
         bad = _FakePool(raise_assertion=True)
         with (
-            patch.object(comicarr, "SNPOOL", bad, create=True),
-            patch.object(comicarr, "NZBPOOL", None, create=True),
-            patch.object(comicarr, "SEARCHPOOL", None, create=True),
-            patch.object(comicarr, "PPPOOL", None, create=True),
-            patch.object(comicarr, "DDLPOOL", None, create=True),
+            patch.object(ctx, "sn_pool", bad),
+            patch.object(ctx, "nzb_pool", None),
+            patch.object(ctx, "search_pool", None),
+            patch.object(ctx, "pp_pool", None),
+            patch.object(ctx, "ddl_pool", None),
             patch("comicarr.os._exit") as m_exit,
             patch.object(
                 get_engine(),
@@ -960,7 +960,7 @@ class TestHardKillLiveness:
 
         def _run():
             with (
-                patch.object(comicarr, "SNPOOL", _WedgedPool(), create=True),
+                patch.object(runtime.current(), "sn_pool", _WedgedPool()),
                 patch.object(comicarr, "_INITIALIZED", True, create=True),
                 patch("comicarr.os._exit") as m_exit,
                 patch("comicarr.os.execv") as m_execv,
@@ -1015,11 +1015,11 @@ class TestJoinOffEventLoop:
 
         hb = asyncio.create_task(_heartbeat())
         with (
-            patch.object(comicarr, "SNPOOL", _BlockingPool(), create=True),
-            patch.object(comicarr, "NZBPOOL", None, create=True),
-            patch.object(comicarr, "SEARCHPOOL", None, create=True),
-            patch.object(comicarr, "PPPOOL", None, create=True),
-            patch.object(comicarr, "DDLPOOL", None, create=True),
+            patch.object(ctx, "sn_pool", _BlockingPool()),
+            patch.object(ctx, "nzb_pool", None),
+            patch.object(ctx, "search_pool", None),
+            patch.object(ctx, "pp_pool", None),
+            patch.object(ctx, "ddl_pool", None),
         ):
             await _run_shutdown(ctx, scheduler)
         stop.set()
@@ -1069,11 +1069,11 @@ class TestTeardownOrder:
                     conn.execute(select(pipeline_journal))
 
         with (
-            patch.object(comicarr, "SNPOOL", _CheckingPool(), create=True),
-            patch.object(comicarr, "NZBPOOL", None, create=True),
-            patch.object(comicarr, "SEARCHPOOL", None, create=True),
-            patch.object(comicarr, "PPPOOL", None, create=True),
-            patch.object(comicarr, "DDLPOOL", None, create=True),
+            patch.object(ctx, "sn_pool", _CheckingPool()),
+            patch.object(ctx, "nzb_pool", None),
+            patch.object(ctx, "search_pool", None),
+            patch.object(ctx, "pp_pool", None),
+            patch.object(ctx, "ddl_pool", None),
             patch.object(engine, "dispose", side_effect=_mark_disposed),
         ):
             await _run_shutdown(ctx, scheduler)
@@ -1109,11 +1109,11 @@ class TestDisposeAfterDrain:
                 events.append("join")
 
         with (
-            patch.object(comicarr, "SNPOOL", _OrderingPool(), create=True),
-            patch.object(comicarr, "NZBPOOL", None, create=True),
-            patch.object(comicarr, "SEARCHPOOL", None, create=True),
-            patch.object(comicarr, "PPPOOL", None, create=True),
-            patch.object(comicarr, "DDLPOOL", None, create=True),
+            patch.object(ctx, "sn_pool", _OrderingPool()),
+            patch.object(ctx, "nzb_pool", None),
+            patch.object(ctx, "search_pool", None),
+            patch.object(ctx, "pp_pool", None),
+            patch.object(ctx, "ddl_pool", None),
             patch.object(
                 get_engine(),
                 "dispose",

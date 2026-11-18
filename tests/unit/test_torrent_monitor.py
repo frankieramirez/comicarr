@@ -374,7 +374,7 @@ class TestPauseCapability:
 
 
 class TestDownloaderRoutes:
-    """The producer (search.py) and the consumer (SNPOOL) must agree on this."""
+    """The producer (search.py) and the consumer (sn_pool) must agree on this."""
 
     @pytest.mark.parametrize(
         ("downloader", "route"),

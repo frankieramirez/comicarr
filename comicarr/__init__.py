@@ -158,13 +158,6 @@ USE_TRANSMISSION = False
 USE_QBITTORRENT = False
 USE_UTORRENT = False
 USE_WATCHDIR = False
-SNPOOL = None
-NZBPOOL = None
-SEARCHPOOL = None
-PPPOOL = None
-DDLPOOL = None
-MASS_ADD = None
-MASS_REFRESH = None
 DDL_QUEUED = set()
 DDL_STUCK_NOTIFIED = set()
 DDL_HEALTH_SCHEDULER = None
@@ -337,13 +330,6 @@ def initialize(config_file):
             EXPURL, \
             WWTURL, \
             WWT_CF_COOKIEVALUE, \
-            DDLPOOL, \
-            NZBPOOL, \
-            SNPOOL, \
-            PPPOOL, \
-            SEARCHPOOL, \
-            MASS_ADD, \
-            MASS_REFRESH, \
             SSE_KEY, \
             USE_SABNZBD, \
             USE_NZBGET, \
@@ -1241,22 +1227,18 @@ def start(ctx):
 
 def queue_schedule(queuetype, mode, ctx=None):
     """Start/stop legacy workers while preserving canonical pool identity."""
-    from comicarr.app.core.runtime import POOL_CONTEXT_FIELDS, get_runtime_if_initialized, set_runtime_field
+    from comicarr.app.core.runtime import get_runtime_if_initialized
     from comicarr.app.downloads.torrent import monitor as torrent_monitor
 
     ctx = ctx or get_runtime_if_initialized()
     queues = ctx if ctx is not None else runtime.current()
 
-    def get_pool(pool_attr):
-        if ctx is not None:
-            return getattr(ctx, POOL_CONTEXT_FIELDS[pool_attr])
-        return getattr(comicarr, pool_attr)
+    def get_pool(pool_field):
+        return getattr(queues, pool_field)
 
-    def set_pool(pool_attr, pool):
-        if ctx is not None:
-            set_runtime_field(ctx, POOL_CONTEXT_FIELDS[pool_attr], pool)
-        else:
-            setattr(comicarr, pool_attr, pool)
+    def set_pool(pool_field, pool):
+        with queues.runtime_lock:
+            setattr(queues, pool_field, pool)
 
     def start(pool_attr, target, q_arg, name, before_msg, after_msg):
         pool = get_pool(pool_attr)
@@ -1293,7 +1275,7 @@ def queue_schedule(queuetype, mode, ctx=None):
     if mode == "start":
         if queuetype == "snatched_queue":
             start(
-                "SNPOOL",
+                "sn_pool",
                 downloads_service.worker_main,
                 queues.snatched_queue,
                 "AUTO-SNATCHER",
@@ -1302,7 +1284,7 @@ def queue_schedule(queuetype, mode, ctx=None):
             )
         elif queuetype == "nzb_queue":
             try:
-                if get_pool("NZBPOOL").is_alive() is True:
+                if get_pool("nzb_pool").is_alive() is True:
                     return
             except Exception:
                 pass
@@ -1318,7 +1300,7 @@ def queue_schedule(queuetype, mode, ctx=None):
             pool = threading.Thread(
                 target=downloads_service.nzb_monitor, args=(queues.nzb_queue,), name="AUTO-COMPLETE-NZB"
             )
-            set_pool("NZBPOOL", pool)
+            set_pool("nzb_pool", pool)
             pool.start()
             if CONFIG.NZB_DOWNLOADER == 0:
                 logger.info(
@@ -1331,7 +1313,7 @@ def queue_schedule(queuetype, mode, ctx=None):
 
         elif queuetype == "search_queue":
             start(
-                "SEARCHPOOL",
+                "search_pool",
                 search_service.search_queue,
                 queues.search_queue,
                 "SEARCH-QUEUE",
@@ -1340,7 +1322,7 @@ def queue_schedule(queuetype, mode, ctx=None):
             )
         elif queuetype == "pp_queue":
             start(
-                "PPPOOL",
+                "pp_pool",
                 downloads_service.postprocess_main,
                 queues.pp_queue,
                 "POST-PROCESS-QUEUE",
@@ -1349,13 +1331,13 @@ def queue_schedule(queuetype, mode, ctx=None):
             )
         elif queuetype == "ddl_queue":
             try:
-                if get_pool("DDLPOOL").is_alive() is True:
+                if get_pool("ddl_pool").is_alive() is True:
                     return
             except Exception:
                 pass
             downloads_service.recover_queued_ddl_commands(queues.ddl_queue)
             start(
-                "DDLPOOL",
+                "ddl_pool",
                 downloads_service.ddl_downloader,
                 queues.ddl_queue,
                 "DDL-QUEUE",
@@ -1369,7 +1351,7 @@ def queue_schedule(queuetype, mode, ctx=None):
                 or all([comicarr.CONFIG.NZB_DOWNLOADER == 1, comicarr.CONFIG.NZBGET_CLIENT_POST_PROCESSING is True])
             ):
                 return
-            shutdown(get_pool("NZBPOOL"), queues.nzb_queue, "NZB auto-complete queue")
+            shutdown(get_pool("nzb_pool"), queues.nzb_queue, "NZB auto-complete queue")
 
         if (queuetype == "snatched_queue") or mode == "shutdown":
             if all(
@@ -1381,20 +1363,20 @@ def queue_schedule(queuetype, mode, ctx=None):
                 ]
             ) and torrent_monitor.is_monitorable_downloader(comicarr.CONFIG.TORRENT_DOWNLOADER):
                 return
-            shutdown(get_pool("SNPOOL"), queues.snatched_queue, "auto-snatch")
+            shutdown(get_pool("sn_pool"), queues.snatched_queue, "auto-snatch")
 
         if (queuetype == "search_queue") or mode == "shutdown":
-            shutdown(get_pool("SEARCHPOOL"), queues.search_queue, "search queue")
+            shutdown(get_pool("search_pool"), queues.search_queue, "search queue")
 
         if (queuetype == "pp_queue") or mode == "shutdown":
             if all([comicarr.CONFIG.POST_PROCESSING is True, mode != "shutdown"]):
                 return
-            shutdown(get_pool("PPPOOL"), queues.pp_queue, "post-processing queue")
+            shutdown(get_pool("pp_pool"), queues.pp_queue, "post-processing queue")
 
         if (queuetype == "ddl_queue") or mode == "shutdown":
             if all([comicarr.CONFIG.ENABLE_DDL is True, mode != "shutdown"]):
                 return
-            shutdown(get_pool("DDLPOOL"), queues.ddl_queue, "DDL download queue")
+            shutdown(get_pool("ddl_pool"), queues.ddl_queue, "DDL download queue")
 
 
 def sql_db():

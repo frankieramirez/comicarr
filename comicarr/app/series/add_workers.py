@@ -22,7 +22,6 @@ import time
 import uuid
 from collections.abc import Mapping
 
-import comicarr
 from comicarr.app.core import logger, runtime
 from comicarr.app.series import comic_add, watchlist_refresh
 from comicarr.app.series.add_activity import emit_add_activity
@@ -37,25 +36,13 @@ def _mass_add_runtime_context():
 
 
 def _set_mass_add_pool(ctx, pool):
-    """Publish the same MASS_ADD worker reference to runtime and legacy code."""
-    if ctx is None:
-        comicarr.MASS_ADD = pool
-        return
-
-    from comicarr.app.core.runtime import set_runtime_field
-
-    set_runtime_field(ctx, "mass_add_pool", pool)
+    """Publish the mass-add worker reference on the runtime context."""
+    (ctx if ctx is not None else runtime.current()).mass_add_pool = pool
 
 
 def _set_mass_refresh_pool(ctx, pool):
-    """Publish the same MASS_REFRESH worker reference to runtime and legacy code."""
-    if ctx is None:
-        comicarr.MASS_REFRESH = pool
-        return
-
-    from comicarr.app.core.runtime import set_runtime_field
-
-    set_runtime_field(ctx, "mass_refresh_pool", pool)
+    """Publish the mass-refresh worker reference on the runtime context."""
+    (ctx if ctx is not None else runtime.current()).mass_refresh_pool = pool
 
 
 def run_mass_add_queue(seriesQueue, issueWantQueue):
@@ -117,7 +104,7 @@ def mass_add_worker_should_retire(series_queue, issue_queue):
         if not series_queue.empty() or not issue_queue.empty():
             return False
         ctx = _mass_add_runtime_context()
-        worker = ctx.mass_add_pool if ctx is not None else getattr(comicarr, "MASS_ADD", None)
+        worker = ctx.mass_add_pool if ctx is not None else runtime.current().mass_add_pool
         if worker is threading.current_thread():
             _set_mass_add_pool(ctx, None)
         return True
@@ -136,15 +123,15 @@ def queue_series_adds(serieslist):
         for series in serieslist:
             add_list.put(series)
 
-        pool = ctx.mass_add_pool if ctx is not None else getattr(comicarr, "MASS_ADD", None)
+        pool = ctx.mass_add_pool if ctx is not None else runtime.current().mass_add_pool
         if pool is not None and getattr(pool, "is_alive", lambda: False)():
             logger.info(
-                "[MASS-ADD] MASS_ADD thread already running. Adding an additional %s items to existing queue"
+                "[MASS-ADD] Mass-add thread already running. Adding an additional %s items to existing queue"
                 % len(serieslist)
             )
             return
 
-        logger.info("[MASS-ADD] MASS_ADD thread not started. Started & submitting.")
+        logger.info("[MASS-ADD] Mass-add thread not started. Started & submitting.")
         pool = threading.Thread(target=run_mass_add_queue, args=(add_list, issue_watch_list), name="mass-add")
         _set_mass_add_pool(ctx, pool)
         pool.start()
@@ -168,10 +155,10 @@ def _start_refresh_worker():
     """Start the on-demand worker under the same lock used for retirement."""
     with _REFRESH_WORKER_LOCK:
         ctx = _mass_add_runtime_context()
-        worker = ctx.mass_refresh_pool if ctx is not None else getattr(comicarr, "MASS_REFRESH", None)
+        worker = ctx.mass_refresh_pool if ctx is not None else runtime.current().mass_refresh_pool
         if worker is not None and getattr(worker, "is_alive", lambda: False)():
             return False
-        logger.info("[MASS-REFRESH] MASS_REFRESH thread not started. Started & submitting.")
+        logger.info("[MASS-REFRESH] Mass-refresh thread not started. Started & submitting.")
         refresh_queue = ctx.refresh_queue if ctx is not None else runtime.current().refresh_queue
         worker = threading.Thread(
             target=watchlist_refresh.run_refresh_queue, args=(refresh_queue,), name="mass-refresh"
@@ -191,7 +178,7 @@ def refresh_worker_should_retire(refresh_queue):
         if not refresh_queue.empty():
             return False
         ctx = _mass_add_runtime_context()
-        worker = ctx.mass_refresh_pool if ctx is not None else getattr(comicarr, "MASS_REFRESH", None)
+        worker = ctx.mass_refresh_pool if ctx is not None else runtime.current().mass_refresh_pool
         if worker is threading.current_thread():
             _set_mass_refresh_pool(ctx, None)
         return True

@@ -109,6 +109,15 @@ _RUNTIME_FIELD_GROUPS = {
         "SEARCHLOCK",
         "DDL_LOCK",
     ),
+    "worker-pool references (#1540)": (
+        "SNPOOL",
+        "NZBPOOL",
+        "SEARCHPOOL",
+        "PPPOOL",
+        "DDLPOOL",
+        "MASS_ADD",
+        "MASS_REFRESH",
+    ),
 }
 
 # Retired names whose context field is not simply the lowercased name.
@@ -116,6 +125,13 @@ _FIELD_RENAMES = {
     "RETURN_THE_NZBQUEUE": "return_nzb_queue",
     "APILOCK": "api_lock",
     "SEARCHLOCK": "search_lock",
+    "SNPOOL": "sn_pool",
+    "NZBPOOL": "nzb_pool",
+    "SEARCHPOOL": "search_pool",
+    "PPPOOL": "pp_pool",
+    "DDLPOOL": "ddl_pool",
+    "MASS_ADD": "mass_add_pool",
+    "MASS_REFRESH": "mass_refresh_pool",
 }
 
 for _group, _names in _RUNTIME_FIELD_GROUPS.items():
