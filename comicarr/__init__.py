@@ -67,7 +67,6 @@ sys.modules.setdefault("comicarr.tables", importlib.import_module("comicarr.app.
 
 
 FULL_PATH = None
-MAINTENANCE = False
 LOG_DIR = None
 LOGTYPE = "log"
 LOG_LEVEL = None
@@ -82,9 +81,6 @@ CREATEPID = False
 SAFESTART = False
 NOWEEKLY = False
 _INITIALIZED = False
-MAINTENANCE_UPDATE = []
-MAINTENANCE_DB_TOTAL = 0
-MAINTENANCE_DB_COUNT = 0
 UMASK = None
 CONFIG_FILE = None
 
@@ -133,17 +129,7 @@ def ensure_sab_completed_reconcile():
 
 def initialize(config_file):
     with runtime.current().init_lock:
-        global \
-            _INITIALIZED, \
-            CONFIG_FILE, \
-            OS_DETECT, \
-            MAINTENANCE, \
-            UMASK, \
-            USER_AGENT, \
-            LOG_LEVEL, \
-            MAINTENANCE_UPDATE, \
-            MAINTENANCE_DB_COUNT, \
-            MAINTENANCE_DB_TOTAL
+        global _INITIALIZED, CONFIG_FILE, OS_DETECT, UMASK, USER_AGENT, LOG_LEVEL
 
         cc = comicarr.app.config.ini.Config(config_file)
         runtime.current().config = cc.read(startup=True)
@@ -182,7 +168,7 @@ def initialize(config_file):
             except Exception as e:
                 logger.warn("[STARTUP] Startup diagnostics skipped: %s" % e)
 
-            if comicarr.MAINTENANCE is False:
+            if runtime.current().maintenance is False:
                 cc.provider_sequence()
 
             chk = maintenance.Maintenance(mode="db update")
@@ -199,10 +185,10 @@ def initialize(config_file):
             runtime.current().acquisition_block_reason = "maintenance_gate_unavailable"
             logger.error("[ACQUISITION] Maintenance gate unavailable; workers remain blocked: %s" % e)
 
-        if comicarr.MAINTENANCE_UPDATE:
-            comicarr.MAINTENANCE = True
+        if runtime.current().maintenance_update:
+            runtime.current().maintenance = True
 
-        if MAINTENANCE is False:
+        if runtime.current().maintenance is False:
             comicarr.app.config.ini.ddl_creations()
 
             if LOGTYPE == "clog":

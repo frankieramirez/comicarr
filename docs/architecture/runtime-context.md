@@ -121,7 +121,8 @@ the lifecycle and acquisition gate state (`signal`, `started`, `start_up`,
 `db_empty`, `acquisition_*`, `migration_*`), and the download-client route
 flags (`use_*`) and the search, pull-list and provider state (`keys_32p`,
 `search_tier_date`, `pull*`, `current_weeknumber`, `current_year`, `reqs`,
-`db_backfill`; #1543). Values that never changed after start-up became module
+`db_backfill`), and maintenance-mode progress (`maintenance`,
+`maintenance_update`, `maintenance_db_*`; #1543). Values that never changed after start-up became module
 constants beside their readers instead: `ISSUE_EXCEPTIONS`
 (`app/common/numbers.py`), `IMPRINT_MAPPING` (`app/metadata/cv.py`), `GC_URL`
 (`app/downloads/getcomics.py`), `DEMURL` and `WWTURL` (`app/search/service.py`). The bootstrap context

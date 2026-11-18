@@ -213,6 +213,13 @@ _RUNTIME_FIELD_GROUPS = {
         "REQS",
         "DB_BACKFILL",
     ),
+    # MAINTENANCE itself is retired too, but it is also the [MAINTENANCE-MODE]
+    # log prefix; the general comicarr.<UPPER> gate covers it.
+    "maintenance-mode progress (#1543)": (
+        "MAINTENANCE_UPDATE",
+        "MAINTENANCE_DB_TOTAL",
+        "MAINTENANCE_DB_COUNT",
+    ),
 }
 
 # Retired names whose context field is not simply the lowercased name.

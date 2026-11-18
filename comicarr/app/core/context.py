@@ -132,6 +132,11 @@ class AppContext:
     current_year: str = None
     db_backfill: bool = False
     reqs: dict = field(default_factory=dict)
+    # Maintenance mode (the --maintenance CLI and pending database conversions).
+    maintenance: bool = False
+    maintenance_update: list = field(default_factory=list)
+    maintenance_db_total: int = 0
+    maintenance_db_count: int = 0
     ddl_queued: set = field(default_factory=set)
     ddl_stuck_notified: set = field(default_factory=set)
     pack_issueids_dont_queue: dict = field(default_factory=dict)
