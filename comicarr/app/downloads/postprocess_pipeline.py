@@ -868,7 +868,6 @@ _ISSUE_SUFFIXES = (
 
 def _split_issue_suffix(issuenum):
     """Strip a known issue-number suffix: ``"5AU"`` -> ``("5", " AU")``."""
-    import comicarr
 
     lowered = issuenum.lower()
     for marker, suffix in _ISSUE_SUFFIXES:
@@ -880,7 +879,7 @@ def _split_issue_suffix(issuenum):
         if symbol in issuenum:
             return value, "None"
     issue_except = "None"
-    exceptionmatch = [x for x in comicarr.ISSUE_EXCEPTIONS if x.lower() in issuenum.lower()]
+    exceptionmatch = [x for x in common_numbers.ISSUE_EXCEPTIONS if x.lower() in issuenum.lower()]
     if exceptionmatch:
         logger.fdebug("[FILECHECKER] We matched on : " + str(exceptionmatch))
         for x in exceptionmatch:

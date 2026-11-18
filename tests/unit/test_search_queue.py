@@ -700,7 +700,7 @@ def test_manual_wanted_scan_queues_eligible_backlog_outside_automatic_tier(acqui
             SEARCH_STORYARCS=False,
         ),
     )
-    monkeypatch.setattr(comicarr, "SEARCH_TIER_DATE", "2026-01-01")
+    monkeypatch.setattr(runtime.current(), "search_tier_date", "2026-01-01")
     monkeypatch.setattr(runtime.current(), "search_lock", threading.Lock())
     work = queue.Queue()
     monkeypatch.setattr(runtime.current(), "search_queue", work)

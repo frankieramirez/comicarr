@@ -24,6 +24,7 @@ import rarfile
 
 import comicarr
 from comicarr.app.attention import Failure, ManualReview, record
+from comicarr.app.common.numbers import ISSUE_EXCEPTIONS
 from comicarr.app.common.redaction import redacted_traceback
 from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, ddl_info, issues, storyarcs, weekly
@@ -653,7 +654,7 @@ def rename_param(comicid, comicname, issue, ofilename, comicyear=None, issueid=N
 
     issue_except = "None"
     valid_spaces = (".", "-")
-    for issexcept in comicarr.ISSUE_EXCEPTIONS:
+    for issexcept in ISSUE_EXCEPTIONS:
         if issexcept.lower() in issuenum.lower():
             logger.fdebug("ALPHANUMERIC EXCEPTION : [" + issexcept + "]")
             v_chk = [v for v in valid_spaces if v in issuenum]

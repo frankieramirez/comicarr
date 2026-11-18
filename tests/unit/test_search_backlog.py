@@ -242,7 +242,7 @@ def rss_watchlist(tmp_path, monkeypatch):
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "SEARCH_TIER_DATE", "2000-01-01")
+    monkeypatch.setattr(runtime.current(), "search_tier_date", "2000-01-01")
     search_lock = MagicMock()
     search_lock.locked.return_value = False
     monkeypatch.setattr(runtime.current(), "search_lock", search_lock)

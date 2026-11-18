@@ -2396,7 +2396,7 @@ def searchforissue(
                             DateAdded = result["DateAdded"]
 
                         if rsschecker is None and (
-                            DateAdded >= comicarr.SEARCH_TIER_DATE or acquisition_run_id is not None
+                            DateAdded >= runtime.current().search_tier_date or acquisition_run_id is not None
                         ):
                             logger.fdebug(
                                 "[TIER1] Adding: %s #%s [ComicID:%s / IssueiD: %s][ %s >= %s]"
@@ -2406,7 +2406,7 @@ def searchforissue(
                                     result["ComicID"],
                                     result["IssueID"],
                                     DateAdded,
-                                    comicarr.SEARCH_TIER_DATE,
+                                    runtime.current().search_tier_date,
                                 )
                             )
                             from comicarr.app.search.commands import enqueue_search_command
@@ -2462,7 +2462,7 @@ def searchforissue(
                         else:
                             logger.fdebug(
                                 "[TIER2] %s #%s [%s < %s]"
-                                % (comicname, result["Issue_Number"], DateAdded, comicarr.SEARCH_TIER_DATE)
+                                % (comicname, result["Issue_Number"], DateAdded, runtime.current().search_tier_date)
                             )
                             continue
 

@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, call
 import pytest
 from sqlalchemy import create_engine, select
 
-import comicarr
 from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.common import dates as common_dates
@@ -274,7 +273,7 @@ def _configure_updater(monkeypatch, *, annuals_on, rows, cv_results):
         "config",
         SimpleNamespace(ANNUALS_ON=annuals_on, BACKFILL_TIMESPAN=15),
     )
-    monkeypatch.setattr(comicarr, "DB_BACKFILL", False)
+    monkeypatch.setattr(runtime.current(), "db_backfill", False)
     monkeypatch.setattr(runtime.current(), "updater_status", "Waiting")
     monkeypatch.setattr(runtime.current(), "refresh_queue", SimpleNamespace(queue=[]))
     monkeypatch.setattr(add, "refresh_series", refresh_thread)

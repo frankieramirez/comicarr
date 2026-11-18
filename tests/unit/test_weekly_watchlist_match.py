@@ -39,7 +39,7 @@ def engine(monkeypatch):
     eng = create_engine("sqlite://")
     metadata.create_all(eng)
     monkeypatch.setattr(comicarr.app.core.db, "get_engine", lambda: eng)
-    monkeypatch.setattr(comicarr, "PULLBYFILE", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "pullbyfile", False, raising=False)
     monkeypatch.setattr(
         runtime.current(),
         "config",

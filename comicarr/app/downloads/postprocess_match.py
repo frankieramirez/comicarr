@@ -1459,8 +1459,8 @@ def match_folder(
                                                 tmp_weeknumber = int(test["weeknumber"])
                                                 tmp_weekyear = int(test["year"])
                                                 if (
-                                                    tmp_weekyear == int(comicarr.CURRENT_YEAR)
-                                                ) and tmp_weeknumber + 2 >= int(comicarr.CURRENT_WEEKNUMBER):
+                                                    tmp_weekyear == int(runtime.current().current_year)
+                                                ) and tmp_weeknumber + 2 >= int(runtime.current().current_weeknumber):
                                                     logger.fdebug(
                                                         "%s %s should have current weekly data if this was an ongoing publication."
                                                         % (watchmatch["series_name"], watchmatch["justthedigits"])

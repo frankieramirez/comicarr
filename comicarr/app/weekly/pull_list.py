@@ -166,7 +166,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
         pulldate = "00000000"
 
     newrl = os.path.join(runtime.current().config.CACHE_DIR, "newreleases.txt")
-    comicarr.PULLBYFILE = False
+    runtime.current().pullbyfile = False
 
     # ALT_PULL is always 2 (config.configure forces it); the PreviewsWorld
     # scraper behind ALT_PULL 1 was removed (ADR-0007, #1404).
@@ -207,7 +207,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                     + str(chk_locg["count"])
                     + "issues. Polling watchlist against it to see if anything is new."
                 )
-                comicarr.PULLNEW = "no"
+                runtime.current().pullnew = "no"
                 new_pullcheck(chk_locg["weeknumber"], chk_locg["year"])
                 retry_hint = None
                 origin_error = False
@@ -251,7 +251,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                         "[PULL-LIST] Falling back to the cached pull-list already stored for week %s, %s."
                         % (weeknumber_mod, year_mod)
                     )
-                    comicarr.PULLNEW = "no"
+                    runtime.current().pullnew = "no"
                     new_pullcheck(weeknumber_mod, year_mod)
                     continue
                 if x == 1:
@@ -267,9 +267,9 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
 
     else:
         logger.info("[PULL-LIST] Populating & Loading pull-list data from file")
-        comicarr.PULLBYFILE = pull_the_file(newrl)
+        runtime.current().pullbyfile = pull_the_file(newrl)
 
-    if runtime.current().config.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
+    if runtime.current().config.ALT_PULL != 2 or runtime.current().pullbyfile is True:
         newfl = os.path.join(runtime.current().config.CACHE_DIR, "Clean-newreleases.txt")
 
         newtxtfile = open(newfl, "w")
@@ -366,13 +366,13 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                         logger.fdebug("today: " + str(pulldate))
                         if pulldate == shipdaterep:
                             logger.info("No new pull-list available - will re-check again in 24 hours.")
-                            comicarr.PULLNEW = "no"
+                            runtime.current().pullnew = "no"
                             return pullitcheck()
                         else:
                             logger.info("Preparing to update to the new listing.")
                     break
             else:
-                comicarr.PULLNEW = "yes"
+                runtime.current().pullnew = "yes"
                 for yesyes in checkit:
                     if yesyes in i:
                         if format(str(yesyes)) == "COMICS":
@@ -552,7 +552,10 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
 
         newtxtfile.close()
 
-        if all([pulldate == "00000000", runtime.current().config.ALT_PULL != 2]) or comicarr.PULLBYFILE is True:
+        if (
+            all([pulldate == "00000000", runtime.current().config.ALT_PULL != 2])
+            or runtime.current().pullbyfile is True
+        ):
             pulldate = shipdate
 
         try:
@@ -595,7 +598,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                     "COMICID": None,
                     "DYNAMICNAME": dynamic_name,
                     "WEEKNUMBER": int(weeknumber),
-                    "YEAR": comicarr.CURRENT_YEAR,
+                    "YEAR": runtime.current().current_year,
                 }
                 db.upsert("weekly", newValueDict, controlValueDict)
             except Exception:
@@ -607,7 +610,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
 
         logger.info("Weekly Pull List successfully loaded.")
 
-    if runtime.current().config.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
+    if runtime.current().config.ALT_PULL != 2 or runtime.current().pullbyfile is True:
         pullitcheck(forcecheck=forcecheck)
 
     if runtime.current().ai_client is not None:
@@ -938,8 +941,8 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                                         IssueNumber=ComicIssue,
                                         CStatus=cstatus,
                                         CID=cstatusid,
-                                        weeknumber=comicarr.CURRENT_WEEKNUMBER,
-                                        year=comicarr.CURRENT_YEAR,
+                                        weeknumber=runtime.current().current_weeknumber,
+                                        year=runtime.current().current_year,
                                         altissuenumber=altissuenum,
                                     )
                                 else:
@@ -948,8 +951,8 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                                         IssueNumber=ComicIssue,
                                         CStatus=date_downloaded,
                                         CID=cstatusid,
-                                        weeknumber=comicarr.CURRENT_WEEKNUMBER,
-                                        year=comicarr.CURRENT_YEAR,
+                                        weeknumber=runtime.current().current_weeknumber,
+                                        year=runtime.current().current_year,
                                         altissuenumber=altissuenum,
                                     )
                         break
@@ -1281,8 +1284,8 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                     continue
 
                     logger.fdebug("Watchlist hit for : " + week["ComicName"] + " #: " + str(week["issue"]))
-                    if comicarr.CURRENT_WEEKNUMBER is None:
-                        comicarr.CURRENT_WEEKNUMBER = todaydate.strftime("%U")
+                    if runtime.current().current_weeknumber is None:
+                        runtime.current().current_weeknumber = todaydate.strftime("%U")
 
                     statusupdate = watchlist_match.upcoming_update(
                         ComicID=comicid,

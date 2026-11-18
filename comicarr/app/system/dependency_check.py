@@ -22,7 +22,6 @@ import os
 import platform
 import shutil
 
-import comicarr
 from comicarr.app.core import logger, runtime
 
 
@@ -68,10 +67,10 @@ class RuntimeCapabilityDiagnostics:
             executable = shutil.which(command)
             if executable:
                 logger.fdebug("[DEPENDENCY-CHECK] Found unrar executable: %s" % executable)
-                comicarr.REQS["rar"] = {"rar_failure": False, "rar_message": executable}
+                runtime.current().reqs["rar"] = {"rar_failure": False, "rar_message": executable}
                 return
 
-        comicarr.REQS["rar"] = {"rar_failure": True, "rar_message": "Unable to locate unrar"}
+        runtime.current().reqs["rar"] = {"rar_failure": True, "rar_message": "Unable to locate unrar"}
 
     def release_messages(self):
         release_path = os.path.join(runtime.current().prog_dir or ".", ".release_messages")
@@ -82,4 +81,4 @@ class RuntimeCapabilityDiagnostics:
             messages = None
 
         logger.info("[DEPENDENCY-CHECK] release_messages: %s" % (messages,))
-        comicarr.REQS["release_messages"] = messages
+        runtime.current().reqs["release_messages"] = messages

@@ -15,6 +15,37 @@ Pure functions — no comicarr imports, no side effects.
 
 import re
 
+# Alpha issue suffixes that are part of the issue number, not a variant marker.
+ISSUE_EXCEPTIONS = [
+    "DEATHS",
+    "ALPHA",
+    "OMEGA",
+    "BLACK",
+    "DARK",
+    "LIGHT",
+    "AU",
+    "AI",
+    "INH",
+    "NOW",
+    "BEY",
+    "MU",
+    "HU",
+    "LR",
+    "A",
+    "B",
+    "C",
+    "X",
+    "O",
+    "WHITE",
+    "SUMMER",
+    "SPRING",
+    "FALL",
+    "WINTER",
+    "PREVIEW",
+    "DIRECTOR'S CUT",
+    "(DC)",
+]
+
 
 def human_size(size_bytes):
     """Format bytes into human-readable file size (e.g., 4.3 MB)."""
@@ -100,7 +131,7 @@ def issuedigits(issnum, issue_exceptions=None, log=None):
     Handles special issue types (AU, INH, NOW, BEY, MU, etc.),
     decimal issues, alpha-numeric issues, and unicode fractions.
 
-    issue_exceptions: list of known alpha suffixes (passed from comicarr.ISSUE_EXCEPTIONS)
+    issue_exceptions: list of known alpha suffixes (callers pass ISSUE_EXCEPTIONS)
     log: logger instance (passed from comicarr logger)
     """
     if log is None:

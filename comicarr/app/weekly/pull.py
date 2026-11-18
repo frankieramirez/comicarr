@@ -68,15 +68,14 @@ def match_new_series(comic_name: str, comic_id: str, issue: str | None = None) -
     rechecks the stored pull list for this series; with the alternate source
     it matches the current week.
     """
-    import comicarr
     from comicarr.app.weekly import pull_list
 
-    if runtime.current().config.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
+    if runtime.current().config.ALT_PULL != 2 or runtime.current().pullbyfile is True:
         pull_list.pullitcheck(comic1off_name=comic_name, comic1off_id=comic_id, issue=issue)
     else:
         pull_list.new_pullcheck(
-            weeknumber=comicarr.CURRENT_WEEKNUMBER,
-            pullyear=comicarr.CURRENT_YEAR,
+            weeknumber=runtime.current().current_weeknumber,
+            pullyear=runtime.current().current_year,
             comic1off_name=comic_name,
             comic1off_id=comic_id,
             issue=issue,

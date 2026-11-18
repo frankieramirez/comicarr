@@ -28,7 +28,6 @@ import sys
 import zipfile
 from glob import glob
 
-import comicarr
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.config import ini as config_module
 from comicarr.app.core import encrypted, logger, runtime
@@ -92,7 +91,7 @@ class carePackage(object):
 
     def _collect_runtime_secrets(self):
         """Add derived 32P tokens that are not persisted in config.ini."""
-        runtime_32p_keys = getattr(comicarr, "KEYS_32P", None)
+        runtime_32p_keys = runtime.current().keys_32p
         if not isinstance(runtime_32p_keys, dict):
             return
 

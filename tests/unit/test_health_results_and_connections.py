@@ -16,7 +16,6 @@ import pytest
 import requests
 from sqlalchemy import insert
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import acquisition_runs, activity_events, comics, importresults, metadata, weekly
 from comicarr.app.system import connections, job_results
@@ -128,8 +127,8 @@ def test_library_refresh_counts_series(health_db):
 
 
 def test_weekly_counts_issues_for_followed_series(health_db, monkeypatch):
-    monkeypatch.setattr(comicarr, "CURRENT_WEEKNUMBER", 46)
-    monkeypatch.setattr(comicarr, "CURRENT_YEAR", 2026)
+    monkeypatch.setattr(runtime.current(), "current_weeknumber", 46)
+    monkeypatch.setattr(runtime.current(), "current_year", 2026)
     with health_db.begin() as conn:
         conn.execute(insert(comics).values(ComicID="101", ComicName="Saga"))
         conn.execute(

@@ -12,7 +12,6 @@
 import configparser
 import zipfile
 
-import comicarr
 from comicarr.app.config import ini as config_module
 from comicarr.app.core import encrypted as encrypted_module
 from comicarr.app.core import runtime
@@ -56,7 +55,7 @@ def test_carepackage_clean_config_and_logs_redact_newer_secrets(tmp_path, monkey
         "authkey": "runtime-auth-key",
         "passkey": "runtime-pass-key",
     }
-    monkeypatch.setattr(comicarr, "KEYS_32P", runtime_32p_credentials)
+    monkeypatch.setattr(runtime.current(), "keys_32p", runtime_32p_credentials)
 
     log_path = log_dir / "comicarr.log"
     log_path.write_text(
@@ -165,7 +164,7 @@ def test_carepackage_redacts_fernet_provider_extras_without_runtime_config(tmp_p
     monkeypatch.setattr(runtime.current(), "config", None)
     monkeypatch.setattr(runtime.current(), "data_dir", str(data_dir))
     monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "KEYS_32P", {})
+    monkeypatch.setattr(runtime.current(), "keys_32p", {})
 
     package = carePackage(maintenance=True)
     package.cleaned_config()
@@ -221,7 +220,7 @@ def test_carepackage_missing_provider_key_redacts_without_creating_replacement(t
     monkeypatch.setattr(runtime.current(), "config", None)
     monkeypatch.setattr(runtime.current(), "data_dir", str(data_dir))
     monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "KEYS_32P", {})
+    monkeypatch.setattr(runtime.current(), "keys_32p", {})
 
     package = carePackage(maintenance=True)
     package.cleaned_config()

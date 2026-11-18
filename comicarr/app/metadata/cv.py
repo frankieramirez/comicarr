@@ -25,11 +25,21 @@ from xml.parsers.expat import ExpatError
 import pytz
 from bs4 import BeautifulSoup as Soup
 
-import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common.text_dates import parse_text_date
 from comicarr.app.core import logger, runtime
 from comicarr.app.metadata.series_type import resolve_series_edition
+
+# Publisher names ComicVine reports for an imprint, and the name to file under.
+IMPRINT_MAPPING = {
+    "Homage Comics": "Homage",
+    "Max Comics": "MAX",
+    "Mailbu": "Malibu Comics",
+    "Milestone": "Milestone Comics",
+    "Skybound": "Skybound Entertainment",
+    "Top Cow": "Top Cow Productions",
+}
+
 
 # Request types whose responses are JSON rather than XML.
 _JSON_RTYPES = frozenset({"single_issue", "db_updater", "weekly_releases", "weekly_volumes"})
@@ -1438,7 +1448,7 @@ def get_imprint_volume_and_booktype(
                                         and found is not True
                                     ):
                                         imprint_match = False
-                                        for x, y in comicarr.IMPRINT_MAPPING.items():
+                                        for x, y in IMPRINT_MAPPING.items():
                                             if all(
                                                 [y.lower() == h.lower(), x.lower() == comic["ComicPublisher"].lower()]
                                             ):

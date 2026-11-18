@@ -202,6 +202,17 @@ _RUNTIME_FIELD_GROUPS = {
         "USE_UTORRENT",
         "USE_WATCHDIR",
     ),
+    "search, pull-list and provider state (#1543)": (
+        "WWT_CF_COOKIEVALUE",
+        "KEYS_32P",
+        "PULLNEW",
+        "PULLBYFILE",
+        "CURRENT_WEEKNUMBER",
+        "CURRENT_YEAR",
+        "SEARCH_TIER_DATE",
+        "REQS",
+        "DB_BACKFILL",
+    ),
 }
 
 # Retired names whose context field is not simply the lowercased name.

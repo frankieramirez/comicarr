@@ -119,7 +119,12 @@ provider sessions (`cv_*`, `metron_api`, `provider_*`, `backend_status_*`;
 clients, DDL and folder-cache state, import progress, first-run secrets, and
 the lifecycle and acquisition gate state (`signal`, `started`, `start_up`,
 `db_empty`, `acquisition_*`, `migration_*`), and the download-client route
-flags (`use_*`; #1543). The bootstrap context
+flags (`use_*`) and the search, pull-list and provider state (`keys_32p`,
+`search_tier_date`, `pull*`, `current_weeknumber`, `current_year`, `reqs`,
+`db_backfill`; #1543). Values that never changed after start-up became module
+constants beside their readers instead: `ISSUE_EXCEPTIONS`
+(`app/common/numbers.py`), `IMPRINT_MAPPING` (`app/metadata/cv.py`), `GC_URL`
+(`app/downloads/getcomics.py`), `DEMURL` and `WWTURL` (`app/search/service.py`). The bootstrap context
 builds the process's one scheduler
 (`comicarr/app/core/scheduler.py`); `runtime.new_bootstrap()` gives a test a
 fresh one.
