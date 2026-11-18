@@ -9,9 +9,9 @@
 
 """Seam for RSS feed checking (ADR-0005).
 
-The only module under ``comicarr/app/`` that may import the legacy
-``rsscheck`` and ``rsscheckit`` modules. Each function delegates; the bodies
-stay in the legacy modules until a later step moves them here.
+Callers outside ``app/search`` go through these functions. Each one delegates
+to ``rss_runner`` (the scheduled pass) or ``rss_feeds`` (the feed engine), which
+moved here from the root ``rsscheckit.py`` and ``rsscheck.py`` (#1523).
 """
 
 from __future__ import annotations
@@ -23,20 +23,20 @@ def run_feed_check(forcerss: bool = False) -> bool | None:
     Returns True when the pass ran, None when the check interval had not
     elapsed yet. A forced pass ignores the interval.
     """
-    from comicarr import rsscheckit
+    from comicarr.app.search import rss_runner
 
-    return rsscheckit.tehMain().run(forcerss)
+    return rss_runner.tehMain().run(forcerss)
 
 
 def check_manga_releases() -> None:
     """Search the blended frontier of every active manga series against rssdb."""
-    from comicarr import rsscheck
+    from comicarr.app.search import rss_feeds
 
-    rsscheck.mangaCheck()
+    rss_feeds.mangaCheck()
 
 
 def check_mangadex_new_chapters() -> None:
     """Add MangaDex chapters not yet tracked as Wanted issues."""
-    from comicarr import rsscheck
+    from comicarr.app.search import rss_feeds
 
-    rsscheck.mangadexNewChapterCheck()
+    rss_feeds.mangadexNewChapterCheck()

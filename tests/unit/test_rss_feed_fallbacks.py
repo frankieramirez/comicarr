@@ -24,7 +24,7 @@ import pytest
 import requests
 
 import comicarr
-from comicarr import rsscheck
+from comicarr.app.search import rss_feeds as rsscheck
 
 NEWZNAB_API_FEED = b"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel><title>prowlarr</title>

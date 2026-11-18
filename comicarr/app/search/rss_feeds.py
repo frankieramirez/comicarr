@@ -234,31 +234,8 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
 
         i = 0
 
-        if pickfeed == "4":
-            for entry in searchresults["entries"]:
-                justdigits = entry["file_size"]
-                seeddigits = entry["seeders"]
-
-                if int(seeddigits) >= int(comicarr.CONFIG.MINSEEDS):
-                    torthe32p.append(
-                        {
-                            "site": picksite,
-                            "title": entry["torrent_seriesname"].lstrip()
-                            + " "
-                            + entry["torrent_seriesvol"]
-                            + " #"
-                            + entry["torrent_seriesiss"],
-                            "volume": entry["torrent_seriesvol"],
-                            "issue": entry["torrent_seriesiss"],
-                            "link": entry["torrent_id"],
-                            "pubdate": entry["pubdate"],
-                            "size": entry["file_size"],
-                            "seeders": entry["seeders"],
-                            "files": entry["num_files"],
-                        }
-                    )
-                i += 1
-        elif pickfeed == "3":
+        # pickfeed "4" (32P search) returns before the feed loop, so it never reaches here.
+        if pickfeed == "3":
             pass
         elif pickfeed == "5":
             pass
@@ -340,7 +317,7 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                     try:
                         pd = datetime.strptime(dt[0:19], "%Y-%m-%dT%H:%M:%S")
                         pdate = pd.strftime("%a, %d %b %Y %H:%M:%S") + " " + re.sub(":", "", dt[19:]).strip()
-                    except:
+                    except Exception:
                         pdate = feedme.entries[i].updated
 
                     feeddata.append(
@@ -367,7 +344,7 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
 
                     try:
                         justdigits = feedme.entries[i].torrent_contentlength
-                    except:
+                    except Exception:
                         justdigits = "0"
 
                     seeddigits = 0
@@ -1115,8 +1092,6 @@ def nzbdbsearch(
                 return "no results"
             else:
                 chkthealt = seriesname_alt.split("##")
-                if chkthealt == 0:
-                    AS_Alternate = AlternateSearch
                 for calt in chkthealt:
                     AS_Alternate = _nzb_alt_pattern(calt)
                     with db.get_engine().connect() as conn:
@@ -1299,11 +1274,9 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
 
                 disable_warnings()
             except ImportError:
-                from requests.packages.urllib3.exceptions import InsecureRequestWarning
-
                 requests.packages.urllib3.disable_warnings()
                 try:
-                    from urllib3.exceptions import InsecureRequestWarning
+                    import urllib3
 
                     urllib3.disable_warnings()
                 except ImportError:

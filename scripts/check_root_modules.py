@@ -56,8 +56,6 @@ ROOT_MODULES: dict[str, int] = {
     "getcomics": 1422,
     "nzbget": 1422,
     "postprocessor": 1422,
-    "rsscheck": 1421,
-    "rsscheckit": 1421,
     "sabnzbd": 1422,
     "search": 1422,
 }

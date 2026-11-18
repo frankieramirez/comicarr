@@ -257,7 +257,7 @@ def rss_watchlist(tmp_path, monkeypatch):
         rss_lookups.append([row[8] for row in rsslist])
         return {"entries": []}
 
-    monkeypatch.setattr(comicarr.rsscheck, "nzbdbsearch", fake_batched_lookup)
+    monkeypatch.setattr(comicarr.app.search.rss_feeds, "nzbdbsearch", fake_batched_lookup)
     yield SimpleNamespace(search=legacy_search, search_lock=search_lock, rss_lookups=rss_lookups)
     release_pass()
     shutdown_engine()
@@ -387,7 +387,7 @@ def test_rss_scan_releases_the_pass_lock_after_an_error(rss_watchlist, monkeypat
     def broken_lookup(*_args, **_kwargs):
         raise RuntimeError("rssdb unavailable")
 
-    monkeypatch.setattr(comicarr.rsscheck, "nzbdbsearch", broken_lookup)
+    monkeypatch.setattr(comicarr.app.search.rss_feeds, "nzbdbsearch", broken_lookup)
     _seed_watchlist(_wanted("1"))
 
     with pytest.raises(RuntimeError):

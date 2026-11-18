@@ -71,8 +71,6 @@ INFRASTRUCTURE = frozenset()
 # Foundations legacy module -> the seam modules allowed to import it under
 # comicarr/app/. Most seams do not exist yet; each seam ticket creates its file.
 SEAMS = {
-    "rsscheck": frozenset({"comicarr/app/search/rss.py"}),
-    "rsscheckit": frozenset({"comicarr/app/search/rss.py"}),
     "postprocessor": frozenset({"comicarr/app/downloads/postprocessing.py"}),
 }
 
@@ -116,6 +114,18 @@ DEFERRED_ALLOWLIST = {
     ("comicarr/app/weekly/pull_list.py", "filechecker"): (
         "FileChecker.dynamic_replace normalizes pull-list series names; carried over when weeklypull.py moved (#1522)",
         "#1422 moves filechecker under comicarr/app/",
+    ),
+    ("comicarr/app/search/rss_feeds.py", "filechecker"): (
+        "FileChecker parses feed titles into series and issue; carried over when rsscheck.py moved (#1523)",
+        "#1422 moves filechecker under comicarr/app/",
+    ),
+    ("comicarr/app/search/rss_feeds.py", "search"): (
+        "mangaCheck runs search.search_init for each manga target; carried over when rsscheck.py moved (#1523)",
+        "#1422 moves search under comicarr/app/",
+    ),
+    ("comicarr/app/search/rss_runner.py", "search"): (
+        "the RSS pass ends with searchforissue over the Wanted list; carried over when rsscheckit.py moved (#1523)",
+        "#1422 moves search under comicarr/app/",
     ),
     ("comicarr/app/series/comic_add.py", "filechecker"): (
         "FileChecker matches existing files to a new series; carried over when addComictoDB moved (#1464)",

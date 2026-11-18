@@ -1194,7 +1194,7 @@ def test_manga_second_release_of_an_owned_chapter_is_not_sent(recorded):
 def test_manga_rss_grabs_and_places_a_wanted_chapter(recorded, monkeypatch):
     """The scheduled manga RSS pass matches an rssdb row, hands it to SABnzbd, and it lands."""
     from comicarr.app.core.tables import rssdb
-    from comicarr.rsscheck import mangaCheck
+    from comicarr.app.search.rss_feeds import mangaCheck
     from tests.fakes.newznab import FakeNewznab
 
     indexer = FakeNewznab().install(monkeypatch)

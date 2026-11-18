@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 """
-Unit tests for manga RSS / chapter monitoring in comicarr/rsscheck.py.
+Unit tests for manga RSS / chapter monitoring in comicarr/app/search/rss_feeds.py.
 
 Tests cover mangaCheck() and mangadexNewChapterCheck() — the two additive
 functions for manga series monitoring.
@@ -23,7 +23,7 @@ from sqlalchemy import event
 import comicarr
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, metadata, rssdb
-from comicarr.rsscheck import mangaCheck, mangadexNewChapterCheck, nzbdbsearch
+from comicarr.app.search.rss_feeds import mangaCheck, mangadexNewChapterCheck, nzbdbsearch
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -68,8 +68,8 @@ class TestMangaCheck:
     """Tests for mangaCheck() — wanted chapter search triggering."""
 
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
-    @patch("comicarr.rsscheck.series_service")
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.series_service")
+    @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.search.search_init")
     def test_skips_when_no_manga_series(self, mock_search_init, mock_db, mock_helpers):
         mock_db.select_all.return_value = []
@@ -79,8 +79,8 @@ class TestMangaCheck:
         mock_search_init.assert_not_called()
 
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
-    @patch("comicarr.rsscheck.series_service")
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.series_service")
+    @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.search.search_init")
     def test_triggers_search_for_wanted_chapters(self, mock_search_init, mock_db, mock_helpers):
         series = _make_series()
@@ -101,8 +101,8 @@ class TestMangaCheck:
         assert call_kwargs[1]["booktype"] == "manga"
 
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
-    @patch("comicarr.rsscheck.series_service")
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.series_service")
+    @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.search.search_init")
     def test_skips_already_downloaded_chapters(self, mock_search_init, mock_db, mock_helpers):
         series = _make_series()
@@ -120,8 +120,8 @@ class TestMangaCheck:
         mock_search_init.assert_not_called()
 
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
-    @patch("comicarr.rsscheck.series_service")
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.series_service")
+    @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.search.search_init")
     def test_handles_search_error_gracefully(self, mock_search_init, mock_db, mock_helpers):
         series = _make_series()
@@ -141,8 +141,8 @@ class TestMangaCheck:
         assert mock_search_init.call_count == 2
 
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
-    @patch("comicarr.rsscheck.series_service")
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.series_service")
+    @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.search.search_init")
     def test_skips_series_with_no_wanted_chapters(self, mock_search_init, mock_db, mock_helpers):
         series = _make_series()
@@ -201,7 +201,7 @@ class TestMangaCheckRssdb:
             [series_rows] + [chapters_by_series[row["ComicID"]] for row in series_rows] + [[]]
         )
         with (
-            patch("comicarr.rsscheck.series_service") as mock_helpers,
+            patch("comicarr.app.search.rss_feeds.series_service") as mock_helpers,
             patch("comicarr.search.search_init", search_init),
         ):
             mock_helpers.issue_status.return_value = False
@@ -230,7 +230,7 @@ class TestMangaCheckRssdb:
 
         return MagicMock(side_effect=fake_search_init)
 
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.db")
     def test_series_with_no_rss_rows_is_skipped(self, mock_db, rss_db):
         self._add_rss_row(rss_db.engine, "One Piece 100 (2026)", "nzb.one")
         search_init = MagicMock()
@@ -241,7 +241,7 @@ class TestMangaCheckRssdb:
         assert searched.count("md-miss") == 0
         assert searched.count("md-hit") == 3
 
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.db")
     def test_alternate_name_or_ddl_match_keeps_the_series(self, mock_db, rss_db):
         with rss_db.engine.begin() as conn:
             conn.execute(comics.update().where(comics.c.ComicID == "md-miss").values(AlternateSearch="Dan Da Dan"))
@@ -256,7 +256,7 @@ class TestMangaCheckRssdb:
 
         assert {call.kwargs["ComicID"] for call in search_init.call_args_list} == {"md-hit", "md-miss"}
 
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.db")
     def test_repeat_lookups_in_one_pass_hit_rssdb_once_per_provider(self, mock_db, rss_db):
         for provider in self.PROVIDERS:
             self._add_rss_row(rss_db.engine, "One Piece 100 [%s]" % provider, provider)
@@ -268,7 +268,7 @@ class TestMangaCheckRssdb:
         assert len(rss_db.rssdb_queries) == len(self.PROVIDERS)
         assert all(len(found["entries"]) == 1 for _comic_id, found in results)
 
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.db")
     def test_memo_is_dropped_between_passes(self, mock_db, rss_db):
         self._add_rss_row(rss_db.engine, "One Piece 100 [one]", "nzb.one")
         first = []
@@ -307,7 +307,7 @@ class TestMangaCheckRssdb:
 class TestMangadexNewChapterCheck:
     """Tests for mangadexNewChapterCheck() — MangaDex polling for new chapters."""
 
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_skips_when_no_manga_series(self, mock_get_chapters, mock_db):
         mock_db.select_all.return_value = []
@@ -316,7 +316,7 @@ class TestMangadexNewChapterCheck:
 
         mock_get_chapters.assert_not_called()
 
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_adds_new_chapters_as_wanted(self, mock_get_chapters, mock_db):
         series = _make_series()
@@ -356,7 +356,7 @@ class TestMangadexNewChapterCheck:
         key_dict = first_call[0][2]
         assert key_dict["IssueID"] == "md-abc123-ch1"
 
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_skips_existing_chapters(self, mock_get_chapters, mock_db):
         series = _make_series()
@@ -376,7 +376,7 @@ class TestMangadexNewChapterCheck:
         value_dict = mock_db.upsert.call_args_list[0][0][1]
         assert value_dict["ChapterNumber"] == "2"
 
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_handles_api_error_gracefully(self, mock_get_chapters, mock_db):
         series = _make_series()
@@ -391,7 +391,7 @@ class TestMangadexNewChapterCheck:
 
         mock_db.upsert.assert_not_called()
 
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_skips_chapters_with_no_number(self, mock_get_chapters, mock_db):
         series = _make_series()
@@ -408,7 +408,7 @@ class TestMangadexNewChapterCheck:
 
         mock_db.upsert.assert_not_called()
 
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_handles_none_from_api(self, mock_get_chapters, mock_db):
         series = _make_series()
@@ -423,7 +423,7 @@ class TestMangadexNewChapterCheck:
 
         mock_db.upsert.assert_not_called()
 
-    @patch("comicarr.rsscheck.db")
+    @patch("comicarr.app.search.rss_feeds.db")
     @patch("comicarr.app.manga.mangadex.get_all_chapters")
     def test_volume_number_none_when_not_provided(self, mock_get_chapters, mock_db):
         series = _make_series()

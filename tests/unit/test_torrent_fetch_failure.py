@@ -30,11 +30,11 @@ import requests
 from sqlalchemy import select
 
 import comicarr
-from comicarr import rsscheck
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import metadata, pipeline_journal
 from comicarr.app.downloads import handoff, journal
+from comicarr.app.search import rss_feeds as rsscheck
 
 # ---------------------------------------------------------------------------
 # torsend2client — the sender itself

@@ -49,10 +49,11 @@ from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
 import comicarr.app.config.ini
-from comicarr import rsscheckit, sabnzbd
+from comicarr import sabnzbd
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import logger
 from comicarr.app.downloads import service as downloads_service
+from comicarr.app.search import rss_runner
 from comicarr.app.search import service as search_service
 from comicarr.app.search.queue import FairSearchQueue
 from comicarr.app.series import service as series_service
@@ -991,7 +992,7 @@ def start(ctx):
             )
             WEEKLY_SCHEDULER.pause()
 
-            rs = rsscheckit.tehMain()
+            rs = rss_runner.tehMain()
             RSS_SCHEDULER = _add_recurring_job(
                 func=rs.run,
                 id="rss",
