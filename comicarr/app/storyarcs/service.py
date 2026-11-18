@@ -25,7 +25,7 @@ import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.common import placement
 from comicarr.app.common import strings as common_strings
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import comics, issues, storyarcs
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.library import filers
@@ -746,7 +746,11 @@ def _add_story_arc(
     if imageurl and imageurl.startswith("http"):
         try:
             r = requests.get(
-                imageurl, params=None, stream=True, verify=comicarr.CONFIG.CV_VERIFY, headers=comicarr.CV_HEADERS
+                imageurl,
+                params=None,
+                stream=True,
+                verify=comicarr.CONFIG.CV_VERIFY,
+                headers=runtime.current().cv_headers,
             )
         except Exception:
             logger.warn("Unable to download image from CV URL link - possibly no arc picture is present: %s" % imageurl)

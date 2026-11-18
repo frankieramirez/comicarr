@@ -214,13 +214,13 @@ torznab_apikey = abc123
 torznab_category = 8020
 """,
     )
-    monkeypatch.setattr(comicarr, "PROVIDER_START_ID", 100, raising=False)
+    monkeypatch.setattr(runtime.current(), "provider_start_id", 100, raising=False)
 
     assert cfg.read(startup=False) is cfg
 
     migrated = next(entry for entry in cfg.EXTRA_TORZNABS if entry[1] == "http://prowlarr.example:9696/1/api")
     assert migrated[6] == 102  # 101 is reserved by experimental
-    assert comicarr.PROVIDER_START_ID == 102
+    assert runtime.current().provider_start_id == 102
 
 
 def test_legacy_torznab_name_collision_warns_and_stays_unmigrated(tmp_path, monkeypatch):

@@ -21,7 +21,7 @@ import requests
 from PIL import Image
 
 import comicarr
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.library import filers, getimage
 from comicarr.app.metadata import cv
@@ -979,7 +979,9 @@ def getImage(comicid, url, issueid=None, thumbnail_path=None, apicall=False, ove
     if apicall is False:
         logger.info("Attempting to retrieve the comic image for series")
     try:
-        r = requests.get(url, params=None, stream=True, verify=comicarr.CONFIG.CV_VERIFY, headers=comicarr.CV_HEADERS)
+        r = requests.get(
+            url, params=None, stream=True, verify=comicarr.CONFIG.CV_VERIFY, headers=runtime.current().cv_headers
+        )
     except Exception as e:
         if apicall is False:
             logger.warn("[ERROR: %s] Unable to download image from CV URL link: %s" % (e, url))

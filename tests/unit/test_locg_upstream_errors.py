@@ -20,13 +20,14 @@ from unittest.mock import MagicMock
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.weekly import locg
 
 
 @pytest.fixture
 def upstream(monkeypatch):
     monkeypatch.setattr(comicarr, "USER_AGENT", "Comicarr/1.0.0 (comicarr)")
-    monkeypatch.setattr(comicarr, "BACKENDSTATUS_WS", "up", raising=False)
+    monkeypatch.setattr(runtime.current(), "backend_status_ws", "up", raising=False)
     warnings = []
     monkeypatch.setattr(locg.logger, "warn", lambda message: warnings.append(message))
 
@@ -48,7 +49,7 @@ def test_origin_errors_are_reported_as_a_transient_outage(upstream, status_code)
     assert result["status"] == "failure"
     assert result["origin_error"] is True
     assert result["cause"] == locg.ORIGIN_OUTAGE_CAUSE
-    assert comicarr.BACKENDSTATUS_WS == "down"
+    assert runtime.current().backend_status_ws == "down"
 
     message = upstream.warnings[-1]
     assert status_code in message

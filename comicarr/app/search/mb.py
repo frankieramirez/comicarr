@@ -29,7 +29,7 @@ from xml.dom.minidom import parseString
 from xml.parsers.expat import ExpatError
 
 import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.metadata import cv
 from comicarr.app.search.service import ignored_publisher_check
 from comicarr.app.series.service import haveit_for_series_id, listLibrary
@@ -71,7 +71,7 @@ def pullsearch(comicapi, comicquery, offset, search_type, sort=None, limit=None)
 
     sort_segment = "&sort=" + sort_param if sort_param else ""
     PULLURL = (
-        comicarr.CVURL
+        runtime.current().cv_url
         + str(search_type)
         + "s?api_key="
         + str(comicapi)
@@ -84,13 +84,13 @@ def pullsearch(comicapi, comicquery, offset, search_type, sort=None, limit=None)
         + str(offset)
     )
 
-    comicarr.CV_RATE_LIMITER.acquire()
+    runtime.current().cv_rate_limiter.acquire()
 
     payload = None
 
     try:
-        r = comicarr.CV_SESSION.get(
-            PULLURL, params=payload, verify=comicarr.CONFIG.CV_VERIFY, timeout=comicarr.CV_TIMEOUT
+        r = runtime.current().cv_session.get(
+            PULLURL, params=payload, verify=comicarr.CONFIG.CV_VERIFY, timeout=runtime.current().cv_timeout
         )
     except Exception as e:
         logger.warn("Error fetching data from ComicVine: %s" % e)
@@ -105,7 +105,7 @@ def pullsearch(comicapi, comicquery, offset, search_type, sort=None, limit=None)
             logger.warn(
                 "[WARNING] ComicVine is not responding correctly at the moment. This is usually due to some problems on their end. If you re-try things again in a few moments, it might work properly."
             )
-            comicarr.BACKENDSTATUS_CV = "down"
+            runtime.current().backend_status_cv = "down"
         return
     except Exception as e:
         logger.warn("[ERROR] Error returned from CV: %s" % e)
@@ -148,7 +148,12 @@ def findComic(
 
         return mangadex.search_manga(name, limit=limit, offset=offset, sort=sort)
 
-    if search_type != "story_arc" and not annual_check and comicarr.CONFIG.USE_METRON_SEARCH and comicarr.METRON_API:
+    if (
+        search_type != "story_arc"
+        and not annual_check
+        and comicarr.CONFIG.USE_METRON_SEARCH
+        and runtime.current().metron_api
+    ):
         logger.info("[METRON] Using Metron API for search")
         from comicarr.app.metadata import metron
 
@@ -623,7 +628,7 @@ def storyarcinfo(xmlid):
         comicapi = comicarr.CONFIG.COMICVINE_API
 
     ARCPULL_URL = (
-        comicarr.CVURL
+        runtime.current().cv_url
         + "story_arc/4045-"
         + str(xmlid)
         + "/?api_key="
@@ -631,13 +636,13 @@ def storyarcinfo(xmlid):
         + "&field_list=issues,publisher,name,first_appeared_in_issue,deck,image&format=xml&offset=0"
     )
 
-    comicarr.CV_RATE_LIMITER.acquire()
+    runtime.current().cv_rate_limiter.acquire()
 
     payload = None
 
     try:
-        r = comicarr.CV_SESSION.get(
-            ARCPULL_URL, params=payload, verify=comicarr.CONFIG.CV_VERIFY, timeout=comicarr.CV_TIMEOUT
+        r = runtime.current().cv_session.get(
+            ARCPULL_URL, params=payload, verify=comicarr.CONFIG.CV_VERIFY, timeout=runtime.current().cv_timeout
         )
     except Exception as e:
         logger.warn("While parsing data from ComicVine, got exception: %s" % e)

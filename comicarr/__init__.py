@@ -125,22 +125,14 @@ WANTED_TAB_OFF = False
 PULLNEW = None
 CONFIG = None
 CONFIG_FILE = None
-CV_HEADERS = None
-CV_SESSION = None
-CV_RATE_LIMITER = None
-CV_CACHE = None
-METRON_API = None
 AI_CLIENT = None
 AI_ASYNC_CLIENT = None
 AI_CIRCUIT_BREAKER = None
 AI_RATE_LIMITER = None
-CV_TIMEOUT = 30
-CVURL = None
 EXPURL = None
 DEMURL = None
 WWTURL = None
 WWT_CF_COOKIEVALUE = None
-PROVIDER_BLOCKLIST = []
 KEYS_32P = None
 AUTHKEY_32P = None
 FEED_32P = None
@@ -195,7 +187,6 @@ ISSUE_EXCEPTIONS = [
     "DIRECTOR'S CUT",
     "(DC)",
 ]
-PROVIDER_START_ID = 0
 CHECK_FOLDER_CACHE = None
 FOLDER_CACHE = None
 SSE_KEY = None
@@ -236,9 +227,6 @@ SCHED.add_listener(
     _persist_scheduler_health_event,
     EVENT_JOB_EXECUTED | EVENT_JOB_ERROR | EVENT_JOB_MISSED | EVENT_JOB_MAX_INSTANCES,
 )
-BACKENDSTATUS_WS = "up"
-BACKENDSTATUS_CV = "up"
-PROVIDER_STATUS = {}
 
 
 def _add_recurring_job(**kwargs):
@@ -301,14 +289,12 @@ def initialize(config_file):
             PULLNEW, \
             COMICSORT, \
             WANTED_TAB_OFF, \
-            CV_HEADERS, \
             IMPORTBUTTON, \
             IMPORT_FILES, \
             IMPORT_TOTALFILES, \
             IMPORT_CID_COUNT, \
             IMPORT_PARSED_COUNT, \
             IMPORT_FAILURE_COUNT, \
-            CVURL, \
             DEMURL, \
             EXPURL, \
             WWTURL, \
@@ -339,11 +325,7 @@ def initialize(config_file):
             MANGA_SYNC_SCHEDULER, \
             START_UP, \
             SEARCH_TIER_DATE, \
-            BACKENDSTATUS_CV, \
-            BACKENDSTATUS_WS, \
-            PROVIDER_STATUS, \
             ISSUE_EXCEPTIONS, \
-            PROVIDER_START_ID, \
             CHECK_FOLDER_CACHE, \
             FOLDER_CACHE, \
             SESSION_ID, \
@@ -469,49 +451,47 @@ def initialize(config_file):
 
         SESSION_ID = secrets.randbelow(990000) + 10000
 
-        CV_HEADERS = {"User-Agent": comicarr.CONFIG.CV_USER_AGENT}
+        runtime.current().cv_headers = {"User-Agent": comicarr.CONFIG.CV_USER_AGENT}
 
         def initialize_cv_session():
             """Initialize ComicVine API session with connection pooling"""
-            global CV_SESSION, CV_RATE_LIMITER, CV_CACHE
-            if CV_SESSION is None:
-                CV_SESSION = requests.Session()
-                CV_SESSION.headers.update(CV_HEADERS)
+            if runtime.current().cv_session is None:
+                runtime.current().cv_session = requests.Session()
+                runtime.current().cv_session.headers.update(runtime.current().cv_headers)
                 adapter = requests.adapters.HTTPAdapter(
                     pool_connections=10, pool_maxsize=20, max_retries=3, pool_block=False
                 )
-                CV_SESSION.mount("https://", adapter)
-                CV_SESSION.mount("http://", adapter)
+                runtime.current().cv_session.mount("https://", adapter)
+                runtime.current().cv_session.mount("http://", adapter)
                 logger.info("ComicVine API session initialized with connection pooling")
 
-            if CV_RATE_LIMITER is None:
+            if runtime.current().cv_rate_limiter is None:
                 from comicarr.app.metadata import rate_limiter
 
                 cvapi_rate = (
                     comicarr.CONFIG.CVAPI_RATE if comicarr.CONFIG.CVAPI_RATE and comicarr.CONFIG.CVAPI_RATE >= 2 else 2
                 )
-                CV_RATE_LIMITER = rate_limiter.ComicVineRateLimiter(calls_per_second=1.0 / cvapi_rate)
+                runtime.current().cv_rate_limiter = rate_limiter.ComicVineRateLimiter(calls_per_second=1.0 / cvapi_rate)
                 logger.info("ComicVine rate limiter initialized with %s second interval" % cvapi_rate)
 
-            if CV_CACHE is None:
+            if runtime.current().cv_cache is None:
                 from comicarr.app.metadata import cv_cache
 
                 cache_db_path = os.path.join(runtime.current().data_dir, "cv_cache.db")
-                CV_CACHE = cv_cache.CVCache(cache_db_path)
+                runtime.current().cv_cache = cv_cache.CVCache(cache_db_path)
                 logger.info("ComicVine cache initialized at: %s" % cache_db_path)
 
         initialize_cv_session()
 
         def initialize_metron_session():
             """Initialize Metron API session using mokkari"""
-            global METRON_API
-            if METRON_API is None and CONFIG.USE_METRON_SEARCH:
+            if runtime.current().metron_api is None and CONFIG.USE_METRON_SEARCH:
                 if CONFIG.METRON_USERNAME and CONFIG.METRON_PASSWORD:
                     try:
                         from comicarr.app.metadata import metron
 
-                        METRON_API = metron.initialize_metron_api()
-                        if METRON_API:
+                        runtime.current().metron_api = metron.initialize_metron_api()
+                        if runtime.current().metron_api:
                             logger.info("Metron API session initialized successfully")
                         else:
                             logger.warn("Metron API initialization returned None - check credentials")
@@ -533,7 +513,7 @@ def initialize(config_file):
             SEARCH_TIER_DATE = STD.strftime("%Y-%m-%d")
             logger.fdebug("SEARCH_TIER_DATE set to : %s" % SEARCH_TIER_DATE)
 
-        CVURL = "https://comicvine.gamespot.com/api/"
+        runtime.current().cv_url = "https://comicvine.gamespot.com/api/"
 
         WWTURL = "https://worldwidetorrents.to/"
         DEMURL = "https://www.demonoid.pw/"

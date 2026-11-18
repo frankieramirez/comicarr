@@ -533,10 +533,10 @@ class Config(object):
             return
 
         reserved_ids = self._reserved_provider_ids()
-        candidate_id = comicarr.PROVIDER_START_ID + 1
+        candidate_id = runtime.current().provider_start_id + 1
         while candidate_id in reserved_ids:
             candidate_id += 1
-        comicarr.PROVIDER_START_ID = candidate_id
+        runtime.current().provider_start_id = candidate_id
         self.EXTRA_TORZNABS.append(
             (
                 legacy["name"],
@@ -668,7 +668,7 @@ class Config(object):
 
             try:
                 if self.OLD_VALUES["nzbsu"]:
-                    comicarr.PROVIDER_START_ID += 1
+                    runtime.current().provider_start_id += 1
                     tsnzbsu = "" if self.OLD_VALUES["nzbsu_uid"] is None else self.OLD_VALUES["nzbsu_uid"]
                     nzbsus.append(
                         (
@@ -678,7 +678,7 @@ class Config(object):
                             self.OLD_VALUES["nzbsu_apikey"],
                             tsnzbsu,
                             str(int(self.OLD_VALUES["nzbsu"])),
-                            comicarr.PROVIDER_START_ID,
+                            runtime.current().provider_start_id,
                         )
                     )
             except Exception:
@@ -686,7 +686,7 @@ class Config(object):
 
             try:
                 if self.OLD_VALUES["dognzb"]:
-                    comicarr.PROVIDER_START_ID += 1
+                    runtime.current().provider_start_id += 1
                     dogs.append(
                         (
                             "DOGnzb",
@@ -695,7 +695,7 @@ class Config(object):
                             self.OLD_VALUES["dognzb_apikey"],
                             "",
                             str(int(self.OLD_VALUES["dognzb"])),
-                            comicarr.PROVIDER_START_ID,
+                            runtime.current().provider_start_id,
                         )
                     )
             except Exception:
@@ -827,7 +827,7 @@ class Config(object):
         return key, definition_type, section, ini_key, default
 
     def _provider_max_id(self):
-        provider_ids = [getattr(comicarr, "PROVIDER_START_ID", 0)]
+        provider_ids = [runtime.current().provider_start_id]
         for attr_name in _PROVIDER_EXTRA_FIELDS:
             try:
                 entries = parse_provider_extras(getattr(self, attr_name, []), self.CONFIG_VERSION)
@@ -1204,7 +1204,7 @@ class Config(object):
             file_existed = config_path.is_file()
             file_contents = config_path.read_bytes() if file_existed else None
             file_mode = config_path.stat().st_mode if file_existed else None
-            provider_start_id = comicarr.PROVIDER_START_ID
+            provider_start_id = runtime.current().provider_start_id
 
             try:
                 provider_values = {key: value for key, value in values.items() if key in _PROVIDER_EXTRA_FIELDS}
@@ -1224,7 +1224,7 @@ class Config(object):
                     self.configure(update=True, startup=False)
                 return True
             except BaseException as e:
-                comicarr.PROVIDER_START_ID = provider_start_id
+                runtime.current().provider_start_id = provider_start_id
                 durable_write_happened = self._durable_write_changed(config_path, file_existed, file_contents)
                 runtime_ok = False
                 file_ok = False
@@ -1530,7 +1530,7 @@ class Config(object):
             self._provider_credential_tokens = token_cache
             for entries in provider_runtime.values():
                 for entry in entries:
-                    comicarr.PROVIDER_START_ID = max(comicarr.PROVIDER_START_ID, int(entry[6]))
+                    runtime.current().provider_start_id = max(runtime.current().provider_start_id, int(entry[6]))
             if provider_order is not None:
                 self.PROVIDER_ORDER = provider_order
             logger.fdebug("Configuration written to disk.")
@@ -2193,8 +2193,8 @@ class Config(object):
                         x_newzcat.append((x[0], x[1], x[2], x[3], x_cat, x[5], int(x[6])))
                     else:
                         x_torzcat.append((x[0], x[1], x[2], x[3], x_cat, x[5], int(x[6])))
-                    if int(x[6]) > comicarr.PROVIDER_START_ID:
-                        comicarr.PROVIDER_START_ID = int(x[6])
+                    if int(x[6]) > runtime.current().provider_start_id:
+                        runtime.current().provider_start_id = int(x[6])
                 except Exception:
                     if cnt == 0:
                         x_newzcat.append((x[0], x[1], x[2], x[3], x_cat, x[5]))
@@ -2218,11 +2218,15 @@ class Config(object):
                     else:
                         xx_torzcat.append((xn[0], xn[1], xn[2], xn[3], xn[4], xn[5], xn[6]))
                 except Exception:
-                    comicarr.PROVIDER_START_ID += 1
+                    runtime.current().provider_start_id += 1
                     if cnt == 0:
-                        xx_newzcat.append((xn[0], xn[1], xn[2], xn[3], xn[4], xn[5], comicarr.PROVIDER_START_ID))
+                        xx_newzcat.append(
+                            (xn[0], xn[1], xn[2], xn[3], xn[4], xn[5], runtime.current().provider_start_id)
+                        )
                     else:
-                        xx_torzcat.append((xn[0], xn[1], xn[2], xn[3], xn[4], xn[5], comicarr.PROVIDER_START_ID))
+                        xx_torzcat.append(
+                            (xn[0], xn[1], xn[2], xn[3], xn[4], xn[5], runtime.current().provider_start_id)
+                        )
             cnt += 1
         return xx_newzcat, xx_torzcat
 

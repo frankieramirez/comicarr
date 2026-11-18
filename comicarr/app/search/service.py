@@ -529,7 +529,7 @@ def get_health(ctx):
 
     return get_search_health(
         ctx.config,
-        provider_blocklist=getattr(ctx, "provider_blocklist", None) or comicarr.PROVIDER_BLOCKLIST,
+        provider_blocklist=getattr(ctx, "provider_blocklist", None) or runtime.current().provider_blocklist,
     )
 
 
@@ -954,10 +954,10 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
 
 def block_provider_check(site, simple=True, force=False):
     timenow = int(time.time())
-    for prov in comicarr.PROVIDER_BLOCKLIST:
+    for prov in runtime.current().provider_blocklist:
         if prov["site"] == site:
             if force is True:
-                comicarr.PROVIDER_BLOCKLIST.remove(prov)
+                runtime.current().provider_blocklist.remove(prov)
                 try:
                     from comicarr.app.search.health import clear_route_block
 
@@ -975,7 +975,7 @@ def block_provider_check(site, simple=True, force=False):
                     else:
                         return {"blocked": True, "remain": (int(prov["resume"]) - timenow) / 60}
                 else:
-                    comicarr.PROVIDER_BLOCKLIST.remove(prov)
+                    runtime.current().provider_blocklist.remove(prov)
     if simple is True:
         return False
     else:
@@ -1038,11 +1038,11 @@ def disable_provider(site, reason=None, delay=0):
             delay = 3600
     mins = int(delay / 60) + (delay % 60 > 0)
     logger.info("Temporarily blocking provider %s for %s minutes..." % (site, mins))
-    for entry in comicarr.PROVIDER_BLOCKLIST:
+    for entry in runtime.current().provider_blocklist:
         if entry["site"] == site:
-            comicarr.PROVIDER_BLOCKLIST.remove(entry)
+            runtime.current().provider_blocklist.remove(entry)
     newentry = {"site": site, "resume": int(time.time()) + delay, "reason": reason}
-    comicarr.PROVIDER_BLOCKLIST.append(newentry)
+    runtime.current().provider_blocklist.append(newentry)
     try:
         from comicarr.app.search.health import record_route_outcome
 
@@ -1054,7 +1054,7 @@ def disable_provider(site, reason=None, delay=0):
         )
     except Exception as e:
         logger.fdebug("[SEARCH] Unable to persist provider route failure: %s" % e)
-    logger.info("provider_blocklist: %s" % comicarr.PROVIDER_BLOCKLIST)
+    logger.info("provider_blocklist: %s" % runtime.current().provider_blocklist)
 
 
 def ignored_publisher_check(publisher):

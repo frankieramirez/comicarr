@@ -28,7 +28,7 @@ from bs4 import BeautifulSoup as Soup
 import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common.text_dates import parse_text_date
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.metadata.series_type import resolve_series_edition
 
 # Request types whose responses are JSON rather than XML.
@@ -69,7 +69,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
         if not comicid.startswith("4050-"):
             comicid = "4050-" + comicid
         PULLURL = (
-            comicarr.CVURL
+            runtime.current().cv_url
             + "volume/"
             + str(comicid)
             + "/?api_key="
@@ -95,7 +95,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             cv_rtype = "volume/" + str(comicid)
             searchset = "name,count_of_issues,issues,start_year,site_detail_url,image,publisher,description,store_date"
         PULLURL = (
-            comicarr.CVURL
+            runtime.current().cv_url
             + str(cv_rtype)
             + "/?api_key="
             + str(comicapi)
@@ -107,7 +107,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
     elif any([rtype == "image", rtype == "firstissue", rtype == "imprints_first"]):
         if issueid:
             PULLURL = (
-                comicarr.CVURL
+                runtime.current().cv_url
                 + "issues/?api_key="
                 + str(comicapi)
                 + "&format=xml&filter=id:"
@@ -116,7 +116,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             )
         else:
             PULLURL = (
-                comicarr.CVURL
+                runtime.current().cv_url
                 + "volume/"
                 + str(comicid)
                 + "/?api_key="
@@ -126,7 +126,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             )
     elif rtype == "storyarc":
         PULLURL = (
-            comicarr.CVURL
+            runtime.current().cv_url
             + "story_arcs/?api_key="
             + str(comicapi)
             + "&format=xml&filter=name:"
@@ -135,7 +135,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
         )
     elif rtype == "comicyears":
         PULLURL = (
-            comicarr.CVURL
+            runtime.current().cv_url
             + "volumes/?api_key="
             + str(comicapi)
             + "&format=xml&filter=id:"
@@ -145,7 +145,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
         )
     elif rtype == "import":
         PULLURL = (
-            comicarr.CVURL
+            runtime.current().cv_url
             + "issues/?api_key="
             + str(comicapi)
             + "&format=xml&filter=id:"
@@ -155,10 +155,10 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             + str(offset)
         )
     elif rtype == "single_issue":
-        PULLURL = comicarr.CVURL + "issue/4000-" + str(issueid) + "?api_key=" + str(comicapi) + "&format=json"
+        PULLURL = runtime.current().cv_url + "issue/4000-" + str(issueid) + "?api_key=" + str(comicapi) + "&format=json"
     elif rtype == "db_updater":
         PULLURL = (
-            comicarr.CVURL
+            runtime.current().cv_url
             + "issues/?api_key="
             + str(comicapi)
             + "&format=json&filter=date_last_updated:"
@@ -170,7 +170,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
         )
     elif rtype == "weekly_releases":
         PULLURL = (
-            comicarr.CVURL
+            runtime.current().cv_url
             + "issues/?api_key="
             + str(comicapi)
             + "&format=json&filter=store_date:"
@@ -182,7 +182,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
         )
     elif rtype == "weekly_volumes":
         PULLURL = (
-            comicarr.CVURL
+            runtime.current().cv_url
             + "volumes/?api_key="
             + str(comicapi)
             + "&format=json&filter=id:"
@@ -191,8 +191,8 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             + str(offset)
         )
 
-    if comicarr.CONFIG.CV_CACHE_ENABLED and comicarr.CV_CACHE:
-        cached_response = comicarr.CV_CACHE.get(PULLURL)
+    if comicarr.CONFIG.CV_CACHE_ENABLED and runtime.current().cv_cache:
+        cached_response = runtime.current().cv_cache.get(PULLURL)
         if cached_response:
             logger.fdebug("[CACHE HIT] %s" % rtype)
             try:
@@ -203,26 +203,28 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             except Exception as e:
                 logger.warn("[CACHE] Error parsing cached response: %s" % e)
 
-    comicarr.CV_RATE_LIMITER.acquire()
+    runtime.current().cv_rate_limiter.acquire()
 
     try:
-        r = comicarr.CV_SESSION.get(PULLURL, verify=comicarr.CONFIG.CV_VERIFY, timeout=comicarr.CV_TIMEOUT)
+        r = runtime.current().cv_session.get(
+            PULLURL, verify=comicarr.CONFIG.CV_VERIFY, timeout=runtime.current().cv_timeout
+        )
     except Exception as e:
         logger.warn("Error fetching data from ComicVine: %s" % (e))
         if all(["Expecting value: line 1 column 1" not in str(e), rtype != "db_updater"]):
-            comicarr.BACKENDSTATUS_CV = "down"
+            runtime.current().backend_status_cv = "down"
             return
         else:
             return False
 
-    comicarr.BACKENDSTATUS_CV = "up"
+    runtime.current().backend_status_cv = "up"
 
-    if comicarr.CONFIG.CV_CACHE_ENABLED and comicarr.CV_CACHE and r.status_code == 200:
+    if comicarr.CONFIG.CV_CACHE_ENABLED and runtime.current().cv_cache and r.status_code == 200:
         ttl = get_cache_ttl_for_rtype(rtype)
         if rtype in _JSON_RTYPES:
-            comicarr.CV_CACHE.set(PULLURL, r.text.encode("utf-8"), ttl)
+            runtime.current().cv_cache.set(PULLURL, r.text.encode("utf-8"), ttl)
         else:
-            comicarr.CV_CACHE.set(PULLURL, r.content, ttl)
+            runtime.current().cv_cache.set(PULLURL, r.content, ttl)
 
     try:
         if rtype in _JSON_RTYPES:
@@ -236,14 +238,14 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             logger.warn(
                 "[WARNING] ComicVine is not responding correctly at the moment. This is usually due to some problems on their end. If you re-try things again in a few moments, things might work"
             )
-            comicarr.BACKENDSTATUS_CV = "down"
+            runtime.current().backend_status_cv = "down"
         return
     except Exception as e:
         if all(["Expecting value: line 1 column 1" in str(e), rtype == "db_updater"]):
             return False
         else:
             logger.warn("[ERROR] Error returned from CV: %s [%s]" % (e, r.content))
-            comicarr.BACKENDSTATUS_CV = "down"
+            runtime.current().backend_status_cv = "down"
             return
     else:
         return dom

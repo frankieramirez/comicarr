@@ -676,7 +676,7 @@ def _search_init(
                 elif prov_order[prov_count] == "public torrents" and not provider_blocked:
                     if "Public Torrents" not in searchprov.keys():
                         searchprov["Public Torrents"] = {
-                            "id": comicarr.PROVIDER_START_ID + 1,
+                            "id": runtime.current().provider_start_id + 1,
                             "type": "torrent",
                             "lastrun": 0,
                             "active": True,
@@ -699,7 +699,7 @@ def _search_init(
                             ]
                         ):
                             searchprov[torznab_host[0]] = {
-                                "id": comicarr.PROVIDER_START_ID + 1,
+                                "id": runtime.current().provider_start_id + 1,
                                 "type": "torznab",
                                 "lastrun": 0,
                                 "active": True,
@@ -732,7 +732,7 @@ def _search_init(
                             ]
                         ):
                             searchprov[newznab_host[0]] = {
-                                "id": comicarr.PROVIDER_START_ID + 1,
+                                "id": runtime.current().provider_start_id + 1,
                                 "type": "newznab",
                                 "lastrun": 0,
                                 "active": True,
@@ -756,7 +756,7 @@ def _search_init(
                     torznab_host = None
                     if prov_order[prov_count].lower() not in searchprov.keys():
                         searchprov[prov_order[prov_count].lower()] = {
-                            "id": comicarr.PROVIDER_START_ID + 1,
+                            "id": runtime.current().provider_start_id + 1,
                             "type": prov_order[prov_count].lower(),
                             "lastrun": 0,
                             "active": True,

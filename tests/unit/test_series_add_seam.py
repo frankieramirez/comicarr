@@ -74,10 +74,10 @@ def _row(table, column, value):
 
 
 def test_add_series_metadata_only_stores_paused_series_and_skipped_issues(library, tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "CVURL", "https://comicvine.gamespot.com/api/")
-    monkeypatch.setattr(comicarr, "CV_RATE_LIMITER", MagicMock())
+    monkeypatch.setattr(runtime.current(), "cv_url", "https://comicvine.gamespot.com/api/")
+    monkeypatch.setattr(runtime.current(), "cv_rate_limiter", MagicMock())
     session = MagicMock()
-    monkeypatch.setattr(comicarr, "CV_SESSION", session)
+    monkeypatch.setattr(runtime.current(), "cv_session", session)
     volume = {
         "id": 123,
         "name": "Example",

@@ -23,6 +23,7 @@ as this module's implementation.
 from __future__ import annotations
 
 import comicarr
+from comicarr.app.core import runtime
 
 ROUTES = ("ddl", "nzb", "torrent")
 
@@ -89,7 +90,7 @@ def route_health(ctx):
 
     health = get_search_health(
         ctx.config,
-        provider_blocklist=getattr(ctx, "provider_blocklist", None) or comicarr.PROVIDER_BLOCKLIST,
+        provider_blocklist=getattr(ctx, "provider_blocklist", None) or runtime.current().provider_blocklist,
     )
     routes = health.get("routes") or {}
     viable = bool(health.get("viable_route")) or any(

@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import COOKIE_NAME, require_session
 from comicarr.app.core.tables import interactive_search_sessions, metadata
@@ -59,7 +59,7 @@ def engine(tmp_path, monkeypatch):
     value = create_engine("sqlite:///%s" % (tmp_path / "interactive-api.db"))
     metadata.create_all(value)
     monkeypatch.setattr(interactive.db, "get_engine", lambda: value)
-    monkeypatch.setattr(comicarr, "PROVIDER_BLOCKLIST", [])
+    monkeypatch.setattr(runtime.current(), "provider_blocklist", [])
     monkeypatch.setattr(search_service, "block_provider_check", lambda _name: False)
     monkeypatch.setattr(interactive.search_routes, "route_health", lambda _ctx: {"success": True, "routes": {}})
     yield value
