@@ -25,7 +25,7 @@ optional drop-in that defined ``MegaNZ``. Comicarr still constructs
 exposes that constructor and the two methods ``search.py`` calls so a missing
 add-on cannot raise ``AttributeError``.
 
-``comicarr.downloaders.mega.MegaNZ`` is a different class: it downloads
+``comicarr.app.downloads.ddl.mega.MegaNZ`` is a different class: it downloads
 Mega.nz links (GetComics GC-Mega) and is not a search client.
 """
 

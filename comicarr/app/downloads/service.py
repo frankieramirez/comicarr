@@ -30,10 +30,10 @@ from comicarr.app.core.tables import annuals, comics, ddl_info, issues, storyarc
 from comicarr.app.downloads import getcomics, nzbget, postprocessing, sabnzbd
 from comicarr.app.downloads import queries as dl_queries
 from comicarr.app.downloads.completed_path import resolve_completed_download_file
+from comicarr.app.downloads.ddl import mediafire, mega, pixeldrain
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 from comicarr.app.series import refresh as series_refresh
 from comicarr.app.series import rescan as series_rescan
-from comicarr.downloaders import mediafire, mega, pixeldrain
 
 IN_PROGRESS_POLL_SECONDS = 5
 MONITOR_OUTAGE_BUDGET_SECONDS = 30 * 60

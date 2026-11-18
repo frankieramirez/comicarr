@@ -20,7 +20,7 @@ import comicarr
 from comicarr import search
 from comicarr.app.common import remote_artifacts
 from comicarr.app.downloads import getcomics
-from comicarr.downloaders import mediafire
+from comicarr.app.downloads.ddl import mediafire
 
 
 def _assert_within(root, path):

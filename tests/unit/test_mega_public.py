@@ -17,8 +17,8 @@ import pytest
 import requests
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from comicarr.downloaders import mega_public
-from comicarr.downloaders.mega_public import MegaDownloadError
+from comicarr.app.downloads.ddl import mega_public
+from comicarr.app.downloads.ddl.mega_public import MegaDownloadError
 
 HANDLE = "AbCdEfGh"
 NAME = "Saga 001 (2012).cbz"
@@ -240,7 +240,7 @@ def meganz(tmp_path, monkeypatch):
     from types import SimpleNamespace
 
     import comicarr
-    from comicarr.downloaders import mega
+    from comicarr.app.downloads.ddl import mega
 
     writes = []
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(DDL_LOCATION=str(tmp_path)), raising=False)

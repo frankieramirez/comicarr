@@ -607,7 +607,7 @@ def initialize(config_file):
                 comicarr.CONFIG.WRITE_THE_CONFIG = True
                 logger.info("[STARTUP] API key was not set - auto-generated a new API key")
 
-            from comicarr.downloaders import external_server as des
+            from comicarr.app.downloads.ddl import external_server as des
 
             EXT_SERVER = des.EXT_SERVER
             logger.info("[DDL] External server configuration available to be loaded: %s" % EXT_SERVER)
