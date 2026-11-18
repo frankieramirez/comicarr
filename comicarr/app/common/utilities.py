@@ -51,7 +51,7 @@ def chunker(seq, size):
 def crc(filename, sys_encoding=None):
     """Return MD5 hex digest of a filename string (not file contents).
 
-    sys_encoding: system encoding string (passed from comicarr.SYS_ENCODING)
+    sys_encoding: system encoding string (passed from runtime.current().sys_encoding)
     """
     if sys_encoding is None:
         sys_encoding = "utf-8"

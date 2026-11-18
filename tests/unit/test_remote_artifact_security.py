@@ -16,7 +16,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import comicarr
 from comicarr.app.common import remote_artifacts
 from comicarr.app.core import runtime
 from comicarr.app.downloads import getcomics
@@ -180,7 +179,7 @@ def test_default_permission_policy_uses_captured_umask_without_mutating_it(tmp_p
         "config",
         SimpleNamespace(ENFORCE_PERMS=False, CHMOD_FILE="0660", CHMOD_DIR="0777"),
     )
-    monkeypatch.setattr(comicarr, "UMASK", 0o022)
+    monkeypatch.setattr(runtime.current(), "umask", 0o022)
     monkeypatch.setattr(remote_artifacts.os, "umask", lambda value: pytest.fail("must not mutate process umask"))
 
     file_destination = tmp_path / "issue.cbz"
@@ -203,7 +202,7 @@ def test_atomic_replacement_reapplies_existing_ownership(tmp_path, monkeypatch):
     destination.write_bytes(b"existing")
     expected_ownership = (destination.stat().st_uid, destination.stat().st_gid)
     monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(ENFORCE_PERMS=False))
-    monkeypatch.setattr(comicarr, "UMASK", 0o022)
+    monkeypatch.setattr(runtime.current(), "umask", 0o022)
     original_chown = os.chown
     ownership_calls = []
 
@@ -225,7 +224,7 @@ def test_atomic_replacement_ownership_failure_keeps_original(tmp_path, monkeypat
     destination.write_bytes(b"existing")
     original_stat = destination.stat()
     monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(ENFORCE_PERMS=False))
-    monkeypatch.setattr(comicarr, "UMASK", 0o022)
+    monkeypatch.setattr(runtime.current(), "umask", 0o022)
     monkeypatch.setattr(
         remote_artifacts.os,
         "chown",
@@ -354,7 +353,7 @@ def test_enforced_modes_preserve_directory_setgid_but_strip_file_special_bits(
 
 def test_new_artifacts_use_secure_modes_when_config_is_unavailable(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "config", SimpleNamespace())
-    monkeypatch.setattr(comicarr, "UMASK", None)
+    monkeypatch.setattr(runtime.current(), "umask", None)
     file_destination = tmp_path / "issue.cbz"
     remote_artifacts.write_chunks_atomically(file_destination, [b"comic"])
 
@@ -452,7 +451,7 @@ def test_zip_swap_reapplies_ownership_to_every_existing_file_and_directory(tmp_p
     with zipfile.ZipFile(archive, "w") as zip_file:
         zip_file.writestr("pages/001.jpg", b"new")
     monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(ENFORCE_PERMS=False))
-    monkeypatch.setattr(comicarr, "UMASK", 0o022)
+    monkeypatch.setattr(runtime.current(), "umask", 0o022)
     original_chown = os.chown
     ownership_calls = []
 

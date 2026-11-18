@@ -24,7 +24,6 @@ import os
 import re
 import unicodedata
 
-import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.common.numbers import ISSUE_EXCEPTIONS
 from comicarr.app.common.series_names import DYNAMIC_HANDLERS, DYNAMIC_REPLACEMENTS, dynamic_series_name
@@ -281,7 +280,7 @@ class FileChecker(object):
             logger.fdebug("[SUB-PATH] Checking Folder Name for more information.")
             logger.fdebug("[SUB-PATH] Original Path : %s" % path)
             logger.fdebug("[SUB-PATH] Sub-directory : %s" % subpath)
-            if "windows" in comicarr.OS_DETECT.lower():
+            if "windows" in runtime.current().os_detect.lower():
                 if path in subpath:
                     ab = len(path)
                     tmppath = subpath[ab:]

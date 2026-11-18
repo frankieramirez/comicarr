@@ -19,14 +19,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.weekly import locg
 
 
 @pytest.fixture
 def upstream(monkeypatch):
-    monkeypatch.setattr(comicarr, "USER_AGENT", "Comicarr/1.0.0 (comicarr)")
+    monkeypatch.setattr(runtime.current(), "user_agent", "Comicarr/1.0.0 (comicarr)")
     monkeypatch.setattr(runtime.current(), "backend_status_ws", "up", raising=False)
     warnings = []
     monkeypatch.setattr(locg.logger, "warn", lambda message: warnings.append(message))

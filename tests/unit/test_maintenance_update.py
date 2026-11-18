@@ -19,6 +19,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.system import versioncheck
 
 
@@ -31,7 +32,7 @@ def test_shutdown_with_update_runs_the_updater(monkeypatch):
     warn = MagicMock()
     monkeypatch.setattr(versioncheck, "update", update)
     monkeypatch.setattr(comicarr.app.core.logger, "warn", warn)
-    monkeypatch.setattr(comicarr, "CREATEPID", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "createpid", False, raising=False)
     monkeypatch.setattr(comicarr.os, "_exit", MagicMock(side_effect=_Exited))
 
     with pytest.raises(_Exited):

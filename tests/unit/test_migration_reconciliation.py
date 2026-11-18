@@ -187,7 +187,7 @@ def test_snatched_queue_starts_for_every_client_the_searcher_enqueues(monkeypatc
     )
     queues = []
     monkeypatch.setattr(runtime.current(), "acquisition_schema_ready", True)
-    monkeypatch.setattr(comicarr, "OS_DETECT", "Linux")
+    monkeypatch.setattr(runtime.current(), "os_detect", "Linux")
     monkeypatch.setattr(runtime.current(), "scheduler", SimpleNamespace(get_job=lambda _job_id: None))
     monkeypatch.setattr(comicarr, "replay_acquisition_obligations", lambda: {"search": 0, "refresh": 0})
     monkeypatch.setattr(comicarr, "queue_schedule", lambda queue_name, mode: queues.append(queue_name))

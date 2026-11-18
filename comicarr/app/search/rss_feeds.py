@@ -497,7 +497,7 @@ def nzbs(provider=None, forcerss=False):
 
     def _parse_feed(site, url, verify, payload=None):
         logger.fdebug("[RSS] Fetching items from " + site)
-        headers = {"User-Agent": str(comicarr.USER_AGENT)}
+        headers = {"User-Agent": str(runtime.current().user_agent)}
 
         try:
             r = requests.get(url, params=payload, verify=verify, headers=headers, timeout=30)
@@ -1239,7 +1239,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
         else:
             dem_referrer = "http" + search_service.DEMURL[5:] + "files/download/"
 
-        headers = {"Accept-encoding": "gzip", "User-Agent": str(comicarr.USER_AGENT), "Referer": dem_referrer}
+        headers = {"Accept-encoding": "gzip", "User-Agent": str(runtime.current().user_agent), "Referer": dem_referrer}
 
         logger.fdebug("Grabbing torrent from url:" + str(url))
 
@@ -1266,7 +1266,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
         verify = False
 
     else:
-        headers = {"Accept-encoding": "gzip", "User-Agent": str(comicarr.USER_AGENT)}
+        headers = {"Accept-encoding": "gzip", "User-Agent": str(runtime.current().user_agent)}
 
         url = linkit
 

@@ -24,7 +24,6 @@ from email.utils import parsedate_to_datetime
 import requests
 from sqlalchemy import and_, delete
 
-import comicarr
 from comicarr.app.common.series_names import dynamic_series_key
 from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import weekly
@@ -103,8 +102,8 @@ def locg(pulldate=None, weeknumber=None, year=None):
             params=params,
             verify=True,
             headers={
-                "User-Agent": comicarr.USER_AGENT[: comicarr.USER_AGENT.find("/") + 7]
-                + comicarr.USER_AGENT[comicarr.USER_AGENT.find("(") + 1]
+                "User-Agent": runtime.current().user_agent[: runtime.current().user_agent.find("/") + 7]
+                + runtime.current().user_agent[runtime.current().user_agent.find("(") + 1]
             },
         )
     except requests.exceptions.RequestException as e:

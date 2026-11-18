@@ -18,14 +18,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.downloads import cdh_mapping
 
 
 @pytest.fixture
 def linux(monkeypatch):
-    monkeypatch.setattr(comicarr, "OS_DETECT", "Linux", raising=False)
+    monkeypatch.setattr(runtime.current(), "os_detect", "Linux", raising=False)
 
 
 def _sab_config(**overrides):

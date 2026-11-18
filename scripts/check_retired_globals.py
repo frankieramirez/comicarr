@@ -220,6 +220,20 @@ _RUNTIME_FIELD_GROUPS = {
         "MAINTENANCE_DB_TOTAL",
         "MAINTENANCE_DB_COUNT",
     ),
+    "process and command-line state (#1543)": (
+        "FULL_PATH",
+        "ARGS",
+        "CONFIG_FILE",
+        "DAEMON",
+        "PIDFILE",
+        "CREATEPID",
+        "SYS_ENCODING",
+        "OS_DETECT",
+        "USER_AGENT",
+        "UMASK",
+        "SAFESTART",
+        "NOWEEKLY",
+    ),
 }
 
 # Retired names whose context field is not simply the lowercased name.

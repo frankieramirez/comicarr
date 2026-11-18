@@ -533,7 +533,7 @@ class Maintenance(object):
                     cback_path = os.path.join(location, "config.ini-v%s.backup" % (config_version))
                     root_path = location
                 cf_val = "config.ini-v%s.backup.???" % config_version
-                source_file = comicarr.CONFIG_FILE
+                source_file = runtime.current().config_file
             try:
                 if os.path.exists(cback_path):
                     for f in sorted(glob.glob(os.path.join(root_path, cf_val)), reverse=True):

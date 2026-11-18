@@ -887,9 +887,9 @@ class TestRestartIntentPreserved:
         with (
             patch("comicarr.os.execv") as m_execv,
             patch("comicarr.os._exit"),
-            patch.object(comicarr, "CREATEPID", False, create=True),
-            patch.object(comicarr, "ARGS", [], create=True),
-            patch.object(comicarr, "FULL_PATH", "/tmp/Comicarr.py", create=True),
+            patch.object(runtime.current(), "createpid", False, create=True),
+            patch.object(runtime.current(), "args", [], create=True),
+            patch.object(runtime.current(), "full_path", "/tmp/Comicarr.py", create=True),
         ):
             comicarr.shutdown(restart=True)
         assert m_execv.called, "restart MUST reach os.execv (not degrade to a stop)"
@@ -964,7 +964,7 @@ class TestHardKillLiveness:
                 patch.object(comicarr, "_INITIALIZED", True, create=True),
                 patch("comicarr.os._exit") as m_exit,
                 patch("comicarr.os.execv") as m_execv,
-                patch.object(comicarr, "CREATEPID", False, create=True),
+                patch.object(runtime.current(), "createpid", False, create=True),
             ):
                 comicarr.halt()
                 comicarr.shutdown()

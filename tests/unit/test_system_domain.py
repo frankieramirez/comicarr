@@ -2003,7 +2003,7 @@ class TestConfigTransactions:
         monkeypatch.setattr(config_module, "config", configparser.ConfigParser())
         monkeypatch.setattr(encrypted_module, "_fernet_instance", None)
         monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-        monkeypatch.setattr(comicarr, "CONFIG_FILE", str(config_path))
+        monkeypatch.setattr(runtime.current(), "config_file", str(config_path))
         cfg = config_module.Config(str(config_path))
         monkeypatch.setattr(runtime.current(), "config", cfg)
         cfg.provider_sequence = MagicMock()

@@ -1746,11 +1746,10 @@ def _log_rename(module, config, odir, ofilename, new_name, shown_target):
 
 
 def _enforce_permissions(module, config, deps, dst):
-    import comicarr
 
     if not config.ENFORCE_PERMS:
         return
-    if comicarr.OS_DETECT != "windows":
+    if runtime.current().os_detect != "windows":
         deps.set_permissions(dst.rstrip())
         return
     try:

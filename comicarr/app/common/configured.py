@@ -14,7 +14,6 @@ globals they need. They moved here from the ``comicarr/helpers.py`` re-export
 shim (#1474); the globals they read move to ``AppContext`` in #1478.
 """
 
-import comicarr
 from comicarr.app.common.dates import now
 from comicarr.app.common.dates import weekly_info as _weekly_info_impl
 from comicarr.app.common.filesystem import checkFolder as _checkFolder_impl
@@ -46,7 +45,7 @@ def weekly_info(week=None, year=None, current=None):
 
 
 def crc(filename):
-    return _crc_impl(filename, sys_encoding=comicarr.SYS_ENCODING)
+    return _crc_impl(filename, sys_encoding=runtime.current().sys_encoding)
 
 
 def log_that_exception(except_info):

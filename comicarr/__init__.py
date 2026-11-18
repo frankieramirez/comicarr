@@ -66,23 +66,11 @@ from comicarr.app.weekly import pull_runner
 sys.modules.setdefault("comicarr.tables", importlib.import_module("comicarr.app.core.tables"))
 
 
-FULL_PATH = None
 LOG_DIR = None
 LOGTYPE = "log"
 LOG_LEVEL = None
 LOGLIST = []
-ARGS = None
-SYS_ENCODING = None
-OS_DETECT = platform.system()
-USER_AGENT = None
-DAEMON = False
-PIDFILE = None
-CREATEPID = False
-SAFESTART = False
-NOWEEKLY = False
 _INITIALIZED = False
-UMASK = None
-CONFIG_FILE = None
 
 
 def _add_recurring_job(**kwargs):
@@ -129,7 +117,7 @@ def ensure_sab_completed_reconcile():
 
 def initialize(config_file):
     with runtime.current().init_lock:
-        global _INITIALIZED, CONFIG_FILE, OS_DETECT, UMASK, USER_AGENT, LOG_LEVEL
+        global _INITIALIZED, LOG_LEVEL
 
         cc = comicarr.app.config.ini.Config(config_file)
         runtime.current().config = cc.read(startup=True)
@@ -197,7 +185,7 @@ def initialize(config_file):
                 logprog = "Rotational Log Handler (default)"
 
             logger.fdebug("Logger set to use : " + logprog)
-            if LOGTYPE == "log" and OS_DETECT == "Windows":
+            if LOGTYPE == "log" and runtime.current().os_detect == "Windows":
                 logger.fdebug(
                     "ConcurrentLogHandler package not installed. Using builtin log handler for Rotational logs (default)"
                 )
@@ -360,8 +348,8 @@ def initialize(config_file):
             s_to_the_ab.sab_versioncheck()
             logger.info("[SAB-VERSION-CHECK] SABnzbd version detected as: %s" % runtime.current().config.SAB_VERSION)
 
-        UMASK = os.umask(0)
-        os.umask(UMASK)
+        runtime.current().umask = os.umask(0)
+        os.umask(runtime.current().umask)
 
         _INITIALIZED = True
         return True
@@ -415,9 +403,9 @@ def daemonize():
 
     pid = os.getpid()
     logger.info("Daemonized to PID: %s" % pid)
-    if CREATEPID:
-        logger.info("Writing PID %d to %s", pid, PIDFILE)
-        with open(PIDFILE, "w") as fp:
+    if runtime.current().createpid:
+        logger.info("Writing PID %d to %s", pid, runtime.current().pidfile)
+        with open(runtime.current().pidfile, "w") as fp:
             fp.write("%s\n" % pid)
 
 
@@ -493,7 +481,7 @@ def resume_acquisition_runtime(config=None):
                         bool(getattr(config, "LOCAL_TORRENT_PP", False)),
                     ]
                 ),
-                OS_DETECT != "Windows",
+                runtime.current().os_detect != "Windows",
             ]
         ) and torrent_monitor.is_monitorable_downloader(getattr(config, "TORRENT_DOWNLOADER", None)):
             schedule("snatched_queue")
@@ -840,7 +828,7 @@ def start(ctx):
                 [
                     runtime.current().config.ENABLE_TORRENTS,
                     any([runtime.current().config.AUTO_SNATCH, runtime.current().config.LOCAL_TORRENT_PP]),
-                    OS_DETECT != "Windows",
+                    runtime.current().os_detect != "Windows",
                 ]
             ) and torrent_monitor.is_monitorable_downloader(runtime.current().config.TORRENT_DOWNLOADER):
                 queue_schedule("snatched_queue", "start", ctx=ctx)
@@ -1151,7 +1139,7 @@ def queue_schedule(queuetype, mode, ctx=None):
                             runtime.current().config.LOCAL_TORRENT_PP is True,
                         ]
                     ),
-                    OS_DETECT != "Windows",
+                    runtime.current().os_detect != "Windows",
                 ]
             ) and torrent_monitor.is_monitorable_downloader(runtime.current().config.TORRENT_DOWNLOADER):
                 return
@@ -1786,18 +1774,18 @@ def shutdown(restart=False, update=False, maintenance=False):
         except Exception as e:
             logger.warn("Comicarr failed to update: %s. Restarting." % e)
 
-    if CREATEPID:
-        logger.info("Removing pidfile %s" % PIDFILE)
-        os.remove(PIDFILE)
+    if runtime.current().createpid:
+        logger.info("Removing pidfile %s" % runtime.current().pidfile)
+        os.remove(runtime.current().pidfile)
 
     if restart:
         logger.info("Comicarr is restarting...")
-        popen_list = [sys.executable, FULL_PATH]
-        if "maintenance" not in ARGS:
-            popen_list += ARGS
+        popen_list = [sys.executable, runtime.current().full_path]
+        if "maintenance" not in runtime.current().args:
+            popen_list += runtime.current().args
         else:
             plist = []
-            for x in ARGS:
+            for x in runtime.current().args:
                 if x != "maintenance":
                     plist.append(x)
                 else:
