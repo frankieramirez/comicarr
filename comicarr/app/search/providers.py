@@ -147,8 +147,9 @@ def effective_provider_plan(
             add("DDL(GetComics)", "ddl")
         if getattr(config, "ENABLE_EXTERNAL_SERVER", False):
             add("DDL(External)", "ddl")
-    if getattr(config, "EXPERIMENTAL", False):
-        add("experimental", "experimental")
+    # EXPERIMENTAL (NZBIndex) is retired: its search code is gone, so the
+    # saved flag schedules nothing. Activity > Health shows the notice
+    # ("removed-experimental-search" in app/system/deprecations.py).
     if getattr(config, "NEWZNAB", False):
         for index, entry in enumerate(enabled_provider_entries(getattr(config, "EXTRA_NEWZNABS", None)), start=1):
             name = str(entry[0]).strip() or "Newznab %s" % index
