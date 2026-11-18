@@ -30,6 +30,7 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, ddl_info, issues, metadata, nzblog, pipeline_journal, snatched
 from comicarr.app.downloads import handoff, journal, service, snatch_record
@@ -310,7 +311,7 @@ def test_torrent_autosnatch_hash_in_payload_for_u6_rebuild():
     assert jr["stage"] == "snatched"
     assert jr["hash"] == "abc123hash"
     payload = journal.load_payload(jr["payload_json"])
-    # U6 must be able to rebuild the SNATCHED_QUEUE item
+    # U6 must be able to rebuild the snatched_queue item
     # ({"issueid","comicid","hash"}, see search.py:3442).
     assert payload["hash"] == "abc123hash"
     assert payload["issueid"] == "I2"
@@ -428,19 +429,19 @@ def _ddl_item(idv="ddl-1", issueid="DI1"):
 
 def _run_ddl_once(item):
     """Drive ddl_downloader for exactly one item then make it exit. Binds
-    comicarr.DDL_QUEUE to the same local queue so the P1 bounded re-enqueue
-    (comicarr.DDL_QUEUE.put on a journal-block failure) is isolated to this
+    runtime.current().ddl_queue to the same local queue so the P1 bounded re-enqueue
+    (runtime.current().ddl_queue.put on a journal-block failure) is isolated to this
     test and observable (it does NOT leak onto the real global, and a
     re-enqueued item is re-consumed by this same loop)."""
     q = queuelib.Queue()
     q.put(item)
     q.put("exit")
-    saved = comicarr.DDL_QUEUE
-    comicarr.DDL_QUEUE = q
+    saved = runtime.current().ddl_queue
+    runtime.current().ddl_queue = q
     try:
         service.ddl_downloader(q)
     finally:
-        comicarr.DDL_QUEUE = saved
+        runtime.current().ddl_queue = saved
     return q
 
 
@@ -618,7 +619,7 @@ def test_nzb_journal_retry_cap_failure_logs_and_keeps_snatch(capture_logs):
 
 # ---------------------------------------------------------------------------
 # P1 #3 — DDL begin()-block failure must be RECOVERABLE (bounded requeue),
-# not permanently lost. The GetComics DDL path writes ddl_info+DDL_QUEUE.put
+# not permanently lost. The GetComics DDL path writes ddl_info+ddl_queue.put
 # with NO prior journal/foundsearch row, so a rolled-back begin() block leaves
 # nothing for replay/_reconstruct_anchors to rescan: the item is lost forever
 # unless it is re-enqueued.
@@ -675,13 +676,13 @@ def test_ddl_persistent_reservation_failure_never_hot_loops(monkeypatch, capture
             return not self._items
 
     q = _DriveQueue(_ddl_item(idv="ddl-cap", issueid="DCAP"))
-    saved = comicarr.DDL_QUEUE
-    comicarr.DDL_QUEUE = q
+    saved = runtime.current().ddl_queue
+    runtime.current().ddl_queue = q
     try:
         with patch.object(journal, "record_transition", side_effect=RuntimeError("DB permanently down")):
             service.ddl_downloader(q)
     finally:
-        comicarr.DDL_QUEUE = saved
+        runtime.current().ddl_queue = saved
 
     assert q.gets <= 25, "ddl_downloader hot-looped (cap did not stop requeueing)"
     assert q.gets == 2

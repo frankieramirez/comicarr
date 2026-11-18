@@ -37,7 +37,7 @@ from sqlalchemy import and_, or_, select
 
 import comicarr
 from comicarr.app.attention import ManualReview, record
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import ddl_info, nzblog, pipeline_journal, snatched, storyarcs
 from comicarr.app.downloads import journal, postprocessing, recovery_classify
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
@@ -399,7 +399,7 @@ def release_sab_history(nzo_id, failed):
 
 
 def pp_item_from_row(row, payload):
-    """Reconstruct a PP_QUEUE item dict from a journal row's payload. The
+    """Reconstruct a pp_queue item dict from a journal row's payload. The
     authoritative release_key is stamped as `journal_release_key` so the U4
     atomic claim (downloaded -> post_processing) advances THIS row (same
     propagation contract U3/U4 established — never re-derived)."""
@@ -474,10 +474,10 @@ def quarantine_invalid_completion(row, payload, error):
 
 
 def _resume_item_from_row(row, payload):
-    """Reconstruct the SNATCHED_QUEUE / NZB_QUEUE item so the live monitor
+    """Reconstruct the snatched_queue / nzb_queue item so the live monitor
     (whose in-memory tracking did NOT survive the restart) re-owns a `still`
-    download. SNATCHED_QUEUE (torrent) items are {issueid, comicid, hash};
-    NZB_QUEUE items are the SAB/NZBGet sender dict shape — we rebuild the
+    download. snatched_queue (torrent) items are {issueid, comicid, hash};
+    nzb_queue items are the SAB/NZBGet sender dict shape — we rebuild the
     identity fields from the journal payload (the U2 snatch payload)."""
     payload = payload or {}
     downloader = (row.get("downloader_type") or "").lower()
@@ -712,7 +712,7 @@ def _resolve_row(snapshot_row, probes=None):
             )
             logger.error("[RECOVERY] %s downloaded artifact command is unsafe; quarantined: %s" % (rkey, e))
             return "downloaded-manual-review"
-        comicarr.PP_QUEUE.put(item)
+        runtime.current().pp_queue.put(item)
         logger.info("[RECOVERY] %s has a durable downloaded artifact; enqueued directly for PP." % rkey)
         return "downloaded-pp-enqueued"
 
@@ -808,7 +808,7 @@ def _resolve_row(snapshot_row, probes=None):
             provider=row.get("provider"),
             downloader_type=row.get("downloader_type"),
         )
-        comicarr.PP_QUEUE.put(item)
+        runtime.current().pp_queue.put(item)
         release_sab_history(details.get("nzo_id"), payload.get("failed"))
         logger.info(
             "[RECOVERY] %s -> COMPLETE (done at downloader) — recorded "
@@ -820,10 +820,10 @@ def _resolve_row(snapshot_row, probes=None):
     if verdict == recovery_classify.STILL:
         kind, item = _resume_item_from_row(row, payload)
         if kind == "torrent":
-            comicarr.SNATCHED_QUEUE.put(item)
+            runtime.current().snatched_queue.put(item)
             logger.info(
                 "[RECOVERY] %s -> STILL (downloading) — re-enqueued onto "
-                "SNATCHED_QUEUE so the live torrent monitor resumes." % rkey
+                "snatched_queue so the live torrent monitor resumes." % rkey
             )
         elif kind == "ddl":
             ddl_id = item.get("id")
@@ -848,10 +848,10 @@ def _resolve_row(snapshot_row, probes=None):
                 "no duplicate sender call; issue re-wanted when resolvable (#541)." % rkey
             )
         else:
-            comicarr.NZB_QUEUE.put(item)
+            runtime.current().nzb_queue.put(item)
             logger.info(
                 "[RECOVERY] %s -> STILL (downloading) — re-enqueued onto "
-                "NZB_QUEUE so the live NZB monitor resumes." % rkey
+                "nzb_queue so the live NZB monitor resumes." % rkey
             )
         return "still-reenqueued"
 

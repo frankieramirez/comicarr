@@ -53,6 +53,7 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import issues, metadata, nzblog, pipeline_journal, snatched
 from comicarr.app.downloads import journal, recovery, recovery_classify
@@ -98,13 +99,13 @@ def _isolated_db(tmp_path, monkeypatch):
 
 @pytest.fixture
 def fake_pp_queue(monkeypatch):
-    """Replace comicarr.PP_QUEUE with a real queue.Queue we can drain and a
+    """Replace runtime.current().pp_queue with a real queue.Queue we can drain and a
     fake postprocess_main consumer that records every (release_key) it would
     post-process — so we can assert PP runs EXACTLY ONCE."""
     import queue as queue_module
 
     q = queue_module.Queue()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", q, raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", q, raising=False)
     return q
 
 
@@ -156,7 +157,7 @@ def test_ae1_snatched_then_externally_completed_pp_exactly_once(fake_pp_queue, t
     authoritative release_key stamped so the U4 claim advances THIS row, and
     a second restart (re-running replay) does NOT double-drive it.
 
-    Exactly-once property: PP_QUEUE put count == 1 on first replay, == 0 on
+    Exactly-once property: pp_queue put count == 1 on first replay, == 0 on
     the second (the journal terminal-state guard converges)."""
     rkey = journal.release_key("500", "nzb.su", nzbname="Batman_010.cbz")
     completed = tmp_path / "Batman_010"
@@ -278,7 +279,7 @@ def test_ae1_anchor_reconstruction_drives_residual_window_completed_not_redriven
 
 def test_ae1_still_downloading_reenqueued_for_live_monitor_no_double_drive(fake_pp_queue, monkeypatch):
     """AE1 (R4/R5): the download was STILL running across the restart. Replay
-    reconstructs the payload and re-enqueues it onto SNATCHED_QUEUE so the
+    reconstructs the payload and re-enqueues it onto snatched_queue so the
     live torrent monitor (whose in-memory tracking did not survive restart)
     re-owns it — it is NOT post-processed (download not done) and NOT
     double-driven (stage stays `snatched`; the U4 claim + monotonic guard
@@ -286,7 +287,7 @@ def test_ae1_still_downloading_reenqueued_for_live_monitor_no_double_drive(fake_
     import queue as queue_module
 
     sn_q = queue_module.Queue()
-    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", sn_q, raising=False)
+    monkeypatch.setattr(runtime.current(), "snatched_queue", sn_q, raising=False)
 
     rkey = journal.release_key("800", "torznab", hash="cafef00d")
     with get_engine().begin() as conn:
@@ -327,7 +328,7 @@ def test_ae2_moved_finishes_dbfacts_only_post_processing_redrives_in_full(fake_p
     committed, DB facts uncommitted) must finish DB facts ONLY — NO duplicate
     import/move, postprocessing._post_process must NEVER be constructed for it. A
     `post_processing` row (move did NOT commit, source intact) must re-drive
-    PP in full via a DIRECT postprocessing._post_process (NOT via PP_QUEUE — a row already
+    PP in full via a DIRECT postprocessing._post_process (NOT via pp_queue — a row already
     at post_processing would lose the U4 downloaded->post_processing claim).
     The decision is made on the `moved` marker ALONE, with no file probe.
 
@@ -380,11 +381,11 @@ def test_ae2_moved_finishes_dbfacts_only_post_processing_redrives_in_full(fake_p
         assert conn.execute(select(nzblog).where(nzblog.c.IssueID == "600")).fetchall() == []
 
     # `post_processing` -> re-driven in full EXACTLY ONCE with the
-    # authoritative key, and NOT via PP_QUEUE.
+    # authoritative key, and NOT via pp_queue.
     assert proc_calls == [pp_key], (
         "AE2: post_processing re-drive must be exactly one direct postprocessing._post_process"
     )
-    assert _drain(fake_pp_queue) == [], "AE2: post_processing re-drive must be direct, not via PP_QUEUE"
+    assert _drain(fake_pp_queue) == [], "AE2: post_processing re-drive must be direct, not via pp_queue"
 
 
 def test_ae2_already_post_processed_recognized_done_not_redriven(fake_pp_queue, monkeypatch):
@@ -450,7 +451,7 @@ def test_ae3_same_release_interrupted_across_two_restarts_completes_exactly_once
     release is grabbed/post-processed EXACTLY ONCE across BOTH restarts and
     never duplicated.
 
-    Exactly-once property: total PP_QUEUE puts across the two replays == 1;
+    Exactly-once property: total pp_queue puts across the two replays == 1;
     once the consumer's atomic claim advances the row, the second restart is
     a no-op (no duplicate grab/PP)."""
     rkey = journal.release_key("550", "nzb.su", nzbname="Flash_001.cbz")
@@ -488,7 +489,7 @@ def test_ae3_same_release_interrupted_across_two_restarts_completes_exactly_once
     # the item; then the process crashes AGAIN (the journal is now terminal,
     # but the never-deleted live `Snatched` row still exists). Replay's
     # COMPLETE branch already advanced the row to `downloaded` before the
-    # PP_QUEUE.put, so the consumer's claim is purely downloaded->post_processing.
+    # pp_queue.put, so the consumer's claim is purely downloaded->post_processing.
     assert journal.read_one(rkey)["stage"] == journal.DOWNLOADED
     assert journal.record_transition(rkey, journal.POST_PROCESSING) is True, (
         "AE3: the real downloaded->post_processing atomic claim must succeed once"
@@ -623,8 +624,8 @@ def test_ae4_download_gone_recorded_failed_not_retried_not_enqueued(fake_pp_queu
 
     sn_q = queue_module.Queue()
     nzb_q = queue_module.Queue()
-    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", sn_q, raising=False)
-    monkeypatch.setattr(comicarr, "NZB_QUEUE", nzb_q, raising=False)
+    monkeypatch.setattr(runtime.current(), "snatched_queue", sn_q, raising=False)
+    monkeypatch.setattr(runtime.current(), "nzb_queue", nzb_q, raising=False)
 
     rkey = journal.release_key("404", "torznab", hash="deadbeef")
     gone_payload = {"issueid": "404", "comicid": "C404", "hash": "deadbeef", "provider": "torznab"}

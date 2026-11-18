@@ -19,6 +19,7 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.tables import annuals, issues
 from comicarr.app.search import commands as search_commands
@@ -301,7 +302,7 @@ def _delete(ctx, location, delete_side_effect=None):
 
 def test_refresh_comic_includes_canonical_series_year(monkeypatch):
     refresh_thread = MagicMock()
-    monkeypatch.setattr(comicarr, "REFRESH_QUEUE", SimpleNamespace(queue=[]))
+    monkeypatch.setattr(runtime.current(), "refresh_queue", SimpleNamespace(queue=[]))
     monkeypatch.setattr(add_workers, "queue_refreshes", refresh_thread)
     monkeypatch.setattr(
         series_service.series_queries,
@@ -321,7 +322,7 @@ def test_refresh_comic_coalesces_existing_mapping_command(monkeypatch):
     refresh_thread = MagicMock()
     refresh_queue = queue.Queue()
     refresh_queue.put({"comicid": "160294", "comicname": "Absolute Batman", "seriesyear": "2024"})
-    monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
+    monkeypatch.setattr(runtime.current(), "refresh_queue", refresh_queue)
     monkeypatch.setattr(add_workers, "queue_refreshes", refresh_thread)
     monkeypatch.setattr(
         series_service.series_queries,

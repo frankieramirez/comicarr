@@ -19,8 +19,8 @@ import queue
 
 import pytest
 
-import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine
 from tests.mcp_harness import (
     INIT,
@@ -93,7 +93,7 @@ EXPECTED_ERRORS = {
 @pytest.fixture(autouse=True)
 def _library(tmp_path, monkeypatch):
     seed_library(tmp_path, monkeypatch)
-    monkeypatch.setattr(comicarr, "SEARCH_QUEUE", queue.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "search_queue", queue.Queue(), raising=False)
     monkeypatch.delenv("COMICARR_ACQUISITION_MAINTENANCE", raising=False)
     monkeypatch.setattr(
         "comicarr.app.search.health.get_search_health",

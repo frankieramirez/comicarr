@@ -28,7 +28,7 @@ def _run_single_item(series_queue, issue_queue, item):
 
     with patch("comicarr.app.series.comic_add.add_comic") as mock_add:
         with patch("comicarr.app.series.add_workers.time.sleep"):
-            with patch.object(comicarr, "ADD_LIST", queue.Queue()):
+            with patch.object(runtime.current(), "add_list", queue.Queue()):
                 run_mass_add_queue(series_queue, issue_queue)
 
     return mock_add

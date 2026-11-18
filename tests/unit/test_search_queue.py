@@ -21,6 +21,7 @@ import comicarr
 from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS, RunLedger
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import annuals, comics, issues, metadata
 from comicarr.app.search import service
@@ -74,7 +75,7 @@ def _configure_worker(monkeypatch):
     monkeypatch.setattr(comicarr, "SEARCHLOCK", threading.Lock())
     monkeypatch.setattr(comicarr, "PACK_ISSUEIDS_DONT_QUEUE", {})
     monkeypatch.setattr(comicarr, "DDL_QUEUED", [])
-    monkeypatch.setattr(comicarr, "PP_QUEUE", queue.Queue())
+    monkeypatch.setattr(runtime.current(), "pp_queue", queue.Queue())
     monkeypatch.setattr(service, "filers", SimpleNamespace(FileHandlers=lambda **_kwargs: _FileCheck()))
     monkeypatch.setattr(comicarr.app.search, "engine", SimpleNamespace(searchforissue=provider_search))
     monkeypatch.setattr(service.time, "sleep", lambda _seconds: None)
@@ -702,7 +703,7 @@ def test_manual_wanted_scan_queues_eligible_backlog_outside_automatic_tier(acqui
     monkeypatch.setattr(comicarr, "SEARCH_TIER_DATE", "2026-01-01")
     monkeypatch.setattr(comicarr, "SEARCHLOCK", threading.Lock())
     work = queue.Queue()
-    monkeypatch.setattr(comicarr, "SEARCH_QUEUE", work)
+    monkeypatch.setattr(runtime.current(), "search_queue", work)
     with get_engine().begin() as conn:
         conn.execute(
             comics.insert().values(
@@ -774,5 +775,5 @@ def test_startup_replays_search_and_refresh_before_workers(monkeypatch):
     result = comicarr.replay_acquisition_obligations()
 
     assert result == {"search": 2, "refresh": 3}
-    search_replay.assert_called_once_with(work_queue=comicarr.SEARCH_QUEUE)
+    search_replay.assert_called_once_with(work_queue=runtime.current().search_queue)
     refresh_replay.assert_called_once_with(start_worker=True)

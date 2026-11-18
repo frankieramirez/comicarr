@@ -128,7 +128,7 @@ def test_refresh_thread_persists_before_queue_handoff(monkeypatch, acquisition_l
             super().put(item, *args, **kwargs)
 
     refresh_queue = InspectingQueue()
-    monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
+    monkeypatch.setattr(runtime.current(), "refresh_queue", refresh_queue)
 
     add_workers.queue_refreshes(
         [{"comicid": "160294", "comicname": "Absolute Batman", "seriesyear": "2024"}],
@@ -144,7 +144,7 @@ def test_refresh_thread_persists_before_queue_handoff(monkeypatch, acquisition_l
 
 def test_active_maintenance_blocks_refresh_handoff_but_keeps_obligation(monkeypatch, acquisition_ledger):
     refresh_queue = queue.Queue()
-    monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
+    monkeypatch.setattr(runtime.current(), "refresh_queue", refresh_queue)
     controller = MaintenanceController(get_engine())
     controller.acquire_fence("owner", "repair-1", reason="repair apply")
 
@@ -172,7 +172,7 @@ def test_refresh_replay_resets_running_item_without_count_inflation(monkeypatch,
     )
     acquisition_ledger.claim_item("refresh-replay", "series", "160294")
     refresh_queue = queue.Queue()
-    monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
+    monkeypatch.setattr(runtime.current(), "refresh_queue", refresh_queue)
 
     replayed = add_workers.replay_refresh_obligations(ledger=acquisition_ledger, start_worker=False)
 
@@ -184,7 +184,7 @@ def test_refresh_replay_resets_running_item_without_count_inflation(monkeypatch,
 
 def test_refresh_replay_preserves_weekly_mode_arguments(monkeypatch, acquisition_ledger):
     refresh_queue = queue.Queue()
-    monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
+    monkeypatch.setattr(runtime.current(), "refresh_queue", refresh_queue)
     add_workers.queue_refreshes(
         {
             "r_mode": "updateissuedata",
@@ -213,7 +213,7 @@ def test_refresh_replay_preserves_weekly_mode_arguments(monkeypatch, acquisition
 
 def test_import_lock_requeues_refresh_before_durable_claim(monkeypatch, acquisition_ledger):
     refresh_queue = queue.Queue()
-    monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
+    monkeypatch.setattr(runtime.current(), "refresh_queue", refresh_queue)
     monkeypatch.setattr(comicarr, "IMPORTLOCK", True)
     monkeypatch.setattr(watchlist_refresh.time, "sleep", lambda _seconds: None)
     add_workers.queue_refreshes(
@@ -240,7 +240,7 @@ def test_import_lock_requeues_refresh_before_durable_claim(monkeypatch, acquisit
 
 def test_durable_refresh_failure_does_not_kill_following_item(monkeypatch, acquisition_ledger):
     refresh_queue = queue.Queue()
-    monkeypatch.setattr(comicarr, "REFRESH_QUEUE", refresh_queue)
+    monkeypatch.setattr(runtime.current(), "refresh_queue", refresh_queue)
     monkeypatch.setattr(comicarr, "IMPORTLOCK", False)
     monkeypatch.setattr(watchlist_refresh.time, "sleep", lambda _seconds: None)
     update = MagicMock(side_effect=[RuntimeError("metadata provider failed"), None])
@@ -276,7 +276,7 @@ def _configure_updater(monkeypatch, *, annuals_on, rows, cv_results):
     )
     monkeypatch.setattr(comicarr, "DB_BACKFILL", False)
     monkeypatch.setattr(runtime.current(), "updater_status", "Waiting")
-    monkeypatch.setattr(comicarr, "REFRESH_QUEUE", SimpleNamespace(queue=[]))
+    monkeypatch.setattr(runtime.current(), "refresh_queue", SimpleNamespace(queue=[]))
     monkeypatch.setattr(add, "refresh_series", refresh_thread)
     monkeypatch.setattr(
         watchlist_refresh,

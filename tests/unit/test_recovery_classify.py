@@ -28,6 +28,7 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import annuals, ddl_info, issues, metadata, nzblog, pipeline_journal
 from comicarr.app.downloads import journal, recovery_classify
@@ -980,9 +981,9 @@ def test_file_not_found_quarantines_for_manual_review(monkeypatch):
     from comicarr.app.downloads import recovery
 
     pp = queue_module.Queue()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", pp, raising=False)
-    monkeypatch.setattr(comicarr, "NZB_QUEUE", queue_module.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", queue_module.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", pp, raising=False)
+    monkeypatch.setattr(runtime.current(), "nzb_queue", queue_module.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "snatched_queue", queue_module.Queue(), raising=False)
     row = _sab_probe_row("FNFMR")
     with patch("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value={"status": "file not found"}):
         details = recovery_classify.classify_details(row)
@@ -1008,9 +1009,9 @@ def test_failed_no_auto_handling_is_terminal_gone(monkeypatch):
     from comicarr.app.downloads import recovery
 
     pp = queue_module.Queue()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", pp, raising=False)
-    monkeypatch.setattr(comicarr, "NZB_QUEUE", queue_module.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", queue_module.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", pp, raising=False)
+    monkeypatch.setattr(runtime.current(), "nzb_queue", queue_module.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "snatched_queue", queue_module.Queue(), raising=False)
     row = _sab_probe_row("NOAUTO")
     with patch(
         "comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value={"status": "failed_no_auto_handling"}
@@ -1024,15 +1025,15 @@ def test_failed_no_auto_handling_is_terminal_gone(monkeypatch):
 
 
 def test_nzb_removed_does_not_enqueue_pp(monkeypatch):
-    """historycheck 'nzb removed' used to map to complete. It must stay off PP_QUEUE."""
+    """historycheck 'nzb removed' used to map to complete. It must stay off pp_queue."""
     import queue as queue_module
 
     from comicarr.app.downloads import recovery
 
     pp = queue_module.Queue()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", pp, raising=False)
-    monkeypatch.setattr(comicarr, "NZB_QUEUE", queue_module.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", queue_module.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", pp, raising=False)
+    monkeypatch.setattr(runtime.current(), "nzb_queue", queue_module.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "snatched_queue", queue_module.Queue(), raising=False)
     row = _sab_probe_row("GONEPP")
     with patch("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value={"status": "nzb removed"}):
         details = recovery_classify.classify_details(row)
@@ -1049,9 +1050,9 @@ def test_unhandled_repairing_does_not_enqueue_pp(monkeypatch):
 
     pp = queue_module.Queue()
     nzb = queue_module.Queue()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", pp, raising=False)
-    monkeypatch.setattr(comicarr, "NZB_QUEUE", nzb, raising=False)
-    monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", queue_module.Queue(), raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", pp, raising=False)
+    monkeypatch.setattr(runtime.current(), "nzb_queue", nzb, raising=False)
+    monkeypatch.setattr(runtime.current(), "snatched_queue", queue_module.Queue(), raising=False)
     row = _sab_probe_row("REPAIR")
     with patch(
         "comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value={"status": "unhandled status of: Repairing"}

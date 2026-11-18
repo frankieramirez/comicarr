@@ -35,6 +35,7 @@ from types import SimpleNamespace
 
 import comicarr
 from comicarr.app.config.ini import _CONFIG_DEFINITIONS, Config
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.downloads import handoff, journal, nzbget, postprocessing, sabnzbd, service, snatch_record
 from comicarr.app.series import service as series_service
@@ -204,20 +205,20 @@ def send_to_nzbget(nzb_path, name=RELEASE):
 def monitor_sab(item):
     """One pass of the NZB monitor for ``item``; return SABnzbd's reported status."""
     nzstat = sabnzbd.SABnzbd(item).processor()
-    service.cdh_monitor(comicarr.NZB_QUEUE, item, nzstat)
+    service.cdh_monitor(runtime.current().nzb_queue, item, nzstat)
     return nzstat
 
 
 def monitor_nzbget(item):
     """One pass of the NZB monitor for ``item``; return NZBGet's reported status."""
     nzstat = nzbget.NZBGet().processor(item)
-    service.cdh_monitor(comicarr.NZB_QUEUE, item, nzstat)
+    service.cdh_monitor(runtime.current().nzb_queue, item, nzstat)
     return nzstat
 
 
 def post_process_next():
     """Run the post-processing request completed-download handling queued."""
-    return postprocessing.run(comicarr.PP_QUEUE.get_nowait())
+    return postprocessing.run(runtime.current().pp_queue.get_nowait())
 
 
 def library_issue():

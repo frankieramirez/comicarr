@@ -18,7 +18,7 @@ import pytest
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema, maintenance_retry_delay
 from comicarr.app.attention import Failure, ManualReview
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import metadata
 from comicarr.app.downloads import journal, service
 
@@ -211,7 +211,7 @@ def test_monitor_error_then_progress_then_complete_reaches_pp(sqlite_ddl_db, mon
     )
 
     pp_queue = queue.Queue()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", pp_queue)
+    monkeypatch.setattr(runtime.current(), "pp_queue", pp_queue)
 
     item = _item(journal_release_key=key)
     delay = service._handle_torrent_monitor_result(item, _unreachable())

@@ -64,6 +64,16 @@ MIGRATED_FIELDS = frozenset(
         "sched_version_last",
         "sched_dbupdate_last",
         "sched_manga_sync_last",
+        # Work queues (#1540).
+        "snatched_queue",
+        "nzb_queue",
+        "pp_queue",
+        "search_queue",
+        "ddl_queue",
+        "return_nzb_queue",
+        "add_list",
+        "issue_watch_list",
+        "refresh_queue",
     }
 )
 
@@ -79,15 +89,6 @@ _CONTEXT_TO_LEGACY = {
     "api_lock": "APILOCK",
     "ddl_lock": "DDL_LOCK",
     "acquisition_resume_lock": "ACQUISITION_RESUME_LOCK",
-    "snatched_queue": "SNATCHED_QUEUE",
-    "nzb_queue": "NZB_QUEUE",
-    "pp_queue": "PP_QUEUE",
-    "search_queue": "SEARCH_QUEUE",
-    "ddl_queue": "DDL_QUEUE",
-    "return_nzb_queue": "RETURN_THE_NZBQUEUE",
-    "add_list": "ADD_LIST",
-    "issue_watch_list": "ISSUE_WATCH_LIST",
-    "refresh_queue": "REFRESH_QUEUE",
     "sn_pool": "SNPOOL",
     "nzb_pool": "NZBPOOL",
     "search_pool": "SEARCHPOOL",

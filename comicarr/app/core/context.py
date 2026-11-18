@@ -51,6 +51,7 @@ from dataclasses import dataclass, field
 from fastapi import Request
 
 from comicarr.app.core.workers import BackgroundWorkerRegistry
+from comicarr.app.search.queue import FairSearchQueue
 
 
 @dataclass
@@ -73,7 +74,7 @@ class AppContext:
     snatched_queue: queue.Queue = field(default_factory=queue.Queue)
     nzb_queue: queue.Queue = field(default_factory=queue.Queue)
     pp_queue: queue.Queue = field(default_factory=queue.Queue)
-    search_queue: queue.Queue = field(default_factory=queue.Queue)
+    search_queue: object = field(default_factory=FairSearchQueue)
     ddl_queue: queue.Queue = field(default_factory=queue.Queue)
     return_nzb_queue: queue.Queue = field(default_factory=queue.Queue)
     add_list: queue.Queue = field(default_factory=queue.Queue)

@@ -53,7 +53,7 @@ from comicarr.app.common.remote_artifacts import (
     safe_remote_filename,
     write_chunks_atomically,
 )
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core import security as core_security
 from comicarr.app.core.tables import (
     annuals,
@@ -3448,7 +3448,7 @@ def searcher(
             if ddl_it.get("success") is True and not ddl_it.get("partial") and not ddl_it.get("failed_ids"):
                 logger.info(
                     "[%s] Successfully snatched %s from DDL site. It is currently being queued"
-                    " to download in position %s" % (tnzbprov, nzbname, comicarr.DDL_QUEUE.qsize())
+                    " to download in position %s" % (tnzbprov, nzbname, runtime.current().ddl_queue.qsize())
                 )
             else:
                 if ddl_it.get("partial") or ddl_it.get("failed_ids"):
@@ -3486,7 +3486,7 @@ def searcher(
             if ddl_it["success"] is True:
                 logger.info(
                     "[%s] Successfully snatched %s from DDL site. It is currently being queued"
-                    " to download in position %s" % (tnzbprov, nzbname, comicarr.DDL_QUEUE.qsize())
+                    " to download in position %s" % (tnzbprov, nzbname, runtime.current().ddl_queue.qsize())
                 )
             else:
                 logger.info("[%s] Failed to retrieve %s from the DDL site." % (tnzbprov, nzbname))
@@ -3635,7 +3635,7 @@ def searcher(
             legacy_queue_route = any([comicarr.USE_RTORRENT, comicarr.USE_DELUGE])
             queued_for_monitoring = comicarr.CONFIG.AUTO_SNATCH or comicarr.CONFIG.LOCAL_TORRENT_PP
             if monitorable and comicarr.CONFIG.AUTO_SNATCH:
-                comicarr.SNATCHED_QUEUE.put(
+                runtime.current().snatched_queue.put(
                     {
                         "issueid": IssueID,
                         "comicid": ComicID,
@@ -3646,7 +3646,7 @@ def searcher(
                     }
                 )
             elif monitorable and comicarr.CONFIG.LOCAL_TORRENT_PP:
-                comicarr.SNATCHED_QUEUE.put(
+                runtime.current().snatched_queue.put(
                     {
                         "issueid": IssueID,
                         "comicid": ComicID,
@@ -3754,7 +3754,7 @@ def searcher(
                     send_to_nzbget["download_info"] = {"provider": nzbprov, "id": nzbid}
                     send_to_nzbget["journal_release_key"] = journal_release_key
                     send_to_nzbget["clientmode"] = "nzbget"
-                    comicarr.NZB_QUEUE.put(send_to_nzbget)
+                    runtime.current().nzb_queue.put(send_to_nzbget)
                 elif send_to_nzbget["status"] == "double-pp":
                     return send_to_nzbget["status"]
                 else:
@@ -3826,7 +3826,7 @@ def searcher(
                 sendtosab["journal_release_key"] = journal_release_key
                 sendtosab["clientmode"] = "sabnzbd"
                 logger.info("SABnzbd accepted download id=%s" % sendtosab.get("nzo_id"))
-                comicarr.NZB_QUEUE.put(sendtosab)
+                runtime.current().nzb_queue.put(sendtosab)
             elif sendtosab["status"] == "double-pp":
                 return sendtosab["status"]
             elif sendtosab["status"] is False:

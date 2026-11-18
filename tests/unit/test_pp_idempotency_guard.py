@@ -96,7 +96,7 @@ def _stage_of(key):
 
 
 def _pp_item(issueid="I1", comicid="C1", nzb_name="Saga.001.cbz", **extra):
-    """A PP_QUEUE item with NO `journal_release_key` stamped — i.e. the
+    """A pp_queue item with NO `journal_release_key` stamped — i.e. the
     UNJOURNALED shape (manual/API force_process:107 / ComicRN). For these the
     guard derives from the guaranteed intersection {nzb_name, nzb_folder,
     failed, issueid, comicid, apicall} and the advance is insert-if-absent /
@@ -414,11 +414,11 @@ def test_unjournaled_pp_falls_back_to_rederivation():
 
 
 def _stamped_pp_item(snatch_key, issueid="I1", comicid="C1", nzb_name="Saga.001.cbz", **extra):
-    """A PP_QUEUE item as a REAL journaled producer (worker_main torrent put /
+    """A pp_queue item as a REAL journaled producer (worker_main torrent put /
     cdh_monitor NZB put / DDL puts) emits it: it carries the EXACT release_key
     string written to the `downloaded` journal row, stamped as
     `journal_release_key`. The item itself carries NO provider/hash/original
-    nzbname (a PP_QUEUE item never does), so a re-derivation would diverge."""
+    nzbname (a pp_queue item never does), so a re-derivation would diverge."""
     item = _pp_item(issueid=issueid, comicid=comicid, nzb_name=nzb_name, **extra)
     item["journal_release_key"] = snatch_key
     return item

@@ -91,13 +91,28 @@ _RUNTIME_FIELD_GROUPS = {
         "SCHED_MANGA_SYNC_LAST",
         "SCHED_UPDATER_LAST",
     ),
+    "work queues (#1540)": (
+        "SNATCHED_QUEUE",
+        "NZB_QUEUE",
+        "PP_QUEUE",
+        "SEARCH_QUEUE",
+        "DDL_QUEUE",
+        "RETURN_THE_NZBQUEUE",
+        "ADD_LIST",
+        "ISSUE_WATCH_LIST",
+        "REFRESH_QUEUE",
+    ),
 }
+
+# Retired names whose context field is not simply the lowercased name.
+_FIELD_RENAMES = {"RETURN_THE_NZBQUEUE": "return_nzb_queue"}
 
 for _group, _names in _RUNTIME_FIELD_GROUPS.items():
     for _name in _names:
         RETIRED_GLOBALS[_name] = (
             "retired with the %s. Read and write runtime.current().%s "
-            "(comicarr.app.core.runtime) instead of a comicarr package global." % (_group, _name.lower())
+            "(comicarr.app.core.runtime) instead of a comicarr package global."
+            % (_group, _FIELD_RENAMES.get(_name, _name.lower()))
         )
 
 SCAN_ROOTS = ("comicarr", "frontend/src", "frontend/tests", "tests", "scripts")

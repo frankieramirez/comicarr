@@ -43,6 +43,7 @@ import comicarr
 from alembic import command
 from comicarr.app.config import ini as config_module
 from comicarr.app.core import db, runtime
+from comicarr.app.core.context import AppContext
 from comicarr.app.core.schema import (
     DatabaseState,
     alembic_config,
@@ -188,19 +189,6 @@ _MIGRATION_GLOBALS = (
 )
 
 
-# Process-global worker queues, which lifespan shutdown fills with "exit".
-_WORKER_QUEUES = (
-    "SNATCHED_QUEUE",
-    "NZB_QUEUE",
-    "PP_QUEUE",
-    "SEARCH_QUEUE",
-    "DDL_QUEUE",
-    "RETURN_THE_NZBQUEUE",
-    "ADD_LIST",
-    "REFRESH_QUEUE",
-)
-
-
 def _head_revision():
     return ScriptDirectory.from_config(alembic_config()).get_current_head()
 
@@ -292,9 +280,9 @@ class Install:
             "SIGNAL",
         ):
             monkeypatch.setattr(comicarr, name, getattr(comicarr, name, None), raising=False)
-        # Lifespan shutdown puts "exit" on every worker queue the runtime adopts.
-        for name in _WORKER_QUEUES:
-            monkeypatch.setattr(comicarr, name, type(getattr(comicarr, name))(), raising=False)
+        # Lifespan shutdown puts "exit" on every worker queue the runtime
+        # carries over, so give the row a fresh bootstrap context.
+        monkeypatch.setattr(runtime, "_bootstrap", AppContext())
         for name in _MIGRATION_GLOBALS:
             monkeypatch.setattr(comicarr, name, getattr(comicarr, name, None), raising=False)
         monkeypatch.setattr(comicarr, "DB_FILE", str(self.database), raising=False)

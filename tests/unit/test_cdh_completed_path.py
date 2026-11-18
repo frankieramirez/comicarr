@@ -17,6 +17,7 @@ from unittest.mock import MagicMock
 
 import comicarr
 from comicarr.app.attention import ManualReview
+from comicarr.app.core import runtime
 from comicarr.app.downloads.failed import FAIL_REASON_NO_AUTO_HANDLING
 from comicarr.app.downloads.service import (
     _cdh_monitor_owned,
@@ -107,7 +108,7 @@ def test_cdh_monitor_owned_does_not_fail_when_name_is_not_a_child_file(tmp_path,
     assert not (job / job.name).exists()
 
     fake_pp = MagicMock()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp, raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", fake_pp, raising=False)
     monkeypatch.setattr("comicarr.app.downloads.journal.read_one", lambda *a, **k: None)
     monkeypatch.setattr("comicarr.app.downloads.journal.record_transition", lambda *a, **k: True)
     monkeypatch.setattr("comicarr.app.downloads.journal.release_key", lambda *a, **k: "rk-test")
@@ -176,7 +177,7 @@ def test_cdh_monitor_owned_failed_in_sab_retries_when_handling_on(monkeypatch):
         "comicarr.app.downloads.failed.terminalize_failed_download",
         lambda *a, **k: terminalized.append((a, k)) or True,
     )
-    monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp, raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", fake_pp, raising=False)
     monkeypatch.setattr(
         comicarr,
         "CONFIG",
@@ -259,7 +260,7 @@ def test_cdh_monitor_owned_does_not_requeue_nzb_removed(monkeypatch):
         "comicarr.app.downloads.service.record",
         lambda entry, **kwargs: recorded.append(entry),
     )
-    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", requeue, raising=False)
+    monkeypatch.setattr(runtime.current(), "return_nzb_queue", requeue, raising=False)
 
     _cdh_monitor_owned(
         queuelib.Queue(),
@@ -286,7 +287,7 @@ def test_cdh_monitor_owned_requeues_unhandled_status_without_sleeping(monkeypatc
         "comicarr.app.downloads.service.time.sleep",
         lambda seconds: slept.append(seconds),
     )
-    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", requeue, raising=False)
+    monkeypatch.setattr(runtime.current(), "return_nzb_queue", requeue, raising=False)
 
     item = _terminal_cdh_item()
     before = time.time()
@@ -311,7 +312,7 @@ def test_cdh_monitor_owned_double_pp_is_noop(monkeypatch):
         "comicarr.app.downloads.service.record",
         lambda entry, **kwargs: recorded.append(entry),
     )
-    monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", requeue, raising=False)
+    monkeypatch.setattr(runtime.current(), "return_nzb_queue", requeue, raising=False)
 
     _cdh_monitor_owned(
         queuelib.Queue(),

@@ -36,7 +36,7 @@ from comicarr.app.common import series_kind
 from comicarr.app.common.filesystem import is_path_within_allowed_dirs
 from comicarr.app.common.library_roots import is_strict_library_descendant, library_scan_dir
 from comicarr.app.common.strings import filesafe
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, issues, storyarcs, weekly
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.search.providers import effective_provider_plan, parse_provider_override
@@ -749,7 +749,7 @@ def resume_comic(ctx, comic_id):
 
 
 def _refresh_queue_contains(comic_id):
-    refresh_queue = comicarr.REFRESH_QUEUE
+    refresh_queue = runtime.current().refresh_queue
     mutex = getattr(refresh_queue, "mutex", None)
     if mutex is not None:
         with mutex:

@@ -172,7 +172,7 @@ def test_runtime_resume_replays_obligations_starts_queues_and_resumes_jobs(monke
 )
 @pytest.mark.parametrize("flag", ("AUTO_SNATCH", "LOCAL_TORRENT_PP"))
 def test_snatched_queue_starts_for_every_client_the_searcher_enqueues(monkeypatch, downloader, expected, flag):
-    """The producer and consumer of SNATCHED_QUEUE must agree on eligibility.
+    """The producer and consumer of snatched_queue must agree on eligibility.
 
     comicarr/app/search/engine.py enqueues whenever torrent_monitor can poll the client.
     If this consumer gate is narrower, releases pile up on a queue nothing

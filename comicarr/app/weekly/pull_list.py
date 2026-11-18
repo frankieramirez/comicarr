@@ -34,7 +34,7 @@ from sqlalchemy import and_, delete, select, text, update
 import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, futureupcoming, issues, weekly
 from comicarr.app.library import directories
 from comicarr.app.search import mb
@@ -1464,7 +1464,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                 if {
                                     "comicid": watch["comicid"],
                                     "comicname": comicname,
-                                } not in comicarr.REFRESH_QUEUE.queue:
+                                } not in runtime.current().refresh_queue.queue:
                                     logger.info(
                                         "[SHIZZLE-WHIZZLE] Now queueing to refresh : %s (%s)" % (comicname, seriesyear)
                                     )
@@ -1583,7 +1583,7 @@ def mass_publishers(publishers, weeknumber, year):
     if watchlist:
         for wt in watchlist:
             if wt["ComicID"] not in watchlibrary and wt["ComicID"] is not None:
-                if {"comicid": wt["ComicID"], "comicname": wt["COMIC"]} not in comicarr.ADD_LIST.queue:
+                if {"comicid": wt["ComicID"], "comicname": wt["COMIC"]} not in runtime.current().add_list.queue:
                     if wt["PUBLISHER"] in comicarr.CONFIG.IGNORED_PUBLISHERS:
                         logger.info(
                             "[SHIZZLE-WHIZZLE] %s is in your ignored_publishers list skipping %s either it's a configuration issue or a mismatch in the weekly pull-list"

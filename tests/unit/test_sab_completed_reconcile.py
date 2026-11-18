@@ -19,6 +19,7 @@ import requests
 from sqlalchemy import select
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import issues, metadata, nzblog, pipeline_journal
 from comicarr.app.downloads import journal, recovery_classify, sab_reconcile
@@ -64,7 +65,7 @@ def _isolated_db(tmp_path, monkeypatch):
 @pytest.fixture
 def pp_queue(monkeypatch):
     queue = queue_module.Queue()
-    monkeypatch.setattr(comicarr, "PP_QUEUE", queue, raising=False)
+    monkeypatch.setattr(runtime.current(), "pp_queue", queue, raising=False)
     return queue
 
 
