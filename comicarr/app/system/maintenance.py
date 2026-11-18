@@ -172,17 +172,17 @@ class Maintenance(object):
                 self.db_cursor.execute("SELECT Issue_Number from rssdb")
             except sqlite3.OperationalError:
                 self.db_cursor.execute("ALTER TABLE rssdb ADD COLUMN Issue_Number TEXT")
-                if not any(d.get("mode", None) == "rss update" for d in comicarr.MAINTENANCE_UPDATE):
-                    comicarr.MAINTENANCE_UPDATE.append({"mode": "rss update", "resume": 0})
+                if not any(d.get("mode", None) == "rss update" for d in runtime.current().maintenance_update):
+                    runtime.current().maintenance_update.append({"mode": "rss update", "resume": 0})
 
             try:
                 self.db_cursor.execute("SELECT ComicName from rssdb")
             except sqlite3.OperationalError:
                 self.db_cursor.execute("ALTER TABLE rssdb ADD COLUMN ComicName TEXT")
-                if not any(d.get("mode", None) == "rss update" for d in comicarr.MAINTENANCE_UPDATE):
-                    comicarr.MAINTENANCE_UPDATE.append({"mode": "rss update", "resume": 0})
+                if not any(d.get("mode", None) == "rss update" for d in runtime.current().maintenance_update):
+                    runtime.current().maintenance_update.append({"mode": "rss update", "resume": 0})
 
-            if not any(d.get("mode", None) == "rss update" for d in comicarr.MAINTENANCE_UPDATE):
+            if not any(d.get("mode", None) == "rss update" for d in runtime.current().maintenance_update):
                 try:
                     number_check = self.db_cursor.execute(
                         "SELECT rowid from rssdb WHERE Issue_Number is NULL AND ComicName is NULL ORDER BY rowid ASC LIMIT 10"
@@ -210,8 +210,10 @@ class Maintenance(object):
                                 "[DB-CHECK-UPDATE] Tables are correct, but some data is possibly incorrect. Attempting to resume the RSS Update from record %s"
                                 % resume[0]
                             )
-                            if not any(d.get("mode", None) == "rss update" for d in comicarr.MAINTENANCE_UPDATE):
-                                comicarr.MAINTENANCE_UPDATE.append({"mode": "rss update", "resume": resume[0]})
+                            if not any(
+                                d.get("mode", None) == "rss update" for d in runtime.current().maintenance_update
+                            ):
+                                runtime.current().maintenance_update.append({"mode": "rss update", "resume": resume[0]})
                     else:
                         if self.db_version == 0:
                             logger.info("Updating database to v1 as no data is present to update")
@@ -231,7 +233,7 @@ class Maintenance(object):
 
             self.sql_close_db()
         else:
-            if not comicarr.MAINTENANCE_UPDATE:
+            if not runtime.current().maintenance_update:
                 logger.fdebug("[DB-CHECK-UPDATE] Nothing needs updating within dB.")
 
     def check_failed_update(self):
@@ -241,11 +243,11 @@ class Maintenance(object):
         checked = check_update.fetchone()
         if checked is not None:
             if checked[2] == "incomplete":
-                if not any(d.get("mode", None) == checked[1] for d in comicarr.MAINTENANCE_UPDATE):
+                if not any(d.get("mode", None) == checked[1] for d in runtime.current().maintenance_update):
                     logger.info(
                         "[PREVIOUS_UPDATE_CHECK] Previous update of database did not complete. Let's do this again! (it is a requirement)"
                     )
-                    comicarr.MAINTENANCE_UPDATE.append({"mode": checked[1], "resume": checked[4]})
+                    runtime.current().maintenance_update.append({"mode": checked[1], "resume": checked[4]})
         else:
             logger.info("checked is None")
         self.sql_close()
@@ -566,12 +568,12 @@ class Maintenance(object):
 
     def update_db(self):
 
-        if comicarr.MAINTENANCE_UPDATE:
+        if runtime.current().maintenance_update:
             self.db_version_check(display=False)
 
             self.backup_files(dbs=True)
 
-            for dmode in comicarr.MAINTENANCE_UPDATE:
+            for dmode in runtime.current().maintenance_update:
                 if dmode["mode"] == "rss update":
                     logger.info("[MAINTENANCE-MODE][DB-CONVERSION] Updating dB due to RSS table conversion")
                     if dmode["resume"] > 0:
@@ -588,7 +590,7 @@ class Maintenance(object):
 
                     row_cnt = self.db_cursor.execute("SELECT COUNT(rowid) as count FROM rssdb")
                     rowcnt = row_cnt.fetchone()[0]
-                    comicarr.MAINTENANCE_DB_TOTAL = rowcnt
+                    runtime.current().maintenance_db_total = rowcnt
 
                     if dmode["resume"] > 0:
                         xt = self.db_cursor.execute(
@@ -598,7 +600,7 @@ class Maintenance(object):
                         xt = self.db_cursor.execute("SELECT rowid, Title FROM rssdb ORDER BY rowid ASC")
                     xlist = xt.fetchall()
 
-                    comicarr.MAINTENANCE_DB_COUNT = 0
+                    runtime.current().maintenance_db_count = 0
 
                     if xlist is None:
                         print("Nothing in the rssdb to update. Ignoring.")
@@ -607,7 +609,7 @@ class Maintenance(object):
                     try:
                         if dmode["resume"] > 0 and xlist is not None:
                             logger.info("resume set at : %s" % (xlist[dmode["resume"]],))
-                            comicarr.MAINTENANCE_DB_COUNT = dmode["resume"]
+                            runtime.current().maintenance_db_count = dmode["resume"]
                     except Exception as e:
                         print(
                             "[ERROR:%s] - table resume location is not accureate. Starting from start, but this should go quick.."
@@ -636,8 +638,8 @@ class Maintenance(object):
                                         "mode": dmode["mode"],
                                         "version": self.db_version,
                                         "status": "incomplete",
-                                        "total": comicarr.MAINTENANCE_DB_TOTAL,
-                                        "current": comicarr.MAINTENANCE_DB_COUNT,
+                                        "total": runtime.current().maintenance_db_total,
+                                        "current": runtime.current().maintenance_db_count,
                                         "last_run": common_dates.utctimestamp(),
                                     }
                                     self.db_update_status(send_it)
@@ -651,7 +653,7 @@ class Maintenance(object):
                                     logger.info("[MAINTENANCE-MODE][DB-CONVERSION][RESTART]Restarting...")
                                     return True
 
-                            comicarr.MAINTENANCE_DB_COUNT += 1
+                            runtime.current().maintenance_db_count += 1
                             if not x[1]:
                                 logger.fdebug("[MAINTENANCE-MODE][DB-CONVERSION][JUNK-NAME] %s" % x[1])
                                 delete_rows.append((x[0],))
@@ -697,8 +699,8 @@ class Maintenance(object):
                                             "mode": dmode["mode"],
                                             "version": self.db_version,
                                             "status": "incomplete",
-                                            "total": comicarr.MAINTENANCE_DB_TOTAL,
-                                            "current": comicarr.MAINTENANCE_DB_COUNT,
+                                            "total": runtime.current().maintenance_db_total,
+                                            "current": runtime.current().maintenance_db_count,
                                             "last_run": common_dates.utctimestamp(),
                                         }
                                         self.db_update_status(send_it)
@@ -726,8 +728,8 @@ class Maintenance(object):
                                     "mode": dmode["mode"],
                                     "version": 1,
                                     "status": "complete",
-                                    "total": comicarr.MAINTENANCE_DB_TOTAL,
-                                    "current": comicarr.MAINTENANCE_DB_COUNT,
+                                    "total": runtime.current().maintenance_db_total,
+                                    "current": runtime.current().maintenance_db_count,
                                     "last_run": common_dates.utctimestamp(),
                                 }
                             except Exception as e:
@@ -760,14 +762,14 @@ class Maintenance(object):
                             self.toggle_logging(level=prev_log_level)
                             logger.info(
                                 "[MAINTENANCE-MODE][DB-CONVERSION] Updating dB complete! (%s / %s)"
-                                % (comicarr.MAINTENANCE_DB_COUNT, comicarr.MAINTENANCE_DB_TOTAL)
+                                % (runtime.current().maintenance_db_count, runtime.current().maintenance_db_total)
                             )
-                            comicarr.MAINTENANCE_UPDATE[:] = [
-                                x for x in comicarr.MAINTENANCE_UPDATE if not ("rss update" == x.get("mode"))
+                            runtime.current().maintenance_update[:] = [
+                                x for x in runtime.current().maintenance_update if not ("rss update" == x.get("mode"))
                             ]
 
         else:
-            comicarr.MAINTENANCE_DB_COUNT = 0
+            runtime.current().maintenance_db_count = 0
             logger.info(
                 "[MAINTENANCE-MODE] Update DB set to start - but nothing was provided as to what. Returning to non-maintenance mode"
             )

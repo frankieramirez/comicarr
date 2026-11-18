@@ -1647,7 +1647,7 @@ class Config(object):
     def configure(self, update=False, startup=False):
 
         if all([self.CLEAR_PROVIDER_TABLE is True, startup is True]):
-            comicarr.MAINTENANCE = True
+            runtime.current().maintenance = True
 
         if self.ALT_PULL != 2:
             self.ALT_PULL = 2

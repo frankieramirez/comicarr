@@ -271,11 +271,11 @@ def main():
         ):
             print("Expecting subcommand with the maintenance positional argumeent")
             sys.exit()
-        comicarr.MAINTENANCE = True
+        runtime.current().maintenance = True
     else:
-        comicarr.MAINTENANCE = False
+        runtime.current().maintenance = False
 
-    if comicarr.MAINTENANCE is True and args_carepackage is True:
+    if runtime.current().maintenance is True and args_carepackage is True:
         print(
             "[MAINTENANCE-MODE][CAREPACKAGE] Please wait....attempting to generate carepackage (this can take a few seconds)..."
         )
@@ -323,7 +323,7 @@ def main():
         comicarr.LOG_LEVEL = 0
 
     if args_ignoreupdate:
-        comicarr.MAINTENANCE = False
+        runtime.current().maintenance = False
 
     if args_daemon:
         if sys.platform == "win32":
@@ -394,7 +394,7 @@ def main():
     runtime.current().db_file = os.path.join(runtime.current().data_dir, "comicarr.db")
 
     # Read config and start logging
-    if comicarr.MAINTENANCE is False:
+    if runtime.current().maintenance is False:
         print("Initializing startup sequence....")
 
     # try:
@@ -407,9 +407,9 @@ def main():
     if runtime.current().config.CLEAR_PROVIDER_TABLE is True:
         logger.info("[CLEAR_PROVIDER_TABLE] forcing over-ride value from config.ini")
         args_clearprovidertable = True
-        comicarr.MAINTENANCE = True
+        runtime.current().maintenance = True
 
-    if comicarr.MAINTENANCE is False:
+    if runtime.current().maintenance is False:
         filechecker.validateAndCreateDirectory(runtime.current().data_dir, True, dmode="DATA")
 
         # Make sure the data directory is writeable
@@ -447,10 +447,8 @@ def main():
     if comicarr.DAEMON:
         comicarr.daemonize()
 
-    # print('comicarr.MAINTENANCE: %s'%  comicarr.MAINTENANCE)
-    # print('comicarr.MAINTENANCE_TOTAL: %s'%  comicarr.MAINTENANCE_DB_TOTAL)
-    if comicarr.MAINTENANCE is True and (
-        comicarr.MAINTENANCE_UPDATE
+    if runtime.current().maintenance is True and (
+        runtime.current().maintenance_update
         or any(
             [
                 args_exportjson,
@@ -469,7 +467,7 @@ def main():
 
         restart_method = True  # True will restart, False will shutdown.
 
-        if comicarr.MAINTENANCE_UPDATE:
+        if runtime.current().maintenance_update:
             ur = maintenance.Maintenance("db update")
             restart_method = ur.update_db()
             if restart_method is None:
