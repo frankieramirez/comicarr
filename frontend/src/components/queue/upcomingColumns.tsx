@@ -2,8 +2,22 @@ import { ph, t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { useMemo } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
-import { CircleDot, Download, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  CircleDot,
+  Download,
+  FileText,
+  MoreHorizontal,
+  Wrench,
+  X,
+} from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { CoverCell } from "@/components/data-table/cells/CoverCell";
@@ -80,7 +94,10 @@ export function useUpcomingColumns(
       columnHelper.accessor("ComicName", {
         header: t`Series`,
         cell: ({ row }) => (
-          <div className="flex min-w-0 items-center gap-2">
+          // On phones the zero width keeps a long name from widening the
+          // table past the screen and pushing the row menu off it, so the
+          // name truncates in whatever space is left.
+          <div className="flex min-w-0 items-center gap-2 max-md:w-0 max-md:min-w-full">
             <Link
               to={`/library/${row.original.ComicID}`}
               className="truncate text-sm font-medium text-foreground hover:underline underline-offset-2"
@@ -96,6 +113,9 @@ export function useUpcomingColumns(
           </div>
         ),
         enableSorting: false,
+        // With the zero-width name above, the full width sends every spare
+        // pixel to the name instead of spreading it across the columns.
+        meta: { cellClassName: "max-md:w-full" },
       }),
       columnHelper.display({
         id: "IssueNumber",
@@ -191,119 +211,156 @@ export function useUpcomingColumns(
           </span>
         ),
         cell: ({ row }) => {
-          const status = row.original.Status?.toLowerCase();
-          const issueId = row.original.IssueID;
+          const issue = row.original;
+          const status = issue.Status?.toLowerCase();
+          const issueId = issue.IssueID;
           const fix =
-            row.original.attention && row.original.attention_reason
-              ? fixes?.get(row.original.attention_reason)
+            issue.attention && issue.attention_reason
+              ? fixes?.get(issue.attention_reason)
               : undefined;
+          // A pull-list row can arrive before the series refresh creates its
+          // issue; without an IssueID there is nothing to search, and the
+          // button used to do nothing at all.
+          const canReview =
+            status === "wanted" && !!onReview && !!issueId && !searchPaused;
+          const canSkip = status === "wanted";
+          const canWant =
+            status === "skipped" ||
+            (status !== "wanted" &&
+              status !== "downloaded" &&
+              status !== "snatched");
+          const review = () => onReview?.(issue);
+          const skip = () =>
+            unqueueIssueMutation.mutate(issueId, {
+              onSuccess: () =>
+                addToast({ type: "success", message: t`1 issue skipped` }),
+              onError: reportMutationError,
+            });
+          const want = () =>
+            queueIssueMutation.mutate(issueId, {
+              onSuccess: () =>
+                addToast({ type: "success", message: t`1 issue queued` }),
+              onError: reportMutationError,
+            });
+          const issueHref = issueId
+            ? `/library/${issue.ComicID}/issue/${issueId}`
+            : null;
 
           return (
-            <div className="flex items-center justify-end gap-1 opacity-70 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
-              {fix && (
-                <Button
-                  size="compact"
-                  variant="outline"
-                  asChild
-                  className="opacity-100"
-                >
-                  <Link
-                    to={fix.href}
-                    onClick={(event) => event.stopPropagation()}
+            <div className="flex items-center justify-end gap-1">
+              {/* Desktop: the actions sit on the row, brightening on hover. */}
+              <div className="flex items-center justify-end gap-1 opacity-70 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100 max-md:hidden">
+                {fix && (
+                  <Button
+                    size="compact"
+                    variant="outline"
+                    asChild
+                    className="opacity-100"
                   >
-                    {fix.label}
-                  </Link>
-                </Button>
-              )}
-              {/* A pull-list row can arrive before the series refresh creates
-                  its issue; without an IssueID there is nothing to search,
-                  and the button used to do nothing at all. */}
-              {status === "wanted" &&
-              onReview &&
-              row.original.IssueID &&
-              !searchPaused ? (
-                <Button
-                  size="compact"
-                  variant="ghost"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onReview(row.original);
-                  }}
-                  className="text-foreground-2"
-                >
-                  <CircleDot />
-                  <Trans>Review releases</Trans>
-                </Button>
-              ) : null}
-              {status === "wanted" || status === "skipped" ? (
-                <>
-                  {status === "wanted" && (
-                    <Button
-                      size="compact"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        unqueueIssueMutation.mutate(issueId, {
-                          onSuccess: () =>
-                            addToast({
-                              type: "success",
-                              message: t`1 issue skipped`,
-                            }),
-                          onError: reportMutationError,
-                        });
-                      }}
-                      disabled={unqueueIssueMutation.isPending}
-                      className="text-foreground-2"
+                    <Link
+                      to={fix.href}
+                      onClick={(event) => event.stopPropagation()}
                     >
-                      <X />
-                      <Trans>Skip</Trans>
-                    </Button>
+                      {fix.label}
+                    </Link>
+                  </Button>
+                )}
+                {canReview && (
+                  <Button
+                    size="compact"
+                    variant="ghost"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      review();
+                    }}
+                    className="text-foreground-2"
+                  >
+                    <CircleDot />
+                    <Trans>Review releases</Trans>
+                  </Button>
+                )}
+                {canSkip && (
+                  <Button
+                    size="compact"
+                    variant="ghost"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      skip();
+                    }}
+                    disabled={unqueueIssueMutation.isPending}
+                    className="text-foreground-2"
+                  >
+                    <X />
+                    <Trans>Skip</Trans>
+                  </Button>
+                )}
+                {canWant && (
+                  <Button
+                    size="compact"
+                    variant="ghost"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      want();
+                    }}
+                    disabled={queueIssueMutation.isPending}
+                    className="text-foreground-2"
+                  >
+                    <Download />
+                    <Trans>Want</Trans>
+                  </Button>
+                )}
+              </div>
+              {/* Phones have no room for a row of buttons, so the same
+                  actions, plus a way into the issue, live in one menu (#1508). */}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  aria-label={t`Actions for ${ph({ series: issue.ComicName ?? "" })} ${ph({ release: releaseNumber(issue) })}`}
+                  className={cn(
+                    buttonVariants({ variant: "ghost", size: "icon" }),
+                    "text-foreground-2 md:hidden",
                   )}
-                  {status === "skipped" && (
-                    <Button
-                      size="compact"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        queueIssueMutation.mutate(issueId, {
-                          onSuccess: () =>
-                            addToast({
-                              type: "success",
-                              message: t`1 issue queued`,
-                            }),
-                          onError: reportMutationError,
-                        });
-                      }}
+                >
+                  <MoreHorizontal />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {fix && (
+                    <DropdownMenuItem render={<Link to={fix.href} />}>
+                      <Wrench />
+                      {fix.label}
+                    </DropdownMenuItem>
+                  )}
+                  {canReview && (
+                    <DropdownMenuItem onClick={review}>
+                      <CircleDot />
+                      <Trans>Review releases</Trans>
+                    </DropdownMenuItem>
+                  )}
+                  {canWant && (
+                    <DropdownMenuItem
+                      onClick={want}
                       disabled={queueIssueMutation.isPending}
-                      className="text-foreground-2"
                     >
                       <Download />
                       <Trans>Want</Trans>
-                    </Button>
+                    </DropdownMenuItem>
                   )}
-                </>
-              ) : status !== "downloaded" && status !== "snatched" ? (
-                <Button
-                  size="compact"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    queueIssueMutation.mutate(issueId, {
-                      onSuccess: () =>
-                        addToast({
-                          type: "success",
-                          message: t`1 issue queued`,
-                        }),
-                      onError: reportMutationError,
-                    });
-                  }}
-                  disabled={queueIssueMutation.isPending}
-                  className="text-foreground-2"
-                >
-                  <Download />
-                  <Trans>Want</Trans>
-                </Button>
-              ) : null}
+                  {canSkip && (
+                    <DropdownMenuItem
+                      onClick={skip}
+                      disabled={unqueueIssueMutation.isPending}
+                    >
+                      <X />
+                      <Trans>Skip</Trans>
+                    </DropdownMenuItem>
+                  )}
+                  {issueHref && (
+                    <DropdownMenuItem render={<Link to={issueHref} />}>
+                      <FileText />
+                      <Trans>Open issue</Trans>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           );
         },

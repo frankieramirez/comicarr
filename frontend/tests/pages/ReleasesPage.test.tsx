@@ -402,7 +402,9 @@ describe("ReleasesPage", () => {
     );
     renderIndustry();
 
-    const reason = await screen.findByText(/built-in release calendar could not be reached/);
+    const reason = await screen.findByText(
+      /built-in release calendar could not be reached/,
+    );
     expect(reason.textContent).toContain("Add your Metron login in Settings");
     expect(reason.textContent).toContain(
       "ComicVine lists no comics for this week yet.",
@@ -512,6 +514,46 @@ describe("ReleasesPage", () => {
     render(<ReleasesPage />);
     await user.click(await screen.findByRole("button", { name: "Want" }));
     expect(await screen.findByRole("alert")).toBeTruthy();
+  });
+
+  it("keeps My releases actions on phones in a row menu", async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 390,
+    });
+    let queued: string | undefined;
+    server.use(
+      http.get("/api/upcoming", () =>
+        HttpResponse.json([{ ...upcomingIssue, Status: "Skipped" }]),
+      ),
+      http.put("/api/series/issues/:issueId/queue", ({ params }) => {
+        queued = String(params.issueId);
+        return HttpResponse.json({ success: true });
+      }),
+    );
+    try {
+      const user = userEvent.setup();
+      render(<ReleasesPage />);
+
+      // The desktop buttons sit in a phone-hidden group; the menu is the
+      // phone's way in, and it also opens the issue.
+      const trigger = await screen.findByRole("button", {
+        name: "Actions for Absolute Batman #19",
+      });
+      expect(trigger.className).toMatch(/md:hidden/);
+      await user.click(trigger);
+      expect(
+        await screen.findByRole("menuitem", { name: "Open issue" }),
+      ).toBeTruthy();
+      await user.click(screen.getByRole("menuitem", { name: "Want" }));
+      await waitFor(() => expect(queued).toBe("issue-19"));
+    } finally {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: width,
+      });
+    }
   });
 
   it("shows only the library by default and flips to everything", async () => {

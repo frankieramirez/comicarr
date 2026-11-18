@@ -176,11 +176,12 @@ export default function MyReleasesView({
     selection: { scope: "filtered" },
   });
 
-  // Phones keep cover, series, number, and status; the rest is desktop-only.
+  // Phones keep cover, series, number, status, and a row menu that holds
+  // the actions (#1508); selection and publisher are desktop-only.
   const isMobile = useIsMobile();
   useEffect(() => {
     table.setColumnVisibility(
-      isMobile ? { select: false, Publisher: false, actions: false } : {},
+      isMobile ? { select: false, Publisher: false } : {},
     );
   }, [isMobile, table]);
 

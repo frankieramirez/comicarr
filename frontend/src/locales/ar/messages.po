@@ -1300,6 +1300,10 @@ msgstr "الإجراءات"
 msgid "Actions for {ComicName} #{IssueNumber}"
 msgstr "إجراءات {ComicName} #{IssueNumber}"
 
+#: src/components/queue/upcomingColumns.tsx
+msgid "Actions for {series} {release}"
+msgstr "إجراءات {series} {release}"
+
 #: src/components/ai/ChatThreadList.tsx
 msgid "Actions for {title}"
 msgstr "إجراءات {title}"
@@ -6597,6 +6601,10 @@ msgstr "فتح السلامة"
 #: src/components/dashboard/NeedsAttentionBand.tsx
 msgid "Open in Activity"
 msgstr "فتح في النشاط"
+
+#: src/components/queue/upcomingColumns.tsx
+msgid "Open issue"
+msgstr "فتح العدد"
 
 #: src/components/dashboard/LibraryHighlights.tsx
 msgid "Open library"
