@@ -49,9 +49,9 @@ from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
 import comicarr.app.config.ini
-from comicarr import sabnzbd
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import logger
+from comicarr.app.downloads import sabnzbd
 from comicarr.app.downloads import service as downloads_service
 from comicarr.app.search import rss_runner
 from comicarr.app.search import service as search_service

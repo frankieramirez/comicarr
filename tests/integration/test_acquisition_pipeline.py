@@ -386,7 +386,7 @@ def sab(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
     monkeypatch.setattr(comicarr, "NZB_QUEUE", queue.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", queue.Queue(), raising=False)
-    monkeypatch.setattr("comicarr.sabnzbd.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.time.sleep", lambda _seconds: None)
     monkeypatch.setattr("comicarr.app.downloads.service.time.sleep", lambda _seconds: None)
     # Post-processing waits for a file renamed in the last ten seconds to
     # settle. Its clock runs a minute ahead so the wait passes at once.
@@ -1062,7 +1062,7 @@ def recorded(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "COMICSORT", series_service.ComicSort(sequence="startup"), raising=False)
     monkeypatch.setattr("comicarr.app.manga.mangadex._rate_limit", lambda: None)
     monkeypatch.setattr("comicarr.app.manga.myanimelist._rate_limit", lambda: None)
-    monkeypatch.setattr("comicarr.sabnzbd.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.time.sleep", lambda _seconds: None)
     monkeypatch.setattr("comicarr.app.downloads.service.time.sleep", lambda _seconds: None)
     monkeypatch.setattr(
         "comicarr.postprocessor.time", SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _seconds: None)

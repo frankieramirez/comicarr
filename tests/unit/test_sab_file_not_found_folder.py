@@ -9,8 +9,7 @@
 
 """A finished job Comicarr cannot see still records where it was expected."""
 
-from comicarr import sabnzbd
-from comicarr.app.downloads import service
+from comicarr.app.downloads import sabnzbd, service
 
 
 def test_file_not_found_carries_the_expected_folder():

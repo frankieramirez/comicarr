@@ -14,10 +14,9 @@ import pytest
 import requests
 
 import comicarr
-from comicarr import sabnzbd
 from comicarr.app.core import logger
 from comicarr.app.downloads import failed as failed_mod
-from comicarr.app.downloads import postprocessing
+from comicarr.app.downloads import postprocessing, sabnzbd
 from comicarr.app.search import commands
 from comicarr.app.system import maintenance
 

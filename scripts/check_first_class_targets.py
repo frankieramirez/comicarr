@@ -77,7 +77,7 @@ MANGA_PROVIDERS = (
     "comicarr/app/manga/manga_parser.py",
 )
 COVERAGE_FLOORS = {
-    "SABnzbd": (("comicarr/sabnzbd.py",), 82.3),
+    "SABnzbd": (("comicarr/app/downloads/sabnzbd.py",), 82.3),
     "NZBGet": (("comicarr/app/downloads/nzbget.py",), 56.4),
     "Manga": (("comicarr/app/manga/",) + tuple("!" + path for path in MANGA_PROVIDERS), 91.3),
     "Manga providers": (MANGA_PROVIDERS, 77.3),

@@ -23,7 +23,7 @@ from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import issues, metadata, nzblog, pipeline_journal
 from comicarr.app.downloads import journal, recovery_classify, sab_reconcile
 from comicarr.app.downloads.sab_reconcile import RetryPostProcessError
-from comicarr.sabnzbd import match_completed_slot, normalize_release_name
+from comicarr.app.downloads.sabnzbd import match_completed_slot, normalize_release_name
 
 
 @pytest.fixture(autouse=True)
@@ -52,7 +52,7 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.queuecheck",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.queuecheck",
         lambda self, nzo_id, ignore_category=False: False,
     )
     engine = get_engine()
@@ -153,8 +153,8 @@ def test_missing_nzo_id_matches_completed_history_by_release_name(monkeypatch):
             "failed": False,
         }
 
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.match_completed_history", match)
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.historycheck", historycheck)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.match_completed_history", match)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", historycheck)
 
     details = recovery_classify.classify_details(row)
 
@@ -175,7 +175,7 @@ def test_missing_nzo_id_without_a_history_match_is_unprobeable(monkeypatch, capl
         "download_info": {"id": "indexer-14"},
     }
     row = _snatched_sab("14|nzbgeek", payload, issueid="14")
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.match_completed_history", lambda self, nzbinfo: None)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.match_completed_history", lambda self, nzbinfo: None)
 
     with caplog.at_level(logging.WARNING, logger="comicarr"):
         details = recovery_classify.classify_details(row)
@@ -199,7 +199,7 @@ def test_sab_outage_during_name_match_stays_unreachable(monkeypatch):
     def match(self, nzbinfo):
         raise requests.ConnectionError("sab down")
 
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.match_completed_history", match)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.match_completed_history", match)
 
     details = recovery_classify.classify_details(row)
 
@@ -227,10 +227,10 @@ def test_reconcile_enqueues_a_completed_snatched_row_once(pp_queue, tmp_path, mo
         "failed": False,
     }
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.match_completed_history",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.match_completed_history",
         lambda self, nzbinfo: {"nzo_id": "SABnzbd_nzo_real", "status": "Completed"},
     )
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.historycheck", lambda self, nzbinfo, **kwargs: history)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", lambda self, nzbinfo, **kwargs: history)
     _insert_journal(
         "ddl-row",
         journal.SNATCHED,
@@ -269,7 +269,7 @@ def test_retry_refuses_a_download_sab_has_not_finished(monkeypatch):
     }
     row = _snatched_sab("13|nzbgeek", payload)
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.queuecheck",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.queuecheck",
         lambda self, nzo_id, ignore_category=False: True,
     )
 
@@ -300,11 +300,11 @@ def test_retry_endpoint_queues_post_processing(pp_queue, tmp_path, monkeypatch):
     }
     row = _snatched_sab("15|nzbgeek", payload, issueid="15")
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.match_completed_history",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.match_completed_history",
         lambda self, nzbinfo: {"nzo_id": "SABnzbd_nzo_015", "status": "Completed"},
     )
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.historycheck",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.historycheck",
         lambda self, nzbinfo, **kwargs: {
             "status": True,
             "location": str(completed),
@@ -375,8 +375,8 @@ def test_sweep_probe_keeps_sab_history_until_the_row_is_downloaded(pp_queue, tmp
     def remove_history(self, nzo_id, status):
         calls.append(("remove", nzo_id, status, journal.read_one(row["release_key"])["stage"]))
 
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.historycheck", historycheck)
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.remove_history", remove_history)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", historycheck)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.remove_history", remove_history)
 
     result = sab_reconcile.queue_completed_postprocess(row)
 
@@ -391,7 +391,7 @@ def test_rejected_folder_keeps_history_and_goes_to_manual_review(pp_queue, monke
     row = _snatched_sab("14|nzbgeek", _sab_payload(), issueid="14")
     removed = []
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.historycheck",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.historycheck",
         lambda self, nzbinfo, **kwargs: {
             "status": True,
             "location": "/not/under/any/configured/root",
@@ -399,7 +399,7 @@ def test_rejected_folder_keeps_history_and_goes_to_manual_review(pp_queue, monke
             "failed": False,
         },
     )
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.remove_history", lambda self, *a: removed.append(a))
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.remove_history", lambda self, *a: removed.append(a))
 
     result = sab_reconcile.queue_completed_postprocess(row)
 
@@ -412,12 +412,12 @@ def test_rejected_folder_keeps_history_and_goes_to_manual_review(pp_queue, monke
 def test_failed_sab_job_without_failed_handling_is_terminalized(pp_queue, monkeypatch):
     row = _snatched_sab("14|nzbgeek", _sab_payload(), issueid="14")
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.historycheck",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.historycheck",
         lambda self, nzbinfo, **kwargs: {"status": "failed_no_auto_handling", "failed": True, "name": "x"},
     )
 
     removed = []
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.remove_history", lambda self, *a: removed.append(a))
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.remove_history", lambda self, *a: removed.append(a))
 
     result = sab_reconcile.queue_completed_postprocess(row)
 
@@ -431,10 +431,10 @@ def test_losing_the_transition_does_not_queue_a_second_item(pp_queue, tmp_path, 
     completed = _completed_job(tmp_path)
     row = _snatched_sab("14|nzbgeek", _sab_payload(), issueid="14")
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.historycheck",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.historycheck",
         lambda self, nzbinfo, **kwargs: {"status": True, "location": str(completed), "name": "x", "failed": False},
     )
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.remove_history", lambda self, *a: None)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.remove_history", lambda self, *a: None)
 
     def lost_race(rkey, stage, **kwargs):
         with get_engine().begin() as conn:
@@ -480,7 +480,7 @@ def test_monitor_still_reviews_a_snatched_row_whose_job_vanished(monkeypatch):
 
 
 def test_full_search_page_is_not_trusted_for_a_single_match(monkeypatch):
-    from comicarr import sabnzbd
+    from comicarr.app.downloads import sabnzbd
 
     one = {"status": "Completed", "nzo_id": "SABnzbd_nzo_a", "nzb_name": "Absolute.Superman.013.nzb"}
     other = {"status": "Completed", "nzo_id": "SABnzbd_nzo_b", "nzb_name": "Absolute Superman 013.nzb"}
@@ -493,7 +493,7 @@ def test_full_search_page_is_not_trusted_for_a_single_match(monkeypatch):
 
 
 def test_short_search_page_still_checks_recent_history_for_a_twin(monkeypatch):
-    from comicarr import sabnzbd
+    from comicarr.app.downloads import sabnzbd
 
     one = {"status": "Completed", "nzo_id": "SABnzbd_nzo_a", "nzb_name": "Absolute.Superman.013.nzb"}
     twin = {"status": "Completed", "nzo_id": "SABnzbd_nzo_b", "nzb_name": "Absolute Superman 013.nzb"}
@@ -524,12 +524,12 @@ def test_history_release_targets_the_job_matched_by_name(pp_queue, tmp_path, mon
     row = _snatched_sab("14|nzbgeek", payload, issueid="14")
     removed = []
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.match_completed_history",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.match_completed_history",
         lambda self, nzbinfo: {"nzo_id": "SABnzbd_nzo_matched", "status": "Completed"},
     )
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.queuecheck", lambda self, *a, **k: False)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.queuecheck", lambda self, *a, **k: False)
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.historycheck",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.historycheck",
         lambda self, nzbinfo, **kwargs: {
             "status": True,
             "location": str(completed),
@@ -538,7 +538,7 @@ def test_history_release_targets_the_job_matched_by_name(pp_queue, tmp_path, mon
             "nzo_id": nzbinfo["nzo_id"],
         },
     )
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.remove_history", lambda self, *a: removed.append(a))
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.remove_history", lambda self, *a: removed.append(a))
 
     assert sab_reconcile.queue_completed_postprocess(row)["action"] == "enqueued"
     assert removed == [("SABnzbd_nzo_matched", "Completed")]
@@ -560,9 +560,9 @@ def test_startup_recovery_keeps_history_until_the_row_is_downloaded(pp_queue, tm
     def remove_history(self, nzo_id, status):
         calls.append(("remove", nzo_id, status, journal.read_one(row["release_key"])["stage"]))
 
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.queuecheck", lambda self, *a, **k: False)
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.historycheck", historycheck)
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.remove_history", remove_history)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.queuecheck", lambda self, *a, **k: False)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", historycheck)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.remove_history", remove_history)
 
     assert recovery._resolve_row(row) == "complete-pp-enqueued"
     assert calls == [
@@ -577,9 +577,9 @@ def test_startup_recovery_keeps_history_for_a_rejected_folder(pp_queue, monkeypa
 
     row = _snatched_sab("14|nzbgeek", _sab_payload(), issueid="14")
     removed = []
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.queuecheck", lambda self, *a, **k: False)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.queuecheck", lambda self, *a, **k: False)
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.historycheck",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.historycheck",
         lambda self, nzbinfo, **kwargs: {
             "status": True,
             "location": "/not/under/any/configured/root",
@@ -587,7 +587,7 @@ def test_startup_recovery_keeps_history_for_a_rejected_folder(pp_queue, monkeypa
             "failed": False,
         },
     )
-    monkeypatch.setattr("comicarr.sabnzbd.SABnzbd.remove_history", lambda self, *a: removed.append(a))
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.SABnzbd.remove_history", lambda self, *a: removed.append(a))
 
     assert recovery._resolve_row(row) == "complete-manual-review"
     assert removed == []
@@ -603,7 +603,7 @@ class _FakeResponse:
 
 
 def test_processor_stops_watching_once_its_job_leaves_the_queue(monkeypatch):
-    from comicarr import sabnzbd
+    from comicarr.app.downloads import sabnzbd
 
     responses = [
         {"noofslots": 1, "queue": {"slots": [{"filename": "x", "status": "Downloading", "mbleft": "5"}]}},
@@ -641,7 +641,7 @@ def test_processor_stops_watching_once_its_job_leaves_the_queue(monkeypatch):
 
 
 def test_historycheck_probe_leaves_completed_history_in_sab(tmp_path, monkeypatch):
-    from comicarr import sabnzbd
+    from comicarr.app.downloads import sabnzbd
 
     archive = tmp_path / "Absolute Superman 013.cbr"
     archive.write_bytes(b"comic")
