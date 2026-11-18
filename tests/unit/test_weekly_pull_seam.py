@@ -22,7 +22,6 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import weeklypull
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import db
@@ -31,6 +30,7 @@ from comicarr.app.search import service as search_service
 from comicarr.app.series import service as series_service
 from comicarr.app.system import service as system_service
 from comicarr.app.weekly import pull
+from comicarr.app.weekly import pull_list as weeklypull
 from comicarr.app.weekly import pull_runner as weeklypullit
 
 
@@ -248,8 +248,8 @@ def test_run_weekly_refresh_fetches_then_checks_future_releases(monkeypatch):
     order = []
     monkeypatch.setattr(system_service, "job_management", MagicMock())
     monkeypatch.setattr(common_dates, "utctimestamp", lambda: 123.0)
-    monkeypatch.setattr(weeklypullit.weeklypull, "pullit", lambda: order.append("pullit") or {"status": "success"})
-    monkeypatch.setattr(weeklypullit.weeklypull, "future_check", lambda: order.append("future_check"))
+    monkeypatch.setattr(weeklypullit.pull_list, "pullit", lambda: order.append("pullit") or {"status": "success"})
+    monkeypatch.setattr(weeklypullit.pull_list, "future_check", lambda: order.append("future_check"))
     monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Queued")
     monkeypatch.setattr(comicarr, "AI_CLIENT", None, raising=False)
 
@@ -263,8 +263,8 @@ def test_run_weekly_refresh_reraises_a_reported_pull_failure(monkeypatch):
     future_check = MagicMock()
     monkeypatch.setattr(system_service, "job_management", MagicMock())
     monkeypatch.setattr(common_dates, "utctimestamp", lambda: 123.0)
-    monkeypatch.setattr(weeklypullit.weeklypull, "pullit", lambda: {"status": "failure", "cause": "down"})
-    monkeypatch.setattr(weeklypullit.weeklypull, "future_check", future_check)
+    monkeypatch.setattr(weeklypullit.pull_list, "pullit", lambda: {"status": "failure", "cause": "down"})
+    monkeypatch.setattr(weeklypullit.pull_list, "future_check", future_check)
     monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Queued")
 
     with pytest.raises(RuntimeError, match="down"):

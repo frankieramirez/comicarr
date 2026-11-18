@@ -36,6 +36,7 @@ from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import db, logger
 from comicarr.app.core.tables import annuals, comics, futureupcoming, issues, weekly
+from comicarr.app.library import directories
 from comicarr.app.search import mb
 from comicarr.app.search import service as search_service
 from comicarr.app.series import add_workers, comic_add
@@ -439,13 +440,13 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                         re.sub(r"1 FOR \$1", "", comicnm).strip()
                         try:
                             comicrm = issname[comicend + 2]
-                        except:
+                        except Exception:
                             try:
                                 comicrm = issname[comicend + 1]
-                            except:
+                            except Exception:
                                 try:
                                     comicrm = issname[comicend]
-                                except:
+                                except Exception:
                                     comicrm = "$"
                         if "$" in comicrm:
                             comicrm = "None"
@@ -927,7 +928,7 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                                     else:
                                         cstatus = None
                                         cstatusid = None
-                                except:
+                                except Exception:
                                     cstatusid = None
                                     cstatus = None
 
@@ -1327,7 +1328,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                         else:
                             cstatus = None
                             cstatusid = None
-                    except:
+                    except Exception:
                         cstatusid = None
                         cstatus = None
 
@@ -1369,7 +1370,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                 newValue["IssueID"] = cstatusid["IssueID"]
                             else:
                                 pass
-                        except:
+                        except Exception:
                             pass
 
                     if any([date_downloaded, cstatus]):
@@ -1605,7 +1606,7 @@ def check(fname, txt):
     try:
         with open(fname) as dataf:
             return any(txt in line for line in dataf)
-    except:
+    except Exception:
         return None
 
 
@@ -1758,7 +1759,7 @@ def weekly_check(comicid, issuenum, file=None, path=None, module=None, issueid=N
     if comicarr.CONFIG.WEEKFOLDER:
         weekly_singlecopy(comicid, issuenum, file, path, weekinfo)
     if comicarr.CONFIG.SEND2READ:
-        send2read(comicid, issueid, issuenum)
+        send2read(comicid, issueid, issuenum, pulldate=chkit["SHIPDATE"], file=file)
     return
 
 
@@ -1767,7 +1768,7 @@ def weekly_singlecopy(comicid, issuenum, file, path, weekinfo):
     module = "[WEEKLY-PULL COPY]"
     if comicarr.CONFIG.WEEKFOLDER:
         desdir = weekinfo["week_folder"]
-        dircheck = comicarr.filechecker.validateAndCreateDirectory(desdir, True, module=module)
+        dircheck = directories.validateAndCreateDirectory(desdir, True, module=module)
         if dircheck:
             pass
         else:
@@ -1789,7 +1790,7 @@ def weekly_singlecopy(comicid, issuenum, file, path, weekinfo):
     return
 
 
-def send2read(comicid, issueid, issuenum):
+def send2read(comicid, issueid, issuenum, pulldate=None, file=None):
 
     module = "[READLIST]"
     if comicarr.CONFIG.SEND2READ:
@@ -1817,7 +1818,7 @@ def send2read(comicid, issueid, issuenum):
             elif annchk is None:
                 issueid = chkthis["IssueID"]
             else:
-                pullcomp = pulldate[:4]
+                pullcomp = str(pulldate or "0")[:4]
                 isscomp = chkthis["ReleaseDate"][:4]
                 anncomp = annchk["ReleaseDate"][:4]
                 logger.info(
@@ -1834,7 +1835,7 @@ def send2read(comicid, issueid, issuenum):
                 elif int(pullcomp) == int(anncomp) and int(pullcomp) != int(isscomp):
                     issueid = annchk["IssueID"]
                 else:
-                    if "annual" in file.lower():
+                    if "annual" in (file or "").lower():
                         issueid = annchk["IssueID"]
                     else:
                         logger.info(
@@ -1974,7 +1975,7 @@ def future_check():
                             for ss in split_series:
                                 try:
                                     matchword = split_match[i].lower()
-                                except:
+                                except Exception:
                                     break
 
                                 if any(x == matchword for x in catch_words):

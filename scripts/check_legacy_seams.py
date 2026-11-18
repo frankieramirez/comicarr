@@ -31,7 +31,7 @@ layer under ``comicarr/app/mcp/``, imports no root module outside
 Infrastructure, seam or not.
 
 The scan is an AST walk, so function-local and relative imports count. It also
-counts attribute access through the package (``comicarr.weeklypull.pullit``
+counts attribute access through the package (``comicarr.app.weekly.pull_list.pullit``
 after a bare ``import comicarr``), which is how several services reach legacy
 code without an import statement naming the module.
 
@@ -71,8 +71,6 @@ INFRASTRUCTURE = frozenset()
 # Foundations legacy module -> the seam modules allowed to import it under
 # comicarr/app/. Most seams do not exist yet; each seam ticket creates its file.
 SEAMS = {
-    # pull_runner.py moved from the root in #1521; both edges go when weeklypull moves (#1522).
-    "weeklypull": frozenset({"comicarr/app/weekly/pull.py", "comicarr/app/weekly/pull_runner.py"}),
     "rsscheck": frozenset({"comicarr/app/search/rss.py"}),
     "rsscheckit": frozenset({"comicarr/app/search/rss.py"}),
     "postprocessor": frozenset({"comicarr/app/downloads/postprocessing.py"}),
@@ -113,6 +111,10 @@ DEFERRED_ALLOWLIST = {
     ),
     ("comicarr/app/library/filers.py", "filechecker"): (
         "FileChecker lists and parses the files in a series folder; carried over when filers.py moved (#1417)",
+        "#1422 moves filechecker under comicarr/app/",
+    ),
+    ("comicarr/app/weekly/pull_list.py", "filechecker"): (
+        "FileChecker.dynamic_replace normalizes pull-list series names; carried over when weeklypull.py moved (#1522)",
         "#1422 moves filechecker under comicarr/app/",
     ),
     ("comicarr/app/series/comic_add.py", "filechecker"): (
@@ -204,7 +206,7 @@ def _crossings(path: Path, rel: str, root_modules: frozenset[str]) -> list[tuple
             and node.value.id == PACKAGE
             and node.attr in root_modules
         ):
-            # ``import comicarr`` then ``comicarr.weeklypull.pullit(...)``
+            # ``import comicarr`` then ``comicarr.app.weekly.pull_list.pullit(...)``
             found.append((node.lineno, node.attr))
     return found
 

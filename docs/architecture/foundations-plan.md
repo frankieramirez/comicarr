@@ -34,7 +34,7 @@ Decision: [ticket](https://github.com/frankieramirez/comicarr/issues/1188).
 | Order | Legacy module | Lines | Seam module | Shape |
 |---|---|---|---|---|
 | 1 | `notifiers.py` | 844 | `app/notifications/service.py` | Move. Root file deleted. |
-| 2 | `weeklypull.py`, `weeklypullit (now app/weekly/pull_runner.py).py` | 2,077 | `app/weekly/pull.py` | Seam first, bodies later. |
+| 2 | `weeklypull.py` (now `app/weekly/pull_list.py`), `weeklypullit.py` (now `app/weekly/pull_runner.py`) | 2,077 | `app/weekly/pull.py` | Seam first, bodies later. |
 | 3 | `rsscheck.py`, `rsscheckit.py` | 1,821 | `app/search/rss.py` | Seam first, bodies later. |
 | 4 | `updater.py` | 2,993 | three seams, below | Seam first, split by job. |
 | 5 | `importer.py` | 3,040 | `app/series/add.py` | Seam first, bodies later. |

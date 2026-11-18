@@ -22,11 +22,11 @@ import datetime
 import threading
 
 import comicarr
-from comicarr import weeklypull
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import logger
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.system import service as system_service
+from comicarr.app.weekly import pull_list
 
 
 def _weekly_runtime_context():
@@ -184,12 +184,12 @@ class Weekly:
             retry_hint = None
             pull_result = None
             try:
-                pull_result = weeklypull.pullit()
+                pull_result = pull_list.pullit()
                 if isinstance(pull_result, dict):
                     retry_hint = pull_result.get("retry_after")
                     if pull_result.get("status") == "failure":
                         raise RuntimeError(pull_result.get("cause") or "Weekly pull source reported a failure")
-                weeklypull.future_check()
+                pull_list.future_check()
             except Exception as e:
                 logger.error("[WEEKLY] Pull-list refresh failed: %s" % e)
                 _restore_manual_next_run()

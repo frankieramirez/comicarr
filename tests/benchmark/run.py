@@ -172,8 +172,8 @@ def rescan_all():
 
 
 def weekly_pull_match():
-    from comicarr import weeklypull
     from comicarr.app.storyarcs.service import get_current_week
+    from comicarr.app.weekly import pull_list as weeklypull
 
     week, year = get_current_week()
     return lambda: weeklypull.new_pullcheck(int(week), year)
