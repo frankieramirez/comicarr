@@ -11,6 +11,7 @@
 
 import base64
 import io
+import os
 import re
 import shutil
 import uuid
@@ -47,11 +48,16 @@ def attachment_root():
 
 
 def resolve_relative_path(relative_path):
-    expected_root = attachment_root()
-    candidate = (Path(runtime.current().data_dir).resolve() / relative_path).resolve()
-    if not candidate.is_relative_to(expected_root):
+    """Resolve a stored attachment path, refusing anything outside the attachment root.
+
+    The path is normalized with ``realpath`` and checked by prefix, so ``..``
+    segments and symlinks cannot escape the root.
+    """
+    expected_root = os.path.realpath(attachment_root())
+    candidate = os.path.realpath(os.path.join(os.path.realpath(runtime.current().data_dir), relative_path))
+    if candidate != expected_root and not candidate.startswith(expected_root + os.sep):
         raise InvalidChatImage("Invalid attachment path")
-    return candidate
+    return Path(candidate)
 
 
 async def save_uploads(thread_id, uploads):

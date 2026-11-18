@@ -626,3 +626,22 @@ async def test_attachment_route_enforces_thread_owner(chat_db):
         response = client.get(attachment["url"])
         assert response.status_code == 200
         assert response.headers["content-type"] == "image/webp"
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    ["../outside.png", "chat_attachments/../../outside.png", "chat_attachments_evil/x.png", "/etc/passwd"],
+)
+def test_attachment_paths_cannot_escape_the_attachment_root(tmp_path, monkeypatch, relative_path):
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
+
+    with pytest.raises(chat_images.InvalidChatImage, match="Invalid attachment path"):
+        chat_images.resolve_relative_path(relative_path)
+
+
+def test_attachment_paths_inside_the_root_resolve(tmp_path, monkeypatch):
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
+
+    resolved = chat_images.resolve_relative_path("chat_attachments/thread-a/image.png")
+
+    assert resolved == (tmp_path / "chat_attachments" / "thread-a" / "image.png").resolve()
