@@ -155,18 +155,18 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
             return
         elif pickfeed == "5" and srchterm is not None:
             feed = (
-                comicarr.DEMURL
+                search_service.DEMURL
                 + "files/?category=10&subcategory=All&language=0&seeded=2&external=2&query="
                 + str(srchterm)
                 + "&uid=0&out=rss"
             )
             verify = bool(runtime.current().config.PUBLIC_VERIFY)
         elif pickfeed == "6":
-            feed = comicarr.DEMURL + "rss/10.xml"
+            feed = search_service.DEMURL + "rss/10.xml"
             feedtype = " from the New Releases RSS Feed from Demonoid"
             verify = bool(runtime.current().config.PUBLIC_VERIFY)
         elif pickfeed == "999":
-            feed = comicarr.WWTURL + "rss.php?cat=132,50"
+            feed = search_service.WWTURL + "rss.php?cat=132,50"
             feedtype = " from the New Releases RSS Feed from WorldWideTorrents"
             verify = bool(runtime.current().config.PUBLIC_VERIFY)
         elif int(pickfeed) >= 7 and feedinfo is not None and runtime.current().config.ENABLE_32P is True:
@@ -207,7 +207,7 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                 cf_cookievalue = None
                 scraper = cfscrape.create_scraper()
                 if pickfeed == "999":
-                    if all([pickfeed == "999", comicarr.WWT_CF_COOKIEVALUE is None]):
+                    if all([pickfeed == "999", runtime.current().wwt_cf_cookievalue is None]):
                         try:
                             cf_cookievalue, cf_user_agent = scraper.get_tokens(
                                 feed, user_agent=runtime.current().cv_headers["User-Agent"]
@@ -217,10 +217,10 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                             lp += 1
                             continue
                         else:
-                            comicarr.WWT_CF_COOKIEVALUE = cf_cookievalue
+                            runtime.current().wwt_cf_cookievalue = cf_cookievalue
                             cookievalue = cf_cookievalue
                     elif pickfeed == "999":
-                        cookievalue = comicarr.WWT_CF_COOKIEVALUE
+                        cookievalue = runtime.current().wwt_cf_cookievalue
 
                     r = scraper.get(feed, verify=verify, cookies=cookievalue, headers=headers)
                 else:
@@ -1235,9 +1235,9 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
         url = search_service.torrent_create("DEM", linkit)
 
         if url.startswith("https"):
-            dem_referrer = comicarr.DEMURL + "files/download/"
+            dem_referrer = search_service.DEMURL + "files/download/"
         else:
-            dem_referrer = "http" + comicarr.DEMURL[5:] + "files/download/"
+            dem_referrer = "http" + search_service.DEMURL[5:] + "files/download/"
 
         headers = {"Accept-encoding": "gzip", "User-Agent": str(comicarr.USER_AGENT), "Referer": dem_referrer}
 
@@ -1250,9 +1250,9 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
         url = search_service.torrent_create("WWT", linkit)
 
         if url.startswith("https"):
-            wwt_referrer = comicarr.WWTURL
+            wwt_referrer = search_service.WWTURL
         else:
-            wwt_referrer = "http" + comicarr.WWTURL[5:]
+            wwt_referrer = "http" + search_service.WWTURL[5:]
 
         headers = {
             "Accept-encoding": "gzip",
@@ -1292,15 +1292,15 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
         try:
             scraper = cfscrape.create_scraper()
             if site == "WWT":
-                if comicarr.WWT_CF_COOKIEVALUE is None:
+                if runtime.current().wwt_cf_cookievalue is None:
                     cf_cookievalue, cf_user_agent = scraper.get_tokens(
                         url, user_agent=runtime.current().cv_headers["User-Agent"]
                     )
-                    comicarr.WWT_CF_COOKIEVALUE = cf_cookievalue
+                    runtime.current().wwt_cf_cookievalue = cf_cookievalue
                 r = scraper.get(
                     url,
                     params=payload,
-                    cookies=comicarr.WWT_CF_COOKIEVALUE,
+                    cookies=runtime.current().wwt_cf_cookievalue,
                     verify=verify,
                     stream=True,
                     headers=headers,

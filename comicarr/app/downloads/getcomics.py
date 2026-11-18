@@ -48,6 +48,8 @@ from comicarr.app.search import diagnostics as search_diagnostics
 from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import EvaluationSession
 
+GC_URL = "https://getcomics.org"
+
 
 class GC(object):
     def cookie_receipt(self, main_url=None):
@@ -57,7 +59,7 @@ class GC(object):
             if runtime.current().config.ENABLE_FLARESOLVERR:
                 main_url = runtime.current().config.FLARESOLVERR_URL
             else:
-                main_url = comicarr.GC_URL
+                main_url = GC_URL
         else:
             flare_test = True
 
@@ -67,7 +69,7 @@ class GC(object):
                 logger.fdebug("[GC_Cookie_Creator] GetComics Session cookie does not exist. Attempting to create.")
                 get_cookies = self.session.post(
                     main_url,
-                    json={"url": comicarr.GC_URL, "cmd": "request.get"},
+                    json={"url": GC_URL, "cmd": "request.get"},
                     verify=runtime.current().config.PUBLIC_VERIFY,
                     headers=self.flare_headers,
                     timeout=30,
@@ -113,7 +115,7 @@ class GC(object):
 
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1",
-            "Referer": comicarr.GC_URL,
+            "Referer": GC_URL,
         }
 
         self.session = requests.Session()
@@ -129,7 +131,7 @@ class GC(object):
             else os.path.join(runtime.current().config.SECURE_DIR, ".gc_cookies.dat")
         )
 
-        self.url = comicarr.GC_URL
+        self.url = GC_URL
 
         self.query = query
 

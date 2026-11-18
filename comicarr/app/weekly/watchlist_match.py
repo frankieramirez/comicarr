@@ -19,7 +19,6 @@ import re
 
 from sqlalchemy import func, select, text
 
-import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, issues, upcoming, weekly
@@ -81,7 +80,7 @@ def upcoming_update(
         "IssueDate": str(IssueDate),
     }
 
-    if runtime.current().config.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
+    if runtime.current().config.ALT_PULL != 2 or runtime.current().pullbyfile is True:
         lastupdatechk = db.select_one(select(comics).where(comics.c.ComicID == ComicID))
         if lastupdatechk is None:
             pass
@@ -253,7 +252,7 @@ def upcoming_update(
     if issuechk is None:
         if futurepull is None:
             og_status = None
-            if runtime.current().config.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
+            if runtime.current().config.ALT_PULL != 2 or runtime.current().pullbyfile is True:
                 logger.fdebug(
                     adjComicName
                     + " Issue: "

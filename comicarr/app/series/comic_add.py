@@ -27,11 +27,11 @@ import shutil
 import sqlalchemy.exc
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common import strings as common_strings
+from comicarr.app.common.numbers import ISSUE_EXCEPTIONS
 from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, issues
 from comicarr.app.core.workers import start_background_thread
@@ -1347,7 +1347,7 @@ def update_issue_data(
                     except ValueError:
                         try:
                             ordtot = 0
-                            if any(ext == issaftdec.upper() for ext in comicarr.ISSUE_EXCEPTIONS):
+                            if any(ext == issaftdec.upper() for ext in ISSUE_EXCEPTIONS):
                                 logger.fdebug("issue_exception detected..")
                                 inu = 0
                                 while inu < len(issaftdec):

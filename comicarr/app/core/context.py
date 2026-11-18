@@ -122,6 +122,16 @@ class AppContext:
     use_qbittorrent: bool = False
     use_utorrent: bool = False
     use_watchdir: bool = False
+    # Search, pull-list and provider state the engines share.
+    keys_32p: dict = None
+    wwt_cf_cookievalue: object = None
+    search_tier_date: str = None
+    pullnew: str = None
+    pullbyfile: bool = False
+    current_weeknumber: str = None
+    current_year: str = None
+    db_backfill: bool = False
+    reqs: dict = field(default_factory=dict)
     ddl_queued: set = field(default_factory=set)
     ddl_stuck_notified: set = field(default_factory=set)
     pack_issueids_dont_queue: dict = field(default_factory=dict)

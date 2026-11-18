@@ -82,60 +82,11 @@ CREATEPID = False
 SAFESTART = False
 NOWEEKLY = False
 _INITIALIZED = False
-DB_BACKFILL = False
 MAINTENANCE_UPDATE = []
 MAINTENANCE_DB_TOTAL = 0
 MAINTENANCE_DB_COUNT = 0
 UMASK = None
-PULLNEW = None
 CONFIG_FILE = None
-DEMURL = None
-WWTURL = None
-WWT_CF_COOKIEVALUE = None
-KEYS_32P = None
-SEARCH_TIER_DATE = None
-PULLBYFILE = False
-CURRENT_WEEKNUMBER = None
-CURRENT_YEAR = None
-ISSUE_EXCEPTIONS = [
-    "DEATHS",
-    "ALPHA",
-    "OMEGA",
-    "BLACK",
-    "DARK",
-    "LIGHT",
-    "AU",
-    "AI",
-    "INH",
-    "NOW",
-    "BEY",
-    "MU",
-    "HU",
-    "LR",
-    "A",
-    "B",
-    "C",
-    "X",
-    "O",
-    "WHITE",
-    "SUMMER",
-    "SPRING",
-    "FALL",
-    "WINTER",
-    "PREVIEW",
-    "DIRECTOR'S CUT",
-    "(DC)",
-]
-REQS = {}
-GC_URL = "https://getcomics.org"
-IMPRINT_MAPPING = {
-    "Homage Comics": "Homage",
-    "Max Comics": "MAX",
-    "Mailbu": "Malibu Comics",
-    "Milestone": "Milestone Comics",
-    "Skybound": "Skybound Entertainment",
-    "Top Cow": "Top Cow Productions",
-}
 
 
 def _add_recurring_job(**kwargs):
@@ -187,26 +138,12 @@ def initialize(config_file):
             CONFIG_FILE, \
             OS_DETECT, \
             MAINTENANCE, \
-            PULLBYFILE, \
-            CURRENT_WEEKNUMBER, \
-            CURRENT_YEAR, \
             UMASK, \
             USER_AGENT, \
-            PULLNEW, \
-            DEMURL, \
-            WWTURL, \
-            WWT_CF_COOKIEVALUE, \
-            KEYS_32P, \
-            DB_BACKFILL, \
             LOG_LEVEL, \
-            SEARCH_TIER_DATE, \
-            ISSUE_EXCEPTIONS, \
             MAINTENANCE_UPDATE, \
             MAINTENANCE_DB_COUNT, \
-            MAINTENANCE_DB_TOTAL, \
-            REQS, \
-            IMPRINT_MAPPING, \
-            GC_URL
+            MAINTENANCE_DB_TOTAL
 
         cc = comicarr.app.config.ini.Config(config_file)
         runtime.current().config = cc.read(startup=True)
@@ -373,18 +310,15 @@ def initialize(config_file):
         initialize_metron_session()
 
         todaydate = datetime.datetime.today()
-        CURRENT_WEEKNUMBER = todaydate.strftime("%U")
-        CURRENT_YEAR = todaydate.strftime("%Y")
+        runtime.current().current_weeknumber = todaydate.strftime("%U")
+        runtime.current().current_year = todaydate.strftime("%Y")
 
-        if SEARCH_TIER_DATE is None:
+        if runtime.current().search_tier_date is None:
             STD = todaydate - timedelta(days=runtime.current().config.SEARCH_TIER_CUTOFF)
-            SEARCH_TIER_DATE = STD.strftime("%Y-%m-%d")
-            logger.fdebug("SEARCH_TIER_DATE set to : %s" % SEARCH_TIER_DATE)
+            runtime.current().search_tier_date = STD.strftime("%Y-%m-%d")
+            logger.fdebug("Search tier date set to : %s" % runtime.current().search_tier_date)
 
         runtime.current().cv_url = "https://comicvine.gamespot.com/api/"
-
-        WWTURL = "https://worldwidetorrents.to/"
-        DEMURL = "https://www.demonoid.pw/"
 
         try:
             pub_path = os.path.join(runtime.current().config.CACHE_DIR, "imprints.json")

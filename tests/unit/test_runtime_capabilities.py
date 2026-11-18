@@ -10,7 +10,6 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.system import dependency_check
 
@@ -21,7 +20,7 @@ def _config(tmp_path, unrar_command=None):
 
 def test_runtime_capabilities_report_an_available_unrar_without_running_pip(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "config", _config(tmp_path), raising=False)
-    monkeypatch.setattr(comicarr, "REQS", {}, raising=False)
+    monkeypatch.setattr(runtime.current(), "reqs", {}, raising=False)
 
     diagnostics = dependency_check.RuntimeCapabilityDiagnostics()
 
@@ -33,23 +32,23 @@ def test_runtime_capabilities_report_an_available_unrar_without_running_pip(tmp_
 
     which.assert_called_once_with("unrar")
     popen.assert_not_called()
-    assert comicarr.REQS["rar"] == {
+    assert runtime.current().reqs["rar"] == {
         "rar_failure": False,
         "rar_message": "/usr/local/bin/unrar",
     }
-    assert "pip" not in comicarr.REQS
+    assert "pip" not in runtime.current().reqs
 
 
 def test_runtime_capabilities_report_a_missing_unrar_without_crashing(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "config", _config(tmp_path), raising=False)
-    monkeypatch.setattr(comicarr, "REQS", {}, raising=False)
+    monkeypatch.setattr(runtime.current(), "reqs", {}, raising=False)
 
     diagnostics = dependency_check.RuntimeCapabilityDiagnostics()
 
     with patch("comicarr.app.system.dependency_check.shutil.which", return_value=None):
         diagnostics.loaders()
 
-    assert comicarr.REQS["rar"] == {
+    assert runtime.current().reqs["rar"] == {
         "rar_failure": True,
         "rar_message": "Unable to locate unrar",
     }

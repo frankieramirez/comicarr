@@ -35,6 +35,10 @@ from comicarr.app.search import rss
 from comicarr.app.search.commands import SearchCommand, SearchCommandError
 from comicarr.app.search.routes import classify, route_health
 
+# Legacy torrent sites the RSS engine and the link resolver share.
+WWTURL = "https://worldwidetorrents.to/"
+DEMURL = "https://www.demonoid.pw/"
+
 
 def find_comic(
     ctx, name, issue=None, type_="comic", mode="series", limit=None, offset=None, sort=None, content_type=None
@@ -676,15 +680,15 @@ def torrent_create(site, linkid, alt=None):
     if any([site == "32P", site == "TOR"]):
         pass
     elif site == "DEM":
-        url = comicarr.DEMURL + "files/download/" + str(linkid) + "/"
+        url = DEMURL + "files/download/" + str(linkid) + "/"
     elif site == "WWT":
-        url = comicarr.WWTURL + "download.php"
+        url = WWTURL + "download.php"
 
     return url
 
 
 def parse_32pfeed(rssfeedline):
-    KEYS_32P = {}
+    keys_32p = {}
     if runtime.current().config.ENABLE_32P and len(rssfeedline) > 1:
         userid_st = rssfeedline.find("&user")
         userid_en = rssfeedline.find("&", userid_st + 1)
@@ -707,14 +711,14 @@ def parse_32pfeed(rssfeedline):
         else:
             AUTHKEY_32P = rssfeedline[authkey_st + 9 : authkey_en]
 
-        KEYS_32P = {
+        keys_32p = {
             "user": USERID_32P,
             "auth": AUTH_32P,
             "authkey": AUTHKEY_32P,
             "passkey": runtime.current().config.PASSKEY_32P,
         }
 
-    return KEYS_32P
+    return keys_32p
 
 
 def checkthe_id(comicid=None, up_vals=None):

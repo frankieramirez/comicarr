@@ -2491,7 +2491,7 @@ def job_management(
                                 runtime.current().force_status.pop("updater")
 
                             if runtime.current().updater_status != "Paused":
-                                if comicarr.DB_BACKFILL is True:
+                                if runtime.current().db_backfill is True:
                                     nextrun_stamp = utctimestamp() + (runtime.current().config.BACKFILL_TIMESPAN * 60)
                                     logger.fdebug(
                                         "[BACKFILL-UPDATER] Will fire off every %s"

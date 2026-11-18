@@ -29,7 +29,6 @@ import datetime
 
 from sqlalchemy import and_, func, select
 
-import comicarr
 from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import acquisition_runs, activity_events, comics, importresults, weekly
 
@@ -131,8 +130,8 @@ def _library_refresh(since):
 
 
 def _weekly(_since):
-    week = getattr(comicarr, "CURRENT_WEEKNUMBER", None)
-    year = getattr(comicarr, "CURRENT_YEAR", None)
+    week = runtime.current().current_weeknumber
+    year = runtime.current().current_year
     if week in (None, "") or year in (None, ""):
         return None
     row = db.select_one(

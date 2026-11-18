@@ -2083,7 +2083,7 @@ class Config(object):
                 config.set("GOTIFY", "gotify_server_url", self.GOTIFY_SERVER_URL)
 
         if self.MODE_32P is False and self.RSSFEED_32P is not None:
-            comicarr.KEYS_32P = self.parse_32pfeed(self.RSSFEED_32P)
+            runtime.current().keys_32p = self.parse_32pfeed(self.RSSFEED_32P)
 
         if self.AUTO_SNATCH is True and self.AUTO_SNATCH_SCRIPT is None:
             self.AUTO_SNATCH_SCRIPT = os.path.join(
@@ -2146,7 +2146,7 @@ class Config(object):
             runtime.current().use_watchdir = True
 
     def parse_32pfeed(self, rssfeedline):
-        KEYS_32P = {}
+        keys_32p = {}
         if self.ENABLE_32P and len(rssfeedline) > 1:
             userid_st = rssfeedline.find("&user")
             userid_en = rssfeedline.find("&", userid_st + 1)
@@ -2169,9 +2169,9 @@ class Config(object):
             else:
                 authkey_32p = rssfeedline[authkey_st + 9 : authkey_en]
 
-            KEYS_32P = {"user": userid_32p, "auth": auth_32p, "authkey": authkey_32p, "passkey": self.PASSKEY_32P}
+            keys_32p = {"user": userid_32p, "auth": auth_32p, "authkey": authkey_32p, "passkey": self.PASSKEY_32P}
 
-        return KEYS_32P
+        return keys_32p
 
     def get_extras(self):
         extra_newznabs = parse_provider_extras(self.EXTRA_NEWZNABS, self.CONFIG_VERSION)

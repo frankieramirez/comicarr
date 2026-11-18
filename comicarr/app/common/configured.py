@@ -18,6 +18,7 @@ import comicarr
 from comicarr.app.common.dates import now
 from comicarr.app.common.dates import weekly_info as _weekly_info_impl
 from comicarr.app.common.filesystem import checkFolder as _checkFolder_impl
+from comicarr.app.common.numbers import ISSUE_EXCEPTIONS
 from comicarr.app.common.numbers import issuedigits as _issuedigits_impl
 from comicarr.app.common.utilities import crc as _crc_impl
 from comicarr.app.common.utilities import log_that_exception as _log_that_exception_impl
@@ -25,7 +26,7 @@ from comicarr.app.core import db, logger, runtime
 
 
 def issuedigits(issnum):
-    return _issuedigits_impl(issnum, issue_exceptions=comicarr.ISSUE_EXCEPTIONS, log=logger)
+    return _issuedigits_impl(issnum, issue_exceptions=ISSUE_EXCEPTIONS, log=logger)
 
 
 def checkFolder(folderpath=None):

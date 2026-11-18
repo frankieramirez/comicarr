@@ -26,6 +26,7 @@ import unicodedata
 
 import comicarr
 from comicarr.app.common import configured as configured
+from comicarr.app.common.numbers import ISSUE_EXCEPTIONS
 from comicarr.app.common.series_names import DYNAMIC_HANDLERS, DYNAMIC_REPLACEMENTS, dynamic_series_name
 from comicarr.app.common.series_names import dynamic_series_key as dynamic_series_key
 from comicarr.app.common.text_dates import parse_text_date
@@ -610,7 +611,7 @@ class FileChecker(object):
             else:
                 test_exception = "".join([i for i in sf if not i.isdigit()])
 
-            if any(ext == test_exception.upper() for ext in comicarr.ISSUE_EXCEPTIONS):
+            if any(ext == test_exception.upper() for ext in ISSUE_EXCEPTIONS):
                 logger.fdebug("Exception match: %s" % test_exception)
                 if lastissue_label is not None:
                     if lastissue_position == (split_file.index(sf) - 1):

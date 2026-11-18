@@ -27,7 +27,6 @@ from collections.abc import Mapping
 
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.core import db, logger, runtime
@@ -793,7 +792,7 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
         last_run = chk_time["last_date"]
         last_date = chk_time["prev_run_datetime"]
         last_runtimestamp = chk_time["prev_run_timestamp"]
-    elif comicarr.DB_BACKFILL is True:
+    elif runtime.current().db_backfill is True:
         ld = datetime.datetime.today()
         lastrun = ld - datetime.timedelta(weeks=runtime.current().config.BACKFILL_LENGTH)
         last_date = datetime.datetime.strftime(lastrun, "%Y-%m-%d %H:%M:%S")
@@ -828,7 +827,7 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
                 "[BACKFILL-UPDATE] CV is having problems atm. Deferring backfill"
                 " job until next db update scheduled run time."
             )
-            comicarr.DB_BACKFILL = False
+            runtime.current().db_backfill = False
             system_service.job_management(
                 write=True, job="DB Updater", last_run_completed=common_dates.utctimestamp(), status="Waiting"
             )
@@ -839,7 +838,7 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
             "[BACKFILL-UPDATE] CV is having problems atm. Deferring backfill"
             " job until next db update scheduled run time."
         )
-        comicarr.DB_BACKFILL = False
+        runtime.current().db_backfill = False
         system_service.job_management(
             write=True, job="DB Updater", last_run_completed=common_dates.utctimestamp(), status="Waiting"
         )
@@ -858,13 +857,13 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
 
     if update_list["totalcount"] >= 1500:
         set_the_bar = True
-        if comicarr.DB_BACKFILL is False:
+        if runtime.current().db_backfill is False:
             logger.info(
                 "[BACKFILL-UPDATE] %s items returned since last CV update run. Will run every"
                 " %s minutes grabbing the next 1500 results each time"
                 % (update_list["totalcount"], runtime.current().config.BACKFILL_TIMESPAN)
             )
-            comicarr.DB_BACKFILL = True
+            runtime.current().db_backfill = True
 
     library = {}
 
@@ -1035,6 +1034,6 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
     )
     runtime.current().updater_status = "Waiting"
 
-    if comicarr.DB_BACKFILL is True and loaddate_stamp is None:
-        comicarr.DB_BACKFILL = False
+    if runtime.current().db_backfill is True and loaddate_stamp is None:
+        runtime.current().db_backfill = False
     return
