@@ -17,7 +17,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.search import service
 
@@ -27,8 +26,8 @@ HASH40 = "a" * 40
 @pytest.fixture(autouse=True)
 def _torrent_flags(monkeypatch):
     """Default to no torrent client; tests opt in to Deluge/rTorrent."""
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", False, raising=False)
-    monkeypatch.setattr(comicarr, "USE_DELUGE", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_deluge", False, raising=False)
     monkeypatch.setattr(
         runtime.current(),
         "config",
@@ -80,8 +79,8 @@ def test_missing_issue_returns_monitor_error_dict(monkeypatch):
 
 def test_rtorrent_import_path_no_importerror_and_status(monkeypatch):
     """rTorrent path must import from comicarr (not relative under app.search)."""
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", True)
-    monkeypatch.setattr(comicarr, "USE_DELUGE", False)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", True)
+    monkeypatch.setattr(runtime.current(), "use_deluge", False)
 
     def send_or_check(torrent_hash=None, check=False):
         return {"completed": False, "files": ["a.cbz"], "folder": "/dl"}
@@ -95,8 +94,8 @@ def test_rtorrent_import_path_no_importerror_and_status(monkeypatch):
 
 
 def test_deluge_unfinished_download_true_is_in_progress(monkeypatch):
-    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+    monkeypatch.setattr(runtime.current(), "use_deluge", True)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", False)
 
     fake_client = MagicMock()
     fake_client.connect.return_value = True
@@ -119,8 +118,8 @@ def test_neither_client_returns_monitor_error_dict():
 
 
 def test_not_found_path_still_works(monkeypatch):
-    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+    monkeypatch.setattr(runtime.current(), "use_deluge", True)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", False)
 
     fake_client = MagicMock()
     fake_client.connect.return_value = True
@@ -136,8 +135,8 @@ def test_not_found_path_still_works(monkeypatch):
 
 def test_download_false_present_incomplete_is_in_progress(monkeypatch):
     """Recovery probes with download=False; present incomplete must not be absent."""
-    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+    monkeypatch.setattr(runtime.current(), "use_deluge", True)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", False)
 
     fake_client = MagicMock()
     fake_client.connect.return_value = True
@@ -152,8 +151,8 @@ def test_download_false_present_incomplete_is_in_progress(monkeypatch):
 
 def test_deluge_monitor_copies_the_resolved_incomplete_file(monkeypatch):
     """Monitoring an incomplete Deluge item copies its real file path."""
-    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+    monkeypatch.setattr(runtime.current(), "use_deluge", True)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", False)
 
     fake_client = MagicMock()
     fake_client.connect.return_value = True
@@ -178,8 +177,8 @@ def test_a_failed_copy_still_resumes_the_paused_torrent(monkeypatch):
     Resuming only in the try's else arm left a failed copy's torrent paused in
     the client with nothing to restart it, so the download stalled forever.
     """
-    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+    monkeypatch.setattr(runtime.current(), "use_deluge", True)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", False)
 
     fake_client = MagicMock()
     fake_client.connect.return_value = True
@@ -198,9 +197,9 @@ def test_a_failed_copy_still_resumes_the_paused_torrent(monkeypatch):
 
 def test_a_non_pausable_client_is_monitored_without_being_paused(monkeypatch):
     """qBittorrent has no pause API; that must not block monitoring."""
-    monkeypatch.setattr(comicarr, "USE_DELUGE", False)
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
-    monkeypatch.setattr(comicarr, "USE_QBITTORRENT", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_deluge", False)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", False)
+    monkeypatch.setattr(runtime.current(), "use_qbittorrent", True, raising=False)
     runtime.current().config.QBITTORRENT_HOST = "qb"
     runtime.current().config.QBITTORRENT_USERNAME = "u"
     runtime.current().config.QBITTORRENT_PASSWORD = "p"
@@ -223,8 +222,8 @@ def test_a_non_pausable_client_is_monitored_without_being_paused(monkeypatch):
 
 def test_deluge_connect_failure_dict_is_monitor_error_not_not_found(monkeypatch):
     """Deluge connect returns truthy {status: False}; must not fall through to NOT FOUND."""
-    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+    monkeypatch.setattr(runtime.current(), "use_deluge", True)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", False)
 
     fake_client = MagicMock()
     fake_client.connect.return_value = {"status": False, "error": "connection refused"}
@@ -240,8 +239,8 @@ def test_deluge_connect_failure_dict_is_monitor_error_not_not_found(monkeypatch)
 
 
 def test_deluge_connect_false_is_monitor_error(monkeypatch):
-    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+    monkeypatch.setattr(runtime.current(), "use_deluge", True)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", False)
 
     fake_client = MagicMock()
     fake_client.connect.return_value = False
@@ -289,8 +288,8 @@ def test_autosnatch_script_oserror_is_not_a_client_outage(monkeypatch, tmp_path)
 
 def test_rtorrent_none_missing_hash_is_not_found_dict(monkeypatch):
     """rTorrent check-miss bare-returns None; must not TypeError on len(None)."""
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", True)
-    monkeypatch.setattr(comicarr, "USE_DELUGE", False)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", True)
+    monkeypatch.setattr(runtime.current(), "use_deluge", False)
 
     def send_or_check(torrent_hash=None, check=False):
         return None
@@ -304,8 +303,8 @@ def test_rtorrent_none_missing_hash_is_not_found_dict(monkeypatch):
 
 
 def test_completed_download_without_auto_snatch_does_not_open_script(monkeypatch):
-    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+    monkeypatch.setattr(runtime.current(), "use_deluge", True)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", False)
 
     fake_client = MagicMock()
     fake_client.connect.return_value = True
@@ -321,8 +320,8 @@ def test_completed_download_without_auto_snatch_does_not_open_script(monkeypatch
 
 
 def test_local_torrent_pp_copies_a_completed_download(monkeypatch):
-    monkeypatch.setattr(comicarr, "USE_DELUGE", True)
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
+    monkeypatch.setattr(runtime.current(), "use_deluge", True)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", False)
     runtime.current().config.LOCAL_TORRENT_PP = True
 
     fake_client = MagicMock()
@@ -341,9 +340,9 @@ def test_local_torrent_pp_copies_a_completed_download(monkeypatch):
 
 
 def test_local_torrent_pp_copies_a_completed_qbittorrent_download(monkeypatch):
-    monkeypatch.setattr(comicarr, "USE_DELUGE", False)
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", False)
-    monkeypatch.setattr(comicarr, "USE_QBITTORRENT", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_deluge", False)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", False)
+    monkeypatch.setattr(runtime.current(), "use_qbittorrent", True, raising=False)
     runtime.current().config.LOCAL_TORRENT_PP = True
     runtime.current().config.QBITTORRENT_HOST = "qb"
     runtime.current().config.QBITTORRENT_USERNAME = "u"

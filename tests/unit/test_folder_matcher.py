@@ -50,8 +50,8 @@ def isolated(tmp_path, monkeypatch):
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", False, raising=False)
-    monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_nzbget", False, raising=False)
     monkeypatch.setattr(
         "comicarr.app.downloads.postprocess_match.time",
         SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _s: None),

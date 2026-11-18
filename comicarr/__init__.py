@@ -93,15 +93,6 @@ DEMURL = None
 WWTURL = None
 WWT_CF_COOKIEVALUE = None
 KEYS_32P = None
-USE_SABNZBD = False
-USE_NZBGET = False
-USE_BLACKHOLE = False
-USE_RTORRENT = False
-USE_DELUGE = False
-USE_TRANSMISSION = False
-USE_QBITTORRENT = False
-USE_UTORRENT = False
-USE_WATCHDIR = False
 SEARCH_TIER_DATE = None
 PULLBYFILE = False
 CURRENT_WEEKNUMBER = None
@@ -205,15 +196,6 @@ def initialize(config_file):
             DEMURL, \
             WWTURL, \
             WWT_CF_COOKIEVALUE, \
-            USE_SABNZBD, \
-            USE_NZBGET, \
-            USE_BLACKHOLE, \
-            USE_RTORRENT, \
-            USE_UTORRENT, \
-            USE_QBITTORRENT, \
-            USE_DELUGE, \
-            USE_TRANSMISSION, \
-            USE_WATCHDIR, \
             KEYS_32P, \
             DB_BACKFILL, \
             LOG_LEVEL, \
@@ -453,7 +435,7 @@ def initialize(config_file):
         if runtime.current().config.LOCMOVE:
             series_service.updateComicLocation()
 
-        if all([comicarr.USE_SABNZBD is True, runtime.current().config.SAB_HOST is not None]):
+        if all([runtime.current().use_sabnzbd is True, runtime.current().config.SAB_HOST is not None]):
             s_to_the_ab = sabnzbd.SABnzbd(params=None)
             s_to_the_ab.sab_versioncheck()
             logger.info("[SAB-VERSION-CHECK] SABnzbd version detected as: %s" % runtime.current().config.SAB_VERSION)

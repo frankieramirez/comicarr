@@ -25,7 +25,6 @@ import time
 import requests
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import pipeline_journal
 from comicarr.app.downloads import journal
@@ -177,11 +176,11 @@ def _compute(issue_ids, config):
         kind = _text(row.get("downloader_type")).lower()
         if row.get("stage") in _IMPORTING:
             plans[issue_id] = ("importing", None)
-        elif kind == "nzb" and getattr(comicarr, "USE_SABNZBD", False):
+        elif kind == "nzb" and runtime.current().use_sabnzbd:
             plans[issue_id] = ("sab", _client_id(row, payload, "nzo_id"))
-        elif kind == "nzb" and getattr(comicarr, "USE_NZBGET", False):
+        elif kind == "nzb" and runtime.current().use_nzbget:
             plans[issue_id] = ("nzbget", _client_id(row, payload, "NZBID"))
-        elif kind == "torrent" and getattr(comicarr, "USE_QBITTORRENT", False):
+        elif kind == "torrent" and runtime.current().use_qbittorrent:
             torrent_hash = _text(row.get("hash")) or _client_id(row, payload, "hash")
             plans[issue_id] = ("qbittorrent", torrent_hash.lower() if torrent_hash else None)
         else:

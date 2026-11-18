@@ -20,7 +20,6 @@ post-processing accepts the row once.
 
 import os
 
-import comicarr
 from comicarr.app.core import logger, runtime
 from comicarr.app.downloads import handoff, journal
 
@@ -51,8 +50,8 @@ def row_targets_sab(row, payload=None):
     if route == "sabnzbd":
         return True
     if route == "nzb":
-        return bool(getattr(comicarr, "USE_SABNZBD", False)) and not bool(getattr(comicarr, "USE_NZBGET", False))
-    if route == "" and bool(getattr(comicarr, "USE_SABNZBD", False)):
+        return bool(runtime.current().use_sabnzbd) and not bool(runtime.current().use_nzbget)
+    if route == "" and bool(runtime.current().use_sabnzbd):
         return not (row or {}).get("hash")
     return False
 
@@ -89,7 +88,7 @@ def retry_postprocess_eligible(row, payload=None):
 
 
 def _sab_monitoring_enabled():
-    return sab_client_post_processing_enabled() and bool(getattr(comicarr, "USE_SABNZBD", False))
+    return sab_client_post_processing_enabled() and bool(runtime.current().use_sabnzbd)
 
 
 def _validated_item(row, payload, quarantine=False):

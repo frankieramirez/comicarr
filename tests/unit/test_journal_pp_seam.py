@@ -109,7 +109,7 @@ def test_cdh_monitor_journals_downloaded_before_pp_queue_put(monkeypatch):
     fake_pp_queue.put.side_effect = lambda *a, **k: order.append(("pp_put", None))
 
     monkeypatch.setattr(runtime.current(), "pp_queue", fake_pp_queue, raising=False)
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", True, raising=False)
     monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda p: {"status": True})
 
     nzstat = {
@@ -138,7 +138,7 @@ def test_cdh_monitor_failed_download_still_journals_downloaded(monkeypatch):
     post_processed). The journal write is not gated on success."""
     fake_pp_queue = MagicMock()
     monkeypatch.setattr(runtime.current(), "pp_queue", fake_pp_queue, raising=False)
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", True, raising=False)
     monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda p: {"status": True})
 
     nzstat = {
@@ -162,7 +162,7 @@ def test_cdh_monitor_journal_failure_does_not_block_pp_queue(monkeypatch):
     """A journal failure must NOT block the PP handoff (additive / inert)."""
     fake_pp_queue = MagicMock()
     monkeypatch.setattr(runtime.current(), "pp_queue", fake_pp_queue, raising=False)
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", True, raising=False)
     monkeypatch.setattr("comicarr.app.downloads.service.check_file_condition", lambda p: {"status": True})
 
     nzstat = {

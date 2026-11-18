@@ -29,7 +29,6 @@ idiom silently treats a dead client as connected. Everything here routes through
 
 import os
 
-import comicarr
 from comicarr.app.core import logger, runtime
 from comicarr.app.downloads.torrent.contracts import normalize_connection_result
 
@@ -95,15 +94,15 @@ def is_monitorable_downloader(downloader):
 
 def configured_route():
     """Return the torrent client route in use, or None when none is monitorable."""
-    if comicarr.USE_RTORRENT:
+    if runtime.current().use_rtorrent:
         return "rtorrent"
-    if comicarr.USE_DELUGE:
+    if runtime.current().use_deluge:
         return "deluge"
-    if comicarr.USE_QBITTORRENT:
+    if runtime.current().use_qbittorrent:
         return "qbittorrent"
-    if comicarr.USE_TRANSMISSION:
+    if runtime.current().use_transmission:
         return "transmission"
-    if comicarr.USE_UTORRENT:
+    if runtime.current().use_utorrent:
         return "utorrent"
     return None
 

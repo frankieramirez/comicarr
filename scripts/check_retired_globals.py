@@ -191,6 +191,17 @@ _RUNTIME_FIELD_GROUPS = {
         "MIGRATION_ERROR",
         "MIGRATION_RECONCILIATION",
     ),
+    "download-client route flags (#1543)": (
+        "USE_SABNZBD",
+        "USE_NZBGET",
+        "USE_BLACKHOLE",
+        "USE_RTORRENT",
+        "USE_DELUGE",
+        "USE_TRANSMISSION",
+        "USE_QBITTORRENT",
+        "USE_UTORRENT",
+        "USE_WATCHDIR",
+    ),
 }
 
 # Retired names whose context field is not simply the lowercased name.

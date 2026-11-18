@@ -15,7 +15,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import insert
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import activity_events, metadata, pipeline_journal
 from comicarr.app.downloads import progress
@@ -25,9 +24,9 @@ from comicarr.app.downloads import progress
 def progress_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(SAB_HOST="http://sab:8080", SAB_APIKEY="k"))
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
-    monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
-    monkeypatch.setattr(comicarr, "USE_QBITTORRENT", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_nzbget", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_qbittorrent", False, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     progress.reset_cache()
     db.shutdown_engine()

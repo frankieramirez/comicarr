@@ -1204,17 +1204,17 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
         filename += ".torrent"
     if any(
         [
-            comicarr.USE_UTORRENT,
-            comicarr.USE_RTORRENT,
-            comicarr.USE_TRANSMISSION,
-            comicarr.USE_DELUGE,
-            comicarr.USE_QBITTORRENT,
+            runtime.current().use_utorrent,
+            runtime.current().use_rtorrent,
+            runtime.current().use_transmission,
+            runtime.current().use_deluge,
+            runtime.current().use_qbittorrent,
         ]
     ):
         filepath = os.path.join(runtime.current().config.CACHE_DIR, filename)
         logger.fdebug("filename for torrent set to : " + filepath)
 
-    elif comicarr.USE_WATCHDIR:
+    elif runtime.current().use_watchdir:
         if runtime.current().config.TORRENT_LOCAL and runtime.current().config.LOCAL_WATCHDIR is not None:
             filepath = os.path.join(runtime.current().config.LOCAL_WATCHDIR, filename)
             logger.fdebug("filename for torrent set to : " + filepath)
@@ -1361,7 +1361,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
         if site != "32P":
             filepath = linkit
 
-    if comicarr.USE_UTORRENT:
+    if runtime.current().use_utorrent:
         uTC = utorrent.utorrentclient()
         if linkit.startswith("magnet"):
             logger.fdebug("Sending magnet to uTorrent: %s" % linkit)
@@ -1377,7 +1377,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
             torrent_info["link"] = linkit
             return torrent_info
 
-    elif comicarr.USE_RTORRENT:
+    elif runtime.current().use_rtorrent:
         from comicarr.app.downloads.torrent.clients import rtorrent
 
         try:
@@ -1392,7 +1392,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
             return torrent_info
         else:
             return "fail"
-    elif comicarr.USE_TRANSMISSION:
+    elif runtime.current().use_transmission:
         try:
             rpc = transmission.TorrentClient()
             if not rpc.connect(
@@ -1412,7 +1412,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
             logger.error(e)
             return "fail"
 
-    elif comicarr.USE_DELUGE:
+    elif runtime.current().use_deluge:
         try:
             dc = deluge.TorrentClient()
             if not dc.connect(
@@ -1437,7 +1437,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
             logger.error(e)
             return "fail"
 
-    elif comicarr.USE_QBITTORRENT:
+    elif runtime.current().use_qbittorrent:
         try:
             qc = qbittorrent.TorrentClient()
             if not qc.connect(
@@ -1462,7 +1462,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
             logger.error(e)
             return "fail"
 
-    elif comicarr.USE_WATCHDIR:
+    elif runtime.current().use_watchdir:
         if runtime.current().config.TORRENT_LOCAL:
             torrent_info = common_utilities.get_the_hash(filepath)
             torrent_info["clientmode"] = "watchdir"

@@ -1222,7 +1222,7 @@ def test_nzb_monitor_requeues_connection_error_and_continues(sqlite_ddl_db, monk
 
     monkeypatch.setattr(service.sabnzbd, "SABnzbd", Boom)
     monkeypatch.setattr(runtime.current(), "return_nzb_queue", queue.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", True, raising=False)
     monkeypatch.setattr(service.time, "sleep", lambda _s: None)
 
     service.nzb_monitor(q)
@@ -1246,7 +1246,7 @@ def test_nzb_monitor_survives_pause_probe_error(sqlite_ddl_db, monkeypatch):
 
     monkeypatch.setattr(service.sabnzbd, "SABnzbd", Boom)
     monkeypatch.setattr(runtime.current(), "return_nzb_queue", return_q, raising=False)
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", True, raising=False)
     monkeypatch.setattr(runtime.current().config, "SAB_APIKEY", "k", raising=False)
     monkeypatch.setattr(service.time, "sleep", lambda _s: None)
 

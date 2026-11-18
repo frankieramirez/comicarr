@@ -83,8 +83,8 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "ddl_stuck_notified", set(), raising=False)
     monkeypatch.setattr(runtime.current(), "acquisition_workers_blocked", False, raising=False)
     monkeypatch.setattr(runtime.current(), "acquisition_block_reason", None, raising=False)
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
-    monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_nzbget", False, raising=False)
     # runtime.current().signal is process-global; the AE5 lifespan-drain test mutates
     # it (restart intent) — isolate every test so it cannot leak.
     saved_signal = runtime.current().signal

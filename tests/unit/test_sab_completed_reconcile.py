@@ -50,8 +50,8 @@ def _isolated_db(tmp_path, monkeypatch):
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
-    monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_nzbget", False, raising=False)
     monkeypatch.setattr(
         "comicarr.app.downloads.sabnzbd.SABnzbd.queuecheck",
         lambda self, nzo_id, ignore_category=False: False,

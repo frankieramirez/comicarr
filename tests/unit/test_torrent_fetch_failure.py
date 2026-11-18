@@ -45,12 +45,12 @@ from comicarr.app.search import rss_feeds as rsscheck
 @pytest.fixture
 def torrent_client_configured(tmp_path, monkeypatch):
     """Minimal globals for torsend2client's generic (non-32P/DEM/WWT) path."""
-    monkeypatch.setattr(comicarr, "USE_QBITTORRENT", True, raising=False)
-    monkeypatch.setattr(comicarr, "USE_UTORRENT", False, raising=False)
-    monkeypatch.setattr(comicarr, "USE_RTORRENT", False, raising=False)
-    monkeypatch.setattr(comicarr, "USE_TRANSMISSION", False, raising=False)
-    monkeypatch.setattr(comicarr, "USE_DELUGE", False, raising=False)
-    monkeypatch.setattr(comicarr, "USE_WATCHDIR", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_qbittorrent", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_utorrent", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_rtorrent", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_transmission", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_deluge", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_watchdir", False, raising=False)
     config = MagicMock()
     config.CACHE_DIR = str(tmp_path)
     monkeypatch.setattr(runtime.current(), "config", config, raising=False)

@@ -17,7 +17,6 @@ so a field SABnzbd renamed or a status it reports differently shows up here.
 import pytest
 import requests
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.downloads import recovery_classify, sabnzbd
 from comicarr.app.system import connections
@@ -42,7 +41,7 @@ def sab(monkeypatch, tmp_path):
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", True, raising=False)
     monkeypatch.setattr("comicarr.app.downloads.sabnzbd.time.sleep", lambda _seconds: None)
     fake.nzb = pipeline.cached_nzb(tmp_path)
     return fake

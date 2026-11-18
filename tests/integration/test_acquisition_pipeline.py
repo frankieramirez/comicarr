@@ -17,7 +17,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
@@ -382,8 +381,8 @@ def sab(tmp_path, monkeypatch):
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
-    monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_nzbget", False, raising=False)
     monkeypatch.setattr(runtime.current(), "nzb_queue", queue.Queue(), raising=False)
     monkeypatch.setattr(runtime.current(), "return_nzb_queue", queue.Queue(), raising=False)
     monkeypatch.setattr("comicarr.app.downloads.sabnzbd.time.sleep", lambda _seconds: None)
@@ -642,8 +641,8 @@ def nzb(tmp_path, monkeypatch):
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "USE_NZBGET", True, raising=False)
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_nzbget", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", False, raising=False)
     monkeypatch.setattr(runtime.current(), "nzb_queue", queue.Queue(), raising=False)
     monkeypatch.setattr(runtime.current(), "return_nzb_queue", queue.Queue(), raising=False)
     monkeypatch.setattr("comicarr.app.downloads.nzbget.time.sleep", lambda _seconds: None)
@@ -1057,8 +1056,8 @@ def recorded(tmp_path, monkeypatch):
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
-    monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_sabnzbd", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "use_nzbget", False, raising=False)
     monkeypatch.setattr(runtime.current(), "nzb_queue", queue.Queue(), raising=False)
     monkeypatch.setattr(runtime.current(), "return_nzb_queue", queue.Queue(), raising=False)
     monkeypatch.setattr(runtime.current(), "comic_sort", series_service.ComicSort(sequence="startup"), raising=False)
