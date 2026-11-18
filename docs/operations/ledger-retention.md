@@ -93,7 +93,7 @@ or Settings control.
 
 ## Job wiring
 
-- Registered via `_add_recurring_job` in `comicarr/__init__.py` with id
+- Registered via `_add_recurring_job` in `comicarr/app/core/lifecycle.py` with id
   `ledger_retention`
 - Display name in `SCHEDULER_JOB_NAMES`: **Ledger Retention**
   (`comicarr/app/system/service.py`)

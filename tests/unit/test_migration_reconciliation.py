@@ -14,7 +14,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import update
 
-import comicarr
 from comicarr.app.acquisition.maintenance import (
     MaintenanceBlocked,
     MaintenanceController,
@@ -23,7 +22,7 @@ from comicarr.app.acquisition.maintenance import (
     refresh_runtime_state,
     set_reconciliation_state,
 )
-from comicarr.app.core import db, runtime
+from comicarr.app.core import db, lifecycle, runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.tables import acquisition_reconciliation, metadata
 from comicarr.app.system import service as system_service
@@ -112,7 +111,7 @@ def test_reconciliation_resume_requires_a_reason_and_no_active_fence(monkeypatch
     controller.release_fence("owner", "repair-1", fence.epoch)
 
     runtime = {"replayed": {"search": 2, "refresh": 1}, "queues_started": ["search_queue"]}
-    monkeypatch.setattr(comicarr, "resume_acquisition_runtime", lambda _config: runtime)
+    monkeypatch.setattr(lifecycle, "resume_acquisition_runtime", lambda _config: runtime)
     resumed = system_service.mark_reconciliation_ready(ctx, actor="owner", reason="verified backup and repair")
     assert resumed["success"] is True
     assert resumed["reconciliation"]["state"] == "ready"
@@ -139,8 +138,8 @@ def test_runtime_resume_replays_obligations_starts_queues_and_resumes_jobs(monke
     queues = []
     monkeypatch.setattr(runtime.current(), "acquisition_schema_ready", True)
     monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
-    monkeypatch.setattr(comicarr, "replay_acquisition_obligations", lambda: {"search": 2, "refresh": 1})
-    monkeypatch.setattr(comicarr, "queue_schedule", lambda queue_name, mode: queues.append((queue_name, mode)))
+    monkeypatch.setattr(lifecycle, "replay_acquisition_obligations", lambda: {"search": 2, "refresh": 1})
+    monkeypatch.setattr(lifecycle, "queue_schedule", lambda queue_name, mode: queues.append((queue_name, mode)))
     for name in (
         "updater_status",
         "search_status",
@@ -151,7 +150,7 @@ def test_runtime_resume_replays_obligations_starts_queues_and_resumes_jobs(monke
     ):
         monkeypatch.setattr(runtime.current(), name, "Waiting")
 
-    result = comicarr.resume_acquisition_runtime(config)
+    result = lifecycle.resume_acquisition_runtime(config)
 
     assert result["replayed"] == {"search": 2, "refresh": 1}
     assert queues == [("search_queue", "start")]
@@ -189,10 +188,10 @@ def test_snatched_queue_starts_for_every_client_the_searcher_enqueues(monkeypatc
     monkeypatch.setattr(runtime.current(), "acquisition_schema_ready", True)
     monkeypatch.setattr(runtime.current(), "os_detect", "Linux")
     monkeypatch.setattr(runtime.current(), "scheduler", SimpleNamespace(get_job=lambda _job_id: None))
-    monkeypatch.setattr(comicarr, "replay_acquisition_obligations", lambda: {"search": 0, "refresh": 0})
-    monkeypatch.setattr(comicarr, "queue_schedule", lambda queue_name, mode: queues.append(queue_name))
+    monkeypatch.setattr(lifecycle, "replay_acquisition_obligations", lambda: {"search": 0, "refresh": 0})
+    monkeypatch.setattr(lifecycle, "queue_schedule", lambda queue_name, mode: queues.append(queue_name))
 
-    result = comicarr.resume_acquisition_runtime(config)
+    result = lifecycle.resume_acquisition_runtime(config)
 
     assert ("snatched_queue" in queues) is expected
     assert ("snatched_queue" in result["queues_started"]) is expected
@@ -202,7 +201,7 @@ def test_runtime_resume_failure_recloses_the_durable_gate(monkeypatch):
     ctx = AppContext(config=SimpleNamespace(ACQUISITION_MAINTENANCE=False))
     set_reconciliation_state("pending_preview", "repair review required", db.get_engine())
     monkeypatch.setattr(
-        comicarr,
+        lifecycle,
         "resume_acquisition_runtime",
         lambda _config: (_ for _ in ()).throw(RuntimeError("worker start failed")),
     )

@@ -39,7 +39,6 @@ from apscheduler.events import (
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.acquisition.models import DispatchState
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common.dates import normalize_utc_datetime
@@ -58,7 +57,7 @@ from comicarr.app.config.registry import (
     writable_keys,
 )
 from comicarr.app.config.setting_values import check_setting_values
-from comicarr.app.core import db, logger, runtime
+from comicarr.app.core import db, lifecycle, logger, runtime
 from comicarr.app.core.security import LoginRateLimiter
 from comicarr.app.core.tables import comics, jobhistory
 from comicarr.app.core.workers import start_background_thread
@@ -996,7 +995,7 @@ _INTERVAL_PARKED_JOBS = set()
 
 
 def _job_may_run(ctx, job_id):
-    """Whether job_id is allowed to run at all, mirroring comicarr.start()'s gates.
+    """Whether job_id is allowed to run at all, mirroring lifecycle.start()'s gates.
 
     These are the conditions that have nothing to do with the interval, so they
     still hold for a job this module parked itself.
@@ -1761,7 +1760,7 @@ def mark_reconciliation_ready(ctx, *, actor, reason):
         )
         gate = refresh_runtime_state(ctx.config, db.get_engine())
         try:
-            resumed = comicarr.resume_acquisition_runtime(ctx.config)
+            resumed = lifecycle.resume_acquisition_runtime(ctx.config)
         except Exception as e:
             reconciliation = set_reconciliation_state(
                 "failed",

@@ -20,7 +20,7 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
-from comicarr.app.core import db, runtime
+from comicarr.app.core import db, lifecycle, runtime
 from comicarr.app.core.tables import ddl_info, metadata
 from comicarr.app.downloads import getcomics, postprocessing, pp_commands, recovery, router, service
 from comicarr.app.downloads import service as downloads_service
@@ -808,7 +808,7 @@ def test_ddl_startup_sweep_runs_before_worker_thread(monkeypatch):
     )
     monkeypatch.setattr(downloads_service, "ddl_downloader", lambda ddl_queue: events.append("worker"))
 
-    comicarr.queue_schedule("ddl_queue", "start")
+    lifecycle.queue_schedule("ddl_queue", "start")
     runtime.current().ddl_pool.join(timeout=2)
 
     assert events == ["recovery", "worker"]
@@ -825,7 +825,7 @@ def test_ddl_startup_sweep_is_skipped_when_worker_is_alive(monkeypatch):
     monkeypatch.setattr(downloads_service, "recover_queued_ddl_commands", recover, raising=False)
     monkeypatch.setattr(downloads_service, "ddl_downloader", worker)
 
-    comicarr.queue_schedule("ddl_queue", "start")
+    lifecycle.queue_schedule("ddl_queue", "start")
 
     recover.assert_not_called()
     worker.assert_not_called()

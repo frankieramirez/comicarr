@@ -30,7 +30,6 @@ import pytest
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-import comicarr
 from comicarr.app.config.ini import (
     _CONFIG_DEFINITIONS,
     _PROVIDER_EXTRA_FIELDS,
@@ -38,7 +37,7 @@ from comicarr.app.config.ini import (
     clamp_scheduler_intervals,
 )
 from comicarr.app.config.registry import REGISTRY
-from comicarr.app.core import runtime
+from comicarr.app.core import lifecycle, runtime
 from comicarr.app.system import service as system_service
 
 
@@ -62,9 +61,9 @@ def _readable_config_keys():
 
 
 def _registered_job_ids():
-    """The job ids comicarr.start() actually registers with the scheduler."""
-    ids = set(re.findall(r'id="([a-z_]+)"', inspect.getsource(comicarr.start)))
-    assert ids, "no job registrations found in comicarr.start()"
+    """The job ids lifecycle.start() actually registers with the scheduler."""
+    ids = set(re.findall(r'id="([a-z_]+)"', inspect.getsource(lifecycle.start)))
+    assert ids, "no job registrations found in lifecycle.start()"
     return ids
 
 
@@ -95,7 +94,7 @@ class TestEveryAdvertisedKeyIsReal:
 
     def test_every_mapped_job_id_is_actually_registered(self):
         """The other half of the mapping. SCHEDULER_JOB_INTERVALS duplicates the
-        job ids comicarr.start() registers, and _reconfigure_schedulers skips an
+        job ids lifecycle.start() registers, and _reconfigure_schedulers skips an
         unknown id in silence -- so a rename there would quietly stop interval
         changes from reaching the scheduler, the exact bug this module exists for."""
         registered = _registered_job_ids()
@@ -177,7 +176,7 @@ class TestSchedulerIntervalClamps:
 
     def test_the_disable_by_zero_intervals_are_not_clamped(self):
         """DOWNLOAD_SCAN_INTERVAL and IMPORT_SCAN_INTERVAL use 0 to mean 'off',
-        and comicarr.start() keeps those jobs paused rather than scheduling them.
+        and lifecycle.start() keeps those jobs paused rather than scheduling them.
         Giving them a positive floor would remove the only way to disable them."""
         assert "DOWNLOAD_SCAN_INTERVAL" not in SCHEDULER_INTERVAL_MINIMUMS
         assert "IMPORT_SCAN_INTERVAL" not in SCHEDULER_INTERVAL_MINIMUMS
@@ -276,7 +275,7 @@ class TestReconfigureSchedulers:
         assert scheduler.get_job("monitor").next_run_time is not None
 
     def test_a_job_missing_its_required_config_is_not_resumed(self):
-        """comicarr.start() refuses to run the folder monitor without CHECK_FOLDER;
+        """lifecycle.start() refuses to run the folder monitor without CHECK_FOLDER;
         a positive interval alone must not talk it into running here either."""
         scheduler = _scheduler_with_jobs(monitor=_now() + datetime.timedelta(minutes=30))
 

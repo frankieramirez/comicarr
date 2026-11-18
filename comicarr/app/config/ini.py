@@ -33,11 +33,10 @@ from collections import OrderedDict
 from operator import itemgetter
 from pathlib import Path
 
-import comicarr
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.config.log_level import record_startup_argument, resolve_startup_log_level
 from comicarr.app.config.registry import REGISTRY, as_legacy_definitions
-from comicarr.app.core import db, encrypted, logger, runtime
+from comicarr.app.core import db, encrypted, lifecycle, logger, runtime
 from comicarr.app.library import directories
 from comicarr.app.search import provider_config, prowlarr
 from comicarr.app.system import maintenance
@@ -2019,19 +2018,19 @@ class Config(object):
                 all([self.NZB_DOWNLOADER == 0, self.SAB_CLIENT_POST_PROCESSING is True])
                 or all([self.NZB_DOWNLOADER == 1, self.NZBGET_CLIENT_POST_PROCESSING is True])
             ):
-                comicarr.queue_schedule("nzb_queue", "start")
+                lifecycle.queue_schedule("nzb_queue", "start")
             elif self.POST_PROCESSING is True and (
                 all([self.NZB_DOWNLOADER == 0, self.SAB_CLIENT_POST_PROCESSING is False])
                 or all([self.NZB_DOWNLOADER == 1, self.NZBGET_CLIENT_POST_PROCESSING is False])
                 or self.NZB_DOWNLOADER == 3
             ):
-                comicarr.queue_schedule("nzb_queue", "stop")
-            comicarr.ensure_sab_completed_reconcile()
+                lifecycle.queue_schedule("nzb_queue", "stop")
+            lifecycle.ensure_sab_completed_reconcile()
 
             if self.ENABLE_DDL is True:
-                comicarr.queue_schedule("ddl_queue", "start")
+                lifecycle.queue_schedule("ddl_queue", "start")
             elif self.ENABLE_DDL is False:
-                comicarr.queue_schedule("ddl_queue", "stop")
+                lifecycle.queue_schedule("ddl_queue", "stop")
 
         if self.FOLDER_FORMAT is None:
             self.FOLDER_FORMAT = "$Series ($Year)"

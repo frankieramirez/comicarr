@@ -20,7 +20,7 @@ from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 import comicarr
-from comicarr.app.core import db, runtime, unique_constraints
+from comicarr.app.core import db, lifecycle, runtime, unique_constraints
 from comicarr.app.core.tables import UPSERT_KEYS, metadata
 
 EXPECTED_CONSTRAINTS = {
@@ -668,7 +668,7 @@ def test_initialize_source_blocks_workers_after_dbcheck_failure():
     """Guard the initialization path that preserves diagnostics but blocks workers."""
     import inspect as py_inspect
 
-    source = py_inspect.getsource(comicarr.initialize)
+    source = py_inspect.getsource(lifecycle.initialize)
     marker = "Checking to see if the database has all tables"
     dbcheck_branch = source[source.index(marker) : source.index(marker) + 900]
     assert "except Exception as e:" in dbcheck_branch
