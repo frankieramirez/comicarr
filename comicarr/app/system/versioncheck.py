@@ -36,17 +36,19 @@ import comicarr
 from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import jobhistory
 
-_VERSION_FIELDS = {
-    "current_version": "CURRENT_VERSION",
-    "current_version_name": "CURRENT_VERSION_NAME",
-    "current_release_name": "CURRENT_RELEASE_NAME",
-    "current_branch": "CURRENT_BRANCH",
-    "latest_version": "LATEST_VERSION",
-    "update_state": "UPDATE_STATE",
-    "update_reason": "UPDATE_REASON",
-    "install_type": "INSTALL_TYPE",
-    "update_value": "UPDATE_VALUE",
-}
+_VERSION_FIELDS = frozenset(
+    {
+        "current_version",
+        "current_version_name",
+        "current_release_name",
+        "current_branch",
+        "latest_version",
+        "update_state",
+        "update_reason",
+        "install_type",
+        "update_value",
+    }
+)
 
 _GITHUB_REQUEST_TIMEOUT = (10, 10)
 
@@ -65,36 +67,23 @@ RELEASE_ANNOUNCE_EVENT = "Update available"
 
 
 def _set_version_state(**fields):
-    """Write version state once and project it to legacy callers.
+    """Write version state on the runtime context.
 
-    Falls back to a plain module write before the runtime exists (versionload
-    runs ahead of the factory) and after it is disposed.
+    Before the factory runs (versionload runs ahead of it) this is the
+    bootstrap context, which the factory carries over.
     """
-    from comicarr.app.core.runtime import get_runtime_if_initialized, set_runtime_field
-
-    ctx = get_runtime_if_initialized()
-    if ctx is not None and ctx.disposed:
-        ctx = None
-
-    for field, value in fields.items():
-        legacy_name = _VERSION_FIELDS[field]
-        if ctx is None:
-            setattr(comicarr, legacy_name, value)
-        else:
-            set_runtime_field(ctx, field, value)
+    unknown = set(fields) - _VERSION_FIELDS
+    if unknown:
+        raise KeyError("Not a version-state field: %s" % ", ".join(sorted(unknown)))
+    ctx = runtime.current()
+    with ctx.runtime_lock:
+        for field, value in fields.items():
+            setattr(ctx, field, value)
 
 
 def _get_version_state(field):
-    """Read version state from wherever _set_version_state last wrote it."""
-    from comicarr.app.core.runtime import get_runtime_if_initialized
-
-    ctx = get_runtime_if_initialized()
-    if ctx is not None and ctx.disposed:
-        ctx = None
-
-    if ctx is None:
-        return getattr(comicarr, _VERSION_FIELDS[field], None)
-    return getattr(ctx, field, None)
+    """Read version state from the runtime context."""
+    return getattr(runtime.current(), field, None)
 
 
 def runGit(args, ptv=None, suppress_errors=False):
@@ -588,8 +577,8 @@ def _apply_update_state(update_state, update_reason=None, latest_version=None, m
         "update_reason": update_reason,
         "latest_version": latest_version if latest_version is not None else _get_version_state("latest_version"),
         "release_version": release_version,
-        "current_version": comicarr.CURRENT_VERSION,
-        "install_type": comicarr.INSTALL_TYPE,
+        "current_version": runtime.current().current_version,
+        "install_type": runtime.current().install_type,
         "message": message,
     }
 
@@ -702,11 +691,11 @@ def checkGithub(current_version=None):
 
 def update():
 
-    if comicarr.INSTALL_TYPE == "win":
+    if runtime.current().install_type == "win":
         logger.info("Windows .exe updating not supported yet.")
         pass
 
-    elif comicarr.INSTALL_TYPE == "git":
+    elif runtime.current().install_type == "git":
         output = runGit("pull origin " + comicarr.CONFIG.GIT_BRANCH)
 
         if output is None:
@@ -721,7 +710,7 @@ def update():
                 logger.error("Unable to update from git: " + line)
                 logger.info("Output: " + str(output))
 
-    elif comicarr.INSTALL_TYPE == "docker":
+    elif runtime.current().install_type == "docker":
         logger.info(
             "Docker updates via it's own mechanics. Updating docker via Comicarr GUI not supported at this time."
         )
@@ -802,14 +791,14 @@ def versionload(cli_values=None, carepackage_call=False):
             "current_version": version_info["current_version"],
             "current_version_name": version_info["current_version_name"],
             "current_release_name": version_info["current_release_name"],
-            "install_type": comicarr.INSTALL_TYPE,
+            "install_type": runtime.current().install_type,
         }
 
     comicarr.CONFIG.GIT_BRANCH = version_info["branch"]
     _set_version_state(current_branch=version_info["branch"])
 
-    if comicarr.CURRENT_VERSION is not None:
-        hash = comicarr.CURRENT_VERSION[:7]
+    if runtime.current().current_version is not None:
+        hash = runtime.current().current_version[:7]
     else:
         hash = "unknown"
 
@@ -822,7 +811,7 @@ def versionload(cli_values=None, carepackage_call=False):
 
     comicarr.USER_AGENT = "Comicarr/" + str(hash) + "(" + vers + ") +https://github.com/frankieramirez/comicarr/"
 
-    logger.info("Version information: %s [%s]" % (comicarr.CONFIG.GIT_BRANCH, comicarr.CURRENT_VERSION))
+    logger.info("Version information: %s [%s]" % (comicarr.CONFIG.GIT_BRANCH, runtime.current().current_version))
 
     if comicarr.CONFIG.CHECK_GITHUB:
         stmt = select(jobhistory.c.prev_run_timestamp).where(jobhistory.c.JobName == "Check Version")

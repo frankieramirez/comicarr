@@ -123,6 +123,17 @@ _RUNTIME_FIELD_GROUPS = {
         "DATA_DIR",
         "DB_FILE",
     ),
+    "version and install state (#1541)": (
+        "INSTALL_TYPE",
+        "CURRENT_BRANCH",
+        "CURRENT_VERSION",
+        "CURRENT_VERSION_NAME",
+        "CURRENT_RELEASE_NAME",
+        "LATEST_VERSION",
+        "UPDATE_STATE",
+        "UPDATE_REASON",
+        "UPDATE_VALUE",
+    ),
 }
 
 # Retired names whose context field is not simply the lowercased name.

@@ -19,6 +19,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.system import changelog_notes
 
@@ -173,14 +174,14 @@ class TestParseReleaseBody:
 
 class TestCheckGithubCachesReleaseBody:
     def test_behind_check_caches_body_for_notes(self, monkeypatch):
-        from comicarr.app.system import versioncheck
         from comicarr.app.system import service as system_service
+        from comicarr.app.system import versioncheck
 
         changelog_notes.clear_cached_release_body()
         config = MagicMock(GIT_TOKEN=None, CHECK_GITHUB=True)
         monkeypatch.setattr("comicarr.CONFIG", config, raising=False)
-        monkeypatch.setattr("comicarr.INSTALL_TYPE", "git", raising=False)
-        monkeypatch.setattr("comicarr.CURRENT_VERSION", "aaaaaaa", raising=False)
+        monkeypatch.setattr(runtime.current(), "install_type", "git", raising=False)
+        monkeypatch.setattr(runtime.current(), "current_version", "aaaaaaa", raising=False)
 
         response = MagicMock()
         response.status_code = 200
@@ -203,14 +204,14 @@ class TestCheckGithubCachesReleaseBody:
         changelog_notes.clear_cached_release_body()
 
     def test_current_check_clears_stale_cache(self, monkeypatch):
-        from comicarr.app.system import versioncheck
         from comicarr.app.system import service as system_service
+        from comicarr.app.system import versioncheck
 
         changelog_notes.set_cached_release_body("0.22.0", "stale body")
         config = MagicMock(GIT_TOKEN=None, CHECK_GITHUB=True)
         monkeypatch.setattr("comicarr.CONFIG", config, raising=False)
-        monkeypatch.setattr("comicarr.INSTALL_TYPE", "git", raising=False)
-        monkeypatch.setattr("comicarr.CURRENT_VERSION", "aaaaaaa", raising=False)
+        monkeypatch.setattr(runtime.current(), "install_type", "git", raising=False)
+        monkeypatch.setattr(runtime.current(), "current_version", "aaaaaaa", raising=False)
 
         response = MagicMock()
         response.status_code = 200

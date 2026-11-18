@@ -15,6 +15,7 @@ import pytest
 
 import comicarr
 from comicarr.app.config.registry import REGISTRY, readable_keys, writable_keys
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.system import service as system_service
 
@@ -89,8 +90,8 @@ def ctx(monkeypatch):
         update_reason="never_checked",
     )
     monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
-    monkeypatch.setattr(comicarr, "INSTALL_TYPE", "docker", raising=False)
-    monkeypatch.setattr(comicarr, "CURRENT_VERSION", "aaaaaaa", raising=False)
+    context.install_type = "docker"
+    monkeypatch.setattr(runtime, "_runtime", context)
     with (
         patch("comicarr.app.core.runtime.get_runtime_if_initialized", return_value=context),
         patch.object(system_service, "get_release_version", return_value="0.21.0"),

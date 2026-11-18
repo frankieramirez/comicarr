@@ -108,7 +108,6 @@ def _legacy_runtime_objects(monkeypatch):
         "DDL_STUCK_NOTIFIED": set(),
         "PACK_ISSUEIDS_DONT_QUEUE": {},
         "PROVIDER_STATUS": {},
-        "UPDATE_VALUE": {},
         "ACQUISITION_SCHEMA_READY": True,
         "ACQUISITION_SCHEMA_VERSION": 1,
         "ACQUISITION_SCHEMA_ERROR": None,

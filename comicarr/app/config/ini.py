@@ -1875,7 +1875,7 @@ class Config(object):
             and any("docker" in line for line in open(d_path))
         ):
             logger.info("[DOCKER-AWARE] Docker installation detected.")
-            comicarr.INSTALL_TYPE = "docker"
+            runtime.current().install_type = "docker"
             if any([self.DESTINATION_DIR is None, self.DESTINATION_DIR == ""]):
                 logger.info("[DOCKER-AWARE] Setting default comic location path to /comics")
                 self.DESTINATION_DIR = "/comics"

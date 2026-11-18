@@ -198,7 +198,7 @@ def _ctx(tmp_path, **config_overrides):
 def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
-    monkeypatch.setattr(comicarr, "INSTALL_TYPE", "docker", raising=False)
+    monkeypatch.setattr(runtime.current(), "install_type", "docker", raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("COMICARR_BUILD_ID", raising=False)
     monkeypatch.delenv("COMICARR_BUILD_COMMIT", raising=False)

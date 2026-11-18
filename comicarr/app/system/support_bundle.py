@@ -35,7 +35,7 @@ from typing import Any, Callable, Mapping, Optional
 from jsonschema import Draft202012Validator
 from sqlalchemy import func, select, text
 
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.system.support_bundle_contract import read_contract_bytes
 
 CONTRACT_VERSION = 1
@@ -434,9 +434,7 @@ def _collect_build(ctx, snapshot: Mapping[str, Any]) -> dict[str, Any]:
 
 def _runtime_install_type() -> Optional[str]:
     try:
-        import comicarr
-
-        return getattr(comicarr, "INSTALL_TYPE", None)
+        return runtime.current().install_type
     except Exception:
         return None
 
