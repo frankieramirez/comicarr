@@ -190,8 +190,7 @@ def _route_enabled(config, route):
         )
     if route == "nzb":
         providers = bool(
-            getattr(config, "EXPERIMENTAL", False)
-            or (getattr(config, "NEWZNAB", False) and _enabled_extra(getattr(config, "EXTRA_NEWZNABS", None)))
+            (getattr(config, "NEWZNAB", False) and _enabled_extra(getattr(config, "EXTRA_NEWZNABS", None)))
             or prowlarr.usenet_enabled(config)
         )
         return providers and int(getattr(config, "NZB_DOWNLOADER", 3) or 0) != 3
@@ -276,7 +275,7 @@ def build_route_readiness(
             names[route] = list(dict.fromkeys(names[route] + [item["name"] for item in diagnostics]))
         configured_provider_count = len(diagnostics)
         if route == "nzb":
-            configured_provider_count = int(bool(getattr(config, "EXPERIMENTAL", False))) + sum(
+            configured_provider_count = sum(
                 1
                 for row in (getattr(config, "EXTRA_NEWZNABS", None) or [])
                 if isinstance(row, (list, tuple)) and len(row) >= 6
@@ -305,11 +304,9 @@ def build_route_readiness(
                 downloader = int(getattr(config, "NZB_DOWNLOADER", 3) or 0)
                 if downloader == 3:
                     reason = "downloader_disabled"
-                elif not getattr(config, "EXPERIMENTAL", False) and not valid_providers:
+                elif not valid_providers:
                     reason = "provider_not_configured"
-                elif not getattr(config, "EXPERIMENTAL", False) and (
-                    not getattr(config, "NEWZNAB", False) or not enabled_providers
-                ):
+                elif not getattr(config, "NEWZNAB", False) or not enabled_providers:
                     reason = "provider_disabled"
                 else:
                     reason = "disabled"

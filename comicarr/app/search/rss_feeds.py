@@ -542,33 +542,10 @@ def nzbs(provider=None, forcerss=False):
             if provider_enabled(newznab_host):
                 newznab_hosts.append(newznab_host)
 
-    providercount = len(newznab_hosts) + int(runtime.current().config.EXPERIMENTAL is True)
+    providercount = len(newznab_hosts)
     logger.fdebug("[RSS] You have enabled " + str(providercount) + " NZB RSS search providers.")
 
     if providercount > 0:
-        if runtime.current().config.EXPERIMENTAL is True:
-            max_entries = "250" if forcerss else "50"
-            params = {
-                "sort": "agedesc",
-                "max": max_entries,
-                "more": "1",
-                "q": None,
-                "minage:": 0,
-                "maxage": 0,
-                "hidespam": 1,
-                "hidepassword": 1,
-                "minsize": 0,
-                "maxsize": 0,
-                "complete": 0,
-                "hidecross": 0,
-                "hasNFO": 0,
-                "poster": None,
-                "g[]": 85,
-            }
-            check = _parse_feed("experimental", "https://nzbindex.nl/search/rss", True, params)
-            if check == "disable":
-                search_service.disable_provider("experimental")
-
         for newznab_host in newznab_hosts:
             site = newznab_host[0].rstrip()
             (newznabuid, _, newznabcat) = (newznab_host[4] or "").partition("#")

@@ -313,3 +313,14 @@ def test_interactive_release_search_plan_applies_the_series_override(monkeypatch
 
     assert _names(interactive._provider_plan(ctx, "wizard")) == ["MagIndex", "DDL(External)", "NZBGeek", "Nyaa.si"]
     assert _names(interactive._provider_plan(ctx, "other")) == GLOBAL_ORDER
+
+
+def test_retired_experimental_flag_schedules_no_provider(monkeypatch):
+    config = _config(EXPERIMENTAL=True)
+    monkeypatch.setattr(runtime.current(), "config", config)
+    monkeypatch.setattr(search_service, "block_provider_check", lambda _site: False)
+
+    assert all(candidate.kind != "experimental" for candidate in effective_provider_plan(config))
+    result = search.provider_order(initial_run=True)
+    assert "experimental" not in result["prov_order"]
+    assert result["prov_order"] == ["DDL(GetComics)", "torznab: Nyaa.si"]

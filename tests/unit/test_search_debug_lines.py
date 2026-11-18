@@ -216,3 +216,34 @@ def test_provider_names_that_look_like_urls_are_replaced():
 
 def test_quoted_text_escapes_quotes_and_redacts_keys():
     assert quoted('C:\\x "hi" apikey=abc123') == '"C:\\\\x \\"hi\\" apikey=[redacted]"'
+
+
+def test_retired_experimental_provider_returns_no_match_instead_of_raising(providers):
+    """A saved EXPERIMENTAL flag once scheduled "experimental", which no API branch
+    handles; the unset verified_matches raised UnboundLocalError and aborted the
+    whole issue search before the next provider ran."""
+    result = search.NZB_SEARCH(
+        "Example Series",
+        "1",
+        "2024",
+        "2024",
+        None,
+        "2024-01-01",
+        "2024-01-01",
+        {"experimental": {"type": "experimental", "id": 101, "lastrun": 0, "active": True, "hits": 0}},
+        1,
+        "no",
+        "i1",
+        "1",
+        ComicID="series-1",
+        cmloopit=3,
+        RSS="no",
+        manual=False,
+        digitaldate="0000-00-00",
+        booktype="Print",
+        evaluator=EvaluationSession(),
+    )
+
+    assert providers.requests == []
+    assert providers.selected == []
+    assert not (isinstance(result, dict) and result.get("status") is True)

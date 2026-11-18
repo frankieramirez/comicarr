@@ -1056,14 +1056,11 @@ def provider_order(initial_run=False, comic_id=None):
     tor_candidates = [
         candidate for candidate in plan if candidate.kind in {"torznab", "torrent"} and not candidate.blocked
     ]
-    nzb_candidates = [
-        candidate for candidate in plan if candidate.kind in {"newznab", "experimental"} and not candidate.blocked
-    ]
+    nzb_candidates = [candidate for candidate in plan if candidate.kind == "newznab" and not candidate.blocked]
     ddl_candidates = [candidate for candidate in plan if candidate.kind == "ddl" and not candidate.blocked]
 
     torp = sum(1 for candidate in tor_candidates if candidate.kind == "torrent")
     torznabs = sum(1 for candidate in tor_candidates if candidate.kind == "torznab")
-    nzbp = sum(1 for candidate in nzb_candidates if candidate.kind == "experimental")
     newznabs = sum(1 for candidate in nzb_candidates if candidate.kind == "newznab")
     ddls = len(ddl_candidates)
 
@@ -1072,7 +1069,7 @@ def provider_order(initial_run=False, comic_id=None):
     torproviders = torp + torznabs
     if initial_run:
         logger.fdebug("There are %s torrent providers you have selected." % torproviders)
-    providercount = int(nzbp + newznabs)
+    providercount = int(newznabs)
     if initial_run:
         logger.fdebug("There are : %s nzb providers you have selected" % providercount)
         if providercount > 0:
@@ -1324,6 +1321,10 @@ def NZB_SEARCH(
     while findloop < findcount:
         logger.fdebug("findloop: %s / findcount: %s" % (findloop, findcount))
         comsrc = comsearch
+        # Every branch below should set this; a provider no branch handles
+        # (the retired "experimental" one did) must end as "no results"
+        # instead of raising UnboundLocalError and aborting the issue search.
+        verified_matches = "no results"
         if any([nzbprov == "Public Torrents", "DDL" in nzbprov, nzbprov == "experimental"]):
             findloop = 99
 
