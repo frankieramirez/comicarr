@@ -29,7 +29,7 @@ import rarfile
 import requests
 
 import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 
 try:
     from PIL import Image, ImageFile
@@ -218,7 +218,7 @@ def extract_image(location, single=False, imquality=None, comicname=None):
 
 def retrieve_image(url):
     try:
-        r = requests.get(url, params=None, verify=comicarr.CONFIG.CV_VERIFY, headers=comicarr.CV_HEADERS)
+        r = requests.get(url, params=None, verify=comicarr.CONFIG.CV_VERIFY, headers=runtime.current().cv_headers)
     except Exception as e:
         logger.warn("[ERROR: %s] Unable to download image from CV URL link: %s" % (e, url))
         ComicImage = None

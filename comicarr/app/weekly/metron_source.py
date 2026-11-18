@@ -24,7 +24,7 @@ import threading
 
 import comicarr
 from comicarr.app.common.series_names import dynamic_series_key
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.weekly import cv_source, locg
 from comicarr.app.weekly import queries as weekly_queries
 
@@ -47,8 +47,8 @@ def is_available() -> bool:
 
 def _client():
     """The running Metron client, or one made for the pull list."""
-    if comicarr.METRON_API is not None:
-        return comicarr.METRON_API
+    if runtime.current().metron_api is not None:
+        return runtime.current().metron_api
     with _API_LOCK:
         if _api[0] is None:
             from comicarr.app.metadata import metron

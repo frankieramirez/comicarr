@@ -14,7 +14,7 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, issues
 from comicarr.app.series import comic_add
 
@@ -38,10 +38,10 @@ def metadata_environment(tmp_path, monkeypatch):
             DESTINATION_DIR=str(tmp_path / "library"),
         ),
     )
-    monkeypatch.setattr(comicarr, "CVURL", "https://comicvine.gamespot.com/api/")
-    monkeypatch.setattr(comicarr, "CV_RATE_LIMITER", MagicMock())
+    monkeypatch.setattr(runtime.current(), "cv_url", "https://comicvine.gamespot.com/api/")
+    monkeypatch.setattr(runtime.current(), "cv_rate_limiter", MagicMock())
     session = MagicMock()
-    monkeypatch.setattr(comicarr, "CV_SESSION", session)
+    monkeypatch.setattr(runtime.current(), "cv_session", session)
     volume = {
         "id": 123,
         "name": "Example",

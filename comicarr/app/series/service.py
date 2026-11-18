@@ -1034,7 +1034,7 @@ def _search_missing_preview_state(ctx, comic_id):
 
         health = get_search_health(
             ctx.config,
-            provider_blocklist=getattr(ctx, "provider_blocklist", None) or comicarr.PROVIDER_BLOCKLIST,
+            provider_blocklist=getattr(ctx, "provider_blocklist", None) or runtime.current().provider_blocklist,
         )
         routes = health.get("routes") or {}
         viable = bool(health.get("viable_route")) or any(

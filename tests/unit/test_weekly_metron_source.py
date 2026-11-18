@@ -16,6 +16,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.weekly import metron_source
 
 
@@ -34,7 +35,7 @@ def metron(monkeypatch):
         comicarr, "CONFIG", SimpleNamespace(METRON_USERNAME="reader", METRON_PASSWORD="secret"), raising=False
     )
     api = MagicMock()
-    monkeypatch.setattr(comicarr, "METRON_API", api, raising=False)
+    monkeypatch.setattr(runtime.current(), "metron_api", api, raising=False)
     stored = []
     monkeypatch.setattr(metron_source.locg, "store_week", lambda pull, week, year: stored.append((pull, week, year)))
     monkeypatch.setattr(

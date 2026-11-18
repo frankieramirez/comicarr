@@ -30,7 +30,7 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.series.service import listLibrary
 
 _IMAGE_CACHE = OrderedDict()
@@ -69,7 +69,7 @@ def get_cv_id(series_id):
     """
     series_id = strip_metron_prefix(series_id)
 
-    api = comicarr.METRON_API
+    api = runtime.current().metron_api
     if api is None:
         logger.error("[METRON] Metron API not initialized - cannot resolve series %s to ComicVine" % series_id)
         return None
@@ -135,7 +135,7 @@ def search_series(name, mode="series", issue=None, limityear=None, limit=None, o
     search_start_time = time.time()
     logger.info("[METRON] Starting search for: %s (limit=%s, offset=%s, sort=%s)" % (name, limit, offset, sort))
 
-    api = comicarr.METRON_API
+    api = runtime.current().metron_api
     if api is None:
         logger.error("[METRON] Metron API not initialized")
         return {"results": [], "pagination": {"total": 0, "limit": limit or 50, "offset": offset or 0, "returned": 0}}
@@ -322,7 +322,7 @@ def get_series_image(series_id):
             logger.fdebug("[METRON] Image cache hit for series %s" % series_id)
             return _IMAGE_CACHE[series_id]
 
-    api = comicarr.METRON_API
+    api = runtime.current().metron_api
     if api is None:
         logger.warn("[METRON] Metron API not initialized")
         return None

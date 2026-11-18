@@ -134,6 +134,20 @@ _RUNTIME_FIELD_GROUPS = {
         "UPDATE_REASON",
         "UPDATE_VALUE",
     ),
+    # CV_TIMEOUT is also an INI key and CV_CACHE a log prefix, so neither can
+    # be a banned word; the general comicarr.<UPPER> gate (#1543) covers them.
+    "metadata and provider sessions (#1541)": (
+        "CV_SESSION",
+        "CV_RATE_LIMITER",
+        "CV_HEADERS",
+        "CVURL",
+        "METRON_API",
+        "PROVIDER_STATUS",
+        "PROVIDER_BLOCKLIST",
+        "PROVIDER_START_ID",
+        "BACKENDSTATUS_CV",
+        "BACKENDSTATUS_WS",
+    ),
 }
 
 # Retired names whose context field is not simply the lowercased name.
@@ -148,6 +162,9 @@ _FIELD_RENAMES = {
     "DDLPOOL": "ddl_pool",
     "MASS_ADD": "mass_add_pool",
     "MASS_REFRESH": "mass_refresh_pool",
+    "CVURL": "cv_url",
+    "BACKENDSTATUS_CV": "backend_status_cv",
+    "BACKENDSTATUS_WS": "backend_status_ws",
 }
 
 for _group, _names in _RUNTIME_FIELD_GROUPS.items():

@@ -1302,9 +1302,9 @@ class TestHaveitForSeriesId:
         )
         with (
             patch.object(comicarr, "CONFIG", config),
-            patch.object(comicarr, "CVURL", "https://comicvine.gamespot.com/api/"),
-            patch.object(comicarr, "CV_SESSION") as session,
-            patch.object(comicarr, "CV_RATE_LIMITER"),
+            patch.object(runtime.current(), "cv_url", "https://comicvine.gamespot.com/api/"),
+            patch.object(runtime.current(), "cv_session") as session,
+            patch.object(runtime.current(), "cv_rate_limiter"),
             patch.object(mb, "listLibrary", return_value=library),
             patch.object(mb, "ignored_publisher_check", return_value=False),
         ):

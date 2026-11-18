@@ -38,7 +38,7 @@ from comicarr.app.common import numbers as common_numbers
 from comicarr.app.common import strings as common_strings
 from comicarr.app.common import utilities as common_utilities
 from comicarr.app.common.cfscrape_compat import import_cfscrape
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import comics, rssdb
 from comicarr.app.downloads.torrent.clients import deluge as deluge
 from comicarr.app.downloads.torrent.clients import qbittorrent as qbittorrent
@@ -203,14 +203,14 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
 
             logger.info("Now retrieving feed from %s" % picksite)
             try:
-                headers = {"Accept-encoding": "gzip", "User-Agent": comicarr.CV_HEADERS["User-Agent"]}
+                headers = {"Accept-encoding": "gzip", "User-Agent": runtime.current().cv_headers["User-Agent"]}
                 cf_cookievalue = None
                 scraper = cfscrape.create_scraper()
                 if pickfeed == "999":
                     if all([pickfeed == "999", comicarr.WWT_CF_COOKIEVALUE is None]):
                         try:
                             cf_cookievalue, cf_user_agent = scraper.get_tokens(
-                                feed, user_agent=comicarr.CV_HEADERS["User-Agent"]
+                                feed, user_agent=runtime.current().cv_headers["User-Agent"]
                             )
                         except Exception as e:
                             logger.warn("[WWT-RSSFEED] Unable to retrieve RSS properly: %s" % e)
@@ -1252,7 +1252,11 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
         else:
             wwt_referrer = "http" + comicarr.WWTURL[5:]
 
-        headers = {"Accept-encoding": "gzip", "User-Agent": comicarr.CV_HEADERS["User-Agent"], "Referer": wwt_referrer}
+        headers = {
+            "Accept-encoding": "gzip",
+            "User-Agent": runtime.current().cv_headers["User-Agent"],
+            "Referer": wwt_referrer,
+        }
 
         logger.fdebug("Grabbing torrent [id:" + str(linkit) + "] from url:" + str(url))
 
@@ -1288,7 +1292,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
             if site == "WWT":
                 if comicarr.WWT_CF_COOKIEVALUE is None:
                     cf_cookievalue, cf_user_agent = scraper.get_tokens(
-                        url, user_agent=comicarr.CV_HEADERS["User-Agent"]
+                        url, user_agent=runtime.current().cv_headers["User-Agent"]
                     )
                     comicarr.WWT_CF_COOKIEVALUE = cf_cookievalue
                 r = scraper.get(

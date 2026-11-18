@@ -29,6 +29,7 @@ from xml.dom.minidom import parseString
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.metadata import cv
 
 VOLUME_XML = b"""<?xml version="1.0" encoding="utf-8"?>
@@ -97,15 +98,15 @@ def comicvine(monkeypatch):
         PROBLEM_DATES_SECONDS=0,
     )
     monkeypatch.setattr(comicarr, "CONFIG", config)
-    monkeypatch.setattr(comicarr, "CVURL", "https://cv.example/api/")
-    monkeypatch.setattr(comicarr, "CV_RATE_LIMITER", MagicMock())
-    monkeypatch.setattr(comicarr, "CV_TIMEOUT", 30)
-    monkeypatch.setattr(comicarr, "CV_CACHE", None)
-    monkeypatch.setattr(comicarr, "BACKENDSTATUS_CV", "unknown")
+    monkeypatch.setattr(runtime.current(), "cv_url", "https://cv.example/api/")
+    monkeypatch.setattr(runtime.current(), "cv_rate_limiter", MagicMock())
+    monkeypatch.setattr(runtime.current(), "cv_timeout", 30)
+    monkeypatch.setattr(runtime.current(), "cv_cache", None)
+    monkeypatch.setattr(runtime.current(), "backend_status_cv", "unknown")
 
     def install(*bodies):
         session = _Session(*bodies)
-        monkeypatch.setattr(comicarr, "CV_SESSION", session)
+        monkeypatch.setattr(runtime.current(), "cv_session", session)
         return session
 
     return install
@@ -129,7 +130,7 @@ def test_a_volume_is_fetched_by_its_4050_id(comicvine):
         "issues,start_year,site_detail_url,image,publisher,description,first_issue,deck,aliases"
     ]
     assert dom.getElementsByTagName("start_year")[0].firstChild.wholeText == "2012"
-    assert comicarr.BACKENDSTATUS_CV == "up"
+    assert runtime.current().backend_status_cv == "up"
 
 
 def test_a_single_issue_is_fetched_as_json(comicvine):
@@ -145,10 +146,10 @@ def test_an_unreachable_comicvine_marks_the_backend_down(comicvine, monkeypatch)
     def boom(*_a, **_k):
         raise ConnectionError("refused")
 
-    monkeypatch.setattr(comicarr, "CV_SESSION", SimpleNamespace(get=boom))
+    monkeypatch.setattr(runtime.current(), "cv_session", SimpleNamespace(get=boom))
 
     assert cv.pulldetails("43", "comic") is None
-    assert comicarr.BACKENDSTATUS_CV == "down"
+    assert runtime.current().backend_status_cv == "down"
 
 
 def test_get_comic_reads_the_series_from_a_volume(comicvine):

@@ -26,7 +26,7 @@ from sqlalchemy import and_, delete
 
 import comicarr
 from comicarr.app.common.series_names import dynamic_series_key
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import weekly
 from comicarr.app.search.service import ignored_publisher_check
 
@@ -109,7 +109,7 @@ def locg(pulldate=None, weeknumber=None, year=None):
         )
     except requests.exceptions.RequestException as e:
         logger.warn("[PULL-LIST] Error encountered retrieving pull-list: %s" % (e,))
-        comicarr.BACKENDSTATUS_WS = "down"
+        runtime.current().backend_status_ws = "down"
         return {"status": "failure"}
 
     if str(r.status_code) == "619":
@@ -124,7 +124,7 @@ def locg(pulldate=None, weeknumber=None, year=None):
                 _retry_advice(r.headers.get("Retry-After")),
             )
         )
-        comicarr.BACKENDSTATUS_WS = "down"
+        runtime.current().backend_status_ws = "down"
         failure = {
             "status": "failure",
             "origin_error": True,
@@ -138,12 +138,12 @@ def locg(pulldate=None, weeknumber=None, year=None):
         logger.warn(
             "[%s] Unable to retrieve data from site - this is a site.specific issue [%s]" % (r.status_code, pulldate)
         )
-        comicarr.BACKENDSTATUS_WS = "down"
+        runtime.current().backend_status_ws = "down"
         return {"status": "failure"}
     elif str(r.status_code) == "200":
         data = r.json()
 
-        comicarr.BACKENDSTATUS_WS = "up"
+        runtime.current().backend_status_ws = "up"
 
         logger.info("[WEEKLY-PULL] There are %s issues for week %s, %s" % (len(data), weeknumber, year))
         pull = []

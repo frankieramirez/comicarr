@@ -36,7 +36,7 @@ def _library(tmp_path, monkeypatch):
     seed_library(tmp_path, monkeypatch)
     monkeypatch.delenv("COMICARR_ACQUISITION_MAINTENANCE", raising=False)
     monkeypatch.setattr(runtime.current(), "api_lock", threading.Lock(), raising=False)
-    monkeypatch.setattr(comicarr, "PROVIDER_BLOCKLIST", {}, raising=False)
+    monkeypatch.setattr(runtime.current(), "provider_blocklist", {}, raising=False)
     monkeypatch.setattr(
         comicarr,
         "CONFIG",

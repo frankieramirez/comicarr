@@ -119,8 +119,10 @@ Retired so far: scheduler status and schedule stamps (`*_status`,
 queues (`*_queue`, `add_list`, `issue_watch_list`), process locks
 (`init_lock`, `api_lock`, `search_lock`, `ddl_lock`, `acquisition_resume_lock`)
 and worker-pool references (`*_pool`; #1540), the install paths
-(`prog_dir`, `data_dir`, `db_file`), and version and install state
-(`install_type`, `current_*`, `latest_version`, `update_*`; #1541).
+(`prog_dir`, `data_dir`, `db_file`), version and install state
+(`install_type`, `current_*`, `latest_version`, `update_*`), and metadata and
+provider sessions (`cv_*`, `metron_api`, `provider_*`, `backend_status_*`;
+#1541).
 
 `tests/fixtures/upgrade_matrix/build.py` drives historical Comicarr and Mylar3
 release trees, where these globals are the old releases' real API, so the guard

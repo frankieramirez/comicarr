@@ -38,7 +38,7 @@ def _isolated_db(tmp_path, monkeypatch):
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
-    monkeypatch.setattr(comicarr, "PROVIDER_BLOCKLIST", {}, raising=False)
+    monkeypatch.setattr(runtime.current(), "provider_blocklist", {}, raising=False)
     monkeypatch.setattr(
         comicarr,
         "CONFIG",

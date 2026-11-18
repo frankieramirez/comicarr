@@ -97,6 +97,11 @@ class AppContext:
     cv_session: object = None
     cv_rate_limiter: object = None
     cv_cache: object = None
+    cv_headers: dict = None
+    cv_url: str = None
+    # Request timeout (seconds) for ComicVine calls. The CV_TIMEOUT setting
+    # has never been wired to it; this keeps the long-standing fixed value.
+    cv_timeout: int = 30
     metron_api: object = None
     fernet: object = None
 
@@ -108,6 +113,7 @@ class AppContext:
     comic_sort: object = None
     publisher_imprints: dict = field(default_factory=dict)
     provider_blocklist: list = field(default_factory=list)
+    provider_start_id: int = 0
     ddl_queued: set = field(default_factory=set)
     ddl_stuck_notified: set = field(default_factory=set)
     pack_issueids_dont_queue: dict = field(default_factory=dict)

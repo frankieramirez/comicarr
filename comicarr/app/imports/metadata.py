@@ -21,7 +21,7 @@ from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common import strings as common_strings
 from comicarr.app.common.library_roots import is_strict_library_descendant
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, issues
 from comicarr.app.library import filers
 from comicarr.app.metadata import metron
@@ -68,10 +68,10 @@ def _remaining(deadline):
 def _cv_request(endpoint, params, deadline):
     if not comicarr.CONFIG.COMICVINE_API or comicarr.CONFIG.COMICVINE_API == "None":
         raise ValueError("ComicVine API key is required")
-    comicarr.CV_RATE_LIMITER.acquire(timeout=_remaining(deadline))
+    runtime.current().cv_rate_limiter.acquire(timeout=_remaining(deadline))
     try:
-        response = comicarr.CV_SESSION.get(
-            comicarr.CVURL + endpoint,
+        response = runtime.current().cv_session.get(
+            runtime.current().cv_url + endpoint,
             params={**params, "api_key": comicarr.CONFIG.COMICVINE_API, "format": "json"},
             verify=comicarr.CONFIG.CV_VERIFY,
             timeout=min(20, _remaining(deadline)),

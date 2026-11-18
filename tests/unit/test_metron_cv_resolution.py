@@ -22,6 +22,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 
 
 class TestPrefixHelpers:
@@ -56,7 +57,7 @@ class TestSearchSeriesIds:
         fake_api = MagicMock()
         fake_api.series_list.return_value = [fake_series]
 
-        with patch.object(comicarr, "METRON_API", fake_api):
+        with patch.object(runtime.current(), "metron_api", fake_api):
             result = metron.search_series("Example Series", limit=5)
 
         assert result["results"][0]["comicid"] == "metron-9253"
@@ -70,7 +71,7 @@ class TestGetCvId:
         fake_api = MagicMock()
         fake_api.series.return_value = SimpleNamespace(cv_id=145678)
 
-        with patch.object(comicarr, "METRON_API", fake_api):
+        with patch.object(runtime.current(), "metron_api", fake_api):
             assert metron.get_cv_id("metron-9253") == "145678"
 
         fake_api.series.assert_called_once_with(9253)
@@ -81,13 +82,13 @@ class TestGetCvId:
         fake_api = MagicMock()
         fake_api.series.return_value = SimpleNamespace(cv_id=None)
 
-        with patch.object(comicarr, "METRON_API", fake_api):
+        with patch.object(runtime.current(), "metron_api", fake_api):
             assert metron.get_cv_id("9253") is None
 
     def test_returns_none_when_api_not_initialized(self):
         from comicarr.app.metadata import metron
 
-        with patch.object(comicarr, "METRON_API", None):
+        with patch.object(runtime.current(), "metron_api", None):
             assert metron.get_cv_id("9253") is None
 
 
@@ -185,7 +186,7 @@ class TestAnnualSearchRouting:
         fake_config = MagicMock(USE_METRON_SEARCH=True, MANGADEX_ENABLED=False)
         with (
             patch.object(comicarr, "CONFIG", fake_config),
-            patch.object(comicarr, "METRON_API", MagicMock()),
+            patch.object(runtime.current(), "metron_api", MagicMock()),
             patch("comicarr.app.metadata.metron.search_series") as mock_metron_search,
             patch("comicarr.app.search.mb.listLibrary", side_effect=_StopSearch),
         ):

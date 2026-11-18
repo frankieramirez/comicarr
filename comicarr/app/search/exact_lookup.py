@@ -13,8 +13,7 @@ from urllib.parse import urlsplit
 from mokkari.exceptions import ApiError
 from requests.exceptions import HTTPError
 
-import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.search import mb
 
 
@@ -41,7 +40,7 @@ def parse_identifier(query):
 
 def lookup(ctx, provider, identifier):
     if provider == "metron":
-        api = getattr(ctx, "metron_api", None) or comicarr.METRON_API
+        api = getattr(ctx, "metron_api", None) or runtime.current().metron_api
         if not getattr(ctx.config, "USE_METRON_SEARCH", False) or api is None:
             return {"error": "Metron integration is not configured"}
         try:
@@ -79,18 +78,18 @@ def lookup(ctx, provider, identifier):
         if not key or key == "None":
             return {"error": "ComicVine API key is not configured"}
         try:
-            limiter = getattr(ctx, "cv_rate_limiter", None) or comicarr.CV_RATE_LIMITER
-            session = getattr(ctx, "cv_session", None) or comicarr.CV_SESSION
+            limiter = getattr(ctx, "cv_rate_limiter", None) or runtime.current().cv_rate_limiter
+            session = getattr(ctx, "cv_session", None) or runtime.current().cv_session
             limiter.acquire()
             response = session.get(
-                comicarr.CVURL + "volume/4050-%s/" % identifier,
+                runtime.current().cv_url + "volume/4050-%s/" % identifier,
                 params={
                     "api_key": key,
                     "format": "json",
                     "field_list": "id,name,start_year,publisher,count_of_issues,image,site_detail_url",
                 },
                 verify=ctx.config.CV_VERIFY,
-                timeout=comicarr.CV_TIMEOUT,
+                timeout=runtime.current().cv_timeout,
             )
             if response.status_code == 404:
                 return {"results": []}
