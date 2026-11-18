@@ -21,7 +21,7 @@ import types
 
 import pytest
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.search import engine as search
 from comicarr.app.search import progress
 from comicarr.app.search import service as search_service
@@ -55,8 +55,8 @@ def search_env(monkeypatch):
         return {"status": False, "lastrun": 0}
 
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(
             ENABLE_RSS=True,
             ENABLE_TORRENT_SEARCH=True,

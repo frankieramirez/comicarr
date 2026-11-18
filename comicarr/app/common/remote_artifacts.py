@@ -19,6 +19,8 @@ import unicodedata
 import zipfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
+from comicarr.app.core import runtime
+
 MAX_ZIP_MEMBERS = 10_000
 MAX_ZIP_UNCOMPRESSED_BYTES = 20 * 1024 * 1024 * 1024
 MAX_ZIP_COMPRESSION_RATIO = 200
@@ -185,7 +187,7 @@ def _configured_ownership(config):
 def _new_artifact_policy():
     import comicarr
 
-    config = getattr(comicarr, "CONFIG", None)
+    config = runtime.current().config
     if bool(getattr(config, "ENFORCE_PERMS", False)):
         return (
             _configured_permission(config, "CHMOD_FILE", 0o600),

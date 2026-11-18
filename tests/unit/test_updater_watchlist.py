@@ -73,7 +73,7 @@ def test_bulk_issue_update_persists_issue_location(monkeypatch):
 @pytest.fixture
 def acquisition_ledger(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()
     metadata.create_all(get_engine())
@@ -270,8 +270,8 @@ def test_durable_refresh_failure_does_not_kill_following_item(monkeypatch, acqui
 def _configure_updater(monkeypatch, *, annuals_on, rows, cv_results):
     refresh_thread = MagicMock()
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(ANNUALS_ON=annuals_on, BACKFILL_TIMESPAN=15),
     )
     monkeypatch.setattr(comicarr, "DB_BACKFILL", False)

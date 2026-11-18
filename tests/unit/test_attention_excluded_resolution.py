@@ -40,8 +40,8 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     monkeypatch.setattr(runtime.current(), "provider_blocklist", {}, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             FAILED_DOWNLOAD_HANDLING=True,
             FAILED_AUTO=False,
@@ -109,7 +109,7 @@ def _seed_excluded_manual_review():
 def test_excluded_reason_is_hidden_from_the_queue_but_still_resolvable():
     assert is_actionable(EXCLUDED_REASON) is False
     release_key = _seed_excluded_manual_review()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     # Display policy keeps it off the band...
     assert all(member.release_key != release_key for group in read().groups for member in group.members)

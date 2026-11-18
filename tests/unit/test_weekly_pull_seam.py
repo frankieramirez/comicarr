@@ -38,7 +38,7 @@ from comicarr.app.weekly import pull_runner as weeklypullit
 def pull_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     db.shutdown_engine()
     engine = db.get_engine()
     metadata.create_all(engine)
@@ -97,7 +97,7 @@ def _patch_match(monkeypatch, *, autowant, listed):
     config.ANNUALS_ON = False
     config.AUTOWANT_UPCOMING = autowant
     config.AUTO_MASS_ADD = False
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(series_service, "listPull", lambda week, year: listed)
     monkeypatch.setattr(series_service, "checkthepub", lambda comicid: 60)
     monkeypatch.setattr(search_service, "LoadAlternateSearchNames", lambda *_args: None)
@@ -192,7 +192,7 @@ def test_fetch_pull_list_loads_both_weeks_from_walksoftly_and_matches_each(monke
     config = MagicMock()
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(
         configured,
         "weekly_info",
@@ -221,7 +221,7 @@ def test_fetch_pull_list_reports_an_out_of_date_client_as_failure(monkeypatch):
     config = MagicMock()
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(
         configured,
         "weekly_info",

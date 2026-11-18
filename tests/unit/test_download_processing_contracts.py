@@ -64,8 +64,8 @@ def sqlite_ddl_db(tmp_path, monkeypatch):
     db.shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             DDL_LOCATION=str(tmp_path / "downloads"),
             CACHE_DIR=str(tmp_path / "cache"),
@@ -117,7 +117,7 @@ def test_direct_processing_returns_http_conflict_while_owned(tmp_path, monkeypat
     lock = threading.Lock()
     lock.acquire()
     monkeypatch.setattr(runtime.current(), "api_lock", lock)
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(MANUAL_PP_FOLDER=str(tmp_path)))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(MANUAL_PP_FOLDER=str(tmp_path)))
 
     if compat:
         response = router.force_process({"nzb_name": "Saga.cbz", "nzb_folder": str(tmp_path), "apc_version": "1"})
@@ -137,7 +137,7 @@ def test_folder_monitor_defers_when_processing_is_busy(tmp_path, monkeypatch):
     lock = threading.Lock()
     lock.acquire()
     monkeypatch.setattr(runtime.current(), "api_lock", lock)
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CHECK_FOLDER=str(tmp_path)))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(CHECK_FOLDER=str(tmp_path)))
     monkeypatch.setattr(runtime.current(), "monitor_status", "Waiting")
     updates = []
     monkeypatch.setattr("comicarr.app.system.service.job_management", lambda **kw: updates.append(kw))
@@ -988,7 +988,7 @@ def _drive_ddl_worker(monkeypatch, ddzstat, *, on_parse=None, link_type_failure=
     monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False)
     monkeypatch.setattr(comicarr, "DDL_QUEUED", {"ddl-1"})
     monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", {"ddl-1"})
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(POST_PROCESSING=False), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(POST_PROCESSING=False), raising=False)
 
     statuses = []
     monkeypatch.setattr(
@@ -1110,8 +1110,8 @@ def _downloader(monkeypatch, tmp_path, *, response=None):
     monkeypatch.setattr(runtime.current(), "ddl_lock", lock)
     monkeypatch.setattr(comicarr, "DDL_QUEUED", set())
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             DDL_LOCATION=str(tmp_path),
             ENFORCE_PERMS=False,
@@ -1131,7 +1131,7 @@ def test_downloadit_releases_lock_once_on_early_failures(tmp_path, monkeypatch, 
         downloader.cookie_receipt.side_effect = RuntimeError("cookie failed")
     elif failure == "directory":
         missing = tmp_path / "missing"
-        comicarr.CONFIG.DDL_LOCATION = str(missing)
+        runtime.current().config.DDL_LOCATION = str(missing)
         monkeypatch.setattr(comicarr.app.library.filechecker, "validateAndCreateDirectory", lambda *args: False)
     elif failure == "timeout":
         downloader.session.get.side_effect = requests.exceptions.Timeout("timed out")
@@ -1247,7 +1247,7 @@ def test_nzb_monitor_survives_pause_probe_error(sqlite_ddl_db, monkeypatch):
     monkeypatch.setattr(service.sabnzbd, "SABnzbd", Boom)
     monkeypatch.setattr(runtime.current(), "return_nzb_queue", return_q, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
-    monkeypatch.setattr(comicarr.CONFIG, "SAB_APIKEY", "k", raising=False)
+    monkeypatch.setattr(runtime.current().config, "SAB_APIKEY", "k", raising=False)
     monkeypatch.setattr(service.time, "sleep", lambda _s: None)
 
     service.nzb_monitor(q)

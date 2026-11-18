@@ -16,7 +16,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import insert
 
-import comicarr
 from comicarr.app.core import db, runtime, workers
 from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.weekly import mangaupdates
@@ -72,7 +71,7 @@ class FakeApi:
 
 @pytest.fixture
 def cache_dir(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CACHE_DIR=str(tmp_path), MANGADEX_ENABLED=True))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(CACHE_DIR=str(tmp_path), MANGADEX_ENABLED=True))
     monkeypatch.setattr(mangaupdates, "_cache", {"path": None, "mtime": None, "data": None})
     monkeypatch.setattr(mangaupdates, "_state", {"thread": None, "last_attempt": 0.0, "last_error": None})
     return tmp_path
@@ -255,7 +254,7 @@ def test_manga_rows_match_library_series_and_chapters(library_db, monkeypatch):
 
 
 def test_manga_week_is_disabled_without_a_provider(monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(MANGADEX_ENABLED=False))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(MANGADEX_ENABLED=False))
 
     manga = weekly_service._manga_week(weekly_service.week_window(today=TODAY))
 

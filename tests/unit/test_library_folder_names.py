@@ -25,6 +25,7 @@ from types import SimpleNamespace
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.library.filers import FileHandlers
 
 
@@ -54,7 +55,7 @@ def config(monkeypatch):
             REPLACE_CHAR=".",
         )
         values.update(overrides)
-        monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(**values))
+        monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(**values))
         monkeypatch.setattr(comicarr, "OS_DETECT", "Linux")
 
     return install

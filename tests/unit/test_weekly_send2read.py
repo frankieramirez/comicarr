@@ -16,6 +16,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from comicarr.app.core import runtime
 from comicarr.app.weekly import pull_list
 
 
@@ -28,7 +29,7 @@ def both_match(monkeypatch):
         ]
     )
     monkeypatch.setattr(pull_list.db, "select_one", lambda _stmt: next(rows))
-    monkeypatch.setattr(pull_list.comicarr, "CONFIG", MagicMock(SEND2READ=True))
+    monkeypatch.setattr(runtime.current(), "config", MagicMock(SEND2READ=True))
     reading = MagicMock()
     monkeypatch.setattr(pull_list.readinglist, "Readinglist", reading)
     return reading

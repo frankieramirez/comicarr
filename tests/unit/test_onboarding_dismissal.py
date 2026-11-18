@@ -19,8 +19,8 @@ flag straight into config.ini, which is why nothing caught it.
 
 import pytest
 
-import comicarr
 from comicarr.app.config.registry import REGISTRY, readable_keys, writable_keys
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.system import service as system_service
 
@@ -42,7 +42,7 @@ class FakeConfig:
 @pytest.fixture
 def ctx(monkeypatch):
     config = FakeConfig()
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     return AppContext(config=config)
 
 

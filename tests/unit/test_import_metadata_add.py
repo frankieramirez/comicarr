@@ -13,7 +13,6 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy import create_engine, select
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, issues
 from comicarr.app.series import comic_add
@@ -26,8 +25,8 @@ def metadata_environment(tmp_path, monkeypatch):
     issues.create(engine)
     monkeypatch.setattr(db, "get_engine", lambda: engine)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             COMICVINE_API="test-key",
             CV_VERIFY=True,
@@ -231,7 +230,7 @@ def test_mangadex_metadata_add_is_unmonitored_without_placeholder_issues(metadat
         },
     )
     monkeypatch.setattr("comicarr.app.config.ini.get_manga_destination", lambda: str(tmp_path / "library"))
-    comicarr.CONFIG.FOLDER_FORMAT = "$Series ($Year)"
+    runtime.current().config.FOLDER_FORMAT = "$Series ($Year)"
     result = comic_add.add_comic("md-abc", metadata_only=True)
     assert result["comicid"] == "md-abc"
     assert db.select_one(select(comics))["Status"] == "Paused"
@@ -487,7 +486,7 @@ def test_exact_lookup_add_and_reopened_retry_preserve_readiness(pending_import, 
     from comicarr.app.series.router import match_import
 
     _, ctx, source, session, importresults = pending_import
-    ctx.config.COMICVINE_API = comicarr.CONFIG.COMICVINE_API
+    ctx.config.COMICVINE_API = runtime.current().config.COMICVINE_API
     ctx.config.CV_VERIFY = True
     monkeypatch.setattr(
         "comicarr.app.search.mb.listLibrary",

@@ -47,8 +47,8 @@ from tests.fakes.sabnzbd import FakeSabnzbd
 def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(MANUAL_PP_FOLDER=str(tmp_path / "downloads")),
         raising=False,
     )
@@ -368,8 +368,8 @@ def sab(tmp_path, monkeypatch):
     local_complete = tmp_path / "sab" / "complete"
     local_complete.mkdir(parents=True)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         pipeline.default_config(
             SAB_HOST=fake.host,
             SAB_APIKEY=fake.apikey,
@@ -453,7 +453,7 @@ def test_sab_rejected_upload_is_a_named_failure(sab, tmp_path):
 
 def test_sab_completed_path_with_remote_path_mapping(sab, monkeypatch):
     """SABnzbd reports its own path; SAB_DIRECTORY maps it to where Comicarr sees the job."""
-    monkeypatch.setattr(comicarr.CONFIG, "SAB_DIRECT_UNPACK", True)
+    monkeypatch.setattr(runtime.current().config, "SAB_DIRECT_UNPACK", True)
     _response, item = pipeline.send_to_sab(sab.nzb)
     [nzo_id] = sab.jobs
     remote = sab.remote_storage(nzo_id, pipeline.FILENAME)
@@ -516,8 +516,8 @@ def test_sab_history_removed_before_comicarr_reads_it(sab):
 
 
 def test_sab_failed_download_leads_to_a_retry(sab, monkeypatch):
-    monkeypatch.setattr(comicarr.CONFIG, "FAILED_DOWNLOAD_HANDLING", True)
-    monkeypatch.setattr(comicarr.CONFIG, "FAILED_AUTO", True)
+    monkeypatch.setattr(runtime.current().config, "FAILED_DOWNLOAD_HANDLING", True)
+    monkeypatch.setattr(runtime.current().config, "FAILED_AUTO", True)
     _response, item = pipeline.send_to_sab(sab.nzb)
     [nzo_id] = sab.jobs
     sab.fail(nzo_id)
@@ -571,7 +571,7 @@ def test_sab_restart_mid_download_resumes_monitoring(sab):
 def test_sab_wrong_api_key_is_a_connection_failure(sab, monkeypatch):
     from comicarr.app.system import connections
 
-    monkeypatch.setattr(comicarr.CONFIG, "SAB_APIKEY", "a-stale-key")
+    monkeypatch.setattr(runtime.current().config, "SAB_APIKEY", "a-stale-key")
 
     response, item = pipeline.send_to_sab(sab.nzb)
 
@@ -580,7 +580,7 @@ def test_sab_wrong_api_key_is_a_connection_failure(sab, monkeypatch):
     assert journal.read_one(pipeline.release_key())["fail_reason"] == "submission_rejected"
     issue, _summary = pipeline.library_issue()
     assert issue["fulfillment"] != "downloaded"
-    probe = connections._probe_sabnzbd(comicarr.CONFIG)
+    probe = connections._probe_sabnzbd(runtime.current().config)
     assert probe.ok is False
     assert "API key" in probe.result
 
@@ -628,8 +628,8 @@ def nzb(tmp_path, monkeypatch):
     local_completed = tmp_path / "nzbget" / "completed"
     local_completed.mkdir(parents=True)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         pipeline.default_config(
             NZBGET_HOST=fake.host,
             NZBGET_PORT=fake.port,
@@ -717,8 +717,8 @@ def test_nzbget_destination_directory_mapping(nzb):
 
 
 def _nzbget_failure_is_retried(nzb, monkeypatch, how):
-    monkeypatch.setattr(comicarr.CONFIG, "FAILED_DOWNLOAD_HANDLING", True)
-    monkeypatch.setattr(comicarr.CONFIG, "FAILED_AUTO", True)
+    monkeypatch.setattr(runtime.current().config, "FAILED_DOWNLOAD_HANDLING", True)
+    monkeypatch.setattr(runtime.current().config, "FAILED_AUTO", True)
     _response, item = pipeline.send_to_nzbget(nzb.nzb)
     [nzbid] = nzb.jobs
     nzb.fail(nzbid, how)
@@ -794,7 +794,7 @@ def test_nzbget_restart_mid_download_resumes_monitoring(nzb):
 def test_nzbget_wrong_password_is_an_authentication_failure(nzb, monkeypatch):
     from comicarr.app.system import connections
 
-    monkeypatch.setattr(comicarr.CONFIG, "NZBGET_PASSWORD", "a-stale-password")
+    monkeypatch.setattr(runtime.current().config, "NZBGET_PASSWORD", "a-stale-password")
 
     response, item = pipeline.send_to_nzbget(nzb.nzb)
 
@@ -803,7 +803,7 @@ def test_nzbget_wrong_password_is_an_authentication_failure(nzb, monkeypatch):
     assert journal.read_one(pipeline.release_key())["fail_reason"] == "submission_rejected"
     issue, _summary = pipeline.library_issue()
     assert issue["fulfillment"] != "downloaded"
-    probe = connections._probe_nzbget(comicarr.CONFIG)
+    probe = connections._probe_nzbget(runtime.current().config)
     assert probe.ok is False
     assert probe.result == "NZBGet rejected the username or password"
 
@@ -817,7 +817,7 @@ def manga(sab, tmp_path, monkeypatch):
     manga_dest = tmp_path / "manga"
     series_root = manga_dest / pipeline.MANGA_SERIES
     series_root.mkdir(parents=True)
-    monkeypatch.setattr(comicarr.CONFIG, "MANGA_DESTINATION_DIR", str(manga_dest))
+    monkeypatch.setattr(runtime.current().config, "MANGA_DESTINATION_DIR", str(manga_dest))
     with db.get_engine().begin() as conn:
         conn.execute(comics.insert().values(**pipeline.manga_series_row(series_root)))
         for row in pipeline.manga_chapter_rows():
@@ -1037,8 +1037,8 @@ def recorded(tmp_path, monkeypatch):
     library = tmp_path / "manga"
     library.mkdir()
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         pipeline.default_config(
             MANGADEX_ENABLED=True,
             MAL_ENABLED=True,
@@ -1201,9 +1201,9 @@ def test_manga_rss_grabs_and_places_a_wanted_chapter(recorded, monkeypatch):
     from tests.fakes.newznab import FakeNewznab
 
     indexer = FakeNewznab().install(monkeypatch)
-    monkeypatch.setattr(comicarr.CONFIG, "NEWZNAB", True)
-    monkeypatch.setattr(comicarr.CONFIG, "EXTRA_NEWZNABS", [indexer.config_entry()])
-    monkeypatch.setattr(comicarr.CONFIG, "ENABLE_RSS", True)
+    monkeypatch.setattr(runtime.current().config, "NEWZNAB", True)
+    monkeypatch.setattr(runtime.current().config, "EXTRA_NEWZNABS", [indexer.config_entry()])
+    monkeypatch.setattr(runtime.current().config, "ENABLE_RSS", True)
     assert manga_add.add_mangadex(MD_COMIC_ID)["status"] == "complete"
     with db.get_engine().begin() as conn:
         conn.execute(comics.update().where(comics.c.ComicID == MD_COMIC_ID).values(MonitorMode="chapters"))
@@ -1244,7 +1244,7 @@ def test_manga_add_failure_is_narrated_in_activity(recorded, monkeypatch):
     monkeypatch.setattr(runtime.current(), "mass_add_pool", None, raising=False)
     missing = "md-" + manga_fake.MISSING_MANGADEX_ID
 
-    queued = add_manga(AppContext(config=comicarr.CONFIG), manga_fake.MISSING_MANGADEX_ID)
+    queued = add_manga(AppContext(config=runtime.current().config), manga_fake.MISSING_MANGADEX_ID)
     # An idle worker unpublishes itself as it retires (#1322), so it may be
     # gone already; a None pool means it has finished.
     worker = runtime.current().mass_add_pool

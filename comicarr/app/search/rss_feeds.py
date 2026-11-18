@@ -115,7 +115,7 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
 
         feedtype = None
 
-        if pickfeed == "1" and comicarr.CONFIG.ENABLE_32P is True:
+        if pickfeed == "1" and runtime.current().config.ENABLE_32P is True:
             feed = (
                 "https://32pag.es/feeds.php?feed=torrents_all&user="
                 + feedinfo["user"]
@@ -127,7 +127,7 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                 + feedinfo["authkey"]
             )
             feedtype = " from the New Releases RSS Feed for comics"
-            verify = bool(comicarr.CONFIG.VERIFY_32P)
+            verify = bool(runtime.current().config.VERIFY_32P)
         elif pickfeed == "2" and srchterm is not None:
             lp += 1
             continue
@@ -137,16 +137,16 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
         elif pickfeed == "4":
             if any(
                 [
-                    comicarr.CONFIG.USERNAME_32P is None,
-                    comicarr.CONFIG.USERNAME_32P == "",
-                    comicarr.CONFIG.PASSWORD_32P is None,
-                    comicarr.CONFIG.PASSWORD_32P == "",
+                    runtime.current().config.USERNAME_32P is None,
+                    runtime.current().config.USERNAME_32P == "",
+                    runtime.current().config.PASSWORD_32P is None,
+                    runtime.current().config.PASSWORD_32P == "",
                 ]
             ):
                 logger.error("[RSS] Warning - you NEED to enter in your 32P Username and Password to use this option.")
                 lp = +1
                 continue
-            if comicarr.CONFIG.MODE_32P is False:
+            if runtime.current().config.MODE_32P is False:
                 logger.warn(
                     "[32P] Searching is not available in 32p Legacy mode. Switch to Auth mode to use the search functionality."
                 )
@@ -160,16 +160,16 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                 + str(srchterm)
                 + "&uid=0&out=rss"
             )
-            verify = bool(comicarr.CONFIG.PUBLIC_VERIFY)
+            verify = bool(runtime.current().config.PUBLIC_VERIFY)
         elif pickfeed == "6":
             feed = comicarr.DEMURL + "rss/10.xml"
             feedtype = " from the New Releases RSS Feed from Demonoid"
-            verify = bool(comicarr.CONFIG.PUBLIC_VERIFY)
+            verify = bool(runtime.current().config.PUBLIC_VERIFY)
         elif pickfeed == "999":
             feed = comicarr.WWTURL + "rss.php?cat=132,50"
             feedtype = " from the New Releases RSS Feed from WorldWideTorrents"
-            verify = bool(comicarr.CONFIG.PUBLIC_VERIFY)
-        elif int(pickfeed) >= 7 and feedinfo is not None and comicarr.CONFIG.ENABLE_32P is True:
+            verify = bool(runtime.current().config.PUBLIC_VERIFY)
+        elif int(pickfeed) >= 7 and feedinfo is not None and runtime.current().config.ENABLE_32P is True:
             feed = (
                 "https://32pag.es/feeds.php?feed="
                 + feedinfo["feed"]
@@ -185,7 +185,7 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
                 + feedinfo["feedname"]
             )
             feedtype = " from your Personal Notification Feed : " + feedinfo["feedname"]
-            verify = bool(comicarr.CONFIG.VERIFY_32P)
+            verify = bool(runtime.current().config.VERIFY_32P)
         else:
             logger.error("invalid pickfeed denoted...")
             return
@@ -349,7 +349,7 @@ def torrents(pickfeed=None, seriesname=None, issue=None, feedinfo=None):
 
                     seeddigits = 0
 
-                    if int(comicarr.CONFIG.MINSEEDS) >= int(seeddigits):
+                    if int(runtime.current().config.MINSEEDS) >= int(seeddigits):
                         link = feedme.entries[i].link
                         link = re.sub("&amp", "&", link)
                         link = re.sub("&amp;", "&", link)
@@ -537,16 +537,16 @@ def nzbs(provider=None, forcerss=False):
 
     newznab_hosts = []
 
-    if comicarr.CONFIG.NEWZNAB is True:
-        for newznab_host in comicarr.CONFIG.EXTRA_NEWZNABS:
+    if runtime.current().config.NEWZNAB is True:
+        for newznab_host in runtime.current().config.EXTRA_NEWZNABS:
             if provider_enabled(newznab_host):
                 newznab_hosts.append(newznab_host)
 
-    providercount = len(newznab_hosts) + int(comicarr.CONFIG.EXPERIMENTAL is True)
+    providercount = len(newznab_hosts) + int(runtime.current().config.EXPERIMENTAL is True)
     logger.fdebug("[RSS] You have enabled " + str(providercount) + " NZB RSS search providers.")
 
     if providercount > 0:
-        if comicarr.CONFIG.EXPERIMENTAL is True:
+        if runtime.current().config.EXPERIMENTAL is True:
             max_entries = "250" if forcerss else "50"
             params = {
                 "sort": "agedesc",
@@ -733,7 +733,9 @@ def rssdbupdate(feeddata, i, type):
         db.upsert("rssdb", newVal, ctrlVal)
 
     logger.fdebug(
-        "Completed adding new data to RSS DB. Next add in " + str(comicarr.CONFIG.RSS_CHECKINTERVAL) + " minutes"
+        "Completed adding new data to RSS DB. Next add in "
+        + str(runtime.current().config.RSS_CHECKINTERVAL)
+        + " minutes"
     )
     return
 
@@ -982,10 +984,10 @@ def nzbdbsearch(
                 cnt += 1
                 nzbTITLE = re.sub("&amp;", "&", nzb["Title"]).strip()
                 nzbTITLE = re.sub("&#39;", "'", nzbTITLE).strip()
-                if comicarr.CONFIG.PREFERRED_QUALITY == 1:
+                if runtime.current().config.PREFERRED_QUALITY == 1:
                     if "cbr" not in nzbTITLE:
                         continue
-                elif comicarr.CONFIG.PREFERRED_QUALITY == 2:
+                elif runtime.current().config.PREFERRED_QUALITY == 2:
                     if "cbz" not in nzbTITLE:
                         continue
                 if provider_list is not None:
@@ -996,7 +998,7 @@ def nzbdbsearch(
 
                 else:
                     if nzbprov is not None:
-                        if nzbprov != nzb["Site"] or not comicarr.CONFIG.ENABLE_NEWZNABS:
+                        if nzbprov != nzb["Site"] or not runtime.current().config.ENABLE_NEWZNABS:
                             continue
 
                 fmod = comicarr.app.library.filechecker.FileChecker()
@@ -1121,9 +1123,9 @@ def nzbdbsearch(
                 ComVersChk = 0
 
             filetype = None
-            if comicarr.CONFIG.PREFERRED_QUALITY == 1:
+            if runtime.current().config.PREFERRED_QUALITY == 1:
                 filetype = "cbr"
-            elif comicarr.CONFIG.PREFERRED_QUALITY == 2:
+            elif runtime.current().config.PREFERRED_QUALITY == 2:
                 filetype = "cbz"
 
             for results in nresults:
@@ -1209,15 +1211,15 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
             comicarr.USE_QBITTORRENT,
         ]
     ):
-        filepath = os.path.join(comicarr.CONFIG.CACHE_DIR, filename)
+        filepath = os.path.join(runtime.current().config.CACHE_DIR, filename)
         logger.fdebug("filename for torrent set to : " + filepath)
 
     elif comicarr.USE_WATCHDIR:
-        if comicarr.CONFIG.TORRENT_LOCAL and comicarr.CONFIG.LOCAL_WATCHDIR is not None:
-            filepath = os.path.join(comicarr.CONFIG.LOCAL_WATCHDIR, filename)
+        if runtime.current().config.TORRENT_LOCAL and runtime.current().config.LOCAL_WATCHDIR is not None:
+            filepath = os.path.join(runtime.current().config.LOCAL_WATCHDIR, filename)
             logger.fdebug("filename for torrent set to : " + filepath)
-        elif comicarr.CONFIG.TORRENT_SEEDBOX and comicarr.CONFIG.SEEDBOX_WATCHDIR is not None:
-            filepath = os.path.join(comicarr.CONFIG.CACHE_DIR, filename)
+        elif runtime.current().config.TORRENT_SEEDBOX and runtime.current().config.SEEDBOX_WATCHDIR is not None:
+            filepath = os.path.join(runtime.current().config.CACHE_DIR, filename)
             logger.fdebug("filename for torrent set to : " + filepath)
         else:
             logger.error("No Local Watch Directory or Seedbox Watch Directory specified. Set it and try again.")
@@ -1394,9 +1396,9 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
         try:
             rpc = transmission.TorrentClient()
             if not rpc.connect(
-                comicarr.CONFIG.TRANSMISSION_HOST,
-                comicarr.CONFIG.TRANSMISSION_USERNAME,
-                comicarr.CONFIG.TRANSMISSION_PASSWORD,
+                runtime.current().config.TRANSMISSION_HOST,
+                runtime.current().config.TRANSMISSION_USERNAME,
+                runtime.current().config.TRANSMISSION_PASSWORD,
             ):
                 return "fail"
             torrent_info = rpc.load_torrent(filepath)
@@ -1414,7 +1416,9 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
         try:
             dc = deluge.TorrentClient()
             if not dc.connect(
-                comicarr.CONFIG.DELUGE_HOST, comicarr.CONFIG.DELUGE_USERNAME, comicarr.CONFIG.DELUGE_PASSWORD
+                runtime.current().config.DELUGE_HOST,
+                runtime.current().config.DELUGE_USERNAME,
+                runtime.current().config.DELUGE_PASSWORD,
             ):
                 logger.info("Not connected to Deluge!")
                 return "fail"
@@ -1437,9 +1441,9 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
         try:
             qc = qbittorrent.TorrentClient()
             if not qc.connect(
-                comicarr.CONFIG.QBITTORRENT_HOST,
-                comicarr.CONFIG.QBITTORRENT_USERNAME,
-                comicarr.CONFIG.QBITTORRENT_PASSWORD,
+                runtime.current().config.QBITTORRENT_HOST,
+                runtime.current().config.QBITTORRENT_USERNAME,
+                runtime.current().config.QBITTORRENT_PASSWORD,
             ):
                 logger.info("Not connected to qBittorrent - Make sure the Web UI is enabled and the port is correct!")
                 return "fail"
@@ -1459,7 +1463,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
             return "fail"
 
     elif comicarr.USE_WATCHDIR:
-        if comicarr.CONFIG.TORRENT_LOCAL:
+        if runtime.current().config.TORRENT_LOCAL:
             torrent_info = common_utilities.get_the_hash(filepath)
             torrent_info["clientmode"] = "watchdir"
             torrent_info["link"] = linkit

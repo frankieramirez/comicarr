@@ -10,6 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy import create_engine
 
+from comicarr.app.core import runtime
+
 
 @pytest.fixture(autouse=True)
 def _mock_globals():
@@ -19,7 +21,7 @@ def _mock_globals():
     mock_config.COMICVINE_API = "test-api-key"
 
     with (
-        patch("comicarr.CONFIG", mock_config),
+        patch.object(runtime.current(), "config", mock_config),
         patch("comicarr.app.series.comicsync.logger") as mock_log,
         patch("comicarr.app.series.comicsync.db") as mock_db,
     ):

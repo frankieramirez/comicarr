@@ -37,6 +37,7 @@ import comicarr
 from comicarr.app.config.ini import config_transaction_lock
 from comicarr.app.config.log_level import ACCEPTED_FORMS
 from comicarr.app.core import logger as comicarr_logger
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.system import service as system_service
 
@@ -45,7 +46,7 @@ class FakeConfig:
     """Enough config to persist a level and rebuild the handlers over it.
 
     Deliberately not a MagicMock: ``configure_log_level`` reads ``LOG_DIR``,
-    ``MAX_LOGSIZE`` and ``MAX_LOGFILES`` straight off ``comicarr.CONFIG`` and
+    ``MAX_LOGSIZE`` and ``MAX_LOGFILES`` straight off ``runtime.current().config`` and
     hands them to a real ``RotatingFileHandler``, which a Mock attribute would
     fail on rather than exercise.
     """
@@ -73,7 +74,7 @@ class FakeConfig:
 def _make_save(tmp_path, monkeypatch):
     config = FakeConfig(str(tmp_path))
     ctx = AppContext(config=config, data_dir=str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     monkeypatch.setattr(comicarr, "LOG_LEVEL", 1, raising=False)
     monkeypatch.setattr(comicarr, "LOGLIST", [], raising=False)
 

@@ -111,7 +111,7 @@ npm run test:run
 - **Type hints**: not required on large legacy modules; allowed in new `comicarr/app/**` code to match neighbors
 - **Always catch specific exceptions** — use `except Exception as e`, never bare `except:`
 - **Logging pattern**: `logger.fdebug('[MODULE-CONTEXT] message')` or `logger.error('[CONTEXT] Error: %s' % e)`
-- **Config access**: `comicarr.CONFIG.option_name`
+- **Config access**: `runtime.current().config.option_name` (`from comicarr.app.core import runtime`)
 - **Database**: SQLAlchemy Core expressions through the `db` helpers — `db.select_one(stmt)`, `db.select_all(stmt)`, `db.upsert(table, values, keys)`. When raw SQL is genuinely needed, `db.raw_select_one` / `db.raw_select_all` / `db.raw_execute` take `?` placeholders and parameterize them. Never interpolate values into SQL. `db.DBConnection()` is a deprecated shim awaiting removal — do not use it in new code
 
 ### Frontend (React/TypeScript)

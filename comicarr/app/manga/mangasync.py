@@ -30,10 +30,9 @@ import traceback
 
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.common import series_kind
 from comicarr.app.common.library_roots import library_scan_dir
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import comics, issues
 from comicarr.app.imports.scanutil import COMIC_EXTENSIONS, find_best_match
 from comicarr.app.manga.manga_parser import parse_manga_filename
@@ -83,7 +82,7 @@ def mangaScan(scan_dir=None, queue=None):
         logger.warning("[MANGA-SCAN] Scan already in progress, skipping")
         return {"status": "already_running"}
 
-    manga_dir = scan_dir or library_scan_dir(comicarr.CONFIG, "manga")
+    manga_dir = scan_dir or library_scan_dir(runtime.current().config, "manga")
     if not manga_dir:
         _SCAN_LOCK.release()
         logger.warning("[MANGA-SCAN] No MANGA_DIR configured, skipping manga scan")
@@ -294,8 +293,8 @@ def _match_series(series_name, files):
         "match": None,
     }
 
-    mal_enabled = getattr(comicarr.CONFIG, "MAL_ENABLED", False)
-    mal_client_id = getattr(comicarr.CONFIG, "MAL_CLIENT_ID", None)
+    mal_enabled = getattr(runtime.current().config, "MAL_ENABLED", False)
+    mal_client_id = getattr(runtime.current().config, "MAL_CLIENT_ID", None)
 
     if mal_enabled and mal_client_id:
         from comicarr.app.manga import myanimelist

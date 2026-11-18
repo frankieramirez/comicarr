@@ -32,7 +32,7 @@ def _isolated_db(tmp_path, monkeypatch):
     # Ensure no DATABASE_URL env var interferes
     monkeypatch.delenv("DATABASE_URL", raising=False)
     # Ensure CONFIG is absent so default SQLite path is used
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     # Ensure LOG_LEVEL is set (logger.fdebug compares it with >)
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
         monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
@@ -377,7 +377,7 @@ class TestDatabaseUrlOverride:
     def test_default_sqlite_when_no_env(self, tmp_path, monkeypatch):
         monkeypatch.delenv("DATABASE_URL", raising=False)
         monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-        monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+        monkeypatch.setattr(runtime.current(), "config", None, raising=False)
         result = _get_database_url()
         assert result.startswith("sqlite:///")
         assert "comicarr.db" in result

@@ -2542,28 +2542,32 @@ def get_manga_destination():
     MANGA_DIR is included in the fallback because users who only configure a
     scan source directory expect downloads to land alongside existing files.
     """
-    return comicarr.CONFIG.MANGA_DESTINATION_DIR or comicarr.CONFIG.MANGA_DIR or comicarr.CONFIG.DESTINATION_DIR
+    return (
+        runtime.current().config.MANGA_DESTINATION_DIR
+        or runtime.current().config.MANGA_DIR
+        or runtime.current().config.DESTINATION_DIR
+    )
 
 
 def ddl_creations():
-    if not comicarr.CONFIG.DDL_LOCATION:
-        comicarr.CONFIG.DDL_LOCATION = comicarr.CONFIG.CACHE_DIR
-        if comicarr.CONFIG.ENABLE_DDL is True:
-            logger.info("Setting DDL Location set to : %s" % comicarr.CONFIG.DDL_LOCATION)
+    if not runtime.current().config.DDL_LOCATION:
+        runtime.current().config.DDL_LOCATION = runtime.current().config.CACHE_DIR
+        if runtime.current().config.ENABLE_DDL is True:
+            logger.info("Setting DDL Location set to : %s" % runtime.current().config.DDL_LOCATION)
     else:
         dcreate = directories.validateAndCreateDirectory(
-            comicarr.CONFIG.DDL_LOCATION, create=True, dmode="ddl location"
+            runtime.current().config.DDL_LOCATION, create=True, dmode="ddl location"
         )
-        if all([dcreate is False, comicarr.CONFIG.ENABLE_DDL is True]):
+        if all([dcreate is False, runtime.current().config.ENABLE_DDL is True]):
             logger.warn(
                 "Unable to create ddl_location specified in config: %s. Reverting to default cache location."
-                % comicarr.CONFIG.DDL_LOCATION
+                % runtime.current().config.DDL_LOCATION
             )
-            comicarr.CONFIG.DDL_LOCATION = comicarr.CONFIG.CACHE_DIR
+            runtime.current().config.DDL_LOCATION = runtime.current().config.CACHE_DIR
 
-    if comicarr.CONFIG.ENABLE_DDL:
-        mega_ddl_path = os.path.join(comicarr.CONFIG.DDL_LOCATION, "mega")
-        html_cache_path = os.path.join(comicarr.CONFIG.CACHE_DIR, "html_cache")
+    if runtime.current().config.ENABLE_DDL:
+        mega_ddl_path = os.path.join(runtime.current().config.DDL_LOCATION, "mega")
+        html_cache_path = os.path.join(runtime.current().config.CACHE_DIR, "html_cache")
         mdp_create = directories.validateAndCreateDirectory(mega_ddl_path, create=True, dmode="ddl-mega location")
         if mdp_create is False:
             logger.error(

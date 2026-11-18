@@ -24,8 +24,7 @@ import os
 
 from sqlalchemy import select
 
-import comicarr
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import comics, importresults
 from comicarr.app.imports import finalization, folder_memory
 
@@ -50,7 +49,7 @@ _FAILURE_PHASES = {
 
 
 def _bar(ctx):
-    config = getattr(ctx, "config", None) or comicarr.CONFIG
+    config = getattr(ctx, "config", None) or runtime.current().config
     try:
         return int(getattr(config, "AUTO_IMPORT_CONFIDENCE", 80) or 80)
     except (TypeError, ValueError):
@@ -182,7 +181,7 @@ def group_candidates(ctx, imp_ids):
     rows = _rows(imp_ids)
     if not rows:
         return None
-    config = getattr(ctx, "config", None) or comicarr.CONFIG
+    config = getattr(ctx, "config", None) or runtime.current().config
     bar = _bar(ctx)
     rows = sorted(rows, key=lambda row: str(row.get("ComicFilename") or ""))
     group_name = next((row.get("ComicName") for row in rows if row.get("ComicName")), "") or ""

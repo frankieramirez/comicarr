@@ -49,7 +49,7 @@ class tehMain:
             else:
                 tstamp = float(runtime.current().sched_rss_last)
                 duration_diff = abs(common_dates.utctimestamp() - tstamp) / 60
-            if firstrun == "no" and duration_diff < int(comicarr.CONFIG.RSS_CHECKINTERVAL):
+            if firstrun == "no" and duration_diff < int(runtime.current().config.RSS_CHECKINTERVAL):
                 logger.fdebug(
                     "[RSS-FEEDS] RSS Check has taken place less than the threshold - not initiating at this time."
                 )
@@ -60,15 +60,15 @@ class tehMain:
             )
             runtime.current().rss_status = "Running"
 
-            if comicarr.CONFIG.ENABLE_TORRENT_SEARCH:
+            if runtime.current().config.ENABLE_TORRENT_SEARCH:
                 logger.info("[RSS-FEEDS] Initiating Torrent RSS Check.")
-                if comicarr.CONFIG.ENABLE_PUBLIC:
+                if runtime.current().config.ENABLE_PUBLIC:
                     logger.info("[RSS-FEEDS] Initiating Torrent RSS Feed Check on Demonoid / WorldWideTorrents.")
                     rss_feeds.torrents(pickfeed="Public")
 
             logger.info("[RSS-FEEDS] Initiating RSS Feed Check for NZB Providers.")
             rss_feeds.nzbs(forcerss=forcerss)
-            if comicarr.CONFIG.ENABLE_DDL is True:
+            if runtime.current().config.ENABLE_DDL is True:
                 logger.info("[RSS-FEEDS] Initiating RSS Feed Check for DDL Provider.")
                 rss_feeds.ddl(forcerss=forcerss)
             logger.info("[RSS-FEEDS] RSS Feed Check/Update Complete")

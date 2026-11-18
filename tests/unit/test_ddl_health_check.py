@@ -71,7 +71,7 @@ def health_db(tmp_path, monkeypatch):
     db.shutdown_engine()
     engine = db.get_engine()
     metadata.create_all(engine)
-    monkeypatch.setattr(comicarr, "CONFIG", _health_config(), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _health_config(), raising=False)
     monkeypatch.setattr(runtime.current(), "ddl_queue", queue.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "DDL_QUEUED", set(), raising=False)
     monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", set(), raising=False)
@@ -278,7 +278,7 @@ def test_row_inside_threshold_is_untouched(health_db, link):
 
 
 def test_notify_off_still_reconciles_orphans(health_db, link, monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", _health_config(DDL_STUCK_NOTIFY=False))
+    monkeypatch.setattr(runtime.current(), "config", _health_config(DDL_STUCK_NOTIFY=False))
     _insert_downloading()
     _insert_downloading(id="ddl-2")
     service._ACTIVE_DDL_ITEM["id"] = "ddl-2"

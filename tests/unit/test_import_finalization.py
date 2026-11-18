@@ -24,6 +24,7 @@ from sqlalchemy import create_engine, insert, select
 
 from comicarr.app.common import placement
 from comicarr.app.config.registry import REGISTRY, readable_keys, writable_keys
+from comicarr.app.core import runtime
 from comicarr.app.core.tables import importresults
 from comicarr.app.imports import finalization
 from comicarr.app.imports import queries as import_queries
@@ -1488,7 +1489,7 @@ def test_auto_archive_rescan_consumes_only_selected_files(tmp_path, unselected):
     )
     with (
         patch.object(import_queries.db, "get_engine", return_value=engine),
-        patch("comicarr.CONFIG", config),
+        patch.object(runtime.current(), "config", config),
         patch("comicarr.app.core.runtime.get_runtime_if_initialized", return_value=SimpleNamespace(config=config)),
     ):
         key, info = next(iter(importinbox._collect_file_groups(str(tmp_path / "inbox")).items()))

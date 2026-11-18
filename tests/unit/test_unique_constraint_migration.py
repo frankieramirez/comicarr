@@ -44,7 +44,7 @@ def legacy_engine(tmp_path, monkeypatch):
     engine = create_engine(f"sqlite:///{tmp_path / 'legacy.db'}")
     monkeypatch.setattr(db, "_engine", engine)
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(BACKUP_RETENTION=7))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(BACKUP_RETENTION=7))
     monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     yield engine
     engine.dispose()
@@ -498,7 +498,7 @@ def test_sqlite_memory_like_paths_without_uri_mode_are_backed_up(tmp_path, monke
     engine = create_engine(database_url)
     monkeypatch.setattr(db, "_engine", engine)
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path / "other-data-dir"))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(BACKUP_RETENTION=7))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(BACKUP_RETENTION=7))
     with engine.begin() as conn:
         _create_legacy_table(conn, "issues", ["IssueID", "ComicName"])
         conn.execute(

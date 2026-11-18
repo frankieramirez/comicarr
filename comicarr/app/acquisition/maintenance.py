@@ -19,7 +19,7 @@ from sqlalchemy import func, insert, inspect, literal, select, text, update
 from sqlalchemy.exc import IntegrityError
 
 import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.core.db import get_engine
 from comicarr.app.core.tables import (
     acquisition_canary_permits,
@@ -838,7 +838,7 @@ class MaintenanceController:
     def acquire_lease(self, owner, work_kind, entity_type=None, entity_id=None, lease_id=None):
         if not owner or not work_kind:
             raise ValueError("owner and work_kind are required")
-        if _operator_requested(getattr(comicarr, "CONFIG", None)):
+        if _operator_requested(runtime.current().config):
             raise MaintenanceBlocked("operator acquisition maintenance is enabled")
         try:
             reconciliation = get_reconciliation_status(self.engine)

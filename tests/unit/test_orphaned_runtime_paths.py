@@ -14,7 +14,7 @@ import pytest
 import requests
 
 import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.downloads import failed as failed_mod
 from comicarr.app.downloads import postprocessing, sabnzbd
 from comicarr.app.search import commands
@@ -44,7 +44,7 @@ def test_failed_download_retry_uses_durable_search_command(monkeypatch, annchk, 
         def Process(self):
             self.queue.put([failure])
 
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(FAILED_DOWNLOAD_HANDLING=True), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(FAILED_DOWNLOAD_HANDLING=True), raising=False)
     monkeypatch.setattr(failed_mod, "FailedProcessor", FakeFailedProcessor)
     monkeypatch.setattr(
         comicarr,
@@ -102,7 +102,7 @@ def test_sab_version_probe_sets_runtime_version_without_web_interface(monkeypatc
     )
     response = MagicMock(status_code=200)
     response.json.return_value = {"version": "4.4.1"}
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     monkeypatch.setattr(sabnzbd.requests, "get", MagicMock(return_value=response))
 
     result = sabnzbd.SABnzbd(params=None).sab_versioncheck()
@@ -127,7 +127,7 @@ def test_sab_version_probe_uses_plain_text_and_conservative_fallback(monkeypatch
     )
     text_response = MagicMock(status_code=200, text="4.3.0\n")
     text_response.json.side_effect = ValueError("not json")
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     monkeypatch.setattr(sabnzbd.requests, "get", MagicMock(return_value=text_response))
 
     assert sabnzbd.SABnzbd(params=None).sab_versioncheck() is None
@@ -181,7 +181,7 @@ def test_configure_log_level_keeps_the_console_attached_at_every_level(monkeypat
     """
     calls = []
     config = SimpleNamespace(LOG_DIR="/tmp/logs", MAX_LOGSIZE=1024, MAX_LOGFILES=3)
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     monkeypatch.setattr(comicarr, "LOG_LEVEL", 1, raising=False)
     monkeypatch.setattr(logger, "initLogger", lambda **kwargs: calls.append(kwargs), raising=False)
 

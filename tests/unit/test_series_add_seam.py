@@ -46,8 +46,8 @@ def library(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "get_engine", lambda: engine)
     monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             COMICVINE_API="test-key",
             CV_VERIFY=True,
@@ -230,7 +230,7 @@ def test_add_manga_adds_series_from_its_provider(library, tmp_path, monkeypatch,
 @pytest.fixture
 def acquisition_ledger(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()
     metadata.create_all(get_engine())

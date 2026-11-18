@@ -24,10 +24,9 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
 from starlette.responses import FileResponse
 
-import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common.library_roots import is_servable_library_file
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_opds_auth
 from comicarr.app.core.tables import annuals, comics, issues, readlist, snatched, storyarcs
@@ -47,7 +46,7 @@ def _opds_base():
     The router is always mounted at ``router.prefix``; HTTP_ROOT is kept as a
     leading segment for installs behind a reverse proxy that strips it.
     """
-    http_root = (comicarr.CONFIG.HTTP_ROOT or "/").strip("/")
+    http_root = (runtime.current().config.HTTP_ROOT or "/").strip("/")
     return ("/" + http_root if http_root else "") + router.prefix
 
 
@@ -224,7 +223,7 @@ def _not_enabled():
 
 
 def _page_size():
-    return comicarr.CONFIG.OPDS_PAGESIZE
+    return runtime.current().config.OPDS_PAGESIZE
 
 
 def _nav_link(ltype="application/atom+xml; profile=opds-catalog; kind=navigation"):
@@ -250,7 +249,7 @@ def _prev_link(href):
 @router.get("/", dependencies=[Depends(require_opds_auth)])
 def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
     """OPDS catalog root -- navigation feed."""
-    if not comicarr.CONFIG.OPDS_ENABLE:
+    if not runtime.current().config.OPDS_ENABLE:
         return _not_enabled()
 
     opdsroot = _opds_root()
@@ -342,7 +341,7 @@ def opds_root(request: Request, ctx: AppContext = Depends(get_context)):
             }
         )
 
-    grabbag = comicarr.CONFIG.GRABBAG_DIR
+    grabbag = runtime.current().config.GRABBAG_DIR
     oneofflist = glob.glob(os.path.join(grabbag, "*")) if grabbag else []
     if len(oneofflist) > 0:
         entries.append(
@@ -368,7 +367,7 @@ def opds_publishers(
     ctx: AppContext = Depends(get_context),
 ):
     """OPDS publishers list."""
-    if not comicarr.CONFIG.OPDS_ENABLE:
+    if not runtime.current().config.OPDS_ENABLE:
         return _not_enabled()
 
     opdsroot = _opds_root()
@@ -421,7 +420,7 @@ def opds_all_titles(
     ctx: AppContext = Depends(get_context),
 ):
     """OPDS all titles list."""
-    if not comicarr.CONFIG.OPDS_ENABLE:
+    if not runtime.current().config.OPDS_ENABLE:
         return _not_enabled()
 
     opdsroot = _opds_root()
@@ -462,7 +461,7 @@ def opds_publisher(
     ctx: AppContext = Depends(get_context),
 ):
     """OPDS publisher detail -- comics from a specific publisher."""
-    if not comicarr.CONFIG.OPDS_ENABLE:
+    if not runtime.current().config.OPDS_ENABLE:
         return _not_enabled()
 
     opdsroot = _opds_root()
@@ -505,7 +504,7 @@ def opds_comic(
     ctx: AppContext = Depends(get_context),
 ):
     """OPDS comic detail -- issues for a specific comic."""
-    if not comicarr.CONFIG.OPDS_ENABLE:
+    if not runtime.current().config.OPDS_ENABLE:
         return _not_enabled()
 
     opdsroot = _opds_root()
@@ -528,7 +527,7 @@ def opds_comic(
         stmt = select(issues).where(issues.c.ComicID == comic_id).order_by(issues.c.Int_IssueNumber.desc())
         issues_list = [dict(row._mapping) for row in conn.execute(stmt)]
 
-    if comicarr.CONFIG.ANNUALS_ON:
+    if runtime.current().config.ANNUALS_ON:
         with db.get_engine().connect() as conn:
             from sqlalchemy import select
 
@@ -569,7 +568,7 @@ def opds_comic(
                 continue
 
             metainfo = None
-            if comicarr.CONFIG.OPDS_METAINFO:
+            if runtime.current().config.OPDS_METAINFO:
                 issuedetails = metadata_service.IssueDetails(fileloc).get("metadata", None)
                 if issuedetails is not None:
                     metainfo = issuedetails.get("metadata", None)
@@ -617,7 +616,7 @@ def opds_recent(
     ctx: AppContext = Depends(get_context),
 ):
     """OPDS recent additions feed."""
-    if not comicarr.CONFIG.OPDS_ENABLE:
+    if not runtime.current().config.OPDS_ENABLE:
         return _not_enabled()
 
     opdsroot = _opds_root()
@@ -726,7 +725,7 @@ def opds_recent(
                     continue
 
                 metainfo = None
-                if comicarr.CONFIG.OPDS_METAINFO:
+                if runtime.current().config.OPDS_METAINFO:
                     issuedetails = metadata_service.IssueDetails(fileloc).get("metadata", None)
                     if issuedetails is not None:
                         metainfo = issuedetails.get("metadata", None)
@@ -775,14 +774,14 @@ def opds_issue(
     ctx: AppContext = Depends(get_context),
 ):
     """OPDS issue detail -- resolve file location for download."""
-    if not comicarr.CONFIG.OPDS_ENABLE:
+    if not runtime.current().config.OPDS_ENABLE:
         return _not_enabled()
 
     file_path, filename, resolved_issue_id = _resolve_issue_file(issue_id)
     if file_path is None:
         return _error_xml("Issue Not Found")
 
-    if not is_servable_library_file(file_path, comicarr.CONFIG):
+    if not is_servable_library_file(file_path, runtime.current().config):
         return Response(status_code=403)
 
     mark_issue_read(resolved_issue_id, filename)
@@ -806,14 +805,14 @@ def opds_stream(
 
     Streams individual pages from a comic archive for compatible readers.
     """
-    if not comicarr.CONFIG.OPDS_ENABLE:
+    if not runtime.current().config.OPDS_ENABLE:
         return _not_enabled()
 
     file_path, filename, resolved_issue_id = _resolve_issue_file(issue_id)
     if file_path is None:
         return _error_xml("Issue Not Found")
 
-    if not is_servable_library_file(file_path, comicarr.CONFIG):
+    if not is_servable_library_file(file_path, runtime.current().config):
         return Response(status_code=403)
 
     if page is None:
@@ -859,7 +858,7 @@ def opds_storyarcs(
     ctx: AppContext = Depends(get_context),
 ):
     """OPDS story arcs listing."""
-    if not comicarr.CONFIG.OPDS_ENABLE:
+    if not runtime.current().config.OPDS_ENABLE:
         return _not_enabled()
 
     from operator import itemgetter
@@ -931,7 +930,7 @@ def opds_storyarc(
     ctx: AppContext = Depends(get_context),
 ):
     """OPDS story arc detail -- issues in reading order."""
-    if not comicarr.CONFIG.OPDS_ENABLE:
+    if not runtime.current().config.OPDS_ENABLE:
         return _not_enabled()
 
     opdsroot = _opds_root()
@@ -1047,7 +1046,7 @@ def opds_storyarc(
             subset = newarclist[index : (index + page_size)]
             for issue in subset:
                 metainfo = None
-                if comicarr.CONFIG.OPDS_METAINFO:
+                if runtime.current().config.OPDS_METAINFO:
                     issuedetails = metadata_service.IssueDetails(issue["fileloc"]).get("metadata", None)
                     if issuedetails is not None:
                         metainfo = issuedetails.get("metadata", None)
@@ -1092,7 +1091,7 @@ def opds_readlist(
     ctx: AppContext = Depends(get_context),
 ):
     """OPDS reading list feed."""
-    if not comicarr.CONFIG.OPDS_ENABLE:
+    if not runtime.current().config.OPDS_ENABLE:
         return _not_enabled()
 
     opdsroot = _opds_root()
@@ -1177,7 +1176,7 @@ def opds_readlist(
             subset = readlist_items[index : (index + page_size)]
             for issue in subset:
                 metainfo = None
-                if comicarr.CONFIG.OPDS_METAINFO:
+                if runtime.current().config.OPDS_METAINFO:
                     issuedetails = metadata_service.IssueDetails(issue["fileloc"]).get("metadata", None)
                     if issuedetails is not None:
                         metainfo = issuedetails.get("metadata", None)
@@ -1225,7 +1224,7 @@ def opds_oneoffs(
     ctx: AppContext = Depends(get_context),
 ):
     """OPDS one-offs / grab bag listing."""
-    if not comicarr.CONFIG.OPDS_ENABLE:
+    if not runtime.current().config.OPDS_ENABLE:
         return _not_enabled()
 
     opdsroot = _opds_root()
@@ -1233,7 +1232,7 @@ def opds_oneoffs(
     links = []
     entries = []
 
-    grabbag = comicarr.CONFIG.GRABBAG_DIR
+    grabbag = runtime.current().config.GRABBAG_DIR
     flist = glob.glob(os.path.join(grabbag, "*")) if grabbag else []
     readlist_items = []
     for book in flist:
@@ -1287,10 +1286,10 @@ def opds_oneoff_file(
     ctx: AppContext = Depends(get_context),
 ):
     """Download one file from the grab-bag (one-offs) folder by its name."""
-    if not comicarr.CONFIG.OPDS_ENABLE:
+    if not runtime.current().config.OPDS_ENABLE:
         return _not_enabled()
 
-    grabbag = comicarr.CONFIG.GRABBAG_DIR
+    grabbag = runtime.current().config.GRABBAG_DIR
     if not grabbag or not os.path.isdir(grabbag):
         return _error_xml("Issue Not Found")
 
@@ -1303,7 +1302,7 @@ def opds_oneoff_file(
     file_path = os.path.join(grabbag, listed)
     if not os.path.isfile(file_path):
         return _error_xml("Issue Not Found")
-    if not is_servable_library_file(file_path, comicarr.CONFIG):
+    if not is_servable_library_file(file_path, runtime.current().config):
         return Response(status_code=403)
 
     return FileResponse(path=file_path, filename=listed, media_type="application/octet-stream")

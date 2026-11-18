@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.manga import add as manga_add
 from comicarr.app.metadata import service as metadata_service
@@ -73,7 +74,7 @@ class TestDbUpdateMangaShortCircuit:
 
         monkeypatch.setattr(watchlist_refresh.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
-        monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
+        monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
 
         mock_add = MagicMock(return_value={"status": "complete", "comicid": "mal-161890", "content_type": "manga"})
         mock_rescan = MagicMock()
@@ -110,7 +111,7 @@ class TestDbUpdateMangaShortCircuit:
 
         monkeypatch.setattr(watchlist_refresh.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
-        monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
+        monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
         mock_add = MagicMock(return_value={"status": "complete", "comicid": "134064"})
         mock_rescan = MagicMock()
         monkeypatch.setattr(comic_add, "add_comic", mock_add)
@@ -140,7 +141,7 @@ class TestDbUpdateMangaShortCircuit:
 
         monkeypatch.setattr(watchlist_refresh.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
-        monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
+        monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
         mock_add = MagicMock(return_value={"status": "complete", "comicid": "md-example"})
         mock_rescan = MagicMock()
         monkeypatch.setattr(comic_add, "add_comic", mock_add)
@@ -190,8 +191,8 @@ class TestForceRescanNullIssueDate:
 
         monkeypatch.setattr(watchlist_refresh.db, "get_engine", lambda: engine)
         monkeypatch.setattr(
-            comicarr,
-            "CONFIG",
+            runtime.current(),
+            "config",
             SimpleNamespace(
                 ANNUALS_ON=False,
                 MULTIPLE_DEST_DIRS=None,
@@ -269,8 +270,8 @@ class TestForceRescanNullIssueDate:
 
         monkeypatch.setattr(watchlist_refresh.db, "get_engine", lambda: engine)
         monkeypatch.setattr(
-            comicarr,
-            "CONFIG",
+            runtime.current(),
+            "config",
             SimpleNamespace(
                 ANNUALS_ON=False,
                 MULTIPLE_DEST_DIRS=None,
@@ -339,8 +340,8 @@ class TestMangaCoverCachePath:
         monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
         monkeypatch.setattr(
-            comicarr,
-            "CONFIG",
+            runtime.current(),
+            "config",
             SimpleNamespace(CREATE_FOLDERS=False, FOLDER_FORMAT="$Series ($Year)"),
             raising=False,
         )
@@ -440,8 +441,8 @@ class TestMangaRefreshPreservesLibraryState:
         monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
         monkeypatch.setattr(
-            comicarr,
-            "CONFIG",
+            runtime.current(),
+            "config",
             SimpleNamespace(CREATE_FOLDERS=False, FOLDER_FORMAT="$Series ($Year)"),
             raising=False,
         )
@@ -464,8 +465,8 @@ class TestMangaRefreshPreservesLibraryState:
         self._seed_existing_mal(engine)
         monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
         monkeypatch.setattr(
-            comicarr,
-            "CONFIG",
+            runtime.current(),
+            "config",
             SimpleNamespace(AUTOWANT_ALL=False, MANGADEX_LANGUAGES="en"),
             raising=False,
         )
@@ -521,8 +522,8 @@ class TestMangaRefreshPreservesContentKind:
         monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
         monkeypatch.setattr(
-            comicarr,
-            "CONFIG",
+            runtime.current(),
+            "config",
             SimpleNamespace(CREATE_FOLDERS=False, FOLDER_FORMAT="$Series ($Year)"),
             raising=False,
         )
@@ -565,7 +566,7 @@ class TestMangaRefreshForceRescanErrors:
 
         monkeypatch.setattr(watchlist_refresh.db, "get_engine", lambda: engine)
         monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
-        monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
+        monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(CV_ONLY=True, CV_ONETIMER=1), raising=False)
         monkeypatch.setattr(
             comic_add,
             "add_comic",

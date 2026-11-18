@@ -49,7 +49,7 @@ from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common.placement import place
 from comicarr.app.config.ini import get_manga_destination
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import (
     annuals,
     comics,
@@ -447,7 +447,10 @@ def match_folder(
         for fl in filelist["comiclist"]:
             manual_list_start = len(manual_list)
             manual_arclist_start = len(manual_arclist)
-            if all([fl["series_name"] is not None, fl["series_name"] != ""]) and comicarr.CONFIG.IGNORE_COVERS is True:
+            if (
+                all([fl["series_name"] is not None, fl["series_name"] != ""])
+                and runtime.current().config.IGNORE_COVERS is True
+            ):
                 cvchk = re.sub(r"[\s\s+\_\.]", "", fl["series_name"]).lower()
                 if any(["coveronly" in cvchk, "coversonly" in cvchk]):
                     logger.fdebug("Cover only detected. Ignoring result.")
@@ -481,8 +484,8 @@ def match_folder(
                 logger.fdebug("%s Alternate series naming detected: %s" % (module, fl["alt_series"]))
                 as_sinfo = as_d.dynamic_replace(fl["alt_series"])
                 mod_altseriesname = as_sinfo["mod_seriesname"]
-                if all([comicarr.CONFIG.ANNUALS_ON, "annual" in mod_altseriesname.lower()]) or all(
-                    [comicarr.CONFIG.ANNUALS_ON, "special" in mod_altseriesname.lower()]
+                if all([runtime.current().config.ANNUALS_ON, "annual" in mod_altseriesname.lower()]) or all(
+                    [runtime.current().config.ANNUALS_ON, "special" in mod_altseriesname.lower()]
                 ):
                     mod_altseriesname = re.sub("2021annual", "", mod_altseriesname, flags=re.I).strip()
                     mod_altseriesname = re.sub("annual", "", mod_altseriesname, flags=re.I).strip()
@@ -502,8 +505,8 @@ def match_folder(
                         if not any(re.sub(r"[\|\s]", "", cname.lower()) == x for x in loopchk):
                             loopchk.append(re.sub(r"[\|\s]", "", cname.lower()))
 
-            if all([comicarr.CONFIG.ANNUALS_ON, "annual" in mod_seriesname.lower()]) or all(
-                [comicarr.CONFIG.ANNUALS_ON, "special" in mod_seriesname.lower()]
+            if all([runtime.current().config.ANNUALS_ON, "annual" in mod_seriesname.lower()]) or all(
+                [runtime.current().config.ANNUALS_ON, "special" in mod_seriesname.lower()]
             ):
                 mod_seriesname = re.sub("2021annual", "", mod_seriesname, flags=re.I).strip()
                 mod_seriesname = re.sub("annual", "", mod_seriesname, flags=re.I).strip()
@@ -540,7 +543,7 @@ def match_folder(
                     if ssi is not None:
                         annualtype = None
                         annualseries = None
-                        if comicarr.CONFIG.ANNUALS_ON:
+                        if runtime.current().config.ANNUALS_ON:
                             if "Annual" in ssi["ComicName"]:
                                 annualtype = "Annual"
                             elif "Special" in ssi["ComicName"]:
@@ -722,9 +725,10 @@ def match_folder(
                                         if all(
                                             [
                                                 pathlib.Path(tpath) != pathlib.Path(comicarr.CACHE_DIR),
-                                                pathlib.Path(tpath) != pathlib.Path(comicarr.CONFIG.DDL_LOCATION),
                                                 pathlib.Path(tpath)
-                                                != pathlib.Path(comicarr.CONFIG.DDL_LOCATION).joinpath("mega"),
+                                                != pathlib.Path(runtime.current().config.DDL_LOCATION),
+                                                pathlib.Path(tpath)
+                                                != pathlib.Path(runtime.current().config.DDL_LOCATION).joinpath("mega"),
                                             ]
                                         ):
                                             if pathlib.Path(tpath).is_file():
@@ -841,7 +845,7 @@ def match_folder(
 
             if not comicseries or orig_seriesname != mod_seriesname:
                 if any(["special" in orig_seriesname.lower(), "annual" in orig_seriesname.lower()]) and all(
-                    [comicarr.CONFIG.ANNUALS_ON, orig_seriesname != mod_seriesname]
+                    [runtime.current().config.ANNUALS_ON, orig_seriesname != mod_seriesname]
                 ):
                     if not any(re.sub(r"[\|\s]", "", orig_seriesname).lower() == x for x in loopchk):
                         loopchk.append(re.sub(r"[\|\s]", "", orig_seriesname.lower()))
@@ -872,7 +876,7 @@ def match_folder(
                             and_(issues.c.ComicID == wv["ComicID"], issues.c.Int_IssueNumber == tmp_iss)
                         )
                     )
-                    if not dbcheck and comicarr.CONFIG.ANNUALS_ON:
+                    if not dbcheck and runtime.current().config.ANNUALS_ON:
                         dbcheck = db.select_one(
                             select(annuals.c.Status).where(
                                 and_(annuals.c.ComicID == wv["ComicID"], annuals.c.Int_IssueNumber == tmp_iss)
@@ -926,7 +930,7 @@ def match_folder(
                     .order_by(issues.c.Int_IssueNumber.desc())
                 )
                 if ld_check:
-                    if comicarr.CONFIG.ANNUALS_ON:
+                    if runtime.current().config.ANNUALS_ON:
                         ld_check_ann = db.select_one(
                             select(annuals.c.ReleaseDate, annuals.c.Issue_Number, annuals.c.Int_IssueNumber)
                             .where(annuals.c.ComicID == wv["ComicID"])
@@ -1114,7 +1118,7 @@ def match_folder(
 
                     if temploc is not None and (
                         any(["annual" in temploc.lower(), "special" in temploc.lower()])
-                        and comicarr.CONFIG.ANNUALS_ON is True
+                        and runtime.current().config.ANNUALS_ON is True
                     ):
                         biannchk = re.sub("-", "", temploc.lower()).strip()
                         if "biannual" in biannchk:
@@ -1368,11 +1372,11 @@ def match_folder(
                                 tmpseriesname = as_dinfo["mod_seriesname"]
                                 if all(
                                     [
-                                        comicarr.CONFIG.ANNUALS_ON,
+                                        runtime.current().config.ANNUALS_ON,
                                         "annual" in tmpseriesname.lower(),
                                         "annual" not in cs["DynamicName"],
                                     ]
-                                ) or all([comicarr.CONFIG.ANNUALS_ON, "special" in tmpseriesname.lower()]):
+                                ) or all([runtime.current().config.ANNUALS_ON, "special" in tmpseriesname.lower()]):
                                     tmpseriesname = re.sub("2021annual", "", tmpseriesname, flags=re.I).strip()
                                     tmpseriesname = re.sub("annual", "", tmpseriesname, flags=re.I).strip()
                                     tmpseriesname = re.sub("special", "", tmpseriesname, flags=re.I).strip()
@@ -1407,11 +1411,13 @@ def match_folder(
                                         week_dynamicname = test["DynamicName"]
                                         if all(
                                             [
-                                                comicarr.CONFIG.ANNUALS_ON,
+                                                runtime.current().config.ANNUALS_ON,
                                                 "annual" in week_dynamicname.lower(),
                                                 "annual" not in dynamic_seriesname,
                                             ]
-                                        ) or all([comicarr.CONFIG.ANNUALS_ON, "special" in week_dynamicname.lower()]):
+                                        ) or all(
+                                            [runtime.current().config.ANNUALS_ON, "special" in week_dynamicname.lower()]
+                                        ):
                                             week_dynamicname = re.sub(
                                                 "2021annual", "", week_dynamicname, flags=re.I
                                             ).strip()
@@ -1862,7 +1868,7 @@ def match_folder(
                                 annualtype = None
                                 if temploc is not None and (
                                     any(["annual" in temploc.lower(), "special" in temploc.lower()])
-                                    and comicarr.CONFIG.ANNUALS_ON is True
+                                    and runtime.current().config.ANNUALS_ON is True
                                 ):
                                     biannchk = re.sub("-", "", temploc.lower()).strip()
                                     if "biannual" in biannchk:
@@ -2324,7 +2330,7 @@ def match_folder(
                     manual_arclist = tmp_list
 
             if scan.matched is False:
-                if all(["0-Day Week" in scan.nzb_name, comicarr.CONFIG.PACK_0DAY_WATCHLIST_ONLY is True]):
+                if all(["0-Day Week" in scan.nzb_name, runtime.current().config.PACK_0DAY_WATCHLIST_ONLY is True]):
                     pass
                 else:
                     oneofflist = db.select_all(
@@ -2651,7 +2657,7 @@ def _find_snatched(scan, module, oneoff_issuelist, log):
                         }
                     )
 
-            if all([len(ppinfo) == 0, scan.oneoff is not None, comicarr.CONFIG.ALT_PULL == 2]):
+            if all([len(ppinfo) == 0, scan.oneoff is not None, runtime.current().config.ALT_PULL == 2]):
                 oneinfo = db.select_one(select(weekly).where(weekly.c.IssueID == issueid))
                 if oneinfo is None:
                     oneinfo = db.select_one(select(oneoffhistory).where(oneoffhistory.c.IssueID == issueid))

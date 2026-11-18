@@ -20,10 +20,8 @@ from comicarr.app.series import queries as series_queries
 
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
-    import comicarr as comicarr_mod
-
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr_mod, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     metadata.create_all(db.get_engine())

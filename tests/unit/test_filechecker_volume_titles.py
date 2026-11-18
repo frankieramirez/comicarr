@@ -11,15 +11,15 @@ from types import SimpleNamespace
 
 import pytest
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.library import filechecker
 
 
 @pytest.fixture(autouse=True)
 def _filechecker_config(monkeypatch):
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             IGNORE_SEARCH_WORDS=[],
             ANNUALS_ON=False,

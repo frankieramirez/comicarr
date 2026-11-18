@@ -93,8 +93,8 @@ def runGit(args, ptv=None, suppress_errors=False):
         if ptv["git_path"] is not None:
             git_locations.append(ptv["git_path"])
     else:
-        if comicarr.CONFIG.GIT_PATH is not None:
-            git_locations.append(comicarr.CONFIG.GIT_PATH)
+        if runtime.current().config.GIT_PATH is not None:
+            git_locations.append(runtime.current().config.GIT_PATH)
 
     git_locations.append("git")
 
@@ -273,9 +273,9 @@ def getVersion(ptv):
         ):
             logger.info("[DOCKER-AWARE] Docker installation detected.")
             _set_version_state(install_type="docker")
-            if any([comicarr.CONFIG.DESTINATION_DIR is None, comicarr.CONFIG.DESTINATION_DIR == ""]):
+            if any([runtime.current().config.DESTINATION_DIR is None, runtime.current().config.DESTINATION_DIR == ""]):
                 logger.info("[DOCKER-AWARE] Setting default comic location path to /comics")
-                comicarr.CONFIG.DESTINATION_DIR = "/comics"
+                runtime.current().config.DESTINATION_DIR = "/comics"
         else:
             logger.info("Not a Docker installation.")
             _set_version_state(install_type="source")
@@ -330,7 +330,7 @@ def getVersion(ptv):
             url2 = "https://api.github.com/repos/frankieramirez/comicarr/releases/tags/%s" % (current_version_name,)
             try:
                 response = requests.get(
-                    url2, verify=True, auth=comicarr.CONFIG.GIT_TOKEN, timeout=_GITHUB_REQUEST_TIMEOUT
+                    url2, verify=True, auth=runtime.current().config.GIT_TOKEN, timeout=_GITHUB_REQUEST_TIMEOUT
                 )
                 git = response.json()
                 current_release_name = git["name"]
@@ -346,7 +346,7 @@ def getVersion(ptv):
                         pass
 
         if current_version:
-            if comicarr.CONFIG.GIT_BRANCH:
+            if runtime.current().config.GIT_BRANCH:
                 logger.info("Branch detected & set to : " + ptv["git_branch"])
                 return {
                     "current_version": current_version,
@@ -370,7 +370,7 @@ def getVersion(ptv):
                     "current_release_name": current_release_name,
                 }
         else:
-            if comicarr.CONFIG.GIT_BRANCH:
+            if runtime.current().config.GIT_BRANCH:
                 logger.info("Branch detected & set to : " + ptv["git_branch"])
                 return {
                     "current_version": current_version,
@@ -459,8 +459,8 @@ def should_announce_release(announce_on, update_state, latest_version, last_anno
 def _record_announced_version(latest_version):
     """Persist dedup key after fan-out attempt so flaky notifiers cannot re-spam."""
     try:
-        comicarr.CONFIG.LAST_ANNOUNCED_VERSION = latest_version
-        comicarr.CONFIG.writeconfig(values={"last_announced_version": latest_version})
+        runtime.current().config.LAST_ANNOUNCED_VERSION = latest_version
+        runtime.current().config.writeconfig(values={"last_announced_version": latest_version})
     except Exception as e:
         logger.warn("[RELEASE_ANNOUNCE] Could not persist LAST_ANNOUNCED_VERSION=%s: %s" % (latest_version, e))
 
@@ -482,56 +482,56 @@ def _fan_out_release_announce(event, body, current_version, latest_version):
         except Exception as e:
             logger.warn("%s %s notify failed: %s" % (module, label, e))
 
-    if comicarr.CONFIG.PROWL_ENABLED:
+    if runtime.current().config.PROWL_ENABLED:
         logger.info("%s Sending Prowl notification" % module)
         _try("Prowl", lambda: notifiers.PROWL().notify(body, event, module=module))
 
-    if comicarr.CONFIG.PUSHOVER_ENABLED:
+    if runtime.current().config.PUSHOVER_ENABLED:
         logger.info("%s Sending Pushover notification" % module)
         _try("Pushover", lambda: notifiers.PUSHOVER().notify(event, message=body, module=module))
 
-    if comicarr.CONFIG.BOXCAR_ENABLED:
+    if runtime.current().config.BOXCAR_ENABLED:
         logger.info("%s Sending Boxcar notification" % module)
         _try("Boxcar", lambda: notifiers.BOXCAR().notify(prline=event, prline2=body, module=module))
 
-    if comicarr.CONFIG.PUSHBULLET_ENABLED:
+    if runtime.current().config.PUSHBULLET_ENABLED:
         logger.info("%s Sending Pushbullet notification" % module)
         _try(
             "Pushbullet",
             lambda: notifiers.PUSHBULLET().notify(prline=event, prline2=body, module=module),
         )
 
-    if comicarr.CONFIG.TELEGRAM_ENABLED:
+    if runtime.current().config.TELEGRAM_ENABLED:
         logger.info("%s Sending Telegram notification" % module)
         _try("Telegram", lambda: notifiers.TELEGRAM().notify("%s - %s" % (event, body)))
 
-    if comicarr.CONFIG.SLACK_ENABLED:
+    if runtime.current().config.SLACK_ENABLED:
         logger.info("%s Sending Slack notification" % module)
         _try("Slack", lambda: notifiers.SLACK().notify(event, body, module=module))
 
-    if comicarr.CONFIG.MATTERMOST_ENABLED:
+    if runtime.current().config.MATTERMOST_ENABLED:
         logger.info("%s Sending Mattermost notification" % module)
         _try(
             "Mattermost",
             lambda: notifiers.MATTERMOST().notify(event, body, metadata=mattermost_meta, module=module),
         )
 
-    if comicarr.CONFIG.DISCORD_ENABLED:
+    if runtime.current().config.DISCORD_ENABLED:
         logger.info("%s Sending Discord notification" % module)
         _try("Discord", lambda: notifiers.DISCORD().notify(event, body, module=module))
 
-    if comicarr.CONFIG.EMAIL_ENABLED:
+    if runtime.current().config.EMAIL_ENABLED:
         logger.info("%s Sending email notification" % module)
         _try(
             "Email",
             lambda: notifiers.EMAIL().notify(body, "Comicarr notification - %s" % event, module=module),
         )
 
-    if comicarr.CONFIG.GOTIFY_ENABLED:
+    if runtime.current().config.GOTIFY_ENABLED:
         logger.info("%s Sending Gotify notification" % module)
         _try("Gotify", lambda: notifiers.GOTIFY().notify(event, body, module=module))
 
-    if comicarr.CONFIG.MATRIX_ENABLED:
+    if runtime.current().config.MATRIX_ENABLED:
         logger.info("%s Sending Matrix notification" % module)
         _try("Matrix", lambda: notifiers.MATRIX().notify(event, body, module=module))
 
@@ -555,8 +555,8 @@ def announce_release(current_version, latest_version):
 
 def maybe_announce_release(update_state, latest_version, current_version):
     """Hook after a release check: announce when opted in, behind, and not yet told."""
-    announce_on = bool(getattr(comicarr.CONFIG, "ANNOUNCE_RELEASES", False))
-    last_announced = getattr(comicarr.CONFIG, "LAST_ANNOUNCED_VERSION", None)
+    announce_on = bool(getattr(runtime.current().config, "ANNOUNCE_RELEASES", False))
+    last_announced = getattr(runtime.current().config, "LAST_ANNOUNCED_VERSION", None)
     if not should_announce_release(announce_on, update_state, latest_version, last_announced):
         return
     announce_release(current_version=current_version, latest_version=latest_version)
@@ -594,7 +594,7 @@ def checkGithub(current_version=None):
     from comicarr.app.system.service import get_release_version
 
     release_version = get_release_version()
-    auth = getattr(comicarr.CONFIG, "GIT_TOKEN", None)
+    auth = getattr(runtime.current().config, "GIT_TOKEN", None)
 
     try:
         response = requests.get(
@@ -696,7 +696,7 @@ def update():
         pass
 
     elif runtime.current().install_type == "git":
-        output = runGit("pull origin " + comicarr.CONFIG.GIT_BRANCH)
+        output = runGit("pull origin " + runtime.current().config.GIT_BRANCH)
 
         if output is None:
             logger.error("Couldn't download latest version")
@@ -717,8 +717,8 @@ def update():
 
     else:
         tar_download_url = "https://github.com/%s/comicarr/tarball/%s" % (
-            comicarr.CONFIG.GIT_USER,
-            comicarr.CONFIG.GIT_BRANCH,
+            runtime.current().config.GIT_USER,
+            runtime.current().config.GIT_BRANCH,
         )
         update_dir = os.path.join(runtime.current().prog_dir, "update")
 
@@ -729,7 +729,7 @@ def update():
             logger.error("Unable to retrieve new version from " + tar_download_url + ", can't update")
             return
 
-        download_name = comicarr.CONFIG.GIT_BRANCH + "-github"
+        download_name = runtime.current().config.GIT_BRANCH + "-github"
         tar_download_path = os.path.join(runtime.current().prog_dir, download_name)
 
         with open(tar_download_path, "wb") as f:
@@ -768,11 +768,11 @@ def versionload(cli_values=None, carepackage_call=False):
         pass_thru_vals = cli_values
     else:
         pass_thru_vals = {
-            "git_branch": comicarr.CONFIG.GIT_BRANCH,
-            "git_user": comicarr.CONFIG.GIT_USER,
-            "git_token": comicarr.CONFIG.GIT_TOKEN,
-            "check_github": comicarr.CONFIG.CHECK_GITHUB,
-            "git_path": comicarr.CONFIG.GIT_PATH,
+            "git_branch": runtime.current().config.GIT_BRANCH,
+            "git_user": runtime.current().config.GIT_USER,
+            "git_token": runtime.current().config.GIT_TOKEN,
+            "check_github": runtime.current().config.CHECK_GITHUB,
+            "git_path": runtime.current().config.GIT_PATH,
         }
 
     version_info = getVersion(pass_thru_vals)
@@ -794,7 +794,7 @@ def versionload(cli_values=None, carepackage_call=False):
             "install_type": runtime.current().install_type,
         }
 
-    comicarr.CONFIG.GIT_BRANCH = version_info["branch"]
+    runtime.current().config.GIT_BRANCH = version_info["branch"]
     _set_version_state(current_branch=version_info["branch"])
 
     if runtime.current().current_version is not None:
@@ -802,18 +802,20 @@ def versionload(cli_values=None, carepackage_call=False):
     else:
         hash = "unknown"
 
-    if comicarr.CONFIG.GIT_BRANCH == "master":
+    if runtime.current().config.GIT_BRANCH == "master":
         vers = "M"
-    elif comicarr.CONFIG.GIT_BRANCH == "python3-dev":
+    elif runtime.current().config.GIT_BRANCH == "python3-dev":
         vers = "D"
     else:
         vers = "NONE"
 
     comicarr.USER_AGENT = "Comicarr/" + str(hash) + "(" + vers + ") +https://github.com/frankieramirez/comicarr/"
 
-    logger.info("Version information: %s [%s]" % (comicarr.CONFIG.GIT_BRANCH, runtime.current().current_version))
+    logger.info(
+        "Version information: %s [%s]" % (runtime.current().config.GIT_BRANCH, runtime.current().current_version)
+    )
 
-    if comicarr.CONFIG.CHECK_GITHUB:
+    if runtime.current().config.CHECK_GITHUB:
         stmt = select(jobhistory.c.prev_run_timestamp).where(jobhistory.c.JobName == "Check Version")
         with db.get_engine().connect() as conn:
             chk_last = conn.execute(stmt).mappings().fetchone()

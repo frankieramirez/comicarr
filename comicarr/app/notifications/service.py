@@ -39,8 +39,7 @@ from urllib.parse import urlencode
 
 import requests
 
-import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 
 
 class PROWL:
@@ -48,13 +47,13 @@ class PROWL:
     priority = []
 
     def __init__(self):
-        self.enabled = comicarr.CONFIG.PROWL_ENABLED
-        self.keys = comicarr.CONFIG.PROWL_KEYS
-        self.priority = comicarr.CONFIG.PROWL_PRIORITY
+        self.enabled = runtime.current().config.PROWL_ENABLED
+        self.keys = runtime.current().config.PROWL_KEYS
+        self.priority = runtime.current().config.PROWL_PRIORITY
         pass
 
     def notify(self, message: str, event: str, module: str | None = None) -> bool | None:
-        if not comicarr.CONFIG.PROWL_ENABLED:
+        if not runtime.current().config.PROWL_ENABLED:
             return
 
         if module is None:
@@ -64,11 +63,11 @@ class PROWL:
         http_handler = HTTPSConnection("api.prowlapp.com")
 
         data = {
-            "apikey": comicarr.CONFIG.PROWL_KEYS,
+            "apikey": runtime.current().config.PROWL_KEYS,
             "application": "Comicarr",
             "event": event,
             "description": message.encode("utf-8"),
-            "priority": comicarr.CONFIG.PROWL_PRIORITY,
+            "priority": runtime.current().config.PROWL_PRIORITY,
         }
 
         http_handler.request(
@@ -102,27 +101,27 @@ class PUSHOVER:
         else:
             self.PUSHOVER_URL = "https://api.pushover.net/1/users/validate.json"
             self.test = True
-        self.enabled = comicarr.CONFIG.PUSHOVER_ENABLED
+        self.enabled = runtime.current().config.PUSHOVER_ENABLED
         if test_apikey is None:
-            if comicarr.CONFIG.PUSHOVER_APIKEY is None or comicarr.CONFIG.PUSHOVER_APIKEY == "None":
+            if runtime.current().config.PUSHOVER_APIKEY is None or runtime.current().config.PUSHOVER_APIKEY == "None":
                 logger.warn("No Pushover Apikey is present. Fix it")
                 return False
             else:
-                self.apikey = comicarr.CONFIG.PUSHOVER_APIKEY
+                self.apikey = runtime.current().config.PUSHOVER_APIKEY
         else:
             self.apikey = test_apikey
 
         if test_device is None:
-            self.device = comicarr.CONFIG.PUSHOVER_DEVICE
+            self.device = runtime.current().config.PUSHOVER_DEVICE
         else:
             self.device = test_device
 
         if test_userkey is None:
-            self.userkey = comicarr.CONFIG.PUSHOVER_USERKEY
+            self.userkey = runtime.current().config.PUSHOVER_USERKEY
         else:
             self.userkey = test_userkey
 
-        self.priority = comicarr.CONFIG.PUSHOVER_PRIORITY
+        self.priority = runtime.current().config.PUSHOVER_PRIORITY
 
         self._session = requests.Session()
 
@@ -149,11 +148,11 @@ class PUSHOVER:
             message = "Comicarr has snatched: " + snatched_nzb + " from " + prov + " and " + sent_to
 
         data = {
-            "token": comicarr.CONFIG.PUSHOVER_APIKEY,
-            "user": comicarr.CONFIG.PUSHOVER_USERKEY,
+            "token": runtime.current().config.PUSHOVER_APIKEY,
+            "user": runtime.current().config.PUSHOVER_USERKEY,
             "message": message.encode("utf-8"),
             "title": event,
-            "priority": comicarr.CONFIG.PUSHOVER_PRIORITY,
+            "priority": runtime.current().config.PUSHOVER_PRIORITY,
         }
 
         files = None
@@ -218,7 +217,7 @@ class BOXCAR:
         try:
             data = urllib.parse.urlencode(
                 {
-                    "user_credentials": comicarr.CONFIG.BOXCAR_TOKEN,
+                    "user_credentials": runtime.current().config.BOXCAR_TOKEN,
                     "notification[title]": title.encode("utf-8").strip(),
                     "notification[long_message]": msg.encode("utf-8"),
                     "notification[sound]": "done",
@@ -264,7 +263,7 @@ class BOXCAR:
             module = ""
         module += "[NOTIFIER]"
 
-        if not comicarr.CONFIG.BOXCAR_ENABLED and not force:
+        if not runtime.current().config.BOXCAR_ENABLED and not force:
             logger.fdebug(module + " Notification for Boxcar not enabled, skipping this notification.")
             return False
 
@@ -288,11 +287,11 @@ class PUSHBULLET:
     def __init__(self, test_apikey=None, channel=None):
         self.PUSH_URL = "https://api.pushbullet.com/v2/pushes"
         if test_apikey is None:
-            self.apikey = comicarr.CONFIG.PUSHBULLET_APIKEY
+            self.apikey = runtime.current().config.PUSHBULLET_APIKEY
         else:
             self.apikey = test_apikey
-        self.deviceid = comicarr.CONFIG.PUSHBULLET_DEVICEID
-        self.channel_tag = comicarr.CONFIG.PUSHBULLET_CHANNEL_TAG
+        self.deviceid = runtime.current().config.PUSHBULLET_DEVICEID
+        self.channel_tag = runtime.current().config.PUSHBULLET_CHANNEL_TAG
         self._json_header = {"Content-Type": "application/json", "Accept": "application/json"}
         self._session = requests.Session()
         self._session.auth = (self.apikey, "")
@@ -368,10 +367,10 @@ def _parse_telegram_target(userid: object) -> tuple[str | None, int | None]:
 class TELEGRAM:
     def __init__(self, test_userid=None, test_token=None):
         self.TELEGRAM_API = "https://api.telegram.org/bot%s/%s"
-        raw_userid = comicarr.CONFIG.TELEGRAM_USERID if test_userid is None else test_userid
+        raw_userid = runtime.current().config.TELEGRAM_USERID if test_userid is None else test_userid
         self.userid, self.message_thread_id = _parse_telegram_target(raw_userid)
         if test_token is None:
-            self.token = comicarr.CONFIG.TELEGRAM_TOKEN
+            self.token = runtime.current().config.TELEGRAM_TOKEN
         else:
             self.token = test_token
 
@@ -436,13 +435,13 @@ class EMAIL:
         test_emailpass=None,
         test_emailenc=None,
     ):
-        self.emailfrom = comicarr.CONFIG.EMAIL_FROM if test_emailfrom is None else test_emailfrom
-        self.emailto = comicarr.CONFIG.EMAIL_TO if test_emailto is None else test_emailto
-        self.emailsvr = comicarr.CONFIG.EMAIL_SERVER if test_emailsvr is None else test_emailsvr
-        self.emailport = comicarr.CONFIG.EMAIL_PORT if test_emailport is None else test_emailport
-        self.emailuser = comicarr.CONFIG.EMAIL_USER if test_emailuser is None else test_emailuser
-        self.emailpass = comicarr.CONFIG.EMAIL_PASSWORD if test_emailpass is None else test_emailpass
-        self.emailenc = comicarr.CONFIG.EMAIL_ENC if test_emailenc is None else int(test_emailenc)
+        self.emailfrom = runtime.current().config.EMAIL_FROM if test_emailfrom is None else test_emailfrom
+        self.emailto = runtime.current().config.EMAIL_TO if test_emailto is None else test_emailto
+        self.emailsvr = runtime.current().config.EMAIL_SERVER if test_emailsvr is None else test_emailsvr
+        self.emailport = runtime.current().config.EMAIL_PORT if test_emailport is None else test_emailport
+        self.emailuser = runtime.current().config.EMAIL_USER if test_emailuser is None else test_emailuser
+        self.emailpass = runtime.current().config.EMAIL_PASSWORD if test_emailpass is None else test_emailpass
+        self.emailenc = runtime.current().config.EMAIL_ENC if test_emailenc is None else int(test_emailenc)
 
     def notify(self, message: str, subject: str, module: str | None = None) -> bool:
         if module is None:
@@ -490,7 +489,7 @@ class EMAIL:
 
 class SLACK:
     def __init__(self, test_webhook_url=None):
-        self.webhook_url = comicarr.CONFIG.SLACK_WEBHOOK_URL if test_webhook_url is None else test_webhook_url
+        self.webhook_url = runtime.current().config.SLACK_WEBHOOK_URL if test_webhook_url is None else test_webhook_url
 
     def notify(
         self,
@@ -544,7 +543,9 @@ class MATTERMOST:
     def __init__(self, test_webhook_url=None):
         self.test_hook = test_webhook_url is not None
         logger.debug(self.test_hook)
-        self.webhook_url = comicarr.CONFIG.MATTERMOST_WEBHOOK_URL if test_webhook_url is None else test_webhook_url
+        self.webhook_url = (
+            runtime.current().config.MATTERMOST_WEBHOOK_URL if test_webhook_url is None else test_webhook_url
+        )
 
     def notify(
         self,
@@ -619,7 +620,7 @@ class MATTERMOST:
 class DISCORD:
     def __init__(self, test_webhook_url=None):
         if test_webhook_url is None:
-            self.webhook_url = comicarr.CONFIG.DISCORD_WEBHOOK_URL
+            self.webhook_url = runtime.current().config.DISCORD_WEBHOOK_URL
             self.test = False
         else:
             self.webhook_url = test_webhook_url
@@ -770,7 +771,7 @@ class DISCORD:
 class GOTIFY:
     def __init__(self, test_webhook_url=None):
         self.webhook_url = (
-            comicarr.CONFIG.GOTIFY_SERVER_URL + "message?token=" + comicarr.CONFIG.GOTIFY_TOKEN
+            runtime.current().config.GOTIFY_SERVER_URL + "message?token=" + runtime.current().config.GOTIFY_TOKEN
             if test_webhook_url is None
             else test_webhook_url
         )
@@ -841,9 +842,9 @@ class GOTIFY:
 class MATRIX:
     def __init__(self, test_homeserver=None, test_access_token=None, test_room_id=None):
         if all([test_homeserver is None, test_access_token is None, test_room_id is None]):
-            self.homeserver = comicarr.CONFIG.MATRIX_HOMESERVER
-            self.access_token = comicarr.CONFIG.MATRIX_ACCESS_TOKEN
-            self.room_id = comicarr.CONFIG.MATRIX_ROOM_ID
+            self.homeserver = runtime.current().config.MATRIX_HOMESERVER
+            self.access_token = runtime.current().config.MATRIX_ACCESS_TOKEN
+            self.room_id = runtime.current().config.MATRIX_ROOM_ID
             self.test = False
         else:
             self.homeserver = test_homeserver

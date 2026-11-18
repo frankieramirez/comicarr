@@ -2,7 +2,7 @@
 
 import json
 import re
-import pytest
+
 import responses
 
 
@@ -10,7 +10,7 @@ class TestMatrixInit:
     """Test MATRIX initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use comicarr.CONFIG values by default."""
+        """Init should use runtime.current().config values by default."""
         matrix = notifiers_module.MATRIX()
 
         assert matrix.homeserver == "https://matrix.example.com"
@@ -18,9 +18,7 @@ class TestMatrixInit:
         assert matrix.room_id == "!test_room:example.com"
         assert matrix.test is False
 
-    def test_init_test_params_override_config(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_init_test_params_override_config(self, notifiers_module, mock_notifier_config):
         """Test parameters should override config values."""
         matrix = notifiers_module.MATRIX(
             test_homeserver="https://override.matrix.org",
@@ -33,9 +31,7 @@ class TestMatrixInit:
         assert matrix.room_id == "!override:example.com"
         assert matrix.test is True
 
-    def test_init_all_test_params_required_for_test_mode(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_init_all_test_params_required_for_test_mode(self, notifiers_module, mock_notifier_config):
         """Partial test params should trigger test mode."""
         # If any test param is provided, test mode is True
         matrix = notifiers_module.MATRIX(test_homeserver="https://override.matrix.org")
@@ -98,9 +94,7 @@ class TestMatrixNotify:
         assert responses.calls[0].request.method == "PUT"
 
     @responses.activate
-    def test_notify_transaction_id_from_timestamp(
-        self, notifiers_module, mock_notifier_config, frozen_time
-    ):
+    def test_notify_transaction_id_from_timestamp(self, notifiers_module, mock_notifier_config, frozen_time):
         """Transaction ID should be based on timestamp."""
         with frozen_time("2024-01-15 12:00:00"):
             expected_txn_id = str(int(1705320000.0 * 1000))  # milliseconds
@@ -170,9 +164,7 @@ class TestMatrixNotify:
         assert body["body"] == "Test message"
 
     @responses.activate
-    def test_notify_snatched_message_format(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_snatched_message_format(self, notifiers_module, mock_notifier_config):
         """Snatched notification formats message correctly."""
         responses.add(
             responses.PUT,
@@ -218,9 +210,7 @@ class TestMatrixNotifyErrors:
     """Test MATRIX error handling."""
 
     @responses.activate
-    def test_notify_http_error_returns_false(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_http_error_returns_false(self, notifiers_module, mock_notifier_config):
         """HTTP error returns False."""
         responses.add(
             responses.PUT,
@@ -235,9 +225,7 @@ class TestMatrixNotifyErrors:
         assert result is False
 
     @responses.activate
-    def test_notify_unauthorized_returns_false(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_unauthorized_returns_false(self, notifiers_module, mock_notifier_config):
         """401 unauthorized returns False."""
         responses.add(
             responses.PUT,
@@ -252,9 +240,7 @@ class TestMatrixNotifyErrors:
         assert result is False
 
     @responses.activate
-    def test_notify_room_not_found_returns_false(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_room_not_found_returns_false(self, notifiers_module, mock_notifier_config):
         """Room not found returns False."""
         responses.add(
             responses.PUT,
@@ -268,9 +254,7 @@ class TestMatrixNotifyErrors:
 
         assert result is False
 
-    def test_notify_connection_error(
-        self, notifiers_module, mock_notifier_config, mocker
-    ):
+    def test_notify_connection_error(self, notifiers_module, mock_notifier_config, mocker):
         """Connection error returns False."""
         import requests
 
@@ -303,9 +287,7 @@ class TestMatrixTestNotify:
     """Test MATRIX test_notify method."""
 
     @responses.activate
-    def test_test_notify_sends_correct_message(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_test_notify_sends_correct_message(self, notifiers_module, mock_notifier_config):
         """test_notify sends expected test message."""
         responses.add(
             responses.PUT,

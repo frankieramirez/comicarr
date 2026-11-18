@@ -636,7 +636,7 @@ def _arc_watchlist(StoryArcID=None):
 
         if dstloc is not None:
             if not os.path.isdir(dstloc):
-                if comicarr.CONFIG.STORYARCDIR:
+                if runtime.current().config.STORYARCDIR:
                     logger.info("Story Arc Directory [%s] does not exist! - attempting to create now." % dstloc)
                 else:
                     logger.info(
@@ -647,8 +647,8 @@ def _arc_watchlist(StoryArcID=None):
                     logger.warn("Error trying to validate/create directory. Aborting this process at this time.")
                     return
 
-            if all([comicarr.CONFIG.CVINFO, comicarr.CONFIG.STORYARCDIR]):
-                if not os.path.isfile(os.path.join(dstloc, "cvinfo")) or comicarr.CONFIG.CV_ONETIMER:
+            if all([runtime.current().config.CVINFO, runtime.current().config.STORYARCDIR]):
+                if not os.path.isfile(os.path.join(dstloc, "cvinfo")) or runtime.current().config.CV_ONETIMER:
                     logger.fdebug("Generating cvinfo file for story-arc.")
                     with open(os.path.join(dstloc, "cvinfo"), "w") as text_file:
                         if any([ArcWatch[0]["StoryArcID"] == ArcWatch[0]["CV_ArcID"], ArcWatch[0]["CV_ArcID"] is None]):
@@ -721,20 +721,20 @@ def _add_story_arc(
                 logger.warn(module + " Unable to retrieve issue details at this time. Something is probably wrong.")
                 return
 
-    if not os.path.isdir(os.path.join(comicarr.CONFIG.CACHE_DIR, "storyarcs")):
+    if not os.path.isdir(os.path.join(runtime.current().config.CACHE_DIR, "storyarcs")):
         checkdirectory = filechecker.validateAndCreateDirectory(
-            os.path.join(comicarr.CONFIG.CACHE_DIR, "storyarcs"), True
+            os.path.join(runtime.current().config.CACHE_DIR, "storyarcs"), True
         )
         if not checkdirectory:
             logger.warn("Error trying to validate/create cache storyarc directory. Aborting this process at this time.")
             return
 
-    coverfile = os.path.join(comicarr.CONFIG.CACHE_DIR, "storyarcs", str(cvarcid) + "-banner.jpg")
+    coverfile = os.path.join(runtime.current().config.CACHE_DIR, "storyarcs", str(cvarcid) + "-banner.jpg")
 
-    if comicarr.CONFIG.CVAPI_RATE is None or comicarr.CONFIG.CVAPI_RATE < 2:
+    if runtime.current().config.CVAPI_RATE is None or runtime.current().config.CVAPI_RATE < 2:
         time.sleep(2)
     else:
-        time.sleep(comicarr.CONFIG.CVAPI_RATE)
+        time.sleep(runtime.current().config.CVAPI_RATE)
 
     logger.info("Attempting to retrieve the comic image for series")
     if arcrefresh:
@@ -749,7 +749,7 @@ def _add_story_arc(
                 imageurl,
                 params=None,
                 stream=True,
-                verify=comicarr.CONFIG.CV_VERIFY,
+                verify=runtime.current().config.CV_VERIFY,
                 headers=runtime.current().cv_headers,
             )
         except Exception:
@@ -1134,15 +1134,17 @@ def updatearc_locs(storyarcid, arc_issues):
                     try:
                         if all(
                             [
-                                comicarr.CONFIG.MULTIPLE_DEST_DIRS is not None,
-                                comicarr.CONFIG.MULTIPLE_DEST_DIRS != "None",
+                                runtime.current().config.MULTIPLE_DEST_DIRS is not None,
+                                runtime.current().config.MULTIPLE_DEST_DIRS != "None",
                             ]
                         ):
                             if os.path.exists(
-                                os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(chk["ComicLocation"]))
+                                os.path.join(
+                                    runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(chk["ComicLocation"])
+                                )
                             ):
                                 secondary_folders = os.path.join(
-                                    comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(chk["ComicLocation"])
+                                    runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(chk["ComicLocation"])
                                 )
                             else:
                                 ff = filers.FileHandlers(ComicID=chk["ComicID"])
@@ -1178,7 +1180,7 @@ def updatearc_locs(storyarcid, arc_issues):
                 if grdst is not None:
                     logger.info("grdst:" + grdst)
                     dfilename = chk["Location"]
-                    if comicarr.CONFIG.RENAME_FILES:
+                    if runtime.current().config.RENAME_FILES:
                         renamed_file = rename_param(
                             arcinfo["ComicID"],
                             arcinfo["ComicName"],
@@ -1190,7 +1192,7 @@ def updatearc_locs(storyarcid, arc_issues):
                         if renamed_file:
                             dfilename = renamed_file["nfilename"]
 
-                    if comicarr.CONFIG.READ2FILENAME:
+                    if runtime.current().config.READ2FILENAME:
                         readord = renamefile_readingorder(arcinfo["ReadingOrder"])
                         dfilename = str(readord) + "-" + dfilename
 
@@ -1203,7 +1205,12 @@ def updatearc_locs(storyarcid, arc_issues):
                         comicarr.app.library.filechecker.validateAndCreateDirectory(grdst, create=True)
 
                     logger.info(
-                        "[" + comicarr.CONFIG.ARC_FILEOPS.upper() + "] " + pathsrc + " into directory : " + pathdst
+                        "["
+                        + runtime.current().config.ARC_FILEOPS.upper()
+                        + "] "
+                        + pathsrc
+                        + " into directory : "
+                        + pathdst
                     )
 
                     try:
@@ -1211,7 +1218,7 @@ def updatearc_locs(storyarcid, arc_issues):
                     except (OSError, IOError):
                         logger.fdebug(
                             "["
-                            + comicarr.CONFIG.ARC_FILEOPS.upper()
+                            + runtime.current().config.ARC_FILEOPS.upper()
                             + "] Failure "
                             + pathsrc
                             + " - check directories and manually re-run."
@@ -1272,7 +1279,7 @@ def arcformat(arc, spanyears, publisher, config=None):
     from comicarr.app.common.strings import filesafe, replace_all
 
     if config is None:
-        config = comicarr.CONFIG
+        config = runtime.current().config
 
     arcdir = filesafe(arc)
     if publisher is None:

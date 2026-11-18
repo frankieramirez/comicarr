@@ -20,12 +20,11 @@ import shlex
 
 from sqlalchemy import bindparam, func, select, update
 
-import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common import utilities as common_utilities
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, issues
 from comicarr.app.library import directories, filechecker, filers
 
@@ -137,18 +136,23 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
         comiccnt = int(tmpval["comiccount"])
         fca.append(tmpval)
         try:
-            if all([comicarr.CONFIG.MULTIPLE_DEST_DIRS is not None, comicarr.CONFIG.MULTIPLE_DEST_DIRS != "None"]):
+            if all(
+                [
+                    runtime.current().config.MULTIPLE_DEST_DIRS is not None,
+                    runtime.current().config.MULTIPLE_DEST_DIRS != "None",
+                ]
+            ):
                 if os.path.exists(
-                    os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(rescan["ComicLocation"]))
+                    os.path.join(runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(rescan["ComicLocation"]))
                 ):
                     secondary_folders = os.path.join(
-                        comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(rescan["ComicLocation"])
+                        runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(rescan["ComicLocation"])
                     )
                 else:
                     ff = filers.FileHandlers(ComicID=ComicID)
                     secondary_folders = ff.secondary_folders(rescan["ComicLocation"])
 
-                logger.fdebug(module + "multiple_dest_dirs:" + comicarr.CONFIG.MULTIPLE_DEST_DIRS)
+                logger.fdebug(module + "multiple_dest_dirs:" + runtime.current().config.MULTIPLE_DEST_DIRS)
                 logger.fdebug(module + "dir: " + rescan["ComicLocation"])
                 logger.fdebug(module + "os.path.basename: " + os.path.basename(rescan["ComicLocation"]))
                 logger.info(
@@ -232,7 +236,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
     fc["comiclist"] = fcb
 
     havefiles = 0
-    if comicarr.CONFIG.ANNUALS_ON:
+    if runtime.current().config.ANNUALS_ON:
         an_cnt = db.select_one(
             select(func.count()).select_from(annuals).where((annuals.c.ComicID == ComicID) & (annuals.c.Deleted != 1))
         )
@@ -280,7 +284,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
     mc_annual = []
     mc_annualnumber = []
 
-    if comicarr.CONFIG.ANNUALS_ON:
+    if runtime.current().config.ANNUALS_ON:
         mult_ann_check = db.select_all(
             select(annuals)
             .where((annuals.c.ComicID == ComicID) & (annuals.c.Deleted != 1))
@@ -492,11 +496,14 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
                             )
                             logger.fdebug(
                                 "[DUPECHECK] Based on duplication preferences I will retain based on : "
-                                + comicarr.CONFIG.DUPECONSTRAINT
+                                + runtime.current().config.DUPECONSTRAINT
                             )
                             removedupe = False
-                            if "cbr" in comicarr.CONFIG.DUPECONSTRAINT or "cbz" in comicarr.CONFIG.DUPECONSTRAINT:
-                                if "cbr" in comicarr.CONFIG.DUPECONSTRAINT:
+                            if (
+                                "cbr" in runtime.current().config.DUPECONSTRAINT
+                                or "cbz" in runtime.current().config.DUPECONSTRAINT
+                            ):
+                                if "cbr" in runtime.current().config.DUPECONSTRAINT:
                                     if tmpfc["ComicFilename"].endswith(".cbz"):
                                         logger.fdebug(
                                             "[DUPECHECK-CBR PRIORITY] [#"
@@ -514,7 +521,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
                                             + tmpfc["ComicFilename"]
                                         )
                                         removedupe = True
-                                elif "cbz" in comicarr.CONFIG.DUPECONSTRAINT:
+                                elif "cbz" in runtime.current().config.DUPECONSTRAINT:
                                     if tmpfc["ComicFilename"].endswith(".cbr"):
                                         logger.fdebug(
                                             "[DUPECHECK-CBZ PRIORITY] [#"
@@ -533,7 +540,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
                                         )
                                         removedupe = True
 
-                            if comicarr.CONFIG.DUPECONSTRAINT == "filesize":
+                            if runtime.current().config.DUPECONSTRAINT == "filesize":
                                 if tmpfc["ComicSize"] <= di["filesize"]:
                                     logger.fdebug(
                                         "[DUPECHECK-FILESIZE PRIORITY] [#"
@@ -712,11 +719,14 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
                             )
                             logger.fdebug(
                                 "[DUPECHECK] Based on duplication preferences I will retain based on : "
-                                + comicarr.CONFIG.DUPECONSTRAINT
+                                + runtime.current().config.DUPECONSTRAINT
                             )
                             removedupe = False
-                            if "cbr" in comicarr.CONFIG.DUPECONSTRAINT or "cbz" in comicarr.CONFIG.DUPECONSTRAINT:
-                                if "cbr" in comicarr.CONFIG.DUPECONSTRAINT:
+                            if (
+                                "cbr" in runtime.current().config.DUPECONSTRAINT
+                                or "cbz" in runtime.current().config.DUPECONSTRAINT
+                            ):
+                                if "cbr" in runtime.current().config.DUPECONSTRAINT:
                                     if tmpfc["ComicFilename"].endswith(".cbz"):
                                         logger.fdebug(
                                             "[DUPECHECK-CBR PRIORITY] [#"
@@ -734,7 +744,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
                                             + tmpfc["ComicFilename"]
                                         )
                                         removedupe = True
-                                elif "cbz" in comicarr.CONFIG.DUPECONSTRAINT:
+                                elif "cbz" in runtime.current().config.DUPECONSTRAINT:
                                     if tmpfc["ComicFilename"].endswith(".cbr"):
                                         logger.fdebug(
                                             "[DUPECHECK-CBZ PRIORITY] [#"
@@ -753,7 +763,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
                                         )
                                         removedupe = True
 
-                            if comicarr.CONFIG.DUPECONSTRAINT == "filesize":
+                            if runtime.current().config.DUPECONSTRAINT == "filesize":
                                 if tmpfc["ComicSize"] <= di["filesize"]:
                                     logger.fdebug(
                                         "[DUPECHECK-FILESIZE PRIORITY] [#"
@@ -827,7 +837,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
         else:
             writeit = True
             try:
-                if comicarr.CONFIG.ANNUALS_ON:
+                if runtime.current().config.ANNUALS_ON:
                     if any(["annual" in temploc.lower(), "special" in temploc.lower()]):
                         if reann is None:
                             logger.fdebug(
@@ -1022,7 +1032,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
             havefiles = havefiles + (arcfiles + arcanns)
 
     ignorecount = 0
-    if comicarr.CONFIG.IGNORE_HAVETOTAL:
+    if runtime.current().config.IGNORE_HAVETOTAL:
         ignoresi_row = db.select_one(
             select(func.count())
             .select_from(issues)
@@ -1043,7 +1053,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
             )
 
     snatchedcount = 0
-    if comicarr.CONFIG.SNATCHED_HAVETOTAL:
+    if runtime.current().config.SNATCHED_HAVETOTAL:
         snatches_row = db.select_one(
             select(func.count())
             .select_from(issues)
@@ -1137,7 +1147,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
         havefiles = havefiles + archivedissues
 
     combined_total = iscnt + anncnt
-    if comicarr.CONFIG.IGNORE_TOTAL:
+    if runtime.current().config.IGNORE_TOTAL:
         ignoresa_row = db.select_one(
             select(func.count())
             .select_from(issues)
@@ -1169,7 +1179,7 @@ def force_rescan(ComicID, archive=None, module=None, recheck=False):
     totals(ComicID, havefiles, combined_total, module, recheck=recheck)
     totalarc = arcfiles + archivedissues
 
-    if comicarr.CONFIG.ENFORCE_PERMS:
+    if runtime.current().config.ENFORCE_PERMS:
         logger.fdebug(module + " Ensuring permissions/ownership enforced for series: " + rescan["ComicName"])
         directories.setperms(rescan["ComicLocation"])
     logger.info(

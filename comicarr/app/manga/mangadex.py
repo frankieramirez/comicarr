@@ -31,10 +31,9 @@ from datetime import datetime
 
 import requests
 
-import comicarr
 from comicarr.app.common import series_kind
 from comicarr.app.common.user_agent import app_user_agent
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.series.service import listLibrary
 
 MANGADEX_API_BASE = "https://api.mangadex.org"
@@ -118,10 +117,10 @@ def _get_content_ratings():
     Returns:
         List of content rating strings for the API
     """
-    if not comicarr.CONFIG or not comicarr.CONFIG.MANGADEX_CONTENT_RATING:
+    if not runtime.current().config or not runtime.current().config.MANGADEX_CONTENT_RATING:
         return ["safe", "suggestive"]
 
-    ratings = comicarr.CONFIG.MANGADEX_CONTENT_RATING.split(",")
+    ratings = runtime.current().config.MANGADEX_CONTENT_RATING.split(",")
     return [r.strip().lower() for r in ratings if r.strip().lower() in CONTENT_RATING_MAP]
 
 
@@ -132,10 +131,10 @@ def _get_languages():
     Returns:
         List of language codes (ISO 639-1)
     """
-    if not comicarr.CONFIG or not comicarr.CONFIG.MANGADEX_LANGUAGES:
+    if not runtime.current().config or not runtime.current().config.MANGADEX_LANGUAGES:
         return ["en"]
 
-    languages = comicarr.CONFIG.MANGADEX_LANGUAGES.split(",")
+    languages = runtime.current().config.MANGADEX_LANGUAGES.split(",")
     return [lang.strip().lower() for lang in languages if lang.strip()]
 
 
@@ -255,7 +254,7 @@ def search_manga(name, limit=None, offset=None, sort=None):
     search_start_time = time.time()
     logger.info("[MANGADEX] Starting search for: %s (limit=%s, offset=%s, sort=%s)" % (name, limit, offset, sort))
 
-    if not comicarr.CONFIG.MANGADEX_ENABLED:
+    if not runtime.current().config.MANGADEX_ENABLED:
         logger.warn("[MANGADEX] MangaDex integration is not enabled")
         return {"results": [], "pagination": {"total": 0, "limit": limit or 50, "offset": offset or 0, "returned": 0}}
 

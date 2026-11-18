@@ -30,8 +30,7 @@ import shutil
 import sys
 import tempfile
 
-import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.library import directories
 from comicarr.app.metadata import comicinfo
 from comicarr.app.notifications import service as notifiers
@@ -67,7 +66,7 @@ def restore_tagged_file_mode(path, original_mode, module=""):
 
     Returns True when the mode was applied, False when there was nothing to do.
     """
-    if comicarr.CONFIG.ENFORCE_PERMS:
+    if runtime.current().config.ENFORCE_PERMS:
         # Wrapped like the chmod branch below, and not left bare: setperms
         # catches only OSError, while its own `int(CONFIG.CHMOD_FILE, 8)`
         # raises ValueError for a mode the config accepts but Python cannot
@@ -174,9 +173,9 @@ def volume_value(comversion, manga_volume, module=""):
     values that would put it back.
     """
     volume = ""
-    if comicarr.CONFIG.CMTAG_VOLUME:
-        if not comicarr.CONFIG.CMTAG_START_YEAR_AS_VOLUME:
-            if comicarr.CONFIG.SETDEFAULTVOLUME:
+    if runtime.current().config.CMTAG_VOLUME:
+        if not runtime.current().config.CMTAG_START_YEAR_AS_VOLUME:
+            if runtime.current().config.SETDEFAULTVOLUME:
                 if any([comversion is None, comversion == "", comversion == "None"]):
                     comversion = "1"
                 comversion = re.sub("[^0-9]", "", comversion).strip()
@@ -312,7 +311,7 @@ def run(
     new_filepath = None
     new_folder = None
     try:
-        new_folder = tempfile.mkdtemp(prefix="comicarr_", dir=comicarr.CONFIG.CACHE_DIR)
+        new_folder = tempfile.mkdtemp(prefix="comicarr_", dir=runtime.current().config.CACHE_DIR)
         os.chmod(new_folder, 0o755)
         new_filepath = os.path.join(new_folder, filename)
         logger.fdebug("New_Filepath: %s" % new_filepath)
@@ -332,12 +331,12 @@ def run(
         return "fail"
 
     styles = []
-    if comicarr.CONFIG.CBR2CBZ_ONLY:
+    if runtime.current().config.CBR2CBZ_ONLY:
         logger.fdebug(module + " CBR2CBZ Conversion only.")
     else:
-        if comicarr.CONFIG.CT_TAG_CR:
+        if runtime.current().config.CT_TAG_CR:
             styles.append("cr")
-        if comicarr.CONFIG.CT_TAG_CBL:
+        if runtime.current().config.CT_TAG_CBL:
             styles.append("cbl")
         if not styles:
             logger.warn(
@@ -365,7 +364,7 @@ def run(
     elif filename.lower().endswith(".cbr"):
         logger.warn("%s file is not in a RAR format: %s" % (module, filename))
 
-    if comicarr.CONFIG.CBR2CBZ_ONLY:
+    if runtime.current().config.CBR2CBZ_ONLY:
         restore_tagged_file_mode(filepath, og_file_mode, module)
         return filepath
 
@@ -387,7 +386,7 @@ def run(
                 tidyup(og_filepath, new_filepath, new_folder, manualmeta)
                 return "fail"
             cv_values, cv_credits = comicinfo.comicvine_values(
-                issue, publisher=publisher, notes_format=comicarr.CONFIG.CT_NOTES_FORMAT
+                issue, publisher=publisher, notes_format=runtime.current().config.CT_NOTES_FORMAT
             )
         elif issueid is not None:
             logger.fdebug("%s %s is not a ComicVine issue id -- tagging from local metadata." % (module, issueid))
@@ -397,7 +396,7 @@ def run(
         existing = comicinfo.read_tags(filepath)
         # An existing .cbz keeps its tags unless overwriting is on. A converted
         # .cbr has no tags of its own worth keeping.
-        overwrite = comicarr.CONFIG.CT_CBZ_OVERWRITE or not filename.endswith(".cbz")
+        overwrite = runtime.current().config.CT_CBZ_OVERWRITE or not filename.endswith(".cbz")
         pages = comicinfo.page_count(filepath)
 
         xml = comment = None
@@ -425,7 +424,7 @@ def run(
 
 def tidyup(filepath, new_filepath, new_folder, manualmeta):
     if all([new_filepath is not None, new_folder is not None]):
-        if comicarr.CONFIG.FILE_OPTS == "copy" and not manualmeta:
+        if runtime.current().config.FILE_OPTS == "copy" and not manualmeta:
             if all([os.path.exists(new_folder), os.path.isfile(filepath)]):
                 shutil.rmtree(new_folder)
             elif os.path.exists(new_filepath) and not os.path.exists(filepath):
@@ -444,49 +443,49 @@ def sendnotify(message, filename, module):
     prline2 = "Comicarr metatagging error: " + message + " File: " + prline
 
     try:
-        if comicarr.CONFIG.PROWL_ENABLED:
+        if runtime.current().config.PROWL_ENABLED:
             pushmessage = prline
             prowl = notifiers.PROWL()
             prowl.notify(pushmessage, "Comicarr metatagging error: ", module=module)
 
-        if comicarr.CONFIG.PUSHOVER_ENABLED:
+        if runtime.current().config.PUSHOVER_ENABLED:
             pushover = notifiers.PUSHOVER()
             pushover.notify(prline, prline2, module=module)
 
-        if comicarr.CONFIG.BOXCAR_ENABLED:
+        if runtime.current().config.BOXCAR_ENABLED:
             boxcar = notifiers.BOXCAR()
             boxcar.notify(prline=prline, prline2=prline2, module=module)
 
-        if comicarr.CONFIG.PUSHBULLET_ENABLED:
+        if runtime.current().config.PUSHBULLET_ENABLED:
             pushbullet = notifiers.PUSHBULLET()
             pushbullet.notify(prline=prline, prline2=prline2, module=module)
 
-        if comicarr.CONFIG.TELEGRAM_ENABLED:
+        if runtime.current().config.TELEGRAM_ENABLED:
             telegram = notifiers.TELEGRAM()
             telegram.notify(prline2)
 
-        if comicarr.CONFIG.SLACK_ENABLED:
+        if runtime.current().config.SLACK_ENABLED:
             slack = notifiers.SLACK()
             slack.notify("Comicarr metatagging error: ", prline2, module=module)
 
-        if comicarr.CONFIG.MATTERMOST_ENABLED:
+        if runtime.current().config.MATTERMOST_ENABLED:
             mattermost = notifiers.MATTERMOST()
             mattermost.notify("Comicarr metatagging error: ", prline2, module=module)
 
-        if comicarr.CONFIG.DISCORD_ENABLED:
+        if runtime.current().config.DISCORD_ENABLED:
             discord = notifiers.DISCORD()
             discord.notify(filename, message, module=module)
 
-        if comicarr.CONFIG.EMAIL_ENABLED and comicarr.CONFIG.EMAIL_ONPOST:
+        if runtime.current().config.EMAIL_ENABLED and runtime.current().config.EMAIL_ONPOST:
             logger.info("Sending email notification")
             email = notifiers.EMAIL()
             email.notify(prline2, "Comicarr metatagging error: ", module=module)
 
-        if comicarr.CONFIG.GOTIFY_ENABLED:
+        if runtime.current().config.GOTIFY_ENABLED:
             gotify = notifiers.GOTIFY()
             gotify.notify("Comicarr metatagging error: ", prline2, module=module)
 
-        if comicarr.CONFIG.MATRIX_ENABLED:
+        if runtime.current().config.MATRIX_ENABLED:
             matrix = notifiers.MATRIX()
             matrix.notify("Comicarr metatagging error: ", prline2, module=module)
     except Exception as e:

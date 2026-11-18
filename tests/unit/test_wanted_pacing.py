@@ -27,8 +27,8 @@ NOW = 1_800_000_000.0
 def pacing_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(ENABLE_RSS=True, RSS_CHECKINTERVAL=20, WANTED_SEARCH_PASS_ITEMS=250, SEARCH_TIER_CUTOFF=14),
     )
     monkeypatch.setattr(runtime.current(), "rss_status", "Waiting")
@@ -69,7 +69,7 @@ def test_pacing_reports_progress_and_orders_series_newest_first(pacing_db):
             ],
         )
 
-    summary, eta = wanted_pacing.pacing(_rows(), config=comicarr.CONFIG, now=NOW)
+    summary, eta = wanted_pacing.pacing(_rows(), config=runtime.current().config, now=NOW)
 
     assert summary["state"] == "checking"
     assert (summary["total"], summary["checked"], summary["waiting"]) == (10, 4, 6)
@@ -88,7 +88,7 @@ def test_pacing_waits_for_the_feed_once_everything_is_checked(pacing_db):
             insert(rss_search_seen),
             [{"pass_kind": PASS_RSS_WANTED, "issue_id": r["IssueID"], "checked_at": str(int(NOW))} for r in _rows()],
         )
-    summary, eta = wanted_pacing.pacing(_rows(), config=comicarr.CONFIG, now=NOW)
+    summary, eta = wanted_pacing.pacing(_rows(), config=runtime.current().config, now=NOW)
     assert summary["state"] == "waiting_for_feed"
     assert summary["finishes_in_hours"] is None
     assert eta == {}

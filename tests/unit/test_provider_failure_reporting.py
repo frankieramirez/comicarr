@@ -22,7 +22,7 @@ import pytest
 import requests
 from urllib3.exceptions import MaxRetryError, NewConnectionError
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.search import engine as search
 from comicarr.app.search import failures, interactive, progress
 from comicarr.app.search import service as search_service
@@ -93,8 +93,8 @@ def refused_env(monkeypatch):
     calls = []
     monkeypatch.setattr(search, "_indexer_cooldowns", {})
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(ENABLE_TORRENT_SEARCH=True, USENET_RETENTION=None, SEARCH_DELAY=5),
     )
     monkeypatch.setattr(search, "last_run_check", lambda **kwargs: {})

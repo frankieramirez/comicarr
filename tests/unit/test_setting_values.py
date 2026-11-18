@@ -17,6 +17,7 @@ import pytest
 from comicarr.app.config.ini import SCHEDULER_INTERVAL_MINIMUMS, SEARCH_DELAY_FLOOR_SECONDS
 from comicarr.app.config.registry import REGISTRY
 from comicarr.app.config.setting_values import check_setting_values
+from comicarr.app.core import runtime
 from comicarr.app.system import service as system_service
 
 MINIMUM_KEYS = sorted(name for name, key in REGISTRY.items() if key.minimum is not None)
@@ -34,9 +35,8 @@ def _ctx(**config):
 
 @pytest.fixture(autouse=True)
 def _no_side_effects(monkeypatch):
-    import comicarr
 
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.setattr(system_service, "_reconfigure_schedulers", lambda _ctx: None)
     monkeypatch.setattr(system_service, "recheck_connections", lambda _ctx: None)
 

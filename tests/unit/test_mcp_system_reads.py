@@ -19,6 +19,7 @@ from sqlalchemy import insert
 
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine
 from comicarr.app.core.tables import jobhistory, weekly
 from comicarr.app.search import mb
@@ -305,7 +306,7 @@ def _mangadex_answers(monkeypatch, response):
     monkeypatch.setattr(mangadex, "_make_request", lambda *_a, **_k: response)
     monkeypatch.setattr(mangadex, "listLibrary", lambda: {})
     monkeypatch.setattr(
-        mangadex.comicarr, "CONFIG", types.SimpleNamespace(MANGADEX_ENABLED=True, MANGADEX_CONTENT_RATING=None)
+        runtime.current(), "config", types.SimpleNamespace(MANGADEX_ENABLED=True, MANGADEX_CONTENT_RATING=None)
     )
     app = make_app()
     app.state.ctx.config.MANGADEX_ENABLED = True
@@ -343,7 +344,7 @@ def test_manga_search_surfaces_a_mangadex_failure_after_a_myanimelist_error(monk
     monkeypatch.setattr(mangadex, "_make_request", lambda *_a, **_k: None)
     monkeypatch.setattr(mangadex, "listLibrary", lambda: {})
     monkeypatch.setattr(
-        mangadex.comicarr, "CONFIG", types.SimpleNamespace(MANGADEX_ENABLED=True, MANGADEX_CONTENT_RATING=None)
+        runtime.current(), "config", types.SimpleNamespace(MANGADEX_ENABLED=True, MANGADEX_CONTENT_RATING=None)
     )
     ctx = types.SimpleNamespace(
         config=types.SimpleNamespace(MAL_ENABLED=True, MAL_CLIENT_ID="client", MANGADEX_ENABLED=True)

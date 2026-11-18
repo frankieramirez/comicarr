@@ -19,6 +19,7 @@ import xmlrpc.client
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.downloads import nzbget, recovery_classify
 from comicarr.app.system import connections
 from tests.fakes import pipeline
@@ -29,8 +30,8 @@ from tests.fakes.nzbget import FakeNzbget
 def nzb(monkeypatch, tmp_path):
     fake = FakeNzbget().install(monkeypatch)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         pipeline.default_config(
             NZBGET_HOST=fake.host,
             NZBGET_PORT=fake.port,
@@ -81,7 +82,7 @@ def test_processor_polls_the_queue_until_the_job_reaches_history(nzb):
 
 def test_history_dest_dir_is_mapped_into_nzbget_directory(nzb, monkeypatch, tmp_path):
     local = tmp_path / "nzbget" / "completed"
-    monkeypatch.setattr(comicarr.CONFIG, "NZBGET_DIRECTORY", str(local))
+    monkeypatch.setattr(runtime.current().config, "NZBGET_DIRECTORY", str(local))
     _send(nzb)
     [nzbid] = nzb.jobs
     nzb.complete(nzbid)
@@ -156,7 +157,7 @@ def test_failure_cause_names_what_nzbget_says_failed(status, cause):
 
 
 def test_restart_probe_finds_a_finished_job_in_history(nzb, monkeypatch, tmp_path):
-    monkeypatch.setattr(comicarr.CONFIG, "NZBGET_DIRECTORY", str(tmp_path))
+    monkeypatch.setattr(runtime.current().config, "NZBGET_DIRECTORY", str(tmp_path))
     _send(nzb)
     [nzbid] = nzb.jobs
     nzb.complete(nzbid)
@@ -168,7 +169,7 @@ def test_restart_probe_finds_a_finished_job_in_history(nzb, monkeypatch, tmp_pat
 
 
 def test_restart_probe_finds_the_job_from_the_saved_handoff(nzb, monkeypatch, tmp_path):
-    monkeypatch.setattr(comicarr.CONFIG, "NZBGET_DIRECTORY", str(tmp_path))
+    monkeypatch.setattr(runtime.current().config, "NZBGET_DIRECTORY", str(tmp_path))
     _send(nzb)
     [nzbid] = nzb.jobs
     nzb.complete(nzbid)
@@ -181,16 +182,16 @@ def test_restart_probe_finds_the_job_from_the_saved_handoff(nzb, monkeypatch, tm
 
 
 def test_wrong_password_upload_is_not_an_acceptance(nzb, monkeypatch):
-    monkeypatch.setattr(comicarr.CONFIG, "NZBGET_PASSWORD", "a-stale-password")
+    monkeypatch.setattr(runtime.current().config, "NZBGET_PASSWORD", "a-stale-password")
 
     assert _send(nzb) == {"status": False}
     assert nzb.jobs == {}
 
 
 def test_wrong_password_probe_is_reported_as_rejected(nzb, monkeypatch):
-    monkeypatch.setattr(comicarr.CONFIG, "NZBGET_PASSWORD", "a-stale-password")
+    monkeypatch.setattr(runtime.current().config, "NZBGET_PASSWORD", "a-stale-password")
 
-    probe = connections._probe_nzbget(comicarr.CONFIG)
+    probe = connections._probe_nzbget(runtime.current().config)
 
     assert probe.ok is False
     assert probe.result == "NZBGet rejected the username or password"
@@ -200,7 +201,7 @@ def test_wrong_password_probe_is_reported_as_rejected(nzb, monkeypatch):
 
 
 def test_right_password_probe_reports_the_version(nzb):
-    probe = connections._probe_nzbget(comicarr.CONFIG)
+    probe = connections._probe_nzbget(runtime.current().config)
 
     assert probe.ok is True
     assert probe.version == "26.3"

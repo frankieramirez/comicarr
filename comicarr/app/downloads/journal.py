@@ -41,7 +41,7 @@ from sqlalchemy import and_, or_, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from comicarr.app.common.dates import now
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import pipeline_journal
 
 RESERVED = "reserved"
@@ -97,9 +97,7 @@ def stage_rank(stage):
 def _issued_highcount():
     """The last synthetic IssueID ``snatch_record.nzblog`` handed out, or None."""
     try:
-        import comicarr
-
-        value = getattr(getattr(comicarr, "CONFIG", None), "HIGHCOUNT", None)
+        value = getattr(runtime.current().config, "HIGHCOUNT", None)
         value = int(value) if value not in (None, "") else None
     except (TypeError, ValueError):
         return None

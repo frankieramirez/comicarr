@@ -21,7 +21,6 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy import insert
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, issues, metadata
 from comicarr.app.series import queries as series_queries
@@ -32,7 +31,7 @@ from comicarr.app.series import service as series_service
 @pytest.fixture
 def wanted_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()

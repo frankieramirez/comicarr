@@ -14,12 +14,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
+from comicarr.app.core import runtime
+
 WEBHOOK_URL = "https://example.test/webhook"
 
 
 @pytest.fixture
 def mock_webhook_config(monkeypatch):
-    """Minimal comicarr.CONFIG for Slack/Mattermost/Discord/Gotify constructors."""
+    """Minimal runtime.current().config for Slack/Mattermost/Discord/Gotify constructors."""
     import comicarr
 
     monkeypatch.setattr(comicarr, "LOG_LEVEL", 1)
@@ -30,7 +32,7 @@ def mock_webhook_config(monkeypatch):
     config.DISCORD_WEBHOOK_URL = WEBHOOK_URL
     config.GOTIFY_SERVER_URL = "https://example.test/"
     config.GOTIFY_TOKEN = "fake-gotify-token"
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     return config
 
 

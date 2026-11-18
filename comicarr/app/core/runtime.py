@@ -107,6 +107,8 @@ MIGRATED_FIELDS = frozenset(
         "update_state",
         "update_reason",
         "update_value",
+        # Configuration (#1542).
+        "config",
         # Metadata and provider sessions (#1541).
         "cv_session",
         "cv_rate_limiter",
@@ -125,7 +127,6 @@ MIGRATED_FIELDS = frozenset(
 
 
 _CONTEXT_TO_LEGACY = {
-    "config": "CONFIG",
     "scheduler": "SCHED",
     "ai_client": "AI_CLIENT",
     "ai_async_client": "AI_ASYNC_CLIENT",
@@ -248,7 +249,7 @@ def create_runtime():
 
         import comicarr
 
-        if getattr(comicarr, "CONFIG", None) is None:
+        if _bootstrap.config is None:
             raise RuntimeNotInitializedError(
                 "Runtime context cannot be created before configuration, schema, and secret initialization"
             )

@@ -374,11 +374,10 @@ class TestUpdateConfigTriggersReconfiguration:
         sorted(set(system_service.SCHEDULER_JOB_INTERVALS.values()) & system_service.WRITABLE_CONFIG_KEYS),
     )
     def test_changing_any_interval_reconfigures(self, config_key, monkeypatch):
-        import comicarr
 
         ctx = SimpleNamespace(config=MagicMock(), scheduler=MagicMock())
         ctx.config.apply_transaction.return_value = True
-        monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+        monkeypatch.setattr(runtime.current(), "config", None, raising=False)
         calls = []
         monkeypatch.setattr(system_service, "_reconfigure_schedulers", lambda _ctx: calls.append(_ctx))
 

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from comicarr.app.core import runtime
 from comicarr.app.imports import finalization
 
 
@@ -22,7 +23,7 @@ def _mock_globals():
     mock_config.AUTO_IMPORT_ENABLED = True
 
     with (
-        patch("comicarr.CONFIG", mock_config),
+        patch.object(runtime.current(), "config", mock_config),
         patch("comicarr.app.imports.importinbox.logger") as mock_log,
         patch("comicarr.app.imports.importinbox.db") as mock_db,
         patch("comicarr.app.imports.queries.get_issue_id", return_value="issue-1") as get_issue_id,

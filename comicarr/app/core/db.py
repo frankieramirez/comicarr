@@ -43,7 +43,6 @@ if TYPE_CHECKING:
     from sqlalchemy.engine import Connection, Engine
     from sqlalchemy.sql.expression import BinaryExpression
 
-import comicarr
 from comicarr.app.core import logger, runtime
 from comicarr.app.core.tables import TABLE_MAP, UPSERT_KEYS
 
@@ -59,8 +58,8 @@ def _get_database_url() -> str:
     if url:
         return url
 
-    if hasattr(comicarr, "CONFIG") and comicarr.CONFIG is not None:
-        config_url = getattr(comicarr.CONFIG, "DATABASE_URL", None)
+    if hasattr(runtime.current(), "config") and runtime.current().config is not None:
+        config_url = getattr(runtime.current().config, "DATABASE_URL", None)
         if config_url:
             return config_url
 

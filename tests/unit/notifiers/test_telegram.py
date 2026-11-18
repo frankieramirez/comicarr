@@ -8,7 +8,7 @@ class TestTelegramInit:
     """Test TELEGRAM initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use comicarr.CONFIG values by default."""
+        """Init should use runtime.current().config values by default."""
         telegram = notifiers_module.TELEGRAM()
 
         assert telegram.userid == "123456789"
@@ -22,9 +22,7 @@ class TestTelegramInit:
         assert telegram.message_thread_id == 15
 
     @pytest.mark.parametrize("userid", ["some:host", "-1007356238347:", "-1007356238347:15a"])
-    def test_init_keeps_non_numeric_suffix_as_chat_id(
-        self, notifiers_module, mock_notifier_config, userid
-    ):
+    def test_init_keeps_non_numeric_suffix_as_chat_id(self, notifiers_module, mock_notifier_config, userid):
         """A colon whose suffix is not a topic ID is left alone, preserving old behaviour."""
         telegram = notifiers_module.TELEGRAM(test_userid=userid)
 
@@ -38,13 +36,9 @@ class TestTelegramInit:
         assert telegram.userid == "-1007356238347:²"
         assert telegram.message_thread_id is None
 
-    def test_init_test_params_override_config(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_init_test_params_override_config(self, notifiers_module, mock_notifier_config):
         """Test parameters should override config values."""
-        telegram = notifiers_module.TELEGRAM(
-            test_userid="override_user", test_token="override_token"
-        )
+        telegram = notifiers_module.TELEGRAM(test_userid="override_user", test_token="override_token")
 
         assert telegram.userid == "override_user"
         assert telegram.token == "override_token"
@@ -102,9 +96,7 @@ class TestTelegramNotify:
         assert request_body["message_thread_id"] == 15
 
     @responses.activate
-    def test_notify_with_image(
-        self, notifiers_module, mock_notifier_config, sample_image_base64
-    ):
+    def test_notify_with_image(self, notifiers_module, mock_notifier_config, sample_image_base64):
         """Notification with image uses sendPhoto endpoint."""
         responses.add(
             responses.POST,
@@ -119,9 +111,7 @@ class TestTelegramNotify:
         assert result is True
         assert len(responses.calls) == 1
         # Verify it's a multipart form request
-        assert "multipart/form-data" in responses.calls[0].request.headers.get(
-            "Content-Type", ""
-        )
+        assert "multipart/form-data" in responses.calls[0].request.headers.get("Content-Type", "")
 
     @responses.activate
     def test_notify_with_image_includes_message_thread_id(
@@ -151,9 +141,7 @@ class TestTelegramNotify:
         assert thread_part.split("--")[0].strip() == "15"
 
     @responses.activate
-    def test_notify_omits_message_thread_id_without_topic(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_omits_message_thread_id_without_topic(self, notifiers_module, mock_notifier_config):
         """A plain chat ID must not send message_thread_id at all."""
         responses.add(
             responses.POST,
@@ -171,9 +159,7 @@ class TestTelegramNotify:
         assert "message_thread_id" not in request_body
 
     @responses.activate
-    def test_notify_image_decode_error_falls_back_to_text(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_image_decode_error_falls_back_to_text(self, notifiers_module, mock_notifier_config):
         """Invalid image falls back to text message."""
         # First call for sendPhoto may fail, then falls back to sendMessage
         responses.add(
@@ -227,9 +213,7 @@ class TestTelegramNotifyErrors:
         """Connection error returns False."""
         import requests
 
-        mocker.patch(
-            "requests.post", side_effect=requests.exceptions.ConnectionError("Network error")
-        )
+        mocker.patch("requests.post", side_effect=requests.exceptions.ConnectionError("Network error"))
 
         telegram = notifiers_module.TELEGRAM()
         result = telegram.notify("Test message")
@@ -237,9 +221,7 @@ class TestTelegramNotifyErrors:
         assert result is False
 
     @responses.activate
-    def test_notify_image_failure_falls_back_to_text(
-        self, notifiers_module, mock_notifier_config, sample_image_base64
-    ):
+    def test_notify_image_failure_falls_back_to_text(self, notifiers_module, mock_notifier_config, sample_image_base64):
         """Image send failure falls back to text message."""
         # First sendPhoto fails
         responses.add(
@@ -268,9 +250,7 @@ class TestTelegramTestNotify:
     """Test TELEGRAM test_notify method."""
 
     @responses.activate
-    def test_test_notify_sends_correct_message(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_test_notify_sends_correct_message(self, notifiers_module, mock_notifier_config):
         """test_notify sends the expected test message."""
         responses.add(
             responses.POST,

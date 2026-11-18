@@ -24,21 +24,23 @@ import requests
 
 import comicarr
 from comicarr.app.common import numbers as common_numbers
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.library import directories
 
 
 class PixelDrain(object):
     def __init__(self):
-        self.dl_location = comicarr.CONFIG.DDL_LOCATION
+        self.dl_location = runtime.current().config.DDL_LOCATION
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1",
             "Referer": "https://pixeldrain.com",
         }
         self.session = requests.Session()
 
-        if comicarr.CONFIG.ENABLE_PROXY:
-            self.session.proxies.update({"http": comicarr.CONFIG.HTTP_PROXY, "https": comicarr.CONFIG.HTTPS_PROXY})
+        if runtime.current().config.ENABLE_PROXY:
+            self.session.proxies.update(
+                {"http": runtime.current().config.HTTP_PROXY, "https": runtime.current().config.HTTPS_PROXY}
+            )
 
     def ddl_download(self, link, id, issueid):
         self.id = id

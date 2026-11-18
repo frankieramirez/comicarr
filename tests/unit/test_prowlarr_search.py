@@ -15,8 +15,8 @@ from types import SimpleNamespace
 import pytest
 import requests
 
-import comicarr
 from comicarr.app.config.ini import Config
+from comicarr.app.core import runtime
 from comicarr.app.search import engine as search
 from comicarr.app.search import prowlarr
 from comicarr.app.search._release_identity import generate_id
@@ -249,8 +249,8 @@ def prowlarr_env(monkeypatch):
     calls = []
     monkeypatch.setattr(search, "_indexer_cooldowns", {})
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(ENABLE_TORRENT_SEARCH=True, USENET_RETENTION=None, SEARCH_DELAY=5),
     )
     monkeypatch.setattr(search, "last_run_check", lambda **kwargs: {})
@@ -333,7 +333,7 @@ def _run_usenet(entry):
 
 
 def test_search_asks_prowlarr_for_usenet_results_and_evaluates_only_those(prowlarr_env):
-    comicarr.CONFIG.USENET_RETENTION = 1500
+    runtime.current().config.USENET_RETENTION = 1500
     prowlarr_env.responses["body"] = json.dumps(USENET_RESULTS).encode()
 
     _run_usenet(prowlarr.usenet_provider_entry(_config(PROWLARR_USENET=True)))
@@ -379,8 +379,8 @@ def test_an_unreadable_prowlarr_answer_is_reported_not_evaluated(prowlarr_env, m
 
 @pytest.fixture(autouse=True)
 def _restore_global_config(monkeypatch):
-    # A successful settings save publishes ctx.config as comicarr.CONFIG.
-    monkeypatch.setattr(comicarr, "CONFIG", comicarr.CONFIG)
+    # A successful settings save publishes ctx.config as runtime.current().config.
+    monkeypatch.setattr(runtime.current(), "config", runtime.current().config)
 
 
 def _ctx(**config):
@@ -531,7 +531,7 @@ def test_usenet_results_older_than_retention_are_dropped():
 
 
 def test_an_old_usenet_result_never_reaches_evaluation(prowlarr_env):
-    comicarr.CONFIG.USENET_RETENTION = 30
+    runtime.current().config.USENET_RETENTION = 30
     prowlarr_env.responses["body"] = json.dumps(USENET_RESULTS).encode()
 
     _run_usenet(prowlarr.usenet_provider_entry(_config(PROWLARR_USENET=True)))

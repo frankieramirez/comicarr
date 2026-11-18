@@ -24,8 +24,7 @@ from functools import partial
 
 from sqlalchemy import exists, select
 
-import comicarr
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, issues, mcp_tool_calls, storyarcs
 
 
@@ -70,13 +69,13 @@ def _arc_issue_wanted_without_library_issue() -> bool:
 
 
 def _arc_folder_matching_on() -> bool:
-    if getattr(comicarr.CONFIG, "STORYARCDIR", False) is not True:
+    if getattr(runtime.current().config, "STORYARCDIR", False) is not True:
         return False
     return db.select_one(select(storyarcs.c.StoryArcID).limit(1)) is not None
 
 
 def _config_flag(name: str, value: object) -> bool:
-    return getattr(comicarr.CONFIG, name, None) == value
+    return getattr(runtime.current().config, name, None) == value
 
 
 def _gcd_in_use() -> bool:

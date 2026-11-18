@@ -1,7 +1,7 @@
 """Tests for SLACK notifier."""
 
 import json
-import pytest
+
 import responses
 
 
@@ -9,18 +9,14 @@ class TestSlackInit:
     """Test SLACK initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use comicarr.CONFIG values by default."""
+        """Init should use runtime.current().config values by default."""
         slack = notifiers_module.SLACK()
 
         assert slack.webhook_url == "https://hooks.slack.com/services/test/webhook"
 
-    def test_init_test_webhook_overrides_config(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_init_test_webhook_overrides_config(self, notifiers_module, mock_notifier_config):
         """Test webhook URL should override config."""
-        slack = notifiers_module.SLACK(
-            test_webhook_url="https://hooks.slack.com/services/override"
-        )
+        slack = notifiers_module.SLACK(test_webhook_url="https://hooks.slack.com/services/override")
 
         assert slack.webhook_url == "https://hooks.slack.com/services/override"
 
@@ -88,9 +84,7 @@ class TestSlackNotify:
         assert "SABnzbd" in request_body["text"]
 
     @responses.activate
-    def test_notify_snatched_without_sent_to(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_snatched_without_sent_to(self, notifiers_module, mock_notifier_config):
         """Snatched notification without sent_to."""
         responses.add(
             responses.POST,
@@ -125,9 +119,7 @@ class TestSlackNotify:
 
         slack = notifiers_module.SLACK()
         # Should not raise any errors
-        result = slack.notify(
-            text="Comicarr", attachment_text="Test notification", module="[TEST]"
-        )
+        result = slack.notify(text="Comicarr", attachment_text="Test notification", module="[TEST]")
         assert result is True
 
 
@@ -135,9 +127,7 @@ class TestSlackNotifyErrors:
     """Test SLACK error handling."""
 
     @responses.activate
-    def test_notify_http_error_returns_false(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_http_error_returns_false(self, notifiers_module, mock_notifier_config):
         """HTTP error returns False."""
         responses.add(
             responses.POST,
@@ -152,9 +142,7 @@ class TestSlackNotifyErrors:
         assert result is False
 
     @responses.activate
-    def test_notify_not_found_returns_false(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_not_found_returns_false(self, notifiers_module, mock_notifier_config):
         """404 error returns False."""
         responses.add(
             responses.POST,
@@ -173,9 +161,7 @@ class TestSlackTestNotify:
     """Test SLACK test_notify method."""
 
     @responses.activate
-    def test_test_notify_sends_correct_message(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_test_notify_sends_correct_message(self, notifiers_module, mock_notifier_config):
         """test_notify sends expected test message."""
         responses.add(
             responses.POST,

@@ -13,7 +13,7 @@ import os
 import re
 from pathlib import Path, PurePath
 
-import comicarr
+from comicarr.app.core import runtime
 
 
 class PostProcessCommandError(ValueError):
@@ -38,7 +38,7 @@ _ROOT_CONFIG_KEYS = (
 
 def additional_check_folders(config=None):
     """Return the absolute paths listed one per line in ADDITIONAL_CHECK_FOLDERS."""
-    config = config if config is not None else getattr(comicarr, "CONFIG", None)
+    config = config if config is not None else runtime.current().config
     raw = getattr(config, "ADDITIONAL_CHECK_FOLDERS", None) if config is not None else None
     if not isinstance(raw, str) or raw.strip().lower() in {"", "none"}:
         return []
@@ -56,7 +56,7 @@ def monitored_folders(config=None):
     The additional folders supplement CHECK_FOLDER rather than replace it, so
     they are only scanned while CHECK_FOLDER is set (it still gates the job).
     """
-    config = config if config is not None else getattr(comicarr, "CONFIG", None)
+    config = config if config is not None else runtime.current().config
     primary = getattr(config, "CHECK_FOLDER", None) if config is not None else None
     if primary is None or not str(primary).strip() or str(primary).strip().lower() == "none":
         return []
@@ -65,7 +65,7 @@ def monitored_folders(config=None):
 
 
 def configured_roots(config=None):
-    config = config if config is not None else getattr(comicarr, "CONFIG", None)
+    config = config if config is not None else runtime.current().config
     roots = []
     for key in _ROOT_CONFIG_KEYS:
         value = getattr(config, key, None) if config is not None else None

@@ -23,6 +23,7 @@ Unit tests for get_manga_destination() fallback chain in comicarr/config.py.
 from unittest.mock import MagicMock, patch
 
 import comicarr
+from comicarr.app.core import runtime
 
 # Ensure LOG_LEVEL is set for tests
 if comicarr.LOG_LEVEL is None:
@@ -41,7 +42,7 @@ class TestGetMangaDestination:
         mock_config.MANGA_DIR = "/manga/library"
         mock_config.DESTINATION_DIR = "/downloads"
 
-        with patch.object(comicarr, "CONFIG", mock_config):
+        with patch.object(runtime.current(), "config", mock_config):
             result = get_manga_destination()
 
         assert result == "/manga/destination"
@@ -53,7 +54,7 @@ class TestGetMangaDestination:
         mock_config.MANGA_DIR = "/manga/library"
         mock_config.DESTINATION_DIR = "/downloads"
 
-        with patch.object(comicarr, "CONFIG", mock_config):
+        with patch.object(runtime.current(), "config", mock_config):
             result = get_manga_destination()
 
         assert result == "/manga/library"
@@ -65,7 +66,7 @@ class TestGetMangaDestination:
         mock_config.MANGA_DIR = None
         mock_config.DESTINATION_DIR = "/downloads"
 
-        with patch.object(comicarr, "CONFIG", mock_config):
+        with patch.object(runtime.current(), "config", mock_config):
             result = get_manga_destination()
 
         assert result == "/downloads"
@@ -77,7 +78,7 @@ class TestGetMangaDestination:
         mock_config.MANGA_DIR = None
         mock_config.DESTINATION_DIR = None
 
-        with patch.object(comicarr, "CONFIG", mock_config):
+        with patch.object(runtime.current(), "config", mock_config):
             result = get_manga_destination()
 
         assert result is None
@@ -89,7 +90,7 @@ class TestGetMangaDestination:
         mock_config.MANGA_DIR = "/manga/library"
         mock_config.DESTINATION_DIR = "/downloads"
 
-        with patch.object(comicarr, "CONFIG", mock_config):
+        with patch.object(runtime.current(), "config", mock_config):
             result = get_manga_destination()
 
         assert result == "/manga/library"
@@ -101,7 +102,7 @@ class TestGetMangaDestination:
         mock_config.MANGA_DIR = ""
         mock_config.DESTINATION_DIR = "/downloads"
 
-        with patch.object(comicarr, "CONFIG", mock_config):
+        with patch.object(runtime.current(), "config", mock_config):
             result = get_manga_destination()
 
         assert result == "/downloads"

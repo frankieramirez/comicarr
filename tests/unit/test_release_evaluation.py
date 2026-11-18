@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.search import evaluation as evaluation_module
 from comicarr.app.search.evaluation import EvaluationSession
 from comicarr.app.search.evaluation_handoff import handoff_matches
@@ -110,7 +110,7 @@ def _matched(**overrides):
 
 @pytest.fixture(autouse=True)
 def _matcher_environment(monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", _config())
+    monkeypatch.setattr(runtime.current(), "config", _config())
     monkeypatch.setattr(evaluation_module, "generate_id", lambda _provider, identity, _name: str(identity))
     _install_parser(monkeypatch)
 
@@ -174,7 +174,7 @@ def test_accepted_candidate_is_normalized_and_credential_safe():
 
 
 def test_overrideable_rejection_retains_private_provider_identity_hint(monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
+    monkeypatch.setattr(runtime.current(), "config", _config(IGNORE_SEARCH_WORDS=["repack"]))
     evaluation = _evaluate(
         _entry(title="Example Series 001 REPACK"),
         _info(provider_stat={"type": "newznab", "id": 19, "api_key": "secret"}),
@@ -191,7 +191,7 @@ def test_overrideable_rejection_retains_private_provider_identity_hint(monkeypat
 
 
 def test_candidate_override_revalidates_exactly_one_overrideable_reason(monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
+    monkeypatch.setattr(runtime.current(), "config", _config(IGNORE_SEARCH_WORDS=["repack"]))
     checker = EvaluationSession(override_reason="ignored.search_word")
     entry = _entry(title="Example Series 001 REPACK")
 
@@ -270,7 +270,7 @@ def test_book_type_override_on_an_unparsed_title_stays_unparsed(monkeypatch):
 
 
 def test_interactive_collection_disables_first_result_shortcut(monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
+    monkeypatch.setattr(runtime.current(), "config", _config(IGNORE_SEARCH_WORDS=["repack"]))
     session = EvaluationSession(review=True)
     batch = session.evaluate(
         [_entry(), _entry(title="Example Series 001 REPACK", id="provider-item-2")],
@@ -355,7 +355,7 @@ def test_provider_display_cannot_expose_a_credential_bearing_endpoint():
     ],
 )
 def test_early_rejection_reasons_are_stable(monkeypatch, config, entry, info, reason_code, overrideable):
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
 
     evaluation = _evaluate(entry, info)
 
@@ -693,7 +693,7 @@ def test_unexpected_evaluator_error_is_structured_but_selection_reraises():
 
 
 def test_evaluate_entries_returns_one_ordered_evaluation_per_raw_entry(monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
+    monkeypatch.setattr(runtime.current(), "config", _config(IGNORE_SEARCH_WORDS=["repack"]))
     entries = [
         _entry(id="accepted"),
         _entry(id="ignored", title="Example Series 001 REPACK"),
@@ -711,7 +711,7 @@ def test_evaluate_entries_returns_one_ordered_evaluation_per_raw_entry(monkeypat
 
 def test_evaluation_selection_exposes_private_handoff_without_global_state(monkeypatch):
     entries = [_entry(id="one"), _entry(id="ignored", title="Example Series REPACK"), _entry(id="two", link="two")]
-    monkeypatch.setattr(comicarr, "CONFIG", _config(IGNORE_SEARCH_WORDS=["repack"]))
+    monkeypatch.setattr(runtime.current(), "config", _config(IGNORE_SEARCH_WORDS=["repack"]))
 
     batch = EvaluationSession().evaluate(entries, _info())
 
@@ -805,7 +805,7 @@ def _prowlarr_info():
 
 
 def test_prowlarr_result_is_evaluated_like_a_torznab_result(monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", _config(USE_MINSIZE=True, MINSIZE="10"))
+    monkeypatch.setattr(runtime.current(), "config", _config(USE_MINSIZE=True, MINSIZE="10"))
 
     evaluation = _evaluate(_prowlarr_entry(104857600), _prowlarr_info())
 
@@ -818,7 +818,7 @@ def test_prowlarr_result_is_evaluated_like_a_torznab_result(monkeypatch):
 
 
 def test_prowlarr_result_size_is_checked_against_the_minimum(monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", _config(USE_MINSIZE=True, MINSIZE="10"))
+    monkeypatch.setattr(runtime.current(), "config", _config(USE_MINSIZE=True, MINSIZE="10"))
 
     evaluation = _evaluate(_prowlarr_entry(1024), _prowlarr_info())
 

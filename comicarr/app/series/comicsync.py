@@ -32,10 +32,9 @@ import traceback
 
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.common import series_kind
 from comicarr.app.common.library_roots import library_scan_dir
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import comics
 from comicarr.app.imports.scanutil import COMIC_EXTENSIONS, find_best_match, normalize_title
 from comicarr.app.series.add import add_series
@@ -79,7 +78,7 @@ def comicScan(scan_dir=None):
         logger.warning("[COMIC-SCAN] Scan already in progress, skipping")
         return {"status": "already_running"}
 
-    comic_dir = scan_dir or library_scan_dir(comicarr.CONFIG, "comic")
+    comic_dir = scan_dir or library_scan_dir(runtime.current().config, "comic")
     if not comic_dir:
         _SCAN_LOCK.release()
         logger.warning("[COMIC-SCAN] No COMIC_DIR configured, skipping comic scan")

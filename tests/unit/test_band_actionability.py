@@ -15,7 +15,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import insert, select
 
-import comicarr
 from comicarr.app.activity import queries
 
 # The reason registry and the reconciliation entry points have no public
@@ -44,7 +43,7 @@ from comicarr.app.core.tables import (
 @pytest.fixture
 def activity_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()

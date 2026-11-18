@@ -35,8 +35,8 @@ def isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CACHE_DIR", str(tmp_path / "cache"), raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         pipeline.default_config(
             MANUAL_PP_FOLDER=str(tmp_path / "downloads"),
             CHECK_FOLDER=None,
@@ -273,9 +273,9 @@ def test_a_manual_scan_places_a_library_match_in_its_series_folder(tmp_path, lib
 
 
 def test_a_manual_scan_copies_an_arc_only_file_into_its_arc_folder(tmp_path, library, monkeypatch):
-    monkeypatch.setattr(comicarr.CONFIG, "STORYARCDIR", True)
-    monkeypatch.setattr(comicarr.CONFIG, "COPY2ARCDIR", True)
-    monkeypatch.setattr(comicarr.CONFIG, "ARC_FILEOPS", "copy", raising=False)
+    monkeypatch.setattr(runtime.current().config, "STORYARCDIR", True)
+    monkeypatch.setattr(runtime.current().config, "COPY2ARCDIR", True)
+    monkeypatch.setattr(runtime.current().config, "ARC_FILEOPS", "copy", raising=False)
     with db.get_engine().begin() as conn:
         conn.execute(storyarcs.insert().values(**_arc_row()))
     path = _download(tmp_path, "Batman 024 (2013).cbz")
@@ -355,9 +355,9 @@ def test_the_snatch_lookup_runs_after_the_arc_only_files_are_placed(tmp_path, mo
 
 
 def _arc_folder_config(monkeypatch):
-    monkeypatch.setattr(comicarr.CONFIG, "STORYARCDIR", True)
-    monkeypatch.setattr(comicarr.CONFIG, "COPY2ARCDIR", True)
-    monkeypatch.setattr(comicarr.CONFIG, "ARC_FILEOPS", "copy", raising=False)
+    monkeypatch.setattr(runtime.current().config, "STORYARCDIR", True)
+    monkeypatch.setattr(runtime.current().config, "COPY2ARCDIR", True)
+    monkeypatch.setattr(runtime.current().config, "ARC_FILEOPS", "copy", raising=False)
 
 
 def _arc_row_for(issue_arc_id):
@@ -368,7 +368,7 @@ def test_an_arc_only_file_whose_tagging_fails_is_still_copied(tmp_path, library,
     from comicarr.app.downloads import postprocess_match as postprocessor
 
     _arc_folder_config(monkeypatch)
-    monkeypatch.setattr(comicarr.CONFIG, "ENABLE_META", True)
+    monkeypatch.setattr(runtime.current().config, "ENABLE_META", True)
     monkeypatch.setattr(postprocessor, "_tag_file", lambda *a, **k: "fail")
     with db.get_engine().begin() as conn:
         conn.execute(storyarcs.insert().values(**_arc_row()))

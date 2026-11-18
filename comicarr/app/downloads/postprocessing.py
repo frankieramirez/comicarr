@@ -13,7 +13,6 @@ from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from functools import wraps
 
-import comicarr
 from comicarr.app.attention import ManualReview, record
 from comicarr.app.common.redaction import redacted_traceback
 from comicarr.app.core import logger, runtime
@@ -126,7 +125,7 @@ def _handle_failed_download(item):
     # Lazy: the service module imports this one.
     from comicarr.app.downloads import service
 
-    if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING is not True:
+    if runtime.current().config.FAILED_DOWNLOAD_HANDLING is not True:
         logger.warn("[POST-PROCESSING] Failed Download Handling is not enabled. Leaving Failed Download as-is.")
         return _Execution(FAILED, fail_reason=service.terminalize_unhandled_failed_download(item))
     logger.info("[POST-PROCESSING] Initiating Failed Download handling for this download.")

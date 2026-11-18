@@ -29,7 +29,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import func, insert, select
 
-import comicarr
 from comicarr.app.acquisition import retention
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import RunLedger
@@ -61,7 +60,7 @@ def _attention_release_keys():
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(), raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()
     metadata.create_all(get_engine())

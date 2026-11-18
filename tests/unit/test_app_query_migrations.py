@@ -16,7 +16,6 @@ import pytest
 from sqlalchemy import insert, select
 from sqlalchemy.exc import OperationalError
 
-import comicarr
 from comicarr.app.ai import pull_list
 from comicarr.app.ai import queries as ai_queries
 from comicarr.app.ai import story_arcs as ai_story_arcs
@@ -39,7 +38,7 @@ from comicarr.app.weekly import queries as weekly_queries
 def query_db(tmp_path, monkeypatch):
     """Use a file-backed SQLite engine so domain helpers exercise the real chain."""
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()

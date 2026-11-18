@@ -20,7 +20,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import comicarr
 from comicarr.app.config.registry import REGISTRY
 from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
@@ -165,7 +164,7 @@ def announce_ctx(monkeypatch):
         update_state="unknown",
         update_reason="never_checked",
     )
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     monkeypatch.setattr(runtime.current(), "install_type", "docker", raising=False)
     monkeypatch.setattr(runtime.current(), "current_version", "aaaaaaa", raising=False)
     with (

@@ -509,7 +509,7 @@ def _search_init(
     interactive = evaluator.review
 
     if rsschecker:
-        if comicarr.CONFIG.ENABLE_RSS:
+        if runtime.current().config.ENABLE_RSS:
             searchcnt = 1
         else:
             searchcnt = 1
@@ -517,7 +517,7 @@ def _search_init(
         searchcnt = 2
         srchloop = 2
     else:
-        if comicarr.CONFIG.ENABLE_RSS:
+        if runtime.current().config.ENABLE_RSS:
             searchcnt = 2
         else:
             searchcnt = 2
@@ -576,7 +576,7 @@ def _search_init(
         pack_title_pass = all(
             [
                 _allow_packs_enabled(allow_packs),
-                comicarr.CONFIG.ENABLE_TORRENT_SEARCH,
+                runtime.current().config.ENABLE_TORRENT_SEARCH,
                 chktpb == 0,
                 IssueNumber is not None,
                 searchmode != "rss",
@@ -938,7 +938,7 @@ def _search_init(
         return evaluator.matches, "None"
 
     if findit["status"] is True:
-        if comicarr.CONFIG.SNATCHED_HAVETOTAL and any([oneoff is False, IssueID is not None]):
+        if runtime.current().config.SNATCHED_HAVETOTAL and any([oneoff is False, IssueID is not None]):
             logger.fdebug("Adding this to the HAVE total for the series.")
             series_service.incr_snatched(ComicID)
         found_prov = list(current_prov.keys())[0]
@@ -966,9 +966,9 @@ def _search_init(
         else:
             logger.fdebug("Could not find issue doing a manual search via : %s" % searchmode)
         if current_prov.get("32P"):
-            if comicarr.CONFIG.MODE_32P == 0:
+            if runtime.current().config.MODE_32P == 0:
                 return findit, "None"
-            elif comicarr.CONFIG.MODE_32P == 1 and searchmode == "api":
+            elif runtime.current().config.MODE_32P == 1 and searchmode == "api":
                 return findit, "None"
 
         if not _ai_expanded and ComicID is not None:
@@ -1050,7 +1050,9 @@ def provider_order(initial_run=False, comic_id=None):
     from comicarr.app.series.queries import get_comic_provider_override
 
     override = parse_provider_override(get_comic_provider_override(comic_id))
-    plan = effective_provider_plan(comicarr.CONFIG, is_blocked=search_service.block_provider_check, override=override)
+    plan = effective_provider_plan(
+        runtime.current().config, is_blocked=search_service.block_provider_check, override=override
+    )
     tor_candidates = [
         candidate for candidate in plan if candidate.kind in {"torznab", "torrent"} and not candidate.blocked
     ]
@@ -1074,7 +1076,7 @@ def provider_order(initial_run=False, comic_id=None):
     if initial_run:
         logger.fdebug("There are : %s nzb providers you have selected" % providercount)
         if providercount > 0:
-            logger.fdebug("Usenet Retention : %s days" % comicarr.CONFIG.USENET_RETENTION)
+            logger.fdebug("Usenet Retention : %s days" % runtime.current().config.USENET_RETENTION)
 
     if ddls > 0 and initial_run:
         logger.fdebug("there are %s Direct Download providers that are currently enabled." % ddls)
@@ -1141,7 +1143,7 @@ def NZB_SEARCH(
 ):
     evaluator = evaluator or EvaluationSession()
 
-    if _allow_packs_enabled(allow_packs) and comicarr.CONFIG.ENABLE_TORRENT_SEARCH:
+    if _allow_packs_enabled(allow_packs) and runtime.current().config.ENABLE_TORRENT_SEARCH:
         allow_packs = True
     else:
         allow_packs = False
@@ -1501,11 +1503,11 @@ def NZB_SEARCH(
                         prowlarr_protocol = prowlarr.USENET
 
                     if (
-                        comicarr.CONFIG.USENET_RETENTION is not None
+                        runtime.current().config.USENET_RETENTION is not None
                         and provider_stat["type"] != "torznab"
                         and prowlarr_protocol is None
                     ):
-                        findurl = findurl + "&maxage=" + str(comicarr.CONFIG.USENET_RETENTION)
+                        findurl = findurl + "&maxage=" + str(runtime.current().config.USENET_RETENTION)
 
                     pause_the_search = check_the_search_delay(manual)
 
@@ -1653,7 +1655,7 @@ def NZB_SEARCH(
                                 # Prowlarr's search takes no maxage, so apply
                                 # Usenet retention to its results here.
                                 prowlarr_entries = prowlarr.within_retention(
-                                    prowlarr_entries, comicarr.CONFIG.USENET_RETENTION
+                                    prowlarr_entries, runtime.current().config.USENET_RETENTION
                                 )
                             verified_matches = {"entries": prowlarr_entries}
                         except ValueError as e:
@@ -1995,8 +1997,8 @@ def searchforissue(
         logger.info("A search is currently in progress....queueing this up again to try in a bit.")
         return {"status": "IN PROGRESS"}
 
-    ens = [x for x in comicarr.CONFIG.EXTRA_NEWZNABS if provider_enabled(x)]
-    if search_providers_available(comicarr.CONFIG):
+    ens = [x for x in runtime.current().config.EXTRA_NEWZNABS if provider_enabled(x)]
+    if search_providers_available(runtime.current().config):
         if not issueid or rsschecker:
             backlog_held = False
             rss_budget = None
@@ -2004,7 +2006,7 @@ def searchforissue(
                 if rsschecker:
                     logger.info(
                         "Initiating RSS Search Scan at the scheduled interval of %s minutes"
-                        % comicarr.CONFIG.RSS_CHECKINTERVAL
+                        % runtime.current().config.RSS_CHECKINTERVAL
                     )
                     if not try_acquire_pass():
                         logger.info(
@@ -2029,11 +2031,11 @@ def searchforissue(
                         rss_ineligible_ids.append(issue_id)
                     return False
 
-                if comicarr.CONFIG.ANNUALS_ON:
+                if runtime.current().config.ANNUALS_ON:
                     stloop += 1
                 while stloop > 0:
                     if stloop == 1:
-                        if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
+                        if runtime.current().config.FAILED_DOWNLOAD_HANDLING and runtime.current().config.FAILED_AUTO:
                             issues_1 = _wanted_candidate_rows(issues, ["Wanted", "Failed"])
                         else:
                             issues_1 = _wanted_candidate_rows(issues, ["Wanted"])
@@ -2090,8 +2092,11 @@ def searchforissue(
                                     }
 
                     elif stloop == 2:
-                        if comicarr.CONFIG.SEARCH_STORYARCS is True or rsschecker:
-                            if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
+                        if runtime.current().config.SEARCH_STORYARCS is True or rsschecker:
+                            if (
+                                runtime.current().config.FAILED_DOWNLOAD_HANDLING
+                                and runtime.current().config.FAILED_AUTO
+                            ):
                                 issues_2 = _wanted_candidate_rows(storyarcs, ["Wanted", "Failed"])
                             else:
                                 issues_2 = _wanted_candidate_rows(storyarcs, ["Wanted"])
@@ -2160,7 +2165,7 @@ def searchforissue(
                                 "[SEARCH] %s annual(s) have no matching series and will not be searched"
                                 % orphan_annuals
                             )
-                        if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING and comicarr.CONFIG.FAILED_AUTO:
+                        if runtime.current().config.FAILED_DOWNLOAD_HANDLING and runtime.current().config.FAILED_AUTO:
                             issues_3 = _wanted_candidate_rows(
                                 annuals,
                                 ["Wanted", "Failed"],
@@ -2499,15 +2504,18 @@ def searchforissue(
                     # the issue list as if it were lookup results (#1442).
                     results = {"entries": []}
                     if all(
-                        [comicarr.CONFIG.ENABLE_TORRENTS is True, comicarr.CONFIG.ENABLE_TORRENT_SEARCH is True]
+                        [
+                            runtime.current().config.ENABLE_TORRENTS is True,
+                            runtime.current().config.ENABLE_TORRENT_SEARCH is True,
+                        ]
                     ) or (
                         any(
                             [
-                                comicarr.CONFIG.ENABLE_GETCOMICS is True,
-                                comicarr.CONFIG.ENABLE_EXTERNAL_SERVER is True,
+                                runtime.current().config.ENABLE_GETCOMICS is True,
+                                runtime.current().config.ENABLE_EXTERNAL_SERVER is True,
                             ]
                         )
-                        or all([comicarr.CONFIG.NEWZNAB is True, len(ens) > 0])
+                        or all([runtime.current().config.NEWZNAB is True, len(ens) > 0])
                         and any(
                             [
                                 comicarr.USE_SABNZBD is True,
@@ -2515,9 +2523,12 @@ def searchforissue(
                                 comicarr.USE_BLACKHOLE is True,
                             ]
                         )
-                        or all([comicarr.CONFIG.TORZNAB is True, len(ens) > 0])
+                        or all([runtime.current().config.TORZNAB is True, len(ens) > 0])
                         and any(
-                            [comicarr.CONFIG.ENABLE_TORRENTS is True, comicarr.CONFIG.ENABLE_TORRENT_SEARCH is True]
+                            [
+                                runtime.current().config.ENABLE_TORRENTS is True,
+                                runtime.current().config.ENABLE_TORRENT_SEARCH is True,
+                            ]
                         )
                     ):
                         results = comicarr.app.search.rss_feeds.nzbdbsearch(
@@ -2661,7 +2672,8 @@ def searchforissue(
                                 "smode": xr["searchmode"],
                                 "provider_stat": provider_stat,
                                 "allow_packs": (
-                                    xr["AllowPacks"] in (1, "1", True) and comicarr.CONFIG.ENABLE_TORRENT_SEARCH
+                                    xr["AllowPacks"] in (1, "1", True)
+                                    and runtime.current().config.ENABLE_TORRENT_SEARCH
                                 ),
                                 "foundc": foundc,
                             }
@@ -2948,7 +2960,7 @@ def searchforissue(
 
 
 def searchIssueIDList(issuelist):
-    if search_providers_available(comicarr.CONFIG):
+    if search_providers_available(runtime.current().config):
         for issueid in issuelist:
             comicname = None
             entity_type = "issue"
@@ -3024,7 +3036,7 @@ def nzbname_create(provider, title=None, info=None):
     nzbname = None
 
     if comicarr.USE_BLACKHOLE and all([provider != "32P", provider != "WWT", provider != "DEM"]):
-        if os.path.exists(comicarr.CONFIG.BLACKHOLE_DIR):
+        if os.path.exists(runtime.current().config.BLACKHOLE_DIR):
             ComicName = info[0]["ComicName"]
             IssueNumber = info[0]["IssueNumber"]
             comyear = info[0]["comyear"]
@@ -3162,16 +3174,16 @@ def searcher(
     )
     journal_managed = False
 
-    if comicarr.CONFIG.SAB_PRIORITY:
-        if comicarr.CONFIG.SAB_PRIORITY == "Default":
+    if runtime.current().config.SAB_PRIORITY:
+        if runtime.current().config.SAB_PRIORITY == "Default":
             sabpriority = "-100"
-        elif comicarr.CONFIG.SAB_PRIORITY == "Low":
+        elif runtime.current().config.SAB_PRIORITY == "Low":
             sabpriority = "-1"
-        elif comicarr.CONFIG.SAB_PRIORITY == "Normal":
+        elif runtime.current().config.SAB_PRIORITY == "Normal":
             sabpriority = "0"
-        elif comicarr.CONFIG.SAB_PRIORITY == "High":
+        elif runtime.current().config.SAB_PRIORITY == "High":
             sabpriority = "1"
-        elif comicarr.CONFIG.SAB_PRIORITY == "Paused":
+        elif runtime.current().config.SAB_PRIORITY == "Paused":
             sabpriority = "-2"
     else:
         sabpriority = "0"
@@ -3215,7 +3227,7 @@ def searcher(
 
     logger.fdebug("link given by: %s" % nzbprov)
 
-    if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING:
+    if runtime.current().config.FAILED_DOWNLOAD_HANDLING:
         logger.info("nzbid: %s" % nzbid)
         logger.info("IssueID: %s" % IssueID)
         logger.info("oneoff: %s" % oneoff)
@@ -3398,35 +3410,37 @@ def searcher(
                     " Storing extra value as : %s" % (filen, nzbname, alt_nzbname)
                 )
 
-            if os.path.exists(comicarr.CONFIG.CACHE_DIR):
-                if comicarr.CONFIG.ENFORCE_PERMS:
+            if os.path.exists(runtime.current().config.CACHE_DIR):
+                if runtime.current().config.ENFORCE_PERMS:
                     logger.fdebug(
                         "Cache Directory successfully found at : %s."
-                        " Ensuring proper permissions." % comicarr.CONFIG.CACHE_DIR
+                        " Ensuring proper permissions." % runtime.current().config.CACHE_DIR
                     )
-                    filechecker.setperms(comicarr.CONFIG.CACHE_DIR, True)
+                    filechecker.setperms(runtime.current().config.CACHE_DIR, True)
                 else:
-                    logger.fdebug("Cache Directory successfully found at : %s" % comicarr.CONFIG.CACHE_DIR)
+                    logger.fdebug("Cache Directory successfully found at : %s" % runtime.current().config.CACHE_DIR)
             else:
                 logger.fdebug(
-                    "Could not locate Cache Directory, attempting to create at : %s" % comicarr.CONFIG.CACHE_DIR
+                    "Could not locate Cache Directory, attempting to create at : %s"
+                    % runtime.current().config.CACHE_DIR
                 )
                 try:
-                    filechecker.validateAndCreateDirectory(comicarr.CONFIG.CACHE_DIR, True)
+                    filechecker.validateAndCreateDirectory(runtime.current().config.CACHE_DIR, True)
                     logger.info(
-                        "Temporary NZB Download Directory successfully created at: %s" % comicarr.CONFIG.CACHE_DIR
+                        "Temporary NZB Download Directory successfully created at: %s"
+                        % runtime.current().config.CACHE_DIR
                     )
                 except OSError:
                     raise
 
             if not nzbname.endswith(".nzb"):
                 nzbname = nzbname + ".nzb"
-            nzbpath = _nzb_cache_path(comicarr.CONFIG.CACHE_DIR, nzbname)
+            nzbpath = _nzb_cache_path(runtime.current().config.CACHE_DIR, nzbname)
             write_chunks_atomically(nzbpath, r.iter_content(chunk_size=1024))
 
     sent_to = None
     t_hash = None
-    if comicarr.CONFIG.ENABLE_DDL is True and "DDL" in nzbprov:
+    if runtime.current().config.ENABLE_DDL is True and "DDL" in nzbprov:
         journal_release_key = None
         journal_managed = True
         if all([IssueID is None, IssueArcID is not None]):
@@ -3497,12 +3511,12 @@ def searcher(
     elif comicarr.USE_BLACKHOLE and all(
         [nzbprov != "32P", nzbprov != "WWT", nzbprov != "DEM", provider_stat["type"] != "torznab"]
     ):
-        logger.fdebug("Using blackhole directory at : %s" % comicarr.CONFIG.BLACKHOLE_DIR)
-        if os.path.exists(comicarr.CONFIG.BLACKHOLE_DIR):
+        logger.fdebug("Using blackhole directory at : %s" % runtime.current().config.BLACKHOLE_DIR)
+        if os.path.exists(runtime.current().config.BLACKHOLE_DIR):
             try:
 
                 def _blackhole_sender():
-                    shutil.move(nzbpath, os.path.join(comicarr.CONFIG.BLACKHOLE_DIR, nzbname))
+                    shutil.move(nzbpath, os.path.join(runtime.current().config.BLACKHOLE_DIR, nzbname))
                     return {"status": True}
 
                 handoff.perform_handoff(
@@ -3523,11 +3537,11 @@ def searcher(
             logger.fdebug("Filename saved to your blackhole as : %s" % nzbname)
             logger.info(
                 "Successfully sent .nzb to your Blackhole directory : %s"
-                % (os.path.join(comicarr.CONFIG.BLACKHOLE_DIR, nzbname))
+                % (os.path.join(runtime.current().config.BLACKHOLE_DIR, nzbname))
             )
             sent_to = "has sent it to your Blackhole Directory"
 
-            if comicarr.CONFIG.ENABLE_SNATCH_SCRIPT:
+            if runtime.current().config.ENABLE_SNATCH_SCRIPT:
                 if comicinfo[0]["pack"] is False:
                     pnumbers = None
                     plist = None
@@ -3540,7 +3554,7 @@ def searcher(
                         "id": nzbid,
                         "nzbname": nzbname,
                         "nzbpath": nzbpath,
-                        "blackhole": comicarr.CONFIG.BLACKHOLE_DIR,
+                        "blackhole": runtime.current().config.BLACKHOLE_DIR,
                     },
                     "comicinfo": {
                         "comicname": ComicName,
@@ -3587,7 +3601,7 @@ def searcher(
             logger.error("Torrent handoff could not be durably completed: %s" % type(e).__name__)
             return "torrent-fail"
         if rcheck == "fail":
-            if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING:
+            if runtime.current().config.FAILED_DOWNLOAD_HANDLING:
                 logger.error(
                     "Unable to send torrent to client. Assuming incomplete link -"
                     " sending to Failed Handler and continuing search."
@@ -3633,8 +3647,8 @@ def searcher(
 
             monitorable = torrent_monitor.configured_route() is not None
             legacy_queue_route = any([comicarr.USE_RTORRENT, comicarr.USE_DELUGE])
-            queued_for_monitoring = comicarr.CONFIG.AUTO_SNATCH or comicarr.CONFIG.LOCAL_TORRENT_PP
-            if monitorable and comicarr.CONFIG.AUTO_SNATCH:
+            queued_for_monitoring = runtime.current().config.AUTO_SNATCH or runtime.current().config.LOCAL_TORRENT_PP
+            if monitorable and runtime.current().config.AUTO_SNATCH:
                 runtime.current().snatched_queue.put(
                     {
                         "issueid": IssueID,
@@ -3645,7 +3659,7 @@ def searcher(
                         "journal_release_key": journal_release_key,
                     }
                 )
-            elif monitorable and comicarr.CONFIG.LOCAL_TORRENT_PP:
+            elif monitorable and runtime.current().config.LOCAL_TORRENT_PP:
                 runtime.current().snatched_queue.put(
                     {
                         "issueid": IssueID,
@@ -3657,7 +3671,7 @@ def searcher(
                     }
                 )
             if not (legacy_queue_route and queued_for_monitoring):
-                if comicarr.CONFIG.ENABLE_SNATCH_SCRIPT:
+                if runtime.current().config.ENABLE_SNATCH_SCRIPT:
                     try:
                         if comicinfo[0]["pack"] is False:
                             pnumbers = None
@@ -3711,7 +3725,7 @@ def searcher(
                         logger.warn("error: %s" % e)
 
         if comicarr.USE_WATCHDIR is True:
-            if comicarr.CONFIG.TORRENT_LOCAL is True:
+            if runtime.current().config.TORRENT_LOCAL is True:
                 sent_to = "has sent it to your local Watch folder"
             else:
                 sent_to = "has sent it to your seedbox Watch folder"
@@ -3743,7 +3757,7 @@ def searcher(
             except Exception as e:
                 logger.error("NZBGet handoff could not be durably completed: %s" % type(e).__name__)
                 return "nzbget-fail"
-            if comicarr.CONFIG.NZBGET_CLIENT_POST_PROCESSING is True:
+            if runtime.current().config.NZBGET_CLIENT_POST_PROCESSING is True:
                 if send_to_nzbget["status"] is True:
                     send_to_nzbget["comicid"] = ComicID
                     if IssueID is not None:
@@ -3770,30 +3784,30 @@ def searcher(
 
         elif comicarr.USE_SABNZBD:
             sab_params = {
-                "apikey": comicarr.CONFIG.SAB_APIKEY,
+                "apikey": runtime.current().config.SAB_APIKEY,
                 "mode": "addfile",
                 "nzbname": nzbname,
                 "output": "json",
             }
 
-            if comicarr.CONFIG.SAB_PRIORITY:
-                if comicarr.CONFIG.SAB_PRIORITY == "Default":
+            if runtime.current().config.SAB_PRIORITY:
+                if runtime.current().config.SAB_PRIORITY == "Default":
                     sabpriority = "-100"
-                elif comicarr.CONFIG.SAB_PRIORITY == "Low":
+                elif runtime.current().config.SAB_PRIORITY == "Low":
                     sabpriority = "-1"
-                elif comicarr.CONFIG.SAB_PRIORITY == "Normal":
+                elif runtime.current().config.SAB_PRIORITY == "Normal":
                     sabpriority = "0"
-                elif comicarr.CONFIG.SAB_PRIORITY == "High":
+                elif runtime.current().config.SAB_PRIORITY == "High":
                     sabpriority = "1"
-                elif comicarr.CONFIG.SAB_PRIORITY == "Paused":
+                elif runtime.current().config.SAB_PRIORITY == "Paused":
                     sabpriority = "-2"
             else:
                 sabpriority = "0"
 
             sab_params["priority"] = sabpriority
 
-            if comicarr.CONFIG.SAB_CATEGORY:
-                sab_params["cat"] = comicarr.CONFIG.SAB_CATEGORY
+            if runtime.current().config.SAB_CATEGORY:
+                sab_params["cat"] = runtime.current().config.SAB_CATEGORY
 
             ss = sabnzbd.SABnzbd(sab_params)
             try:
@@ -3813,7 +3827,7 @@ def searcher(
             if all(
                 [
                     sendtosab["status"] is True,
-                    comicarr.CONFIG.SAB_CLIENT_POST_PROCESSING is True,
+                    runtime.current().config.SAB_CLIENT_POST_PROCESSING is True,
                 ]
             ):
                 sendtosab["comicid"] = ComicID
@@ -3835,7 +3849,7 @@ def searcher(
             sent_to = "has sent it to your SABnzbd+"
             logger.info("Successfully sent nzb file to SABnzbd")
 
-        if comicarr.CONFIG.ENABLE_SNATCH_SCRIPT:
+        if runtime.current().config.ENABLE_SNATCH_SCRIPT:
             if comicarr.USE_NZBGET:
                 clientmode = "nzbget"
                 client_id = "%s" % send_to_nzbget["NZBID"]
@@ -3954,19 +3968,19 @@ def notify_snatch(sent_to, comicname, comyear, IssueNumber, nzbprov, pack):
     nzbprov = re.sub(r"\(newznab\)", "", nzbprov).strip()
     nzbprov = re.sub(r"\(torznab\)", "", nzbprov).strip()
 
-    if comicarr.CONFIG.PROWL_ENABLED and comicarr.CONFIG.PROWL_ONSNATCH:
+    if runtime.current().config.PROWL_ENABLED and runtime.current().config.PROWL_ONSNATCH:
         logger.info("Sending Prowl notification")
         prowl = notifiers.PROWL()
         prowl.notify(snatched_name, "Download started using %s" % sent_to)
-    if comicarr.CONFIG.PUSHOVER_ENABLED and comicarr.CONFIG.PUSHOVER_ONSNATCH:
+    if runtime.current().config.PUSHOVER_ENABLED and runtime.current().config.PUSHOVER_ONSNATCH:
         logger.info("Sending Pushover notification")
         pushover = notifiers.PUSHOVER()
         pushover.notify(snline, snatched_nzb=snatched_name, prov=nzbprov, sent_to=sent_to)
-    if comicarr.CONFIG.BOXCAR_ENABLED and comicarr.CONFIG.BOXCAR_ONSNATCH:
+    if runtime.current().config.BOXCAR_ENABLED and runtime.current().config.BOXCAR_ONSNATCH:
         logger.info("Sending Boxcar notification")
         boxcar = notifiers.BOXCAR()
         boxcar.notify(snatched_nzb=snatched_name, sent_to=sent_to, snline=snline)
-    if comicarr.CONFIG.PUSHBULLET_ENABLED and comicarr.CONFIG.PUSHBULLET_ONSNATCH:
+    if runtime.current().config.PUSHBULLET_ENABLED and runtime.current().config.PUSHBULLET_ONSNATCH:
         logger.info("Sending Pushbullet notification")
         pushbullet = notifiers.PUSHBULLET()
         pushbullet.notify(
@@ -3976,11 +3990,11 @@ def notify_snatch(sent_to, comicname, comyear, IssueNumber, nzbprov, pack):
             prov=nzbprov,
             method="POST",
         )
-    if comicarr.CONFIG.TELEGRAM_ENABLED and comicarr.CONFIG.TELEGRAM_ONSNATCH:
+    if runtime.current().config.TELEGRAM_ENABLED and runtime.current().config.TELEGRAM_ONSNATCH:
         logger.info("Sending Telegram notification")
         telegram = notifiers.TELEGRAM()
         telegram.notify("%s - %s - Comicarr %s" % (snline, snatched_name, sent_to))
-    if comicarr.CONFIG.SLACK_ENABLED and comicarr.CONFIG.SLACK_ONSNATCH:
+    if runtime.current().config.SLACK_ENABLED and runtime.current().config.SLACK_ONSNATCH:
         logger.info("Sending Slack notification")
         slack = notifiers.SLACK()
         slack.notify(
@@ -3990,7 +4004,7 @@ def notify_snatch(sent_to, comicname, comyear, IssueNumber, nzbprov, pack):
             sent_to=sent_to,
             prov=nzbprov,
         )
-    if comicarr.CONFIG.DISCORD_ENABLED and comicarr.CONFIG.DISCORD_ONSNATCH:
+    if runtime.current().config.DISCORD_ENABLED and runtime.current().config.DISCORD_ONSNATCH:
         logger.info("Sending Discord notification")
         discord = notifiers.DISCORD()
         discord.notify(
@@ -4000,7 +4014,7 @@ def notify_snatch(sent_to, comicname, comyear, IssueNumber, nzbprov, pack):
             sent_to=sent_to,
             prov=nzbprov,
         )
-    if comicarr.CONFIG.EMAIL_ENABLED and comicarr.CONFIG.EMAIL_ONGRAB:
+    if runtime.current().config.EMAIL_ENABLED and runtime.current().config.EMAIL_ONGRAB:
         logger.info("Sending email notification")
         email = notifiers.EMAIL()
         email.notify(
@@ -4008,7 +4022,7 @@ def notify_snatch(sent_to, comicname, comyear, IssueNumber, nzbprov, pack):
             "Comicarr notification - Snatch",
             module="[SEARCH]",
         )
-    if comicarr.CONFIG.GOTIFY_ENABLED and comicarr.CONFIG.GOTIFY_ONSNATCH:
+    if runtime.current().config.GOTIFY_ENABLED and runtime.current().config.GOTIFY_ONSNATCH:
         logger.info("Sending Gotify notification")
         gotify = notifiers.GOTIFY()
         gotify.notify(
@@ -4018,7 +4032,7 @@ def notify_snatch(sent_to, comicname, comyear, IssueNumber, nzbprov, pack):
             sent_to=sent_to,
             prov=nzbprov,
         )
-    if comicarr.CONFIG.MATRIX_ENABLED and comicarr.CONFIG.MATRIX_ONSNATCH:
+    if runtime.current().config.MATRIX_ENABLED and runtime.current().config.MATRIX_ONSNATCH:
         logger.info("Sending Matrix notification")
         matrix = notifiers.MATRIX()
         matrix.notify(
@@ -4115,10 +4129,10 @@ def last_run_check(write=None, check=None, provider=None):
 
 
 def check_the_search_delay(manual=False):
-    if comicarr.CONFIG.SEARCH_DELAY == "None" or comicarr.CONFIG.SEARCH_DELAY is None or manual:
+    if runtime.current().config.SEARCH_DELAY == "None" or runtime.current().config.SEARCH_DELAY is None or manual:
         pause_the_search = 30
-    elif str(comicarr.CONFIG.SEARCH_DELAY).isdigit() and manual is False:
-        pause_the_search = int(comicarr.CONFIG.SEARCH_DELAY)
+    elif str(runtime.current().config.SEARCH_DELAY).isdigit() and manual is False:
+        pause_the_search = int(runtime.current().config.SEARCH_DELAY)
     else:
         logger.warn("Check Search Delay - invalid numerical given. Force-setting to 30 seconds.")
         pause_the_search = 30

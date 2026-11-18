@@ -47,8 +47,8 @@ def _isolated_db(tmp_path, monkeypatch):
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
         monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(HIGHCOUNT=ISSUED_HIGHCOUNT, SAB_APIKEY="k", SAB_HOST="http://sab.local"),
         raising=False,
     )
@@ -440,11 +440,11 @@ def test_dict_probe_with_location_classifies_complete_and_keeps_folder():
 def test_sab_connection_error_during_historycheck_is_unreachable_not_gone(monkeypatch):
     import requests
 
-    monkeypatch.setattr(comicarr.CONFIG, "SAB_VERIFY", False, raising=False)
-    monkeypatch.setattr(comicarr.CONFIG, "SAB_VERSION", "4.5.0", raising=False)
-    monkeypatch.setattr(comicarr.CONFIG, "SAB_MOVING_DELAY", 0, raising=False)
-    monkeypatch.setattr(comicarr.CONFIG, "SAB_CATEGORY", None, raising=False)
-    monkeypatch.setattr(comicarr.CONFIG, "SAB_HOST", "http://sab.local:8080", raising=False)
+    monkeypatch.setattr(runtime.current().config, "SAB_VERIFY", False, raising=False)
+    monkeypatch.setattr(runtime.current().config, "SAB_VERSION", "4.5.0", raising=False)
+    monkeypatch.setattr(runtime.current().config, "SAB_MOVING_DELAY", 0, raising=False)
+    monkeypatch.setattr(runtime.current().config, "SAB_CATEGORY", None, raising=False)
+    monkeypatch.setattr(runtime.current().config, "SAB_HOST", "http://sab.local:8080", raising=False)
     row = _insert_journal(
         "S2down|sab|n",
         journal.SNATCHED,

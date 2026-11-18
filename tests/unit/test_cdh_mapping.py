@@ -19,6 +19,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.downloads import cdh_mapping
 
 
@@ -41,7 +42,7 @@ def _sab_config(**overrides):
 
 
 def test_sab_without_category_keeps_the_job_folder(monkeypatch, linux):
-    monkeypatch.setattr(comicarr, "CONFIG", _sab_config())
+    monkeypatch.setattr(runtime.current(), "config", _sab_config())
     cdh = cdh_mapping.CDH_MAP("/downloads/complete/Example.001/Example 001.cbz", sab=True)
     monkeypatch.setattr(cdh, "sendsab", lambda params: {"status": {"completedir": "/downloads/complete"}})
 
@@ -49,7 +50,7 @@ def test_sab_without_category_keeps_the_job_folder(monkeypatch, linux):
 
 
 def test_sab_category_without_job_folders_maps_the_file_only(monkeypatch, linux):
-    monkeypatch.setattr(comicarr, "CONFIG", _sab_config(SAB_CATEGORY="comics"))
+    monkeypatch.setattr(runtime.current(), "config", _sab_config(SAB_CATEGORY="comics"))
     cdh = cdh_mapping.CDH_MAP("/downloads/comics/Example 001.cbz", sab=True)
 
     def sendsab(params):
@@ -63,7 +64,9 @@ def test_sab_category_without_job_folders_maps_the_file_only(monkeypatch, linux)
 
 
 def test_nzbget_category_with_append_category_dir(monkeypatch, linux):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(NZBGET_DIRECTORY="/mnt/nzb", NZBGET_CATEGORY="Comics"))
+    monkeypatch.setattr(
+        runtime.current(), "config", SimpleNamespace(NZBGET_DIRECTORY="/mnt/nzb", NZBGET_CATEGORY="Comics")
+    )
     server = MagicMock()
     server.config.return_value = [
         {"Name": "DestDir", "Value": "/downloads/dst"},

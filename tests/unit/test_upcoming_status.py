@@ -14,7 +14,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import insert
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import annuals, comics, issues, metadata, weekly
 from comicarr.app.series import queries as series_queries
@@ -24,7 +23,7 @@ from comicarr.app.storyarcs import queries as arc_queries
 @pytest.fixture
 def upcoming_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()

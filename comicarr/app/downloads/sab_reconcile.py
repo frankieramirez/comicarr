@@ -59,7 +59,7 @@ def row_targets_sab(row, payload=None):
 
 def post_processing_enabled():
     """Whether a pp_queue worker exists to consume what this module queues."""
-    return getattr(getattr(comicarr, "CONFIG", None), "POST_PROCESSING", False) is True
+    return getattr(runtime.current().config, "POST_PROCESSING", False) is True
 
 
 def sab_client_post_processing_enabled():
@@ -68,7 +68,7 @@ def sab_client_post_processing_enabled():
     The one definition of "SABnzbd completed-download handling is on", shared
     by the scheduler (``comicarr.ensure_sab_completed_reconcile``) and the sweep.
     """
-    config = getattr(comicarr, "CONFIG", None)
+    config = runtime.current().config
     if config is None:
         return False
     return bool(
@@ -287,7 +287,7 @@ def locate_job_folder(nzb_name):
     """
     if not nzb_name or os.sep in str(nzb_name):
         return None
-    config = getattr(comicarr, "CONFIG", None)
+    config = runtime.current().config
     for key in ("SAB_DIRECTORY", "NZBGET_DIRECTORY", "CHECK_FOLDER"):
         root = getattr(config, key, None)
         if not root or str(root) == "None":

@@ -114,7 +114,7 @@ class TestAddComictoDBResolution:
             patch("comicarr.app.series.comic_add.series_service"),
             patch("comicarr.app.series.comic_add.cv") as mock_cv,
             patch.object(comicarr, "COMICSORT", {}, create=True),
-            patch.object(comicarr, "CONFIG", MagicMock(IMP_PATHS=False)),
+            patch.object(runtime.current(), "config", MagicMock(IMP_PATHS=False)),
         ):
             conn = mock_db.get_engine.return_value.connect.return_value.__enter__.return_value
             conn.execute.return_value = []
@@ -185,7 +185,7 @@ class TestAnnualSearchRouting:
 
         fake_config = MagicMock(USE_METRON_SEARCH=True, MANGADEX_ENABLED=False)
         with (
-            patch.object(comicarr, "CONFIG", fake_config),
+            patch.object(runtime.current(), "config", fake_config),
             patch.object(runtime.current(), "metron_api", MagicMock()),
             patch("comicarr.app.metadata.metron.search_series") as mock_metron_search,
             patch("comicarr.app.search.mb.listLibrary", side_effect=_StopSearch),

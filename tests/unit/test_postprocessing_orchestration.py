@@ -32,8 +32,8 @@ def isolated_db(tmp_path, monkeypatch):
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(
             HIGHCOUNT=0,
             MANUAL_PP_FOLDER=str(tmp_path),
@@ -166,7 +166,7 @@ def test_a_failed_download_goes_to_failed_handling_and_back_to_search(
 
 
 def test_failed_handling_off_closes_the_journal_with_its_reason(tmp_path, monkeypatch, processor_runs, failed_runs):
-    monkeypatch.setattr(comicarr.CONFIG, "FAILED_DOWNLOAD_HANDLING", False)
+    monkeypatch.setattr(runtime.current().config, "FAILED_DOWNLOAD_HANDLING", False)
     _downloaded("rk-left")
 
     result = postprocessing.run(_item(tmp_path, "rk-left", failed=True))
@@ -220,7 +220,7 @@ def test_a_fail_message_on_a_monitor_scan_is_failed(tmp_path, processor_runs):
 
 
 def test_a_fail_message_keeps_its_log_when_failed_handling_is_off(tmp_path, monkeypatch, processor_runs, failed_runs):
-    monkeypatch.setattr(comicarr.CONFIG, "FAILED_DOWNLOAD_HANDLING", False)
+    monkeypatch.setattr(runtime.current().config, "FAILED_DOWNLOAD_HANDLING", False)
     _, script = processor_runs
     script.append([{"self.log": "why it failed", "mode": "fail"}])
     _downloaded("rk-fail-kept")

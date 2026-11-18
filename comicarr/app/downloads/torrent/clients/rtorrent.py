@@ -15,12 +15,11 @@ import time
 from base64 import b16encode, b32decode
 from urllib.parse import urlparse
 
-import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import numbers as common_numbers
 from comicarr.app.common import strings as common_strings
 from comicarr.app.common.torrent_hash import info_hash_of_file
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.downloads.rtorrent_rpc import RTorrentError, Session
 
 
@@ -102,7 +101,7 @@ class TorrentClient(object):
         }
 
     def load_torrent(self, filepath):
-        start = bool(comicarr.CONFIG.RTORRENT_STARTONLOAD)
+        start = bool(runtime.current().config.RTORRENT_STARTONLOAD)
 
         if filepath.startswith("magnet"):
             logger.fdebug("torrent magnet link set to : " + filepath)
@@ -129,13 +128,13 @@ class TorrentClient(object):
                 logger.error("Unable to find the torrent, did it fail to load?")
                 return False
 
-        if comicarr.CONFIG.RTORRENT_LABEL is not None:
-            torrent.set_label(comicarr.CONFIG.RTORRENT_LABEL)
-            logger.fdebug("Setting label for torrent to : " + comicarr.CONFIG.RTORRENT_LABEL)
+        if runtime.current().config.RTORRENT_LABEL is not None:
+            torrent.set_label(runtime.current().config.RTORRENT_LABEL)
+            logger.fdebug("Setting label for torrent to : " + runtime.current().config.RTORRENT_LABEL)
 
-        if comicarr.CONFIG.RTORRENT_DIRECTORY is not None:
-            torrent.set_directory(comicarr.CONFIG.RTORRENT_DIRECTORY)
-            logger.fdebug("Setting directory for torrent to : " + comicarr.CONFIG.RTORRENT_DIRECTORY)
+        if runtime.current().config.RTORRENT_DIRECTORY is not None:
+            torrent.set_directory(runtime.current().config.RTORRENT_DIRECTORY)
+            logger.fdebug("Setting directory for torrent to : " + runtime.current().config.RTORRENT_DIRECTORY)
 
         logger.info("Successfully loaded torrent.")
 
@@ -164,16 +163,16 @@ def connect_from_config():
     """A connected ``TorrentClient`` for the configured rTorrent; raises RTorrentError otherwise."""
     client = TorrentClient()
     result = client.connect(
-        comicarr.CONFIG.RTORRENT_HOST,
-        comicarr.CONFIG.RTORRENT_USERNAME,
-        comicarr.CONFIG.RTORRENT_PASSWORD,
-        comicarr.CONFIG.RTORRENT_AUTHENTICATION,
-        comicarr.CONFIG.RTORRENT_VERIFY,
-        comicarr.CONFIG.RTORRENT_RPC_URL,
-        comicarr.CONFIG.RTORRENT_CA_BUNDLE,
+        runtime.current().config.RTORRENT_HOST,
+        runtime.current().config.RTORRENT_USERNAME,
+        runtime.current().config.RTORRENT_PASSWORD,
+        runtime.current().config.RTORRENT_AUTHENTICATION,
+        runtime.current().config.RTORRENT_VERIFY,
+        runtime.current().config.RTORRENT_RPC_URL,
+        runtime.current().config.RTORRENT_CA_BUNDLE,
     )
     if isinstance(result, dict):
-        logger.error("[ERROR] Could not connect to %s" % comicarr.CONFIG.RTORRENT_HOST)
+        logger.error("[ERROR] Could not connect to %s" % runtime.current().config.RTORRENT_HOST)
         raise RTorrentError(str(result.get("error") or "rTorrent did not connect"))
     return client
 

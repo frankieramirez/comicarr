@@ -135,7 +135,7 @@ def _run(arc, *, config=None, place=None):
     # missing and every placement would fail for the wrong reason.
     filechecker.validateAndCreateDirectory.side_effect = lambda path, **_kw: os.makedirs(path, exist_ok=True) or True
     with (
-        patch.object(comicarr, "CONFIG", cfg),
+        patch.object(runtime.current(), "config", cfg),
         patch.object(comicarr.app.library, "filechecker", filechecker),
         patch.object(service.placement, "place", spy),
     ):

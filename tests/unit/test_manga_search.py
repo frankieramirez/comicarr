@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.series import service as series_service
 
@@ -177,8 +176,8 @@ class TestSeriesContentKindSearchHandoff:
         from comicarr.app.search import engine as search
 
         monkeypatch.setattr(
-            comicarr,
-            "CONFIG",
+            runtime.current(),
+            "config",
             SimpleNamespace(
                 EXTRA_NEWZNABS=[],
                 EXTRA_TORZNABS=[],

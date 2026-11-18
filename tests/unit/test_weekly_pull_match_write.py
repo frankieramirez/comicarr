@@ -22,7 +22,6 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy import insert, select
 
-import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, issues, metadata, weekly
@@ -35,7 +34,7 @@ from comicarr.app.weekly import pull_list as weeklypull
 def pull_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     db.shutdown_engine()
     engine = db.get_engine()
     metadata.create_all(engine)
@@ -93,7 +92,7 @@ def _patch_pull_job(monkeypatch, upcoming):
     config = MagicMock()
     config.ANNUALS_ON = False
     config.AUTOWANT_UPCOMING = False
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(series_service, "listPull", lambda week, year: ["160294"])
     monkeypatch.setattr(series_service, "checkthepub", lambda comicid: 60)
     monkeypatch.setattr(search_service, "LoadAlternateSearchNames", lambda *_args: None)

@@ -18,6 +18,7 @@ import pytest
 
 import comicarr
 from comicarr.app.common import remote_artifacts
+from comicarr.app.core import runtime
 from comicarr.app.downloads import getcomics
 from comicarr.app.downloads.ddl import mediafire
 from comicarr.app.search import engine as search
@@ -49,7 +50,7 @@ def test_search_cache_path_remains_xmlrpc_compatible_string(tmp_path):
 
 
 def test_mediafire_content_disposition_cannot_escape_download_directory(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(DDL_LOCATION=str(tmp_path)))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(DDL_LOCATION=str(tmp_path)))
     downloader = mediafire.MediaFire()
     downloader.dl_location = str(tmp_path)
     response = SimpleNamespace(
@@ -78,7 +79,7 @@ def test_mediafire_content_disposition_cannot_escape_download_directory(tmp_path
 
 
 def test_mediafire_download_publishes_sanitized_filename_atomically(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(DDL_LOCATION=str(tmp_path)))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(DDL_LOCATION=str(tmp_path)))
     downloader = mediafire.MediaFire()
     downloader.session.get = MagicMock(
         return_value=SimpleNamespace(iter_content=lambda chunk_size: iter([b"comic-data"]))
@@ -105,7 +106,7 @@ def test_zip_extraction_rejects_suspicious_expansion_ratio(tmp_path, monkeypatch
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
         zip_file.writestr("payload.bin", b"0" * (2 * 1024 * 1024))
 
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(DDL_LOCATION=str(tmp_path)))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(DDL_LOCATION=str(tmp_path)))
     downloader = getcomics.GC.__new__(getcomics.GC)
 
     result = downloader.zip_zip("download-1", str(archive), archive.name)
@@ -151,7 +152,7 @@ def test_atomic_chunk_write_preserves_existing_file_mode(tmp_path, monkeypatch):
     destination = tmp_path / "issue.cbz"
     destination.write_bytes(b"existing")
     destination.chmod(0o664)
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(ENFORCE_PERMS=True, CHMOD_FILE="0600"))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(ENFORCE_PERMS=True, CHMOD_FILE="0600"))
 
     remote_artifacts.write_chunks_atomically(destination, [b"replacement"])
 
@@ -163,8 +164,8 @@ def test_atomic_chunk_write_preserves_existing_file_mode(tmp_path, monkeypatch):
 def test_atomic_chunk_write_applies_configured_mode_to_new_file(tmp_path, monkeypatch, configured_mode):
     destination = tmp_path / "issue.cbz"
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(ENFORCE_PERMS=True, CHMOD_FILE=configured_mode),
     )
 
@@ -175,8 +176,8 @@ def test_atomic_chunk_write_applies_configured_mode_to_new_file(tmp_path, monkey
 
 def test_default_permission_policy_uses_captured_umask_without_mutating_it(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(ENFORCE_PERMS=False, CHMOD_FILE="0660", CHMOD_DIR="0777"),
     )
     monkeypatch.setattr(comicarr, "UMASK", 0o022)
@@ -201,7 +202,7 @@ def test_atomic_replacement_reapplies_existing_ownership(tmp_path, monkeypatch):
     destination = tmp_path / "issue.cbz"
     destination.write_bytes(b"existing")
     expected_ownership = (destination.stat().st_uid, destination.stat().st_gid)
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(ENFORCE_PERMS=False))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(ENFORCE_PERMS=False))
     monkeypatch.setattr(comicarr, "UMASK", 0o022)
     original_chown = os.chown
     ownership_calls = []
@@ -223,7 +224,7 @@ def test_atomic_replacement_ownership_failure_keeps_original(tmp_path, monkeypat
     destination = tmp_path / "issue.cbz"
     destination.write_bytes(b"existing")
     original_stat = destination.stat()
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(ENFORCE_PERMS=False))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(ENFORCE_PERMS=False))
     monkeypatch.setattr(comicarr, "UMASK", 0o022)
     monkeypatch.setattr(
         remote_artifacts.os,
@@ -305,8 +306,8 @@ def test_zip_extraction_applies_configured_modes_to_new_tree(tmp_path, monkeypat
     with zipfile.ZipFile(archive, "w") as zip_file:
         zip_file.writestr("pages/001.jpg", b"page")
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(ENFORCE_PERMS=True, CHMOD_DIR="0750", CHMOD_FILE="0640"),
     )
 
@@ -328,8 +329,8 @@ def test_enforced_modes_preserve_directory_setgid_but_strip_file_special_bits(
     configured_file_mode,
 ):
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             ENFORCE_PERMS=True,
             CHMOD_DIR=configured_directory_mode,
@@ -352,7 +353,7 @@ def test_enforced_modes_preserve_directory_setgid_but_strip_file_special_bits(
 
 
 def test_new_artifacts_use_secure_modes_when_config_is_unavailable(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace())
     monkeypatch.setattr(comicarr, "UMASK", None)
     file_destination = tmp_path / "issue.cbz"
     remote_artifacts.write_chunks_atomically(file_destination, [b"comic"])
@@ -373,8 +374,8 @@ def test_new_artifacts_use_secure_modes_when_config_is_unavailable(tmp_path, mon
 def test_enforced_new_artifacts_apply_configured_numeric_ownership(tmp_path, monkeypatch):
     expected_ownership = (os.getuid(), os.getgid())
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             ENFORCE_PERMS=True,
             CHMOD_DIR="0750",
@@ -413,8 +414,8 @@ def test_enforced_new_artifacts_resolve_named_owner_and_group(tmp_path, monkeypa
     grp = pytest.importorskip("grp")
     expected_ownership = (os.getuid(), os.getgid())
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             ENFORCE_PERMS=True,
             CHMOD_FILE="0640",
@@ -450,7 +451,7 @@ def test_zip_swap_reapplies_ownership_to_every_existing_file_and_directory(tmp_p
     }
     with zipfile.ZipFile(archive, "w") as zip_file:
         zip_file.writestr("pages/001.jpg", b"new")
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(ENFORCE_PERMS=False))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(ENFORCE_PERMS=False))
     monkeypatch.setattr(comicarr, "UMASK", 0o022)
     original_chown = os.chown
     ownership_calls = []
@@ -529,7 +530,7 @@ def test_bounded_staging_names_support_near_limit_destinations(tmp_path):
 def test_zip_zip_preserves_string_path_for_non_archive(tmp_path, monkeypatch):
     comic_file = tmp_path / "issue.cbz"
     comic_file.write_bytes(b"comic")
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(DDL_LOCATION=str(tmp_path)))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(DDL_LOCATION=str(tmp_path)))
     downloader = getcomics.GC.__new__(getcomics.GC)
 
     result = downloader.zip_zip("download-1", str(comic_file), comic_file.name)

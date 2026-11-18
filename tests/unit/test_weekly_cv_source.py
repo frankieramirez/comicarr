@@ -13,8 +13,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import comicarr
 from comicarr.app.common import configured as configured
+from comicarr.app.core import runtime
 from comicarr.app.weekly import cv_source
 from comicarr.app.weekly import pull_list as weeklypull
 
@@ -51,7 +51,7 @@ def _issue(issue_id, volume_id, number, name="Series"):
 def cv_config(monkeypatch):
     config = MagicMock()
     config.COMICVINE_API = "test-key"
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     return config
 
 

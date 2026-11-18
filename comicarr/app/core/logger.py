@@ -28,6 +28,7 @@ from logging import Formatter
 
 import comicarr
 from comicarr.app.common import dates as common_dates
+from comicarr.app.core import runtime
 
 MAX_LOGLIST_ENTRIES = 2500
 
@@ -234,8 +235,8 @@ def configure_log_level(level):
     comicarr.LOG_LEVEL = level
     initLogger(
         console=True,
-        log_dir=comicarr.CONFIG.LOG_DIR,
-        max_logsize=comicarr.CONFIG.MAX_LOGSIZE,
-        max_logfiles=comicarr.CONFIG.MAX_LOGFILES,
+        log_dir=runtime.current().config.LOG_DIR,
+        max_logsize=runtime.current().config.MAX_LOGSIZE,
+        max_logfiles=runtime.current().config.MAX_LOGFILES,
         loglevel=level,
     )

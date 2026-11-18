@@ -15,6 +15,7 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.tables import comics, metadata
 from comicarr.app.manga import add as manga_add
 from comicarr.app.metadata import service as metadata_service
@@ -44,7 +45,7 @@ def empty_library(monkeypatch, tmp_path):
     metadata.create_all(engine)
     monkeypatch.setattr(comicarr.app.core.db, "get_engine", lambda: engine)
     config = _config(tmp_path)
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     return SimpleNamespace(engine=engine, ctx=SimpleNamespace(config=config), tmp_path=tmp_path)
 
 

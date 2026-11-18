@@ -629,7 +629,7 @@ def persist_manga_location_if_needed(existing, manga_dest=None):
 
 
 def _magazine_destination():
-    return _series_text(getattr(comicarr.CONFIG, "MAGAZINE_DESTINATION_DIR", None))
+    return _series_text(getattr(runtime.current().config, "MAGAZINE_DESTINATION_DIR", None))
 
 
 def magazine_location_for_reclassify(existing, magazine_dest):
@@ -1339,7 +1339,7 @@ def get_wanted_by_series(ctx, limit=50, offset=0, search=None, state="all", kind
 
 def import_confidence_bar(ctx=None):
     """The auto-import confidence bar; the Import page's Confident tab uses the same one."""
-    config = getattr(ctx, "config", None) or comicarr.CONFIG
+    config = getattr(ctx, "config", None) or runtime.current().config
     try:
         return int(getattr(config, "AUTO_IMPORT_CONFIDENCE", 80) or 80)
     except (TypeError, ValueError):
@@ -1410,7 +1410,7 @@ def refresh_import(ctx):
     """Trigger an import inbox scan in the background."""
     from comicarr.app.imports import importinbox
 
-    import_dir = getattr(comicarr.CONFIG, "IMPORT_DIR", None) if comicarr.CONFIG else None
+    import_dir = getattr(runtime.current().config, "IMPORT_DIR", None) if runtime.current().config else None
     if not import_dir:
         return {"success": False, "error": "Import directory not configured"}
 
@@ -1431,7 +1431,7 @@ def manga_library_scan(ctx):
     """Trigger a manga library scan in the background."""
     from comicarr.app.manga import mangasync
 
-    manga_dir = library_scan_dir(comicarr.CONFIG, "manga")
+    manga_dir = library_scan_dir(runtime.current().config, "manga")
     if not manga_dir:
         return {"success": False, "error": "Set a manga folder in Settings, General first"}
     if not os.path.isdir(manga_dir):
@@ -1480,7 +1480,7 @@ def comic_library_scan(ctx):
     """Trigger a comic library scan in the background."""
     from comicarr.app.series import comicsync
 
-    comic_dir = library_scan_dir(comicarr.CONFIG, "comic")
+    comic_dir = library_scan_dir(runtime.current().config, "comic")
     if not comic_dir:
         return {"success": False, "error": "Set a library folder in Settings, General first"}
     if not os.path.isdir(comic_dir):
@@ -1585,10 +1585,10 @@ def updateComicLocation():
 
     from comicarr.app.common.strings import filesafe, replace_all
 
-    if comicarr.CONFIG.NEWCOM_DIR is not None:
+    if runtime.current().config.NEWCOM_DIR is not None:
         logger.info("Performing a one-time mass update to Comic Location")
         checkdirectory = comicarr.app.library.filechecker.validateAndCreateDirectory(
-            comicarr.CONFIG.NEWCOM_DIR, create=True
+            runtime.current().config.NEWCOM_DIR, create=True
         )
         if not checkdirectory:
             logger.warn("Error trying to validate/create directory. Aborting this process at this time.")
@@ -1608,12 +1608,12 @@ def updateComicLocation():
                     booktype = dl["Corrected_Type"]
                 else:
                     booktype = dl["Type"]
-                if booktype == "Print" or all([booktype != "Print", comicarr.CONFIG.FORMAT_BOOKTYPE is False]):
-                    chunk_fb = re.sub(r"\$Type", "", comicarr.CONFIG.FOLDER_FORMAT)
+                if booktype == "Print" or all([booktype != "Print", runtime.current().config.FORMAT_BOOKTYPE is False]):
+                    chunk_fb = re.sub(r"\$Type", "", runtime.current().config.FOLDER_FORMAT)
                     chunk_b = re.compile(r"\s+")
                     chunk_folder_format = chunk_b.sub(" ", chunk_fb)
                 else:
-                    chunk_folder_format = comicarr.CONFIG.FOLDER_FORMAT
+                    chunk_folder_format = runtime.current().config.FOLDER_FORMAT
 
                 comversion = dl["ComicVersion"]
                 if comversion is None:
@@ -1645,18 +1645,18 @@ def updateComicLocation():
                     "$Type": booktype,
                 }
 
-                ccdir = re.sub(r"[\\|/]", "%&", comicarr.CONFIG.NEWCOM_DIR)
-                ddir = re.sub(r"[\\|/]", "%&", comicarr.CONFIG.DESTINATION_DIR)
+                ccdir = re.sub(r"[\\|/]", "%&", runtime.current().config.NEWCOM_DIR)
+                ddir = re.sub(r"[\\|/]", "%&", runtime.current().config.DESTINATION_DIR)
                 dlc = re.sub(r"[\\|/]", "%&", dl["ComicLocation"])
 
-                if comicarr.CONFIG.FFTONEWCOM_DIR:
-                    if comicarr.CONFIG.FOLDER_FORMAT == "":
+                if runtime.current().config.FFTONEWCOM_DIR:
+                    if runtime.current().config.FOLDER_FORMAT == "":
                         comlocation = re.sub(ddir, ccdir, dlc).strip()
                     else:
                         first = replace_all(folderformat, values)
-                        if comicarr.CONFIG.REPLACE_SPACES:
-                            first = first.replace(" ", comicarr.CONFIG.REPLACE_CHAR)
-                        comlocation = os.path.join(comicarr.CONFIG.NEWCOM_DIR, first).strip()
+                        if runtime.current().config.REPLACE_SPACES:
+                            first = first.replace(" ", runtime.current().config.REPLACE_CHAR)
+                        comlocation = os.path.join(runtime.current().config.NEWCOM_DIR, first).strip()
 
                 else:
                     comlocation = re.sub(ddir, ccdir, dlc).strip()
@@ -1670,7 +1670,7 @@ def updateComicLocation():
                 comloc.append({"comlocation": com_done, "origlocation": dl["ComicLocation"], "comicid": dl["ComicID"]})
 
             if len(comloc) > 0:
-                if comicarr.CONFIG.FFTONEWCOM_DIR:
+                if runtime.current().config.FFTONEWCOM_DIR:
                     logger.info(
                         "FFTONEWCOM_DIR is enabled. Applying the existing folder format to ALL directories regardless of existing location paths"
                     )
@@ -1696,7 +1696,7 @@ def updateComicLocation():
             logger.info(
                 "There are no series in your watchlist to Update the locations. Not updating anything at this time."
             )
-        comicarr.CONFIG.writeconfig(values={"locmove": False})
+        runtime.current().config.writeconfig(values={"locmove": False})
     else:
         logger.info("No new ComicLocation path specified - not updating. Set NEWCOMD_DIR in config.ini")
     return
@@ -1711,13 +1711,13 @@ def checkthepub(ComicID):
         logger.fdebug(
             "No publisher information found to aid in determining series..defaulting to base check of 55 days."
         )
-        return comicarr.CONFIG.BIGGIE_PUB
+        return runtime.current().config.BIGGIE_PUB
     else:
         for publish in publishers:
             if publish in pubchk["ComicPublisher"].lower():
-                return comicarr.CONFIG.BIGGIE_PUB
+                return runtime.current().config.BIGGIE_PUB
 
-        return comicarr.CONFIG.INDIE_PUB
+        return runtime.current().config.INDIE_PUB
 
 
 _havetotals_cache = None
@@ -1739,7 +1739,7 @@ def havetotals(refreshit=None):
     comics_list = []
 
     if refreshit is None:
-        if comicarr.CONFIG.ANNUALS_ON:
+        if runtime.current().config.ANNUALS_ON:
             stmt = (
                 select(comics, func.count(annuals.c.IssueID).label("TotalAnnuals"))
                 .outerjoin(annuals, annuals.c.ComicID == comics.c.ComicID)
@@ -1952,7 +1952,7 @@ def listLibrary(comicid=None):
 
     library = {}
     if comicid is None:
-        if comicarr.CONFIG.ANNUALS_ON is True:
+        if runtime.current().config.ANNUALS_ON is True:
             stmt = (
                 select(
                     comics.c.ComicID,
@@ -1977,7 +1977,7 @@ def listLibrary(comicid=None):
             ).group_by(comics.c.ComicID)
     else:
         cleaned_id = re.sub("4050-", "", comicid).strip()
-        if comicarr.CONFIG.ANNUALS_ON is True:
+        if runtime.current().config.ANNUALS_ON is True:
             stmt = (
                 select(
                     comics.c.ComicID,

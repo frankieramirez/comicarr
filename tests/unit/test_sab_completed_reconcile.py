@@ -35,8 +35,8 @@ def _isolated_db(tmp_path, monkeypatch):
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
         monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(
             HIGHCOUNT=0,
             SAB_APIKEY="k",
@@ -352,7 +352,7 @@ def _sab_payload(issueid="14", nzo_id="SABnzbd_nzo_014"):
 
 def test_retry_is_refused_and_hidden_when_post_processing_is_off(pp_queue, monkeypatch):
     row = _snatched_sab("14|nzbgeek", _sab_payload(), issueid="14")
-    monkeypatch.setattr(comicarr.CONFIG, "POST_PROCESSING", False)
+    monkeypatch.setattr(runtime.current().config, "POST_PROCESSING", False)
 
     with pytest.raises(RetryPostProcessError) as raised:
         sab_reconcile.retry_postprocess(row["release_key"])
@@ -625,7 +625,7 @@ def test_processor_stops_watching_once_its_job_leaves_the_queue(monkeypatch):
     monkeypatch.setattr(sabnzbd.time, "sleep", lambda seconds: None)
     monkeypatch.setattr(sabnzbd.requests, "get", get)
     monkeypatch.setattr(sabnzbd.SABnzbd, "historycheck", historycheck)
-    monkeypatch.setattr(comicarr.CONFIG, "SAB_VERIFY", False, raising=False)
+    monkeypatch.setattr(runtime.current().config, "SAB_VERIFY", False, raising=False)
 
     client = sabnzbd.SABnzbd(
         {
@@ -653,7 +653,7 @@ def test_historycheck_probe_leaves_completed_history_in_sab(tmp_path, monkeypatc
     removed = []
     monkeypatch.setattr(sabnzbd.SABnzbd, "remove_history", lambda self, nzo_id, status: removed.append(nzo_id))
     for key, value in {"SAB_VERSION": "4.0.0", "SAB_VERIFY": False, "SAB_DIRECT_UNPACK": False}.items():
-        monkeypatch.setattr(comicarr.CONFIG, key, value, raising=False)
+        monkeypatch.setattr(runtime.current().config, key, value, raising=False)
     nzbinfo = {"nzo_id": "SABnzbd_nzo_013", "issueid": "13", "comicid": "C13", "download_info": {}}
     client = sabnzbd.SABnzbd({})
 

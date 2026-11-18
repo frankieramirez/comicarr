@@ -15,7 +15,6 @@ import zipfile
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import comicarr
 from comicarr.app.attention import ManualReview
 from comicarr.app.core import runtime
 from comicarr.app.downloads.failed import FAIL_REASON_NO_AUTO_HANDLING
@@ -179,8 +178,8 @@ def test_cdh_monitor_owned_failed_in_sab_retries_when_handling_on(monkeypatch):
     )
     monkeypatch.setattr(runtime.current(), "pp_queue", fake_pp, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(FAILED_DOWNLOAD_HANDLING=True),
         raising=False,
     )
@@ -215,8 +214,8 @@ def test_cdh_monitor_owned_failed_in_sab_terminalizes_when_handling_off(monkeypa
         lambda rkey, reason, **kwargs: terminalized.append({"rkey": rkey, "reason": reason}) or True,
     )
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(FAILED_DOWNLOAD_HANDLING=False),
         raising=False,
     )
@@ -238,8 +237,8 @@ def test_cdh_monitor_owned_failed_no_auto_handling_uses_shared_helper(monkeypatc
         lambda rkey, reason, **kwargs: terminalized.append({"rkey": rkey, "reason": reason}) or True,
     )
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(FAILED_DOWNLOAD_HANDLING=False),
         raising=False,
     )

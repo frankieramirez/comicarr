@@ -165,7 +165,7 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
         logger.info("Import is currently running - deferring this until the next scheduled run sequence.")
         return
     if ComicIDList is None:
-        if comicarr.CONFIG.UPDATE_ENDED:
+        if runtime.current().config.UPDATE_ENDED:
             logger.info(
                 "Updating only Continuing Series (option enabled) - this might cause problems with the pull-list matching for rebooted series"
             )
@@ -275,7 +275,7 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
     if sched is True:
         logger.fdebug(
             "Refresh sequence set to fire every %s minutes for %s day(s)"
-            % (comicarr.CONFIG.DBUPDATE_INTERVAL, comicarr.CONFIG.REFRESH_CACHE)
+            % (runtime.current().config.DBUPDATE_INTERVAL, runtime.current().config.REFRESH_CACHE)
         )
 
     for comic in sorted(
@@ -308,7 +308,7 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
                 n_date = datetime.datetime.now()
                 absdiff = abs(n_date - c_obj_date)
                 hours = (absdiff.days * 24 * 60 * 60 + absdiff.seconds) / 3600.0
-                cache_hours = comicarr.CONFIG.REFRESH_CACHE * 24
+                cache_hours = runtime.current().config.REFRESH_CACHE * 24
                 if hours < cache_hours:
                     cnt += 1
                     continue
@@ -376,7 +376,7 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
             )
             return
         else:
-            if comicarr.CONFIG.CV_ONETIMER == 1:
+            if runtime.current().config.CV_ONETIMER == 1:
                 logger.fdebug("CV_OneTimer option enabled...")
                 logger.fdebug("Gathering the status of all issues for the series.")
                 iss_list = db.select_all(select(issues).where(issues.c.ComicID == ComicID))
@@ -399,7 +399,7 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
 
                 annload = []
 
-                if comicarr.CONFIG.ANNUALS_ON:
+                if runtime.current().config.ANNUALS_ON:
                     annual_load = db.select_all(
                         select(annuals).where((annuals.c.ComicID == ComicID) & (annuals.c.Deleted != 1))
                     )
@@ -464,7 +464,7 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
 
                     issues_new = db.select_all(select(issues).where(issues.c.ComicID == ComicID))
                     ann_list = []
-                    if comicarr.CONFIG.ANNUALS_ON:
+                    if runtime.current().config.ANNUALS_ON:
                         annuals_list = db.select_all(select(annuals).where(annuals.c.ComicID == ComicID))
                         ann_list += annuals_list
                         issues_new += annuals_list
@@ -528,12 +528,15 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
                                                     % (issue["Status"], issue["Issue_Number"])
                                                 )
                                             else:
-                                                if comicarr.CONFIG.AUTOWANT_ALL:
+                                                if runtime.current().config.AUTOWANT_ALL:
                                                     newVAL = {"Status": "Wanted"}
                                                 elif lastupdated is None:
                                                     logger.fdebug("serieslast_updated is None. Setting to Skipped")
                                                     newVAL = {"Status": "Skipped"}
-                                                elif issue_week >= now_week and comicarr.CONFIG.AUTOWANT_UPCOMING:
+                                                elif (
+                                                    issue_week >= now_week
+                                                    and runtime.current().config.AUTOWANT_UPCOMING
+                                                ):
                                                     logger.fdebug(
                                                         "Issue_week: %s -- now_week: %s" % (issue_week, now_week)
                                                     )
@@ -545,7 +548,7 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
                                                 elif all(
                                                     [
                                                         int(re.sub("-", "", lastupdated).strip()) < int(dk),
-                                                        comicarr.CONFIG.AUTOWANT_UPCOMING is True,
+                                                        runtime.current().config.AUTOWANT_UPCOMING is True,
                                                     ]
                                                 ):
                                                     logger.info(
@@ -639,20 +642,20 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
                                     % (iss["Status"], iss["Issue_Number"])
                                 )
                             else:
-                                if comicarr.CONFIG.AUTOWANT_ALL:
+                                if runtime.current().config.AUTOWANT_ALL:
                                     logger.fdebug("autowant all")
                                     newstatus = "Wanted"
                                 elif lastupdated is None:
                                     logger.fdebug("serieslast_updated is None. Setting to Skipped")
                                     newstatus = "Skipped"
-                                elif issue_week >= now_week and comicarr.CONFIG.AUTOWANT_UPCOMING:
+                                elif issue_week >= now_week and runtime.current().config.AUTOWANT_UPCOMING:
                                     logger.fdebug("Issue_week: %s -- now_week: %s" % (issue_week, now_week))
                                     logger.fdebug("Issue date [%s] is in/beyond current week - marking as Wanted." % dk)
                                     newstatus = "Wanted"
                                 elif all(
                                     [
                                         int(re.sub("-", "", lastupdated).strip()) < int(dk),
-                                        comicarr.CONFIG.AUTOWANT_UPCOMING is True,
+                                        runtime.current().config.AUTOWANT_UPCOMING is True,
                                     ]
                                 ):
                                     logger.info("Autowant upcoming triggered for issue #%s" % issue["Issue_Number"])
@@ -664,7 +667,7 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
 
                         newiss.append({"IssueID": iss["IssueID"], "Status": newstatus, "Annual": False})
 
-                    if comicarr.CONFIG.ANNUALS_ON:
+                    if runtime.current().config.ANNUALS_ON:
                         annualsnew = db.select_all(
                             select(annuals).where(
                                 (annuals.c.ComicID == ComicID) & (annuals.c.Status == None)  # noqa: E711
@@ -697,13 +700,13 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
                                         % (ann["Status"], ann["Issue_Number"])
                                     )
                                 else:
-                                    if comicarr.CONFIG.AUTOWANT_ALL:
+                                    if runtime.current().config.AUTOWANT_ALL:
                                         logger.fdebug("autowant all")
                                         newstatus = "Wanted"
                                     elif lastupdated is None:
                                         logger.fdebug("serieslast_updated is None. Setting to Skipped")
                                         newstatus = "Skipped"
-                                    elif issue_week >= now_week and comicarr.CONFIG.AUTOWANT_UPCOMING:
+                                    elif issue_week >= now_week and runtime.current().config.AUTOWANT_UPCOMING:
                                         logger.fdebug("Issue_week: %s -- now_week: %s" % (issue_week, now_week))
                                         logger.fdebug(
                                             "Issue date [%s] is in/beyond current week - marking as Wanted." % dk
@@ -712,7 +715,7 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
                                     elif all(
                                         [
                                             int(re.sub("-", "", lastupdated).strip()) < int(dk),
-                                            comicarr.CONFIG.AUTOWANT_UPCOMING is True,
+                                            runtime.current().config.AUTOWANT_UPCOMING is True,
                                         ]
                                     ):
                                         logger.info("Autowant upcoming triggered for issue #%s" % ann["Issue_Number"])
@@ -738,7 +741,7 @@ def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
                     )
                     rescan.rescan_series(ComicID)
 
-                    if not calledfrom == "json_api" and comicarr.CONFIG.SERIES_METADATA_LOCAL is True:
+                    if not calledfrom == "json_api" and runtime.current().config.SERIES_METADATA_LOCAL is True:
                         sm = series_metadata.metadata_Series(ComicID, bulk=False, api=False)
                         sm.update_metadata()
 
@@ -792,12 +795,12 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
         last_runtimestamp = chk_time["prev_run_timestamp"]
     elif comicarr.DB_BACKFILL is True:
         ld = datetime.datetime.today()
-        lastrun = ld - datetime.timedelta(weeks=comicarr.CONFIG.BACKFILL_LENGTH)
+        lastrun = ld - datetime.timedelta(weeks=runtime.current().config.BACKFILL_LENGTH)
         last_date = datetime.datetime.strftime(lastrun, "%Y-%m-%d %H:%M:%S")
         logger.info(
             "[BACKFILL-UPDATE][%s weeks] Setting backfill date to : %s. Anything that has "
             " been updated since this date will get refreshed. Let's GoOoo"
-            % (comicarr.CONFIG.BACKFILL_LENGTH, last_date)
+            % (runtime.current().config.BACKFILL_LENGTH, last_date)
         )
 
     if last_run is not None:
@@ -859,13 +862,13 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
             logger.info(
                 "[BACKFILL-UPDATE] %s items returned since last CV update run. Will run every"
                 " %s minutes grabbing the next 1500 results each time"
-                % (update_list["totalcount"], comicarr.CONFIG.BACKFILL_TIMESPAN)
+                % (update_list["totalcount"], runtime.current().config.BACKFILL_TIMESPAN)
             )
             comicarr.DB_BACKFILL = True
 
     library = {}
 
-    if comicarr.CONFIG.ANNUALS_ON is True:
+    if runtime.current().config.ANNUALS_ON is True:
         ann_stmt = (
             select(
                 comics.c.ComicName,
@@ -903,7 +906,7 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
             )
             continue
 
-        if row["ComicName"] is None and comicarr.CONFIG.ANNUALS_ON:
+        if row["ComicName"] is None and runtime.current().config.ANNUALS_ON:
             logger.fdebug("Popping the check for: %s" % row["ComicID"])
             popthecheck.append(
                 {"comicid": row["ComicID"], "comicname": row["ComicName"], "seriesyear": row["ComicYear"]}

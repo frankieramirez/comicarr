@@ -31,8 +31,7 @@ from datetime import date, timedelta
 
 from sqlalchemy import delete, select
 
-import comicarr
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import rss_search_seen, search_backlog_state
 
 PASS_RSS_WANTED = "rss_wanted"
@@ -47,7 +46,7 @@ _LOOKUP_MEMO: ContextVar[dict | None] = ContextVar("rss_lookup_memo", default=No
 
 
 def _config_int(name: str, default: int) -> int:
-    config = getattr(comicarr, "CONFIG", None)
+    config = runtime.current().config
     if config is None:
         return default
     raw = getattr(config, name, default)

@@ -15,6 +15,7 @@ import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from comicarr.app.core import runtime
 from comicarr.app.manga.acquisition import search_plan_for_series, search_terms_for_target
 from comicarr.app.manga.ledger import volume_numbers_match
 from comicarr.app.manga.parse import parse_in_series_context, parse_kwargs_for_series
@@ -154,7 +155,7 @@ def test_manga_check_searches_blended_targets_not_every_wanted_chapter():
         {"IssueID": "md-abc-ch100", "ChapterNumber": "100", "VolumeNumber": None, "Status": "Wanted"},
     ]
     with (
-        patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False)),
+        patch.object(runtime.current(), "config", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False)),
         patch("comicarr.app.search.rss_feeds.series_service") as mock_helpers,
         patch("comicarr.app.search.rss_feeds.db") as mock_db,
         patch("comicarr.app.search.engine.search_init") as mock_search,

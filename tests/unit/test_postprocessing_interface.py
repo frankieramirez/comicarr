@@ -30,8 +30,8 @@ def isolated_db(tmp_path, monkeypatch):
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(
             HIGHCOUNT=0,
             MANUAL_PP_FOLDER=str(tmp_path),
@@ -204,7 +204,7 @@ def test_constructor_failure_releases_global_lock(monkeypatch, tmp_path, apilock
 
 def test_nested_retry_outside_keeps_canonical_key_and_public_lock(monkeypatch, tmp_path, apilock):
     seen = []
-    monkeypatch.setattr(comicarr.CONFIG, "IGNORE_SEARCH_WORDS", [], raising=False)
+    monkeypatch.setattr(runtime.current().config, "IGNORE_SEARCH_WORDS", [], raising=False)
 
     def process_once(request, *, match, deps):
         seen.append((request.journal_release_key, request.api_call, apilock.locked()))
@@ -271,8 +271,8 @@ def test_run_executes_real_legacy_manga_adapter_and_completes(tmp_path, monkeypa
     (incoming / "Real Manga 1.cbz").write_bytes(b"comic")
     destination = series_root
     destination.parent.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(comicarr.CONFIG, "IGNORE_SEARCH_WORDS", [], raising=False)
-    monkeypatch.setattr(comicarr.CONFIG, "FILE_OPTS", "move", raising=False)
+    monkeypatch.setattr(runtime.current().config, "IGNORE_SEARCH_WORDS", [], raising=False)
+    monkeypatch.setattr(runtime.current().config, "FILE_OPTS", "move", raising=False)
     monkeypatch.setattr(
         "comicarr.app.downloads.postprocess_match.get_manga_destination",
         lambda: str(manga_root),
@@ -453,7 +453,7 @@ def _stop_payload(tmp_path):
 def test_recover_stop_rotates_payload_then_quarantines_after_bound(monkeypatch, tmp_path):
     from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS
 
-    monkeypatch.setattr(comicarr.CONFIG, "IGNORE_SEARCH_WORDS", [], raising=False)
+    monkeypatch.setattr(runtime.current().config, "IGNORE_SEARCH_WORDS", [], raising=False)
     key = "stop-release"
     _insert_journal(key, journal.POST_PROCESSING, payload=_stop_payload(tmp_path))
     calls = []

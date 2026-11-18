@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy import insert
 
-import comicarr
 from comicarr.app.common import configured
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import metadata, weekly
@@ -25,7 +24,7 @@ from comicarr.app.weekly import pull_list as weeklypull
 @pytest.fixture
 def weekly_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()
@@ -61,7 +60,7 @@ def test_pullit_uses_cached_week_when_upstream_fails(monkeypatch):
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(
         configured,
         "weekly_info",
@@ -85,7 +84,7 @@ def test_pullit_still_fails_without_cached_week(monkeypatch):
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(
         configured,
         "weekly_info",
@@ -107,7 +106,7 @@ def test_pullit_forwards_origin_outage_on_cached_week(monkeypatch):
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(
         configured,
         "weekly_info",
@@ -141,7 +140,7 @@ def test_pullit_surfaces_retry_hint_when_serving_cached_week(monkeypatch):
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(
         configured,
         "weekly_info",
@@ -167,7 +166,7 @@ def test_pullit_forwards_origin_outage_cause_on_failure(monkeypatch):
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(
         configured,
         "weekly_info",
@@ -202,7 +201,7 @@ def test_pullit_surfaces_retry_hint_on_failure(monkeypatch):
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(
         configured,
         "weekly_info",
@@ -228,7 +227,7 @@ def test_pullit_drops_origin_metadata_when_later_week_fails_without_origin(monke
     config.ALT_PULL = 2
     config.CACHE_DIR = "/tmp"
     config.COMICVINE_API = None  # no ComicVine fallback; see test_weekly_cv_source.py
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(
         configured,
         "weekly_info",

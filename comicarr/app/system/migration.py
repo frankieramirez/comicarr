@@ -435,9 +435,9 @@ def migrate_mylar3_config(source_path):
         logger.warn("[MIGRATION] No config.ini found at %s, skipping config migration" % source_path)
         return
 
-    if not comicarr.CONFIG.SECURE_DIR:
-        comicarr.CONFIG.SECURE_DIR = os.path.join(runtime.current().data_dir, ".secure")
-    os.makedirs(comicarr.CONFIG.SECURE_DIR, mode=0o700, exist_ok=True)
+    if not runtime.current().config.SECURE_DIR:
+        runtime.current().config.SECURE_DIR = os.path.join(runtime.current().data_dir, ".secure")
+    os.makedirs(runtime.current().config.SECURE_DIR, mode=0o700, exist_ok=True)
 
     fernet = encrypted._get_fernet()
     if fernet is None:
@@ -514,7 +514,7 @@ def migrate_mylar3_config(source_path):
         logger.warn("[MIGRATION] Skipping %s — no config definition for it in this version" % key)
         del values[key]
 
-    comicarr.CONFIG.writeconfig(values)
+    runtime.current().config.writeconfig(values)
     logger.info("[MIGRATION] Config migration completed — %d settings imported" % len(values))
 
 

@@ -11,6 +11,8 @@
 
 from unittest.mock import MagicMock, patch
 
+from comicarr.app.core import runtime
+
 
 def test_missing_directory_requested_for_creation_is_not_warned(tmp_path):
     from comicarr.app.library import directories
@@ -20,7 +22,10 @@ def test_missing_directory_requested_for_creation_is_not_warned(tmp_path):
     config.ENFORCE_PERMS = False
     config.CHMOD_DIR = "0777"
 
-    with patch("comicarr.CONFIG", config), patch("comicarr.app.library.directories.logger") as mock_logger:
+    with (
+        patch.object(runtime.current(), "config", config),
+        patch("comicarr.app.library.directories.logger") as mock_logger,
+    ):
         result = directories.validateAndCreateDirectory(str(destination), create=True)
 
     assert result is True
@@ -38,7 +43,7 @@ def test_directory_creation_failure_still_warns(tmp_path):
     config.CHMOD_DIR = "0777"
 
     with (
-        patch("comicarr.CONFIG", config),
+        patch.object(runtime.current(), "config", config),
         patch("comicarr.app.library.directories.logger") as mock_logger,
         patch("comicarr.app.library.directories.os.makedirs", side_effect=OSError("permission denied")),
     ):

@@ -24,7 +24,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import insert, text
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import (
     acquisition_run_items,
@@ -169,7 +168,7 @@ def seed_library(engine, series, issues_per_series):
 @pytest.fixture
 def library_db(tmp_path, monkeypatch):
     """Yield a function that builds a fresh seeded library database."""
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(COMIC_DIR="", MANGA_DIR="", ANNUALS_ON=False))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(COMIC_DIR="", MANGA_DIR="", ANNUALS_ON=False))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     built = []
 
@@ -201,7 +200,7 @@ def _client():
     app.include_router(series_router)
     app.include_router(dashboard_router)
     app.dependency_overrides[require_session] = lambda: "operator"
-    app.dependency_overrides[get_context] = lambda: AppContext(config=comicarr.CONFIG)
+    app.dependency_overrides[get_context] = lambda: AppContext(config=runtime.current().config)
     return TestClient(app)
 
 

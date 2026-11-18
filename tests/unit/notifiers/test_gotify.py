@@ -1,7 +1,7 @@
 """Tests for GOTIFY notifier."""
 
 import json
-import pytest
+
 import responses
 
 
@@ -9,19 +9,15 @@ class TestGotifyInit:
     """Test GOTIFY initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use comicarr.CONFIG values by default."""
+        """Init should use runtime.current().config values by default."""
         gotify = notifiers_module.GOTIFY()
 
         expected_url = "https://gotify.example.com/message?token=test_gotify_token"
         assert gotify.webhook_url == expected_url
 
-    def test_init_test_webhook_overrides_config(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_init_test_webhook_overrides_config(self, notifiers_module, mock_notifier_config):
         """Test webhook URL should override config."""
-        gotify = notifiers_module.GOTIFY(
-            test_webhook_url="https://gotify.override.com/message?token=override"
-        )
+        gotify = notifiers_module.GOTIFY(test_webhook_url="https://gotify.override.com/message?token=override")
 
         assert gotify.webhook_url == "https://gotify.override.com/message?token=override"
 
@@ -89,9 +85,7 @@ class TestGotifyNotify:
         assert "SABnzbd" in request_body["message"]
 
     @responses.activate
-    def test_notify_snatched_without_sent_to(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_snatched_without_sent_to(self, notifiers_module, mock_notifier_config):
         """Snatched notification without sent_to."""
         responses.add(
             responses.POST,
@@ -180,9 +174,7 @@ class TestGotifyNotify:
         )
 
         gotify = notifiers_module.GOTIFY()
-        result = gotify.notify(
-            text="Comicarr", attachment_text="Test notification", module="[TEST]"
-        )
+        result = gotify.notify(text="Comicarr", attachment_text="Test notification", module="[TEST]")
         assert result is True
 
 
@@ -190,9 +182,7 @@ class TestGotifyNotifyErrors:
     """Test GOTIFY error handling."""
 
     @responses.activate
-    def test_notify_http_error_returns_false(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_http_error_returns_false(self, notifiers_module, mock_notifier_config):
         """HTTP error returns False."""
         responses.add(
             responses.POST,
@@ -207,9 +197,7 @@ class TestGotifyNotifyErrors:
         assert result is False
 
     @responses.activate
-    def test_notify_server_error_returns_false(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_server_error_returns_false(self, notifiers_module, mock_notifier_config):
         """Server error returns False."""
         responses.add(
             responses.POST,
@@ -228,9 +216,7 @@ class TestGotifyTestNotify:
     """Test GOTIFY test_notify method."""
 
     @responses.activate
-    def test_test_notify_sends_correct_message(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_test_notify_sends_correct_message(self, notifiers_module, mock_notifier_config):
         """test_notify sends expected test message."""
         responses.add(
             responses.POST,

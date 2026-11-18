@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from comicarr.app.core import runtime
+
 
 @pytest.fixture(autouse=True)
 def _mock_globals():
@@ -20,7 +22,7 @@ def _mock_globals():
     mock_config.MANGADEX_ENABLED = True
 
     with (
-        patch("comicarr.CONFIG", mock_config),
+        patch.object(runtime.current(), "config", mock_config),
         patch("comicarr.app.manga.mangasync.logger") as mock_log,
         patch("comicarr.app.manga.mangasync.db") as mock_db,
     ):

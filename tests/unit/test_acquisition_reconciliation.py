@@ -15,7 +15,6 @@ import json
 import pytest
 from sqlalchemy import String, insert, inspect, select, update
 
-import comicarr
 from comicarr.app.acquisition.maintenance import MaintenanceController, ensure_acquisition_schema
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import (
@@ -47,7 +46,7 @@ TODAY = datetime.date(2026, 7, 10)
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("COMICARR_ACQUISITION_MAINTENANCE", raising=False)
     db.shutdown_engine()

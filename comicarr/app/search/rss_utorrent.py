@@ -22,15 +22,14 @@ from base64 import b16encode, b32decode
 
 import requests
 
-import comicarr
 from comicarr.app.common.torrent_hash import info_hash, info_hash_of_file
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 
 
 class utorrentclient(object):
     def __init__(self):
 
-        host = comicarr.CONFIG.UTORRENT_HOST
+        host = runtime.current().config.UTORRENT_HOST
         if not host.startswith("http"):
             host = "http://" + host
 
@@ -41,8 +40,8 @@ class utorrentclient(object):
             host = host[:-4]
 
         self.base_url = host
-        self.username = comicarr.CONFIG.UTORRENT_USERNAME
-        self.password = comicarr.CONFIG.UTORRENT_PASSWORD
+        self.username = runtime.current().config.UTORRENT_USERNAME
+        self.password = runtime.current().config.UTORRENT_PASSWORD
         self.utorrent_url = "%s/gui/" % (self.base_url)
         self.auth = requests.auth.HTTPBasicAuth(self.username, self.password)
         self.token, self.cookies = self._get_token()
@@ -83,7 +82,7 @@ class utorrentclient(object):
         if str(r.status_code) == "200":
             logger.info("Successfully added torrent to uTorrent client.")
             hash = self.calculate_torrent_hash(data=tordata)
-            if comicarr.CONFIG.UTORRENT_LABEL:
+            if runtime.current().config.UTORRENT_LABEL:
                 try:
                     self.setlabel(hash)
                 except Exception:
@@ -104,7 +103,7 @@ class utorrentclient(object):
         if str(r.status_code) == "200":
             logger.info("Successfully added torrent to uTorrent client.")
             hash = self.calculate_torrent_hash(link=url)
-            if comicarr.CONFIG.UTORRENT_LABEL:
+            if runtime.current().config.UTORRENT_LABEL:
                 try:
                     self.setlabel(hash)
                 except Exception:
@@ -119,11 +118,11 @@ class utorrentclient(object):
             "action": "setprops",
             "hash": hash,
             "s": "label",
-            "v": str(comicarr.CONFIG.UTORRENT_LABEL),
+            "v": str(runtime.current().config.UTORRENT_LABEL),
         }
         r = requests.post(url=self.utorrent_url, auth=self.auth, cookies=self.cookies, params=params)
         if str(r.status_code) == "200":
-            logger.info("label " + str(comicarr.CONFIG.UTORRENT_LABEL) + " successfully applied")
+            logger.info("label " + str(runtime.current().config.UTORRENT_LABEL) + " successfully applied")
         else:
             logger.info("Unable to label torrent")
         return

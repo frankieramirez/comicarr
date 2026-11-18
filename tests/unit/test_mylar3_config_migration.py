@@ -109,7 +109,6 @@ class TestUndefinedKeysAreSkippedNotFatal:
 
     def test_a_stray_key_costs_only_itself(self, tmp_path, monkeypatch):
         """Drives the real `migrate_mylar3_config` with a key nothing defines."""
-        import comicarr
         from comicarr.app.system import migration
 
         (tmp_path / "config.ini").write_text(MYLAR3_CONFIG + "\n[Bogus]\nnot_a_real_key = 1\n")
@@ -126,7 +125,7 @@ class TestUndefinedKeysAreSkippedNotFatal:
                 captured.update(values)
                 return True
 
-        monkeypatch.setattr(comicarr, "CONFIG", FakeConfig(), raising=False)
+        monkeypatch.setattr(runtime.current(), "config", FakeConfig(), raising=False)
         monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path), raising=False)
         monkeypatch.setattr(migration.encrypted, "_get_fernet", lambda: object())
 

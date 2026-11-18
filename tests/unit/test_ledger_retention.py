@@ -20,7 +20,6 @@ import datetime
 import pytest
 from sqlalchemy import insert, select
 
-import comicarr
 from comicarr.app.acquisition import retention
 from comicarr.app.acquisition.models import ItemOutcome, RunState
 from comicarr.app.core import runtime
@@ -41,7 +40,7 @@ FIXED_NOW = datetime.datetime(2026, 8, 1, 12, 0, 0, tzinfo=datetime.timezone.utc
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()
     metadata.create_all(get_engine())

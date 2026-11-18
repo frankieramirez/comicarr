@@ -13,6 +13,7 @@
 import pytest
 from sqlalchemy import func, select
 
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine
 from comicarr.app.core.tables import activity_events, annuals, comics, issues
 from comicarr.app.series import add as series_add
@@ -216,10 +217,9 @@ def test_a_retry_that_fails_again_keeps_the_failed_fetch_marker(monkeypatch):
     the next add still treats as retryable."""
     from types import SimpleNamespace
 
-    import comicarr
     from comicarr.app.series import queries as series_queries
 
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(IMP_PATHS=False), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(IMP_PATHS=False), raising=False)
     monkeypatch.setattr(comic_add.cv, "getComic", lambda *_a, **_k: None)
     monkeypatch.setattr(series_service, "ComicSort", lambda *_a, **_k: None)
     for _attempt in range(2):

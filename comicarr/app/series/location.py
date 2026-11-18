@@ -20,7 +20,6 @@ import os
 from contextlib import contextmanager
 from typing import NamedTuple
 
-import comicarr
 from comicarr.app.acquisition.evidence import has_verified_library_file
 from comicarr.app.common import placement, series_kind
 from comicarr.app.common.library_roots import configured_library_roots, is_strict_library_descendant
@@ -252,7 +251,7 @@ def _move_planned_files(plan):
 
 
 def _remove_if_empty(folder):
-    if not folder or not is_strict_library_descendant(folder, comicarr.CONFIG):
+    if not folder or not is_strict_library_descendant(folder, runtime.current().config):
         return
     try:
         os.rmdir(folder)
@@ -268,7 +267,7 @@ def change_series_location(ctx, comic_id, folder, *, move_files=False):
     Returns ``success: False`` only for a move that failed part way; the files
     it did not move stay reachable where they were.
     """
-    config = getattr(ctx, "config", None) or comicarr.CONFIG
+    config = getattr(ctx, "config", None) or runtime.current().config
     series = series_queries.get_series_location(comic_id)
     if not series:
         raise SeriesLocationError("Series %s is not in the library." % comic_id, status=404)

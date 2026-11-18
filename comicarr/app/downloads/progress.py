@@ -26,7 +26,7 @@ import requests
 from sqlalchemy import select
 
 import comicarr
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import pipeline_journal
 from comicarr.app.downloads import journal
 
@@ -210,7 +210,7 @@ def _compute(issue_ids, config):
 
 def progress_by_issue(issue_ids, *, config=None):
     """``{issue_id: {phase, percent, time_left}}`` for issues with an open download."""
-    config = config if config is not None else getattr(comicarr, "CONFIG", None)
+    config = config if config is not None else runtime.current().config
     key = tuple(sorted({str(i) for i in issue_ids or [] if i}))
     if not key or config is None:
         return {}

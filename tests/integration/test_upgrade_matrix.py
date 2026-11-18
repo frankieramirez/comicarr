@@ -273,7 +273,7 @@ class Install:
         monkeypatch.setattr(runtime, "_bootstrap", AppContext())
         monkeypatch.setattr(runtime.current(), "data_dir", str(self.data_dir), raising=False)
         monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path), raising=False)
-        monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+        monkeypatch.setattr(runtime.current(), "config", None, raising=False)
         for name in (
             "ACQUISITION_SCHEMA_READY",
             "ACQUISITION_SCHEMA_VERSION",
@@ -414,7 +414,7 @@ def upgraded(install):
     if install.row.mylar:
         from comicarr.app.acquisition.maintenance import set_reconciliation_state
 
-        install._monkeypatch.setattr(comicarr, "CONFIG", install.load_config(), raising=False)
+        install._monkeypatch.setattr(runtime.current(), "config", install.load_config(), raising=False)
         # Startup brings the empty install to head before Settings offers the import.
         assert upgrade_database(install.engine) == _head_revision()
         # The import leaves acquisition gated until the operator reviews it.
@@ -452,7 +452,7 @@ def test_4_and_5_app_boots_and_serves_the_seeded_library(upgraded):
     from comicarr.app.main import app
 
     cfg = upgraded.load_config()
-    upgraded._monkeypatch.setattr(comicarr, "CONFIG", cfg, raising=False)
+    upgraded._monkeypatch.setattr(runtime.current(), "config", cfg, raising=False)
     assert refresh_runtime_state(cfg).blocked is False
 
     ctx = runtime.create_runtime()

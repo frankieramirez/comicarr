@@ -404,7 +404,7 @@ def main():
     #    raise SystemExit('FATAL ERROR')
 
     # check for clearprovidertable value after ini load
-    if comicarr.CONFIG.CLEAR_PROVIDER_TABLE is True:
+    if runtime.current().config.CLEAR_PROVIDER_TABLE is True:
         logger.info("[CLEAR_PROVIDER_TABLE] forcing over-ride value from config.ini")
         args_clearprovidertable = True
         comicarr.MAINTENANCE = True
@@ -417,11 +417,11 @@ def main():
             raise SystemExit("Cannot write to the data directory: " + runtime.current().data_dir + ". Exiting...")
 
     # backup the db and configs before they load.
-    if (backup is True and any([backup_cfg is True, backup_db is True])) or comicarr.CONFIG.BACKUP_ON_START:
-        if comicarr.CONFIG.BACKUP_ON_START:
+    if (backup is True and any([backup_cfg is True, backup_db is True])) or runtime.current().config.BACKUP_ON_START:
+        if runtime.current().config.BACKUP_ON_START:
             backup_cfg = True
             backup_db = True
-        if comicarr.CONFIG.BACKUP_ON_START or all([backup_cfg is True, backup_db is True]):
+        if runtime.current().config.BACKUP_ON_START or all([backup_cfg is True, backup_db is True]):
             logger.info("[AUTO-BACKUP] Backing up comicarr.db & config.ini files for safety.")
         elif backup_cfg is True:
             logger.info("[AUTO-BACKUP] Backing up config.ini file for safety.")
@@ -541,10 +541,10 @@ def main():
         http_port = args_port
         logger.info("Starting Comicarr on forced port: %i" % http_port)
     else:
-        http_port = int(comicarr.CONFIG.HTTP_PORT)
+        http_port = int(runtime.current().config.HTTP_PORT)
 
     # Generate setup token if first-run setup is needed
-    if not comicarr.CONFIG.HTTP_USERNAME or not comicarr.CONFIG.HTTP_PASSWORD:
+    if not runtime.current().config.HTTP_USERNAME or not runtime.current().config.HTTP_PASSWORD:
         import secrets
 
         from comicarr.app.system import service as system_service
@@ -567,8 +567,8 @@ def main():
 
     ctx = create_runtime()
 
-    if comicarr.CONFIG.LAUNCH_BROWSER and not args_nolaunch:
-        comicarr.launch_browser(comicarr.CONFIG.HTTP_HOST, http_port, comicarr.CONFIG.HTTP_ROOT)
+    if runtime.current().config.LAUNCH_BROWSER and not args_nolaunch:
+        comicarr.launch_browser(runtime.current().config.HTTP_HOST, http_port, runtime.current().config.HTTP_ROOT)
 
     # Start the background threads
     comicarr.start(ctx)
@@ -603,13 +603,13 @@ def main():
     import uvicorn
 
     ssl_kwargs = {}
-    if comicarr.CONFIG.ENABLE_HTTPS:
-        ssl_kwargs["ssl_certfile"] = comicarr.CONFIG.HTTPS_CERT
-        ssl_kwargs["ssl_keyfile"] = comicarr.CONFIG.HTTPS_KEY
+    if runtime.current().config.ENABLE_HTTPS:
+        ssl_kwargs["ssl_certfile"] = runtime.current().config.HTTPS_CERT
+        ssl_kwargs["ssl_keyfile"] = runtime.current().config.HTTPS_KEY
 
     uvicorn.run(
         "comicarr.app.main:app",
-        host=comicarr.CONFIG.HTTP_HOST,
+        host=runtime.current().config.HTTP_HOST,
         port=http_port,
         log_level="info",
         workers=1,

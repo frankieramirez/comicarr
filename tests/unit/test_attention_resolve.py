@@ -31,8 +31,8 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     monkeypatch.setattr(runtime.current(), "provider_blocklist", {}, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             FAILED_DOWNLOAD_HANDLING=True,
             FAILED_AUTO=False,
@@ -99,7 +99,7 @@ def _seed_failed_obligation():
 
 def test_operator_can_stop_wanting_one_obligation_through_unified_resolution():
     release_key = _seed_failed_obligation()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     report = resolve(
         ctx,
@@ -130,7 +130,7 @@ def test_canonical_resolution_route_uses_one_report_for_one_key():
     from comicarr.app.core.security import require_session
 
     release_key = _seed_failed_obligation()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[require_session] = lambda: "operator"
@@ -173,7 +173,7 @@ def test_resolve_attention_requires_session_without_override():
     from comicarr.app.attention.router import router
     from comicarr.app.core.context import get_context
 
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_context] = lambda: ctx
@@ -204,7 +204,7 @@ def _canonical_client(ctx):
 
 
 def test_canonical_resolution_rejects_non_object_json_with_422():
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     with _canonical_client(ctx) as client:
         response = client.post("/api/attention/resolve", json=["not", "an", "object"])
@@ -213,7 +213,7 @@ def test_canonical_resolution_rejects_non_object_json_with_422():
 
 
 def test_canonical_resolution_rejects_semantically_invalid_object_with_400():
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     with _canonical_client(ctx) as client:
         response = client.post(
@@ -230,7 +230,7 @@ def test_canonical_resolution_rejects_semantically_invalid_object_with_400():
     ["one", 42, {"release_key": "one"}, [{"bad": "key"}]],
 )
 def test_canonical_resolution_rejects_malformed_release_keys_with_400(release_keys):
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     with _canonical_client(ctx) as client:
         response = client.post(
@@ -243,7 +243,7 @@ def test_canonical_resolution_rejects_malformed_release_keys_with_400(release_ke
 
 
 def test_canonical_resolution_returns_409_when_no_item_succeeds():
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     with _canonical_client(ctx) as client:
         response = client.post(
@@ -259,7 +259,7 @@ def test_canonical_resolution_returns_409_when_no_item_succeeds():
 
 def test_canonical_resolution_returns_200_for_partial_success():
     release_key = _seed_failed_obligation()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     with _canonical_client(ctx) as client:
         response = client.post(
@@ -281,7 +281,7 @@ def test_canonical_resolution_returns_200_for_partial_success():
 
 def test_public_resolve_deduplicates_and_trims_release_keys():
     release_key = _seed_failed_obligation()
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
 
     report = resolve(
         ctx,
@@ -300,7 +300,7 @@ def test_public_resolve_deduplicates_and_trims_release_keys():
 
 
 def test_public_resolve_caps_newest_rows_before_fanout():
-    ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
+    ctx = AppContext(config=runtime.current().config, provider_blocklist={})
     keys = []
     with get_engine().begin() as conn:
         for index in range(27):

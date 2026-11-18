@@ -22,8 +22,7 @@ from typing import Any
 
 from packaging.version import InvalidVersion, Version
 
-import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 
 ARCHIVE_FLOOR = 10
 
@@ -91,8 +90,8 @@ def detect_pending(*, current: str | None, last_seen: str | None) -> DetectResul
 def _record_last_seen(version: str) -> None:
     """Persist LAST_SEEN_VERSION to config.ini in the data directory."""
     try:
-        comicarr.CONFIG.LAST_SEEN_VERSION = version
-        ok = comicarr.CONFIG.writeconfig(values={"last_seen_version": version})
+        runtime.current().config.LAST_SEEN_VERSION = version
+        ok = runtime.current().config.writeconfig(values={"last_seen_version": version})
         if ok is False:
             raise RuntimeError("writeconfig returned False for last_seen_version")
     except Exception as e:
@@ -113,7 +112,7 @@ def resolve_pending_whats_new(ctx) -> dict[str, str] | None:
     from comicarr.app.system.service import get_release_version
 
     current = get_release_version()
-    last_seen = getattr(comicarr.CONFIG, "LAST_SEEN_VERSION", None)
+    last_seen = getattr(runtime.current().config, "LAST_SEEN_VERSION", None)
     result = detect_pending(current=current, last_seen=last_seen)
 
     if result.kind == "seed":
@@ -187,10 +186,10 @@ def get_archive_notes(ctx) -> dict[str, Any]:
     from comicarr.app.system.service import get_release_version
 
     current = _strip_v(get_release_version())
-    last_seen = _strip_v(getattr(comicarr.CONFIG, "LAST_SEEN_VERSION", None))
+    last_seen = _strip_v(getattr(runtime.current().config, "LAST_SEEN_VERSION", None))
 
     pending = resolve_pending_whats_new(ctx)
-    last_seen = _strip_v(getattr(comicarr.CONFIG, "LAST_SEEN_VERSION", None))
+    last_seen = _strip_v(getattr(runtime.current().config, "LAST_SEEN_VERSION", None))
 
     text = read_local_changelog(getattr(ctx, "prog_dir", None))
     sections = parse_changelog_text(text) if text else []

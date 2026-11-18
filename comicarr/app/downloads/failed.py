@@ -24,10 +24,9 @@ import re
 import feedparser as feedparser
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import numbers as common_numbers
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, failed, issues, nzblog
 
 FAIL_REASON_RESEARCHING = "download_failed_researching"
@@ -341,7 +340,7 @@ class FailedProcessor(object):
         self._log("Successfully marked as Failed.")
 
         self.issueid = issueid
-        if comicarr.CONFIG.FAILED_AUTO:
+        if runtime.current().config.FAILED_AUTO:
             self._terminalize_journal(
                 FAIL_REASON_RESEARCHING,
                 status=STATUS_RETRIED,

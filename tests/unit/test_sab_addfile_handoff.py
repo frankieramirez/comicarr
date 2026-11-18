@@ -20,7 +20,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.downloads import sabnzbd
 
 
@@ -32,7 +32,7 @@ def sab_config(monkeypatch):
         SAB_VERIFY=False,
         SAB_CATEGORY="comics",
     )
-    monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", config, raising=False)
     return config
 
 

@@ -165,12 +165,12 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
     if pulldate is None and weeknumber is None:
         pulldate = "00000000"
 
-    newrl = os.path.join(comicarr.CONFIG.CACHE_DIR, "newreleases.txt")
+    newrl = os.path.join(runtime.current().config.CACHE_DIR, "newreleases.txt")
     comicarr.PULLBYFILE = False
 
     # ALT_PULL is always 2 (config.configure forces it); the PreviewsWorld
     # scraper behind ALT_PULL 1 was removed (ADR-0007, #1404).
-    if comicarr.CONFIG.ALT_PULL == 2:
+    if runtime.current().config.ALT_PULL == 2:
         logger.info("[PULL-LIST] Populating & Loading pull-list data directly from alternate website")
         weekly_info = configured.weekly_info()
         current_weeknumber = weekly_info["weeknumber"]
@@ -269,8 +269,8 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
         logger.info("[PULL-LIST] Populating & Loading pull-list data from file")
         comicarr.PULLBYFILE = pull_the_file(newrl)
 
-    if comicarr.CONFIG.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
-        newfl = os.path.join(comicarr.CONFIG.CACHE_DIR, "Clean-newreleases.txt")
+    if runtime.current().config.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
+        newfl = os.path.join(runtime.current().config.CACHE_DIR, "Clean-newreleases.txt")
 
         newtxtfile = open(newfl, "w")
 
@@ -503,7 +503,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                         if "NA" not in issue and issue != "":
                             dupefound = "no"
 
-                    if comicarr.CONFIG.ALT_PULL == 1:
+                    if runtime.current().config.ALT_PULL == 1:
                         if "&amp;" in comicnm:
                             comicnm = re.sub("&amp;", "&", comicnm).strip()
                         if "&amp;" in pub:
@@ -552,7 +552,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
 
         newtxtfile.close()
 
-        if all([pulldate == "00000000", comicarr.CONFIG.ALT_PULL != 2]) or comicarr.PULLBYFILE is True:
+        if all([pulldate == "00000000", runtime.current().config.ALT_PULL != 2]) or comicarr.PULLBYFILE is True:
             pulldate = shipdate
 
         try:
@@ -602,12 +602,12 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
                 pass
             t += 1
         csvfile.close()
-        os.remove(os.path.join(comicarr.CONFIG.CACHE_DIR, "Clean-newreleases.txt"))
-        os.remove(os.path.join(comicarr.CONFIG.CACHE_DIR, "newreleases.txt"))
+        os.remove(os.path.join(runtime.current().config.CACHE_DIR, "Clean-newreleases.txt"))
+        os.remove(os.path.join(runtime.current().config.CACHE_DIR, "newreleases.txt"))
 
         logger.info("Weekly Pull List successfully loaded.")
 
-    if comicarr.CONFIG.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
+    if runtime.current().config.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
         pullitcheck(forcecheck=forcecheck)
 
     if comicarr.AI_CLIENT is not None:
@@ -743,7 +743,7 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
         if w > 0:
             while cnt > -1:
                 latestiss = latestissue[cnt]
-                if comicarr.CONFIG.ALT_PULL != 2:
+                if runtime.current().config.ALT_PULL != 2:
                     lines[cnt] = lines[cnt].upper()
                 logger.fdebug("looking for : " + lines[cnt])
                 cl_d = comicarr.app.library.filechecker.FileChecker()
@@ -794,7 +794,7 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                         logger.fdebug("comicnm : " + comicnm)
 
                         if dyn_comicnm == dyn_watchnm:
-                            if comicarr.CONFIG.ANNUALS_ON:
+                            if runtime.current().config.ANNUALS_ON:
                                 if "annual" in watchcomic.lower() and "annual" not in comicnm.lower():
                                     logger.fdebug(
                                         "Annual detected in issue, but annuals are not enabled and no series match in wachlist."
@@ -896,7 +896,7 @@ def pullitcheck(comic1off_name=None, comic1off_id=None, forcecheck=None, futurep
                                 watchfnd.append(comicnm)
                                 watchfndiss.append(week["ISSUE"])
                                 ComicID = comicid[cnt]
-                                if not comicarr.CONFIG.CV_ONLY:
+                                if not runtime.current().config.CV_ONLY:
                                     ComicIssue = str(watchfndiss[tot - 1] + ".00")
                                 else:
                                     ComicIssue = str(watchfndiss[tot - 1])
@@ -1093,7 +1093,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
             )
             weekly_rows = [dict(row._mapping) for row in result]
 
-        if comicarr.CONFIG.ANNUALS_ON is True:
+        if runtime.current().config.ANNUALS_ON is True:
             pass
         for week in weekly_rows:
             try:
@@ -1106,7 +1106,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                 idmatch = [
                     x for x in weeklylist if week["comicid"] is not None and int(x["ComicID"]) == int(week["comicid"])
                 ]
-                if comicarr.CONFIG.ANNUALS_ON is True:
+                if runtime.current().config.ANNUALS_ON is True:
                     annualidmatch = [
                         x
                         for x in weeklylist
@@ -1160,7 +1160,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                             comicid = annualidmatch[0]["ComicID"]
                             logger.fdebug("[%s] setting comicid to: %s" % (comicname, comicid))
                         else:
-                            if comicarr.CONFIG.ANNUALS_ON:
+                            if runtime.current().config.ANNUALS_ON:
                                 t_comicid = None
                                 for x in annualidmatch[0]["AnnualIDs"]:
                                     if week["comicid"] == x["ComicID"] and week["annuallink"] is not None:
@@ -1298,7 +1298,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                     try:
                         if statusupdate is not None:
                             if statusupdate["Status"] != "incorrect_match":
-                                if comicarr.CONFIG.ANNUALS_ON:
+                                if runtime.current().config.ANNUALS_ON:
                                     watchlist_match.latest_update(
                                         ComicID=statusupdate["ComicID"],
                                         LatestIssue=week["issue"],
@@ -1389,7 +1389,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                         else:
                             newValue["STATUS"] = "Mismatched"
                     else:
-                        if comicarr.CONFIG.AUTOWANT_UPCOMING:
+                        if runtime.current().config.AUTOWANT_UPCOMING:
                             newValue["STATUS"] = "Wanted"
                         else:
                             newValue["STATUS"] = "Skipped"
@@ -1402,7 +1402,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
 
                     if mismatched is False and issueid:
                         logger.fdebug("issue id check passed.")
-                        if annualidmatch and comicarr.CONFIG.ANNUALS_ON:
+                        if annualidmatch and runtime.current().config.ANNUALS_ON:
                             isschk = db.select_one(
                                 select(annuals).where((annuals.c.IssueID == issueid) & (annuals.c.Deleted != 1))
                             )
@@ -1428,10 +1428,13 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                     logger.fdebug("week[comicid]: %s" % week["comicid"])
                                     logger.fdebug("week[comicid]: %s" % annualidmatch[0]["AnnualIDs"][0]["ComicID"])
                                     if all(
-                                        [comicarr.CONFIG.ANNUALS_ON is True, len(annualidmatch[0]["AnnualIDs"]) == 0]
+                                        [
+                                            runtime.current().config.ANNUALS_ON is True,
+                                            len(annualidmatch[0]["AnnualIDs"]) == 0,
+                                        ]
                                     ) or all(
                                         [
-                                            comicarr.CONFIG.ANNUALS_ON is True,
+                                            runtime.current().config.ANNUALS_ON is True,
                                             annualidmatch[0]["AnnualIDs"][0]["ComicID"] != week["comicid"],
                                         ]
                                     ):
@@ -1495,7 +1498,7 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
                                 ):
                                     newStat = {"Status": "Wanted"}
                                     ctrlStat = {"IssueID": issueid}
-                                    if all([annualidmatch, comicarr.CONFIG.ANNUALS_ON]):
+                                    if all([annualidmatch, runtime.current().config.ANNUALS_ON]):
                                         db.upsert("annuals", newStat, ctrlStat)
                                     else:
                                         db.upsert("issues", newStat, ctrlStat)
@@ -1530,11 +1533,11 @@ def new_pullcheck(weeknumber, pullyear, comic1off_name=None, comic1off_id=None, 
 
                 logger.exception(tracebackline)
 
-    if comicarr.CONFIG.AUTO_MASS_ADD is True:
+    if runtime.current().config.AUTO_MASS_ADD is True:
         logger.info(
             "[AUTO-MASS-ADD] Auto Mass-Add enabled and triggered for current week %s, %s.." % (weeknumber, pullyear)
         )
-        mass_publishers(publishers=comicarr.CONFIG.MASS_PUBLISHERS, weeknumber=weeknumber, year=pullyear)
+        mass_publishers(publishers=runtime.current().config.MASS_PUBLISHERS, weeknumber=weeknumber, year=pullyear)
 
 
 def mass_publishers(publishers, weeknumber, year):
@@ -1573,10 +1576,10 @@ def mass_publishers(publishers, weeknumber, year):
         )
         watchlist = db.select_all(stmt)
 
-    comicarr.CONFIG.writeconfig(
+    runtime.current().config.writeconfig(
         values={
             "mass_publishers": json.dumps(mass_publishers),
-            "auto_mass_add": comicarr.CONFIG.AUTO_MASS_ADD,
+            "auto_mass_add": runtime.current().config.AUTO_MASS_ADD,
         }
     )
 
@@ -1584,7 +1587,7 @@ def mass_publishers(publishers, weeknumber, year):
         for wt in watchlist:
             if wt["ComicID"] not in watchlibrary and wt["ComicID"] is not None:
                 if {"comicid": wt["ComicID"], "comicname": wt["COMIC"]} not in runtime.current().add_list.queue:
-                    if wt["PUBLISHER"] in comicarr.CONFIG.IGNORED_PUBLISHERS:
+                    if wt["PUBLISHER"] in runtime.current().config.IGNORED_PUBLISHERS:
                         logger.info(
                             "[SHIZZLE-WHIZZLE] %s is in your ignored_publishers list skipping %s either it's a configuration issue or a mismatch in the weekly pull-list"
                             % (wt["PUBLISHER"], wt["COMIC"])
@@ -1756,9 +1759,9 @@ def weekly_check(comicid, issuenum, file=None, path=None, module=None, issueid=N
 
     weekinfo = configured.weekly_info(chkit["weeknumber"], chkit["year"])
 
-    if comicarr.CONFIG.WEEKFOLDER:
+    if runtime.current().config.WEEKFOLDER:
         weekly_singlecopy(comicid, issuenum, file, path, weekinfo)
-    if comicarr.CONFIG.SEND2READ:
+    if runtime.current().config.SEND2READ:
         send2read(comicid, issueid, issuenum, pulldate=chkit["SHIPDATE"], file=file)
     return
 
@@ -1766,16 +1769,16 @@ def weekly_check(comicid, issuenum, file=None, path=None, module=None, issueid=N
 def weekly_singlecopy(comicid, issuenum, file, path, weekinfo):
 
     module = "[WEEKLY-PULL COPY]"
-    if comicarr.CONFIG.WEEKFOLDER:
+    if runtime.current().config.WEEKFOLDER:
         desdir = weekinfo["week_folder"]
         dircheck = directories.validateAndCreateDirectory(desdir, True, module=module)
         if dircheck:
             pass
         else:
-            desdir = comicarr.CONFIG.DESTINATION_DIR
+            desdir = runtime.current().config.DESTINATION_DIR
 
     else:
-        desdir = comicarr.CONFIG.GRABBAG_DIR
+        desdir = runtime.current().config.GRABBAG_DIR
 
     desfile = os.path.join(desdir, file)
     srcfile = os.path.join(path)
@@ -1793,7 +1796,7 @@ def weekly_singlecopy(comicid, issuenum, file, path, weekinfo):
 def send2read(comicid, issueid, issuenum, pulldate=None, file=None):
 
     module = "[READLIST]"
-    if comicarr.CONFIG.SEND2READ:
+    if runtime.current().config.SEND2READ:
         logger.info(
             module + " Send to Reading List enabled for new pulls. Adding to your readlist in the status of 'Added'"
         )

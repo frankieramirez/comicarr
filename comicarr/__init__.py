@@ -123,7 +123,6 @@ MIGRATION_RECONCILIATION = None
 UMASK = None
 WANTED_TAB_OFF = False
 PULLNEW = None
-CONFIG = None
 CONFIG_FILE = None
 AI_CLIENT = None
 AI_ASYNC_CLIENT = None
@@ -274,7 +273,6 @@ def ensure_sab_completed_reconcile():
 def initialize(config_file):
     with runtime.current().init_lock:
         global \
-            CONFIG, \
             _INITIALIZED, \
             CONFIG_FILE, \
             OS_DETECT, \
@@ -342,9 +340,9 @@ def initialize(config_file):
             EXT_SERVER
 
         cc = comicarr.app.config.ini.Config(config_file)
-        CONFIG = cc.read(startup=True)
+        runtime.current().config = cc.read(startup=True)
 
-        assert CONFIG is not None
+        assert runtime.current().config is not None
 
         if _INITIALIZED:
             return False
@@ -365,9 +363,13 @@ def initialize(config_file):
                     row = conn.execute(text("SELECT COUNT(*) FROM comics")).first()
                     comic_count = row[0] if row else 0
                     if comic_count > 0:
-                        if comicarr.CONFIG.BACKUP_ON_START:
+                        if runtime.current().config.BACKUP_ON_START:
                             backup_dir = os.path.join(runtime.current().data_dir, "backups")
-                            retention = comicarr.CONFIG.BACKUP_RETENTION if comicarr.CONFIG.BACKUP_RETENTION else 4
+                            retention = (
+                                runtime.current().config.BACKUP_RETENTION
+                                if runtime.current().config.BACKUP_RETENTION
+                                else 4
+                            )
                             maintenance.auto_backup_db(runtime.current().db_file, backup_dir, retention)
                     else:
                         comicarr.DB_EMPTY = True
@@ -385,7 +387,7 @@ def initialize(config_file):
         try:
             from comicarr.app.acquisition.maintenance import refresh_runtime_state
 
-            refresh_runtime_state(comicarr.CONFIG)
+            refresh_runtime_state(runtime.current().config)
         except Exception as e:
             comicarr.ACQUISITION_WORKERS_BLOCKED = True
             comicarr.ACQUISITION_BLOCK_REASON = "maintenance_gate_unavailable"
@@ -411,7 +413,7 @@ def initialize(config_file):
                     "[Windows Users] If you are experiencing log file locking and want this auto-enabled, you need to install Python Extensions for Windows ( http://sourceforge.net/projects/pywin32/ )"
                 )
 
-            if CONFIG.SYNO_FIX:
+            if runtime.current().config.SYNO_FIX:
                 parsepath = os.path.join(runtime.current().data_dir, "bs4", "builder", "_lxml.py")
                 if os.path.isfile(parsepath):
                     print("found bs4...renaming appropriate file.")
@@ -434,12 +436,12 @@ def initialize(config_file):
 
                 comicarr.SSE_KEY = secrets.token_hex(16)
 
-            if not comicarr.CONFIG.API_KEY or len(comicarr.CONFIG.API_KEY) != 32:
+            if not runtime.current().config.API_KEY or len(runtime.current().config.API_KEY) != 32:
                 import secrets
 
-                comicarr.CONFIG.API_KEY = secrets.token_hex(16)
-                comicarr.CONFIG.API_ENABLED = True
-                comicarr.CONFIG.WRITE_THE_CONFIG = True
+                runtime.current().config.API_KEY = secrets.token_hex(16)
+                runtime.current().config.API_ENABLED = True
+                runtime.current().config.WRITE_THE_CONFIG = True
                 logger.info("[STARTUP] API key was not set - auto-generated a new API key")
 
             from comicarr.app.downloads.ddl import external_server as des
@@ -451,7 +453,7 @@ def initialize(config_file):
 
         SESSION_ID = secrets.randbelow(990000) + 10000
 
-        runtime.current().cv_headers = {"User-Agent": comicarr.CONFIG.CV_USER_AGENT}
+        runtime.current().cv_headers = {"User-Agent": runtime.current().config.CV_USER_AGENT}
 
         def initialize_cv_session():
             """Initialize ComicVine API session with connection pooling"""
@@ -469,7 +471,9 @@ def initialize(config_file):
                 from comicarr.app.metadata import rate_limiter
 
                 cvapi_rate = (
-                    comicarr.CONFIG.CVAPI_RATE if comicarr.CONFIG.CVAPI_RATE and comicarr.CONFIG.CVAPI_RATE >= 2 else 2
+                    runtime.current().config.CVAPI_RATE
+                    if runtime.current().config.CVAPI_RATE and runtime.current().config.CVAPI_RATE >= 2
+                    else 2
                 )
                 runtime.current().cv_rate_limiter = rate_limiter.ComicVineRateLimiter(calls_per_second=1.0 / cvapi_rate)
                 logger.info("ComicVine rate limiter initialized with %s second interval" % cvapi_rate)
@@ -485,8 +489,8 @@ def initialize(config_file):
 
         def initialize_metron_session():
             """Initialize Metron API session using mokkari"""
-            if runtime.current().metron_api is None and CONFIG.USE_METRON_SEARCH:
-                if CONFIG.METRON_USERNAME and CONFIG.METRON_PASSWORD:
+            if runtime.current().metron_api is None and runtime.current().config.USE_METRON_SEARCH:
+                if runtime.current().config.METRON_USERNAME and runtime.current().config.METRON_PASSWORD:
                     try:
                         from comicarr.app.metadata import metron
 
@@ -509,7 +513,7 @@ def initialize(config_file):
         CURRENT_YEAR = todaydate.strftime("%Y")
 
         if SEARCH_TIER_DATE is None:
-            STD = todaydate - timedelta(days=comicarr.CONFIG.SEARCH_TIER_CUTOFF)
+            STD = todaydate - timedelta(days=runtime.current().config.SEARCH_TIER_CUTOFF)
             SEARCH_TIER_DATE = STD.strftime("%Y-%m-%d")
             logger.fdebug("SEARCH_TIER_DATE set to : %s" % SEARCH_TIER_DATE)
 
@@ -521,7 +525,7 @@ def initialize(config_file):
         EXPURL = "https://nzbindex.nl/"
 
         try:
-            pub_path = os.path.join(comicarr.CONFIG.CACHE_DIR, "imprints.json")
+            pub_path = os.path.join(runtime.current().config.CACHE_DIR, "imprints.json")
             update_imprints = True
             if os.path.exists(pub_path):
                 filetime = max(os.path.getctime(pub_path), os.path.getmtime(pub_path))
@@ -566,13 +570,13 @@ def initialize(config_file):
             logger.info("Remapping the sorting to allow for new additions.")
             COMICSORT = series_service.ComicSort(sequence="startup")
 
-        if CONFIG.LOCMOVE:
+        if runtime.current().config.LOCMOVE:
             series_service.updateComicLocation()
 
-        if all([comicarr.USE_SABNZBD is True, comicarr.CONFIG.SAB_HOST is not None]):
+        if all([comicarr.USE_SABNZBD is True, runtime.current().config.SAB_HOST is not None]):
             s_to_the_ab = sabnzbd.SABnzbd(params=None)
             s_to_the_ab.sab_versioncheck()
-            logger.info("[SAB-VERSION-CHECK] SABnzbd version detected as: %s" % comicarr.CONFIG.SAB_VERSION)
+            logger.info("[SAB-VERSION-CHECK] SABnzbd version detected as: %s" % runtime.current().config.SAB_VERSION)
 
         UMASK = os.umask(0)
         os.umask(UMASK)
@@ -674,7 +678,7 @@ def resume_acquisition_runtime(config=None):
     from comicarr.app.downloads.torrent import monitor as torrent_monitor
 
     ctx = get_runtime_if_initialized()
-    config = config or (ctx.config if ctx is not None else CONFIG)
+    config = config or (ctx.config if ctx is not None else runtime.current().config)
 
     def schedule(queue_name):
         if ctx is not None:
@@ -800,7 +804,7 @@ def start(ctx):
                 next_run_time=datetime.datetime.utcnow(),
                 name="DB Updater",
                 args=[None, True],
-                trigger=IntervalTrigger(hours=0, minutes=CONFIG.DBUPDATE_INTERVAL, timezone="UTC"),
+                trigger=IntervalTrigger(hours=0, minutes=runtime.current().config.DBUPDATE_INTERVAL, timezone="UTC"),
             )
             UPDATER_SCHEDULER.pause()
 
@@ -811,7 +815,7 @@ def start(ctx):
                 id="search",
                 next_run_time=datetime.datetime.utcnow(),
                 name="Auto-Search",
-                trigger=IntervalTrigger(hours=0, minutes=CONFIG.SEARCH_INTERVAL, timezone="UTC"),
+                trigger=IntervalTrigger(hours=0, minutes=runtime.current().config.SEARCH_INTERVAL, timezone="UTC"),
             )
             SEARCH_SCHEDULER.pause()
 
@@ -832,7 +836,9 @@ def start(ctx):
                 name="RSS Feeds",
                 args=[True],
                 next_run_time=datetime.datetime.utcnow(),
-                trigger=IntervalTrigger(hours=0, minutes=int(CONFIG.RSS_CHECKINTERVAL), timezone="UTC"),
+                trigger=IntervalTrigger(
+                    hours=0, minutes=int(runtime.current().config.RSS_CHECKINTERVAL), timezone="UTC"
+                ),
             )
             RSS_SCHEDULER.pause()
 
@@ -841,7 +847,9 @@ def start(ctx):
                 func=vs.run,
                 id="version",
                 name="Check Version",
-                trigger=IntervalTrigger(hours=0, minutes=CONFIG.CHECK_GITHUB_INTERVAL, timezone="UTC"),
+                trigger=IntervalTrigger(
+                    hours=0, minutes=runtime.current().config.CHECK_GITHUB_INTERVAL, timezone="UTC"
+                ),
             )
             VERSION_SCHEDULER.pause()
 
@@ -852,7 +860,9 @@ def start(ctx):
                 func=fm.run,
                 id="monitor",
                 name="Folder Monitor",
-                trigger=IntervalTrigger(hours=0, minutes=int(CONFIG.DOWNLOAD_SCAN_INTERVAL), timezone="UTC"),
+                trigger=IntervalTrigger(
+                    hours=0, minutes=int(runtime.current().config.DOWNLOAD_SCAN_INTERVAL), timezone="UTC"
+                ),
             )
             MONITOR_SCHEDULER.pause()
 
@@ -862,7 +872,9 @@ def start(ctx):
                 func=importinbox.run,
                 id="importinbox",
                 name="Import Inbox Scanner",
-                trigger=IntervalTrigger(hours=0, minutes=int(CONFIG.IMPORT_SCAN_INTERVAL), timezone="UTC"),
+                trigger=IntervalTrigger(
+                    hours=0, minutes=int(runtime.current().config.IMPORT_SCAN_INTERVAL), timezone="UTC"
+                ),
             )
             IMPORTINBOX_SCHEDULER.pause()
 
@@ -874,7 +886,9 @@ def start(ctx):
                 id="manga_sync",
                 name=MANGA_SYNC_JOB_NAME,
                 next_run_time=datetime.datetime.utcnow(),
-                trigger=IntervalTrigger(hours=0, minutes=int(CONFIG.DBUPDATE_INTERVAL), timezone="UTC"),
+                trigger=IntervalTrigger(
+                    hours=0, minutes=int(runtime.current().config.DBUPDATE_INTERVAL), timezone="UTC"
+                ),
             )
             MANGA_SYNC_SCHEDULER.pause()
 
@@ -920,7 +934,7 @@ def start(ctx):
             try:
                 from comicarr.app.acquisition.maintenance import refresh_runtime_state
 
-                acquisition_gate = refresh_runtime_state(comicarr.CONFIG)
+                acquisition_gate = refresh_runtime_state(runtime.current().config)
             except Exception as e:
                 acquisition_gate = None
                 set_runtime_acquisition_status(
@@ -976,19 +990,22 @@ def start(ctx):
                         % common_dates.utc_date_to_local(datetime.datetime.utcfromtimestamp(updater_timestamp))
                     )
                 else:
-                    updater_timestamp = common_dates.utctimestamp() + (int(CONFIG.DBUPDATE_INTERVAL) * 60)
+                    updater_timestamp = common_dates.utctimestamp() + (
+                        int(runtime.current().config.DBUPDATE_INTERVAL) * 60
+                    )
 
                 updater_diff = (common_dates.utctimestamp() - updater_timestamp) / 60
-                if updater_diff >= int(CONFIG.DBUPDATE_INTERVAL):
+                if updater_diff >= int(runtime.current().config.DBUPDATE_INTERVAL):
                     logger.fdebug("[DB UPDATER] DB Updater scheduled to run immediately.")
                     UPDATER_SCHEDULER.modify(next_run_time=(datetime.datetime.utcnow()))
                 else:
                     updater_diff = datetime.datetime.utcfromtimestamp(
-                        common_dates.utctimestamp() + ((int(CONFIG.DBUPDATE_INTERVAL) * 60) - (updater_diff * 60))
+                        common_dates.utctimestamp()
+                        + ((int(runtime.current().config.DBUPDATE_INTERVAL) * 60) - (updater_diff * 60))
                     )
                     logger.fdebug(
                         "[DB UPDATER] Scheduling next run @ %s (every %s minutes)"
-                        % (common_dates.utc_date_to_local(updater_diff), CONFIG.DBUPDATE_INTERVAL)
+                        % (common_dates.utc_date_to_local(updater_diff), runtime.current().config.DBUPDATE_INTERVAL)
                     )
                     UPDATER_SCHEDULER.modify(next_run_time=updater_diff)
 
@@ -999,11 +1016,11 @@ def start(ctx):
                     MANGA_SYNC_SCHEDULER,
                     ctx.manga_sync_status,
                     sched_manga_sync_last,
-                    CONFIG.DBUPDATE_INTERVAL,
+                    runtime.current().config.DBUPDATE_INTERVAL,
                 )
 
             if ctx.search_status != "Paused":
-                if CONFIG.NZB_STARTUP_SEARCH:
+                if runtime.current().config.NZB_STARTUP_SEARCH:
                     SEARCH_SCHEDULER.modify(next_run_time=(datetime.datetime.utcnow() + timedelta(minutes=2)))
                 else:
                     if sched_search_last is not None:
@@ -1013,10 +1030,12 @@ def start(ctx):
                             % common_dates.utc_date_to_local(datetime.datetime.utcfromtimestamp(search_timestamp))
                         )
                     else:
-                        search_timestamp = common_dates.utctimestamp() + (int(CONFIG.SEARCH_INTERVAL) * 60)
+                        search_timestamp = common_dates.utctimestamp() + (
+                            int(runtime.current().config.SEARCH_INTERVAL) * 60
+                        )
 
                     duration_diff = (common_dates.utctimestamp() - search_timestamp) / 60
-                    if duration_diff >= int(CONFIG.SEARCH_INTERVAL):
+                    if duration_diff >= int(runtime.current().config.SEARCH_INTERVAL):
                         logger.fdebug(
                             "[AUTO-SEARCH]Auto-Search set to an initial delay of 2 minutes before initialization as it has been %s minutes since the last run"
                             % duration_diff
@@ -1024,11 +1043,12 @@ def start(ctx):
                         SEARCH_SCHEDULER.modify(next_run_time=(datetime.datetime.utcnow() + timedelta(minutes=2)))
                     else:
                         search_diff = datetime.datetime.utcfromtimestamp(
-                            common_dates.utctimestamp() + ((int(CONFIG.SEARCH_INTERVAL) * 60) - (duration_diff * 60))
+                            common_dates.utctimestamp()
+                            + ((int(runtime.current().config.SEARCH_INTERVAL) * 60) - (duration_diff * 60))
                         )
                         logger.fdebug(
                             "[AUTO-SEARCH] Scheduling next run @ %s (every %s minutes)"
-                            % (common_dates.utc_date_to_local(search_diff), CONFIG.SEARCH_INTERVAL)
+                            % (common_dates.utc_date_to_local(search_diff), runtime.current().config.SEARCH_INTERVAL)
                         )
                         SEARCH_SCHEDULER.modify(next_run_time=search_diff)
 
@@ -1036,38 +1056,51 @@ def start(ctx):
 
             if all(
                 [
-                    CONFIG.ENABLE_TORRENTS,
-                    any([CONFIG.AUTO_SNATCH, CONFIG.LOCAL_TORRENT_PP]),
+                    runtime.current().config.ENABLE_TORRENTS,
+                    any([runtime.current().config.AUTO_SNATCH, runtime.current().config.LOCAL_TORRENT_PP]),
                     OS_DETECT != "Windows",
                 ]
-            ) and torrent_monitor.is_monitorable_downloader(CONFIG.TORRENT_DOWNLOADER):
+            ) and torrent_monitor.is_monitorable_downloader(runtime.current().config.TORRENT_DOWNLOADER):
                 queue_schedule("snatched_queue", "start", ctx=ctx)
 
-            if CONFIG.POST_PROCESSING is True and (
-                all([CONFIG.NZB_DOWNLOADER == 0, CONFIG.SAB_CLIENT_POST_PROCESSING is True])
-                or all([CONFIG.NZB_DOWNLOADER == 1, CONFIG.NZBGET_CLIENT_POST_PROCESSING is True])
+            if runtime.current().config.POST_PROCESSING is True and (
+                all(
+                    [
+                        runtime.current().config.NZB_DOWNLOADER == 0,
+                        runtime.current().config.SAB_CLIENT_POST_PROCESSING is True,
+                    ]
+                )
+                or all(
+                    [
+                        runtime.current().config.NZB_DOWNLOADER == 1,
+                        runtime.current().config.NZBGET_CLIENT_POST_PROCESSING is True,
+                    ]
+                )
             ):
                 queue_schedule("nzb_queue", "start", ctx=ctx)
             ensure_sab_completed_reconcile()
 
-            if CONFIG.POST_PROCESSING is True:
+            if runtime.current().config.POST_PROCESSING is True:
                 queue_schedule("pp_queue", "start", ctx=ctx)
 
-            if CONFIG.ENABLE_DDL is True:
+            if runtime.current().config.ENABLE_DDL is True:
                 queue_schedule("ddl_queue", "start", ctx=ctx)
                 _add_recurring_job(
                     func=downloads_service.ddl_health_check,
                     id="ddl_health",
                     name="DDL Health Check",
-                    trigger=IntervalTrigger(hours=0, minutes=int(CONFIG.DDL_STUCK_CHECK_INTERVAL), timezone="UTC"),
+                    trigger=IntervalTrigger(
+                        hours=0, minutes=int(runtime.current().config.DDL_STUCK_CHECK_INTERVAL), timezone="UTC"
+                    ),
                 )
                 logger.info(
-                    "[DDL-HEALTH] DDL health check enabled, running every %s minutes" % CONFIG.DDL_STUCK_CHECK_INTERVAL
+                    "[DDL-HEALTH] DDL health check enabled, running every %s minutes"
+                    % runtime.current().config.DDL_STUCK_CHECK_INTERVAL
                 )
 
             series_service.latestdate_fix()
 
-            if CONFIG.ALT_PULL == 2:
+            if runtime.current().config.ALT_PULL == 2:
                 weektimer = 4
             else:
                 weektimer = 24
@@ -1115,28 +1148,30 @@ def start(ctx):
                         % common_dates.utc_date_to_local(datetime.datetime.utcfromtimestamp(rss_timestamp))
                     )
                 else:
-                    rss_timestamp = common_dates.utctimestamp() + (int(CONFIG.RSS_CHECKINTERVAL) * 60)
+                    rss_timestamp = common_dates.utctimestamp() + (int(runtime.current().config.RSS_CHECKINTERVAL) * 60)
                 duration_diff = (common_dates.utctimestamp() - rss_timestamp) / 60
-                if duration_diff >= int(CONFIG.RSS_CHECKINTERVAL):
+                if duration_diff >= int(runtime.current().config.RSS_CHECKINTERVAL):
                     RSS_SCHEDULER.modify(next_run_time=datetime.datetime.utcnow())
                 else:
                     rss_diff = datetime.datetime.utcfromtimestamp(
-                        common_dates.utctimestamp() + (int(CONFIG.RSS_CHECKINTERVAL) * 60) - (duration_diff * 60)
+                        common_dates.utctimestamp()
+                        + (int(runtime.current().config.RSS_CHECKINTERVAL) * 60)
+                        - (duration_diff * 60)
                     )
                     logger.fdebug(
                         "[RSS-FEEDS] Scheduling next run for @ %s every %s minutes"
-                        % (common_dates.utc_date_to_local(rss_diff), CONFIG.RSS_CHECKINTERVAL)
+                        % (common_dates.utc_date_to_local(rss_diff), runtime.current().config.RSS_CHECKINTERVAL)
                     )
                     RSS_SCHEDULER.modify(next_run_time=rss_diff)
 
             if ctx.importinbox_status != "Paused":
-                if CONFIG.IMPORT_DIR is not None:
-                    if CONFIG.IMPORT_SCAN_INTERVAL > 0:
+                if runtime.current().config.IMPORT_DIR is not None:
+                    if runtime.current().config.IMPORT_SCAN_INTERVAL > 0:
                         logger.info(
                             "[IMPORT-INBOX] Enabling import inbox scanner for: "
-                            + str(CONFIG.IMPORT_DIR)
+                            + str(runtime.current().config.IMPORT_DIR)
                             + " every "
-                            + str(CONFIG.IMPORT_SCAN_INTERVAL)
+                            + str(runtime.current().config.IMPORT_SCAN_INTERVAL)
                             + " minutes."
                         )
                         IMPORTINBOX_SCHEDULER.resume()
@@ -1151,13 +1186,13 @@ def start(ctx):
                 VERSION_SCHEDULER.resume()
 
             if ctx.monitor_status != "Paused":
-                if CONFIG.CHECK_FOLDER is not None:
-                    if CONFIG.DOWNLOAD_SCAN_INTERVAL > 0:
+                if runtime.current().config.CHECK_FOLDER is not None:
+                    if runtime.current().config.DOWNLOAD_SCAN_INTERVAL > 0:
                         logger.info(
                             "[FOLDER MONITOR] Enabling folder monitor for : "
-                            + str(CONFIG.CHECK_FOLDER)
+                            + str(runtime.current().config.CHECK_FOLDER)
                             + " every "
-                            + str(CONFIG.DOWNLOAD_SCAN_INTERVAL)
+                            + str(runtime.current().config.DOWNLOAD_SCAN_INTERVAL)
                             + " minutes."
                         )
                         MONITOR_SCHEDULER.resume()
@@ -1249,11 +1284,11 @@ def queue_schedule(queuetype, mode, ctx=None):
             except Exception:
                 pass
 
-            if CONFIG.NZB_DOWNLOADER == 0:
+            if runtime.current().config.NZB_DOWNLOADER == 0:
                 logger.info(
                     "[SAB-MONITOR] Completed post-processing handling enabled for SABnzbd. Attempting to background load...."
                 )
-            elif CONFIG.NZB_DOWNLOADER == 1:
+            elif runtime.current().config.NZB_DOWNLOADER == 1:
                 logger.info(
                     "[NZBGET-MONITOR] Completed post-processing handling enabled for NZBGet. Attempting to background load...."
                 )
@@ -1262,11 +1297,11 @@ def queue_schedule(queuetype, mode, ctx=None):
             )
             set_pool("nzb_pool", pool)
             pool.start()
-            if CONFIG.NZB_DOWNLOADER == 0:
+            if runtime.current().config.NZB_DOWNLOADER == 0:
                 logger.info(
                     "[AUTO-COMPLETE-NZB] Succesfully started Completed post-processing handling for SABnzbd - will now monitor for completed nzbs within sabnzbd and post-process automatically..."
                 )
-            elif CONFIG.NZB_DOWNLOADER == 1:
+            elif runtime.current().config.NZB_DOWNLOADER == 1:
                 logger.info(
                     "[AUTO-COMPLETE-NZB] Succesfully started Completed post-processing handling for NZBGet - will now monitor for completed nzbs within nzbget and post-process automatically..."
                 )
@@ -1306,9 +1341,19 @@ def queue_schedule(queuetype, mode, ctx=None):
             )
     else:
         if (queuetype == "nzb_queue") or mode == "shutdown":
-            if all([mode != "shutdown", comicarr.CONFIG.POST_PROCESSING is True]) and (
-                all([comicarr.CONFIG.NZB_DOWNLOADER == 0, comicarr.CONFIG.SAB_CLIENT_POST_PROCESSING is True])
-                or all([comicarr.CONFIG.NZB_DOWNLOADER == 1, comicarr.CONFIG.NZBGET_CLIENT_POST_PROCESSING is True])
+            if all([mode != "shutdown", runtime.current().config.POST_PROCESSING is True]) and (
+                all(
+                    [
+                        runtime.current().config.NZB_DOWNLOADER == 0,
+                        runtime.current().config.SAB_CLIENT_POST_PROCESSING is True,
+                    ]
+                )
+                or all(
+                    [
+                        runtime.current().config.NZB_DOWNLOADER == 1,
+                        runtime.current().config.NZBGET_CLIENT_POST_PROCESSING is True,
+                    ]
+                )
             ):
                 return
             shutdown(get_pool("nzb_pool"), queues.nzb_queue, "NZB auto-complete queue")
@@ -1317,11 +1362,16 @@ def queue_schedule(queuetype, mode, ctx=None):
             if all(
                 [
                     mode != "shutdown",
-                    comicarr.CONFIG.ENABLE_TORRENTS is True,
-                    any([comicarr.CONFIG.AUTO_SNATCH is True, comicarr.CONFIG.LOCAL_TORRENT_PP is True]),
+                    runtime.current().config.ENABLE_TORRENTS is True,
+                    any(
+                        [
+                            runtime.current().config.AUTO_SNATCH is True,
+                            runtime.current().config.LOCAL_TORRENT_PP is True,
+                        ]
+                    ),
                     OS_DETECT != "Windows",
                 ]
-            ) and torrent_monitor.is_monitorable_downloader(comicarr.CONFIG.TORRENT_DOWNLOADER):
+            ) and torrent_monitor.is_monitorable_downloader(runtime.current().config.TORRENT_DOWNLOADER):
                 return
             shutdown(get_pool("sn_pool"), queues.snatched_queue, "auto-snatch")
 
@@ -1329,12 +1379,12 @@ def queue_schedule(queuetype, mode, ctx=None):
             shutdown(get_pool("search_pool"), queues.search_queue, "search queue")
 
         if (queuetype == "pp_queue") or mode == "shutdown":
-            if all([comicarr.CONFIG.POST_PROCESSING is True, mode != "shutdown"]):
+            if all([runtime.current().config.POST_PROCESSING is True, mode != "shutdown"]):
                 return
             shutdown(get_pool("pp_pool"), queues.pp_queue, "post-processing queue")
 
         if (queuetype == "ddl_queue") or mode == "shutdown":
-            if all([comicarr.CONFIG.ENABLE_DDL is True, mode != "shutdown"]):
+            if all([runtime.current().config.ENABLE_DDL is True, mode != "shutdown"]):
                 return
             shutdown(get_pool("ddl_pool"), queues.ddl_queue, "DDL download queue")
 
@@ -1672,7 +1722,7 @@ def _backup_sqlite_unique_migration(engine, backup_func=None, connection=None):
         )
         return
 
-    config = getattr(comicarr, "CONFIG", None)
+    config = runtime.current().config
     retention = getattr(config, "BACKUP_RETENTION", 4) if config is not None else 4
     retention = retention or 4
     backup = backup_func or maintenance.auto_backup_db

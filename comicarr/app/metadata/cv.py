@@ -42,28 +42,28 @@ WEEKLY_RELEASES_CACHE_TTL = 3600
 def get_cache_ttl_for_rtype(rtype):
     """Get cache TTL based on request type"""
     if rtype == "weekly_releases":
-        return min(WEEKLY_RELEASES_CACHE_TTL, comicarr.CONFIG.CV_CACHE_TTL_SEARCH)
+        return min(WEEKLY_RELEASES_CACHE_TTL, runtime.current().config.CV_CACHE_TTL_SEARCH)
     if rtype in ["comic", "comicyears", "import", "image", "firstissue", "imprints_first", "weekly_volumes"]:
-        return comicarr.CONFIG.CV_CACHE_TTL_METADATA
+        return runtime.current().config.CV_CACHE_TTL_METADATA
     elif rtype == "storyarc":
-        return comicarr.CONFIG.CV_CACHE_TTL_ARC
+        return runtime.current().config.CV_CACHE_TTL_ARC
     elif rtype in ["issue", "single_issue", "db_updater"]:
-        return comicarr.CONFIG.CV_CACHE_TTL_SEARCH
+        return runtime.current().config.CV_CACHE_TTL_SEARCH
     else:
-        return comicarr.CONFIG.CV_CACHE_TTL_SEARCH
+        return runtime.current().config.CV_CACHE_TTL_SEARCH
 
 
 def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlist=None, dateinfo=None):
     import json
     from xml.dom.minidom import parseString
 
-    if comicarr.CONFIG.COMICVINE_API == "None" or comicarr.CONFIG.COMICVINE_API is None:
+    if runtime.current().config.COMICVINE_API == "None" or runtime.current().config.COMICVINE_API is None:
         logger.warn(
             "You have not specified your own ComicVine API key - it's a requirement. Get your own @ http://api.comicvine.com."
         )
         return
     else:
-        comicapi = comicarr.CONFIG.COMICVINE_API
+        comicapi = runtime.current().config.COMICVINE_API
 
     if rtype == "comic":
         if not comicid.startswith("4050-"):
@@ -77,7 +77,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             + "&format=xml&field_list=name,count_of_issues,issues,start_year,site_detail_url,image,publisher,description,first_issue,deck,aliases"
         )
     elif rtype == "issue":
-        if comicarr.CONFIG.CV_ONLY:
+        if runtime.current().config.CV_ONLY:
             cv_rtype = "issues"
             if arclist is None:
                 searchset = (
@@ -191,7 +191,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
             + str(offset)
         )
 
-    if comicarr.CONFIG.CV_CACHE_ENABLED and runtime.current().cv_cache:
+    if runtime.current().config.CV_CACHE_ENABLED and runtime.current().cv_cache:
         cached_response = runtime.current().cv_cache.get(PULLURL)
         if cached_response:
             logger.fdebug("[CACHE HIT] %s" % rtype)
@@ -207,7 +207,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
 
     try:
         r = runtime.current().cv_session.get(
-            PULLURL, verify=comicarr.CONFIG.CV_VERIFY, timeout=runtime.current().cv_timeout
+            PULLURL, verify=runtime.current().config.CV_VERIFY, timeout=runtime.current().cv_timeout
         )
     except Exception as e:
         logger.warn("Error fetching data from ComicVine: %s" % (e))
@@ -219,7 +219,7 @@ def pulldetails(comicid, rtype, issueid=None, offset=1, arclist=None, comicidlis
 
     runtime.current().backend_status_cv = "up"
 
-    if comicarr.CONFIG.CV_CACHE_ENABLED and runtime.current().cv_cache and r.status_code == 200:
+    if runtime.current().config.CV_CACHE_ENABLED and runtime.current().cv_cache and r.status_code == 200:
         ttl = get_cache_ttl_for_rtype(rtype)
         if rtype in _JSON_RTYPES:
             runtime.current().cv_cache.set(PULLURL, r.text.encode("utf-8"), ttl)
@@ -352,7 +352,7 @@ def getComic(
         dtnow = dtnow.strftime("%Y-%m-%d %H:%M:%S")
         dtnow = datetime.datetime.strptime(dtnow, "%Y-%m-%d %H:%M:%S")
         dateline_range = []
-        for x in comicarr.CONFIG.PROBLEM_DATES:
+        for x in runtime.current().config.PROBLEM_DATES:
             bline = datetime.datetime.strptime(x, "%Y-%m-%d %H:%M:%S")
             if bline > dtchk1:
                 if bline < dtnow:
@@ -361,7 +361,9 @@ def getComic(
                             "start_date": dateinfo,
                             "end_date": (
                                 bline
-                                - datetime.timedelta(seconds=round((comicarr.CONFIG.PROBLEM_DATES_SECONDS / 60), 2))
+                                - datetime.timedelta(
+                                    seconds=round((runtime.current().config.PROBLEM_DATES_SECONDS / 60), 2)
+                                )
                             ).strftime("%Y-%m-%d %H:%M:%S"),
                         }
                     )
@@ -369,7 +371,9 @@ def getComic(
                         {
                             "start_date": (
                                 bline
-                                + datetime.timedelta(seconds=round((comicarr.CONFIG.PROBLEM_DATES_SECONDS / 60), 2))
+                                + datetime.timedelta(
+                                    seconds=round((runtime.current().config.PROBLEM_DATES_SECONDS / 60), 2)
+                                )
                             ).strftime("%Y-%m-%d %H:%M:%S"),
                             "end_date": common_dates.now(),
                         }
@@ -664,7 +668,7 @@ def GetComicInfo(comicid, dom, safechk=None, series=False):
 
 def GetIssuesInfo(comicid, dom, arcid=None):
     subtracks = dom.getElementsByTagName("issue")
-    if not comicarr.CONFIG.CV_ONLY:
+    if not runtime.current().config.CV_ONLY:
         cntiss = dom.getElementsByTagName("count_of_issues")[0].firstChild.wholeText
         logger.fdebug("issues I've counted: " + str(len(subtracks)))
         logger.fdebug("issues CV says it has: " + str(int(cntiss)))
@@ -683,7 +687,7 @@ def GetIssuesInfo(comicid, dom, arcid=None):
     issuech = []
     firstdate = "2099-00-00"
     for subtrack in subtracks:
-        if not comicarr.CONFIG.CV_ONLY:
+        if not runtime.current().config.CV_ONLY:
             if (dom.getElementsByTagName("name")[n].firstChild) is not None:
                 issue["Issue_Name"] = dom.getElementsByTagName("name")[n].firstChild.wholeText
             else:
@@ -1442,7 +1446,7 @@ def get_imprint_volume_and_booktype(
                                                 break
 
                                         if h.lower() == comic["ComicPublisher"].lower() or imprint_match is True:
-                                            if comicarr.CONFIG.IMPRINT_MAPPING_TYPE == "CV":
+                                            if runtime.current().config.IMPRINT_MAPPING_TYPE == "CV":
                                                 comicPublisher = d
                                                 publisherImprint = comic["ComicPublisher"]
                                             else:
@@ -1451,7 +1455,7 @@ def get_imprint_volume_and_booktype(
                                             logger.fdebug(
                                                 "imprint matching: [PRIORITY:%s] %s ---> %s"
                                                 % (
-                                                    comicarr.CONFIG.IMPRINT_MAPPING_TYPE,
+                                                    runtime.current().config.IMPRINT_MAPPING_TYPE,
                                                     comicPublisher,
                                                     publisherImprint,
                                                 )

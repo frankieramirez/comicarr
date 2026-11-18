@@ -21,7 +21,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.downloads import getcomics
 from comicarr.app.search import engine as search
 
@@ -85,7 +85,7 @@ def _source(session):
 
 @pytest.fixture(autouse=True)
 def _config(monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(DDL_QUERY_DELAY=0))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(DDL_QUERY_DELAY=0))
     monkeypatch.setattr(search, "last_run_check", lambda *args, **kwargs: None)
 
 

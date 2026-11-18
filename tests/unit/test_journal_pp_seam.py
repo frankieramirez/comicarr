@@ -56,8 +56,8 @@ def _isolated_db(tmp_path, monkeypatch):
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
         monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         types.SimpleNamespace(HIGHCOUNT=0, POST_PROCESSING=True, FILE_OPTS="move", ENABLE_META=False),
         raising=False,
     )
@@ -803,7 +803,7 @@ def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path
     assert row["stage"] == "post_processing"
     executed = []
     with (
-        patch.object(comicarr, "CONFIG", types.SimpleNamespace(DDL_LOCATION=str(src))),
+        patch.object(runtime.current(), "config", types.SimpleNamespace(DDL_LOCATION=str(src))),
         patch.object(postprocessing, "_execute", side_effect=lambda item: executed.append(item)),
     ):
         outcome = postprocessing.recover(rkey)

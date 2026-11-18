@@ -17,6 +17,7 @@ import pytest
 import requests
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+from comicarr.app.core import runtime
 from comicarr.app.downloads.ddl import mega_public
 from comicarr.app.downloads.ddl.mega_public import MegaDownloadError
 
@@ -239,11 +240,10 @@ def test_wrong_key_fails_before_download():
 def meganz(tmp_path, monkeypatch):
     from types import SimpleNamespace
 
-    import comicarr
     from comicarr.app.downloads.ddl import mega
 
     writes = []
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(DDL_LOCATION=str(tmp_path)), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(DDL_LOCATION=str(tmp_path)), raising=False)
     monkeypatch.setattr(mega.db, "upsert", lambda table, values, keys: writes.append((table, values, keys)))
     (tmp_path / "mega").mkdir()
     return mega.MegaNZ(), writes, tmp_path / "mega"

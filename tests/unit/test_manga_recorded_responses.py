@@ -26,7 +26,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.manga import mangadex, myanimelist
 from tests.fakes import manga as fake
 from tests.fakes.sabnzbd import NetworkDisabled
@@ -35,8 +35,8 @@ from tests.fakes.sabnzbd import NetworkDisabled
 @pytest.fixture
 def apis(monkeypatch):
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             CV_USER_AGENT="Comicarr/test",
             MANGADEX_ENABLED=True,

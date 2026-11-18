@@ -63,7 +63,7 @@ def library(tmp_path):
 def _copy(library, membership=ARC, **overrides):
     overrides.setdefault("STORYARC_LOCATION", library["arcs"])
     config = Config(**overrides)
-    with patch.object(comicarr, "CONFIG", config):
+    with patch.object(runtime.current(), "config", config):
         return copy_issue_to_arc(library["placed"], membership, span_years="2012", config=config)
 
 
@@ -143,14 +143,14 @@ def test_a_folder_that_cannot_be_made_raises_and_places_nothing(library):
 
 def test_a_full_disk_raises_before_placing(library):
     config = Config(STORYARC_LOCATION=library["arcs"])
-    with patch.object(comicarr, "CONFIG", config), pytest.raises(ArcCopyError):
+    with patch.object(runtime.current(), "config", config), pytest.raises(ArcCopyError):
         copy_issue_to_arc(library["placed"], ARC, span_years="2012", config=config, free_space=lambda _p: False)
     assert os.listdir(os.path.join(library["arcs"], "The Chosen (2012)")) == []
 
 
 def test_a_failed_placement_raises_an_arc_copy_error(library):
     config = Config(STORYARC_LOCATION=library["arcs"], ARC_FILEOPS="not-a-mode")
-    with patch.object(comicarr, "CONFIG", config), pytest.raises(ArcCopyError):
+    with patch.object(runtime.current(), "config", config), pytest.raises(ArcCopyError):
         copy_issue_to_arc(library["placed"], ARC, span_years="2012", config=config)
 
 
@@ -228,7 +228,10 @@ def _legacy_destination(library, config):
     ]
     filechecker = MagicMock()
     filechecker.validateAndCreateDirectory.side_effect = lambda path, **_kw: os.makedirs(path, exist_ok=True) or True
-    with patch.object(comicarr, "CONFIG", config), patch.object(comicarr.app.library, "filechecker", filechecker):
+    with (
+        patch.object(runtime.current(), "config", config),
+        patch.object(comicarr.app.library, "filechecker", filechecker),
+    ):
         service.updatearc_locs("SA1", arc_issues)
     with get_engine().connect() as conn:
         return conn.execute(
@@ -251,7 +254,7 @@ def test_the_destination_matches_the_legacy_arc_placement(library, arc_db, overr
     config = Config(**overrides)
     with get_engine().connect() as conn:
         row = dict(conn.execute(select(storyarcs).where(storyarcs.c.IssueArcID == "A1")).one()._mapping)
-    with patch.object(comicarr, "CONFIG", config):
+    with patch.object(runtime.current(), "config", config):
         ported = copy_issue_to_arc(library["placed"], ArcMembership.from_row(row), config=config)
 
     # The legacy placement skips a file already there, so it runs second.

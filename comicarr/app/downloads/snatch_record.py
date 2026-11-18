@@ -24,9 +24,8 @@ from typing import Any
 
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.common import dates as common_dates
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, issues, storyarcs, weekly
 from comicarr.app.core.tables import nzblog as nzblog_tbl
 from comicarr.app.manga import volumes as manga_volumes
@@ -89,12 +88,12 @@ def nzblog(IssueID, NZBName, ComicName, SARC=None, IssueArcID=None, id=None, pro
         newValue["OneOff"] = True
 
     if IssueID is None or IssueID == "None":
-        if any([comicarr.CONFIG.HIGHCOUNT == 0, comicarr.CONFIG.HIGHCOUNT is None]):
-            comicarr.CONFIG.HIGHCOUNT = 900000
+        if any([runtime.current().config.HIGHCOUNT == 0, runtime.current().config.HIGHCOUNT is None]):
+            runtime.current().config.HIGHCOUNT = 900000
         else:
-            comicarr.CONFIG.HIGHCOUNT += 1
+            runtime.current().config.HIGHCOUNT += 1
 
-        IssueID = comicarr.CONFIG.HIGHCOUNT
+        IssueID = runtime.current().config.HIGHCOUNT
 
     controlValue = {"IssueID": IssueID, "PROVIDER": prov}
 

@@ -32,12 +32,12 @@ from comicarr.app.common.remote_artifacts import (
     safe_remote_filename,
     write_chunks_atomically,
 )
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 
 
 class MediaFire(object):
     def __init__(self):
-        self.dl_location = os.path.join(comicarr.CONFIG.DDL_LOCATION)
+        self.dl_location = os.path.join(runtime.current().config.DDL_LOCATION)
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.178 Safari/537.36"
         }

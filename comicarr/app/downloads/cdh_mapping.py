@@ -24,7 +24,7 @@ import requests
 from packaging.version import parse as parse_version
 
 import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 
 
 class CDH_MAP(object):
@@ -32,11 +32,11 @@ class CDH_MAP(object):
         self.sab = sab
         self.nzbget = nzbget
         if self.sab is True:
-            self.sab_url = comicarr.CONFIG.SAB_HOST + "/api"
-            self.apikey = comicarr.CONFIG.SAB_APIKEY
-            dst_dir = comicarr.CONFIG.SAB_DIRECTORY
+            self.sab_url = runtime.current().config.SAB_HOST + "/api"
+            self.apikey = runtime.current().config.SAB_APIKEY
+            dst_dir = runtime.current().config.SAB_DIRECTORY
         else:
-            dst_dir = comicarr.CONFIG.NZBGET_DIRECTORY
+            dst_dir = runtime.current().config.NZBGET_DIRECTORY
             self.server = nzbget_server
 
         if comicarr.OS_DETECT == "Windows":
@@ -74,7 +74,7 @@ class CDH_MAP(object):
     def the_sequence(self):
         if self.sab is True:
             self.completedir()
-            if any([comicarr.CONFIG.SAB_CATEGORY is None, comicarr.CONFIG.SAB_CATEGORY == "None"]):
+            if any([runtime.current().config.SAB_CATEGORY is None, runtime.current().config.SAB_CATEGORY == "None"]):
                 cat_dir = None
                 cat_name = None
             else:
@@ -151,13 +151,13 @@ class CDH_MAP(object):
         return final_dst
 
     def sendsab(self, params):
-        response = requests.get(self.sab_url, params=params, verify=comicarr.CONFIG.SAB_VERIFY)
+        response = requests.get(self.sab_url, params=params, verify=runtime.current().config.SAB_VERIFY)
         response = response.json()
         return response
 
     def completedir(self):
         min_sab = "3.4.0"
-        sab_vers = comicarr.CONFIG.SAB_VERSION
+        sab_vers = runtime.current().config.SAB_VERSION
         if "beta" in sab_vers:
             sab_vers = re.sub("[^0-9]", "", sab_vers)
             if len(sab_vers) > 3:
@@ -175,7 +175,7 @@ class CDH_MAP(object):
         params = {
             "mode": "get_config",
             "section": "categories",
-            "keyword": comicarr.CONFIG.SAB_CATEGORY,
+            "keyword": runtime.current().config.SAB_CATEGORY,
             "apikey": self.apikey,
             "output": "json",
         }
@@ -184,7 +184,7 @@ class CDH_MAP(object):
         cat_name = None
         self.subdir = False
         for x in cats:
-            if x["name"] == comicarr.CONFIG.SAB_CATEGORY:
+            if x["name"] == runtime.current().config.SAB_CATEGORY:
                 cat_dir = x["dir"]
                 cat_name = x["name"]
                 logger.fdebug(cat_dir)
@@ -198,7 +198,7 @@ class CDH_MAP(object):
         cat_name = None
         cat_dir = None
         self.subdir = False
-        set_cat = comicarr.CONFIG.NZBGET_CATEGORY
+        set_cat = runtime.current().config.NZBGET_CATEGORY
         for item in cinfo:
             if item["Name"] == "DestDir":
                 self.cdir = item["Value"]

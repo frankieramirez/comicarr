@@ -41,7 +41,6 @@ from comicarr.app.system import service as system_service
 # and a new assignment of a projected name that is not listed fails.
 PROJECTED_SCALAR_REBIND_ALLOWLIST = {
     "comicarr/app/system/service.py": {
-        "CONFIG",
         "MIGRATION_STATUS",
         "MIGRATION_ERROR",
         "MIGRATION_RECONCILIATION",
@@ -100,7 +99,6 @@ def _legacy_runtime_objects(monkeypatch):
     mass_add_pool.is_alive.return_value = False
 
     values = {
-        "CONFIG": config,
         "SCHED": scheduler,
         "DDL_QUEUED": ddl_queued,
         "PUBLISHER_IMPRINTS": {},
@@ -118,6 +116,7 @@ def _legacy_runtime_objects(monkeypatch):
         runtime,
         "_bootstrap",
         AppContext(
+            config=config,
             search_queue=search_queue,
             ddl_queue=ddl_queue,
             search_lock=search_lock,
@@ -170,7 +169,7 @@ def test_runtime_factory_is_single_shot_and_adopts_identity_sensitive_objects(_l
 
 def test_runtime_owns_jwt_secure_directory_authority(_legacy_runtime_objects, tmp_path):
     """Logout rotation uses the same secure directory selected at runtime creation."""
-    comicarr.CONFIG.SECURE_DIR = str(tmp_path)
+    runtime.current().config.SECURE_DIR = str(tmp_path)
     persisted_key = b"persisted-jwt-key-material-32byt"
 
     with patch("comicarr.app.core.runtime.load_or_create_jwt_key", return_value=persisted_key) as load_key:
@@ -183,7 +182,7 @@ def test_runtime_owns_jwt_secure_directory_authority(_legacy_runtime_objects, tm
 
 def test_runtime_factory_owns_and_projects_one_ai_client_bundle(_legacy_runtime_objects):
     """AI aliases are a compatibility view of the factory-created bundle."""
-    config = comicarr.CONFIG
+    config = runtime.current().config
     config.AI_BASE_URL = "https://ai.example.test/v1"
     config.AI_API_KEY = "test-key"
     sync_client = MagicMock(name="sync_ai_client")
@@ -237,7 +236,7 @@ def test_factory_carries_migrated_fields_over_from_the_bootstrap(_legacy_runtime
     """
     from comicarr.app.core import runtime
 
-    monkeypatch.setattr(runtime, "_bootstrap", AppContext())
+    monkeypatch.setattr(runtime, "_bootstrap", AppContext(config=runtime.current().config))
     force_status = {"search": "Running"}
     runtime.current().search_status = "Running"
     runtime.current().force_status = force_status

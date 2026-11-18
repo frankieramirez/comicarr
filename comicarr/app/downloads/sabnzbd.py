@@ -26,9 +26,8 @@ import time
 import requests
 from packaging.version import parse as parse_version
 
-import comicarr
 from comicarr.app.common.redaction import redact_sensitive_text
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.downloads import cdh_mapping
 
 
@@ -146,7 +145,7 @@ def _file_not_found(expected_file):
 
 class SABnzbd(object):
     def __init__(self, params):
-        self.sab_url = comicarr.CONFIG.SAB_HOST + "/api"
+        self.sab_url = runtime.current().config.SAB_HOST + "/api"
         self.params = params
 
     def sender(self, nzbpath=None, chkstatus=False):
@@ -179,7 +178,9 @@ class SABnzbd(object):
 
         try:
             if chkstatus is True:
-                sendit = requests.get(self.sab_url, params=self.params, verify=comicarr.CONFIG.SAB_VERIFY, timeout=30)
+                sendit = requests.get(
+                    self.sab_url, params=self.params, verify=runtime.current().config.SAB_VERIFY, timeout=30
+                )
             else:
                 tmp_apikey = self.params.pop("apikey")
                 logger.fdebug("parameters set to %s" % self.params)
@@ -189,7 +190,7 @@ class SABnzbd(object):
                     self.sab_url,
                     data=self.params,
                     files=files,
-                    verify=comicarr.CONFIG.SAB_VERIFY,
+                    verify=runtime.current().config.SAB_VERIFY,
                     timeout=30,
                 )
             sendresponse = sendit.json()
@@ -201,7 +202,7 @@ class SABnzbd(object):
         except Exception as e:
             logger.warn(
                 "[SAB-SEND] Failed to send to client. Error returned: %s"
-                % redact_sensitive_text(e, secrets=(getattr(comicarr.CONFIG, "SAB_APIKEY", None),))
+                % redact_sensitive_text(e, secrets=(getattr(runtime.current().config, "SAB_APIKEY", None),))
             )
             return {"status": False}
 
@@ -214,7 +215,7 @@ class SABnzbd(object):
                     "mode": "queue",
                     "search": nzo_id,
                     "output": "json",
-                    "apikey": comicarr.CONFIG.SAB_APIKEY,
+                    "apikey": runtime.current().config.SAB_APIKEY,
                 },
             }
         else:
@@ -235,14 +236,14 @@ class SABnzbd(object):
             "mode": "queue",
             "nzo_ids": nzo_id,
             "output": "json",
-            "apikey": comicarr.CONFIG.SAB_APIKEY,
+            "apikey": runtime.current().config.SAB_APIKEY,
         }
-        if not ignore_category and comicarr.CONFIG.SAB_CATEGORY is not None:
-            params["category"] = comicarr.CONFIG.SAB_CATEGORY
+        if not ignore_category and runtime.current().config.SAB_CATEGORY is not None:
+            params["category"] = runtime.current().config.SAB_CATEGORY
         response = requests.get(
             self.sab_url,
             params=params,
-            verify=getattr(comicarr.CONFIG, "SAB_VERIFY", False),
+            verify=getattr(runtime.current().config, "SAB_VERIFY", False),
             timeout=30,
         )
         response.raise_for_status()
@@ -269,11 +270,13 @@ class SABnzbd(object):
             logger.fdebug("[SAB-QUEUE] parameters set to %s" % self.params)
             self.params["queue"]["apikey"] = tmp_apikey
             time.sleep(5)
-            h = requests.get(self.sab_url, params=self.params["queue"], verify=comicarr.CONFIG.SAB_VERIFY, timeout=30)
+            h = requests.get(
+                self.sab_url, params=self.params["queue"], verify=runtime.current().config.SAB_VERIFY, timeout=30
+            )
         except Exception as e:
             logger.fdebug(
                 "[SAB-QUEUE] uh-oh: %s"
-                % redact_sensitive_text(e, secrets=(getattr(comicarr.CONFIG, "SAB_APIKEY", None),))
+                % redact_sensitive_text(e, secrets=(getattr(runtime.current().config, "SAB_APIKEY", None),))
             )
             return self.historycheck(self.params, ignore_category=True)
         else:
@@ -313,7 +316,7 @@ class SABnzbd(object):
                         no_findie = True
                     tmp_queue["nzo_ids"] = self.params["nzo_id"]
                     queue_resp = requests.get(
-                        self.sab_url, params=tmp_queue, verify=comicarr.CONFIG.SAB_VERIFY, timeout=30
+                        self.sab_url, params=tmp_queue, verify=runtime.current().config.SAB_VERIFY, timeout=30
                     )
                     queueresponse = queue_resp.json()
                     try:
@@ -347,13 +350,13 @@ class SABnzbd(object):
         Flight retry) can remove the history entry itself once it has.
         """
         sendresponse = nzbinfo["nzo_id"]
-        hist_params = {"mode": "history", "failed": 0, "output": "json", "apikey": comicarr.CONFIG.SAB_APIKEY}
+        hist_params = {"mode": "history", "failed": 0, "output": "json", "apikey": runtime.current().config.SAB_APIKEY}
 
-        if not ignore_category and comicarr.CONFIG.SAB_CATEGORY is not None:
-            hist_params["category"] = comicarr.CONFIG.SAB_CATEGORY
+        if not ignore_category and runtime.current().config.SAB_CATEGORY is not None:
+            hist_params["category"] = runtime.current().config.SAB_CATEGORY
 
         sab_check = None
-        if comicarr.CONFIG.SAB_VERSION is None:
+        if runtime.current().config.SAB_VERSION is None:
             sab_check = self.sab_versioncheck()
 
         if sab_check == "some value":
@@ -361,7 +364,7 @@ class SABnzbd(object):
         else:
             try:
                 min_sab = "3.2.0"
-                sab_vers = comicarr.CONFIG.SAB_VERSION
+                sab_vers = runtime.current().config.SAB_VERSION
                 if parse_version(sab_vers) >= parse_version(min_sab):
                     logger.fdebug("SABnzbd version is higher than 3.2.0. Querying history based on nzo_id directly.")
                     hist_params["nzo_ids"] = sendresponse
@@ -371,7 +374,7 @@ class SABnzbd(object):
             except Exception as e:
                 logger.warn(
                     "[SABNZBD-VERSION-CHECK] Exception encountered trying to compare installed version [%s] to [%s]. Setting history length to last 200 items. (error: %s)"
-                    % (comicarr.CONFIG.SAB_VERSION, min_sab, e)
+                    % (runtime.current().config.SAB_VERSION, min_sab, e)
                 )
                 hist_params["limit"] = 200
 
@@ -380,7 +383,9 @@ class SABnzbd(object):
         hq = None
 
         try:
-            hist = requests.get(self.sab_url, params=hist_params, verify=comicarr.CONFIG.SAB_VERIFY, timeout=30)
+            hist = requests.get(
+                self.sab_url, params=hist_params, verify=runtime.current().config.SAB_VERIFY, timeout=30
+            )
             historyresponse = hist.json()
             histqueue = historyresponse["history"]
             for hq in histqueue["slots"]:
@@ -390,9 +395,9 @@ class SABnzbd(object):
                 ):
                     if hq["storage"] == "" and not roundtwo:
                         logger.fdebug(
-                            f"[{hq['status']}] Storage entry was empty for Completed job.  Sleeping for {comicarr.CONFIG.SAB_MOVING_DELAY}s to allow the process to fully finish before trying again."
+                            f"[{hq['status']}] Storage entry was empty for Completed job.  Sleeping for {runtime.current().config.SAB_MOVING_DELAY}s to allow the process to fully finish before trying again."
                         )
-                        time.sleep(comicarr.CONFIG.SAB_MOVING_DELAY)
+                        time.sleep(runtime.current().config.SAB_MOVING_DELAY)
                         return self.historycheck(
                             nzbinfo, roundtwo=True, ignore_category=ignore_category, keep_history=keep_history
                         )
@@ -428,9 +433,9 @@ class SABnzbd(object):
 
                     elif all(
                         [
-                            comicarr.CONFIG.SAB_DIRECT_UNPACK,
-                            comicarr.CONFIG.SAB_DIRECTORY is not None,
-                            comicarr.CONFIG.SAB_DIRECTORY != "None",
+                            runtime.current().config.SAB_DIRECT_UNPACK,
+                            runtime.current().config.SAB_DIRECTORY is not None,
+                            runtime.current().config.SAB_DIRECTORY != "None",
                         ]
                     ):
                         try:
@@ -439,7 +444,7 @@ class SABnzbd(object):
                         except Exception as e:
                             logger.warn(
                                 "[ERROR] error returned during attempt to map [%s] --> root dir:[%s]. Error: %s"
-                                % (hq["storage"], comicarr.CONFIG.SAB_DIRECTORY, e)
+                                % (hq["storage"], runtime.current().config.SAB_DIRECTORY, e)
                             )
                             self._consume_history(hq, keep_history)
                             return _file_not_found(hq["storage"])
@@ -521,7 +526,7 @@ class SABnzbd(object):
                         "download_info": nzbinfo.get("download_info"),
                         "nzo_id": hq["nzo_id"],
                     }
-                    if comicarr.CONFIG.FAILED_DOWNLOAD_HANDLING is True:
+                    if runtime.current().config.FAILED_DOWNLOAD_HANDLING is True:
                         found = {"status": True, **failed_job}
                     else:
                         found = {"status": "failed_no_auto_handling", **failed_job}
@@ -539,9 +544,9 @@ class SABnzbd(object):
                     ):
                         logger.fdebug(
                             "[%s(%s)] sleeping for %ss to allow the process to finish before trying again.."
-                            % (hq["status"], extract_counter, comicarr.CONFIG.SAB_MOVING_DELAY)
+                            % (hq["status"], extract_counter, runtime.current().config.SAB_MOVING_DELAY)
                         )
-                        time.sleep(comicarr.CONFIG.SAB_MOVING_DELAY)
+                        time.sleep(runtime.current().config.SAB_MOVING_DELAY)
                         if hq["status"] == "Extracting":
                             try:
                                 to_delay = int(int(hq["bytes"]) / 25000000) + 2
@@ -595,9 +600,9 @@ class SABnzbd(object):
                 logger.error("Cannot find nzb %s in the queue.  Was it removed?" % sendresponse)
                 logger.fdebug(
                     "sleeping for %ss to allow the process to finish before trying again.."
-                    % (comicarr.CONFIG.SAB_MOVING_DELAY)
+                    % (runtime.current().config.SAB_MOVING_DELAY)
                 )
-                time.sleep(comicarr.CONFIG.SAB_MOVING_DELAY)
+                time.sleep(runtime.current().config.SAB_MOVING_DELAY)
                 if roundtwo is False:
                     return self.historycheck(
                         nzbinfo, roundtwo=True, ignore_category=ignore_category, keep_history=keep_history
@@ -633,14 +638,14 @@ class SABnzbd(object):
             "mode": "history",
             "output": "json",
             "limit": str(limit),
-            "apikey": comicarr.CONFIG.SAB_APIKEY,
+            "apikey": runtime.current().config.SAB_APIKEY,
         }
         if search:
             params["search"] = search
         response = requests.get(
             self.sab_url,
             params=params,
-            verify=getattr(comicarr.CONFIG, "SAB_VERIFY", False),
+            verify=getattr(runtime.current().config, "SAB_VERIFY", False),
             timeout=30,
         )
         response.raise_for_status()
@@ -669,20 +674,25 @@ class SABnzbd(object):
 
     def remove_history(self, nzo_id, status):
         logger.info("[Sabnzbd Completed History Removal] Download is complete - removing item from history..")
-        if all([status == "Failed", comicarr.CONFIG.SAB_REMOVE_FAILED]) or comicarr.CONFIG.SAB_REMOVE_COMPLETED:
+        if (
+            all([status == "Failed", runtime.current().config.SAB_REMOVE_FAILED])
+            or runtime.current().config.SAB_REMOVE_COMPLETED
+        ):
             hist_params = {
                 "mode": "history",
                 "name": "delete",
                 "value": nzo_id,
                 "output": "json",
-                "apikey": comicarr.CONFIG.SAB_APIKEY,
+                "apikey": runtime.current().config.SAB_APIKEY,
             }
 
-            if status == "Failed" and comicarr.CONFIG.SAB_REMOVE_FAILED:
+            if status == "Failed" and runtime.current().config.SAB_REMOVE_FAILED:
                 hist_params["del_files"] = 1
 
             try:
-                rh = requests.get(self.sab_url, params=hist_params, verify=comicarr.CONFIG.SAB_VERIFY, timeout=30)
+                rh = requests.get(
+                    self.sab_url, params=hist_params, verify=runtime.current().config.SAB_VERIFY, timeout=30
+                )
                 rhistory = rh.json()
             except Exception as e:
                 logger.warn("[Sabnzbd Completed History Removal] Unable to remove item - error returned: %s" % e)
@@ -693,12 +703,12 @@ class SABnzbd(object):
                     logger.warn("[Sabnzbd Completed History Removal] Unable to remove item from history..")
 
     def sab_versioncheck(self):
-        params = {"mode": "version", "output": "json", "apikey": comicarr.CONFIG.SAB_APIKEY}
+        params = {"mode": "version", "output": "json", "apikey": runtime.current().config.SAB_APIKEY}
         try:
             response = requests.get(
                 self.sab_url,
                 params=params,
-                verify=comicarr.CONFIG.SAB_VERIFY,
+                verify=runtime.current().config.SAB_VERIFY,
                 timeout=30,
             )
         except Exception as e:
@@ -726,6 +736,6 @@ class SABnzbd(object):
             logger.warn("[SABNZBD-VERSION-TEST] SABnzbd returned no version. Setting history length to last 200 items.")
             return "some value"
 
-        comicarr.CONFIG.SAB_VERSION = str(version)
-        logger.fdebug("[SABNZBD-VERSION-TEST] Detected SABnzbd version: %s" % comicarr.CONFIG.SAB_VERSION)
+        runtime.current().config.SAB_VERSION = str(version)
+        logger.fdebug("[SABNZBD-VERSION-TEST] Detected SABnzbd version: %s" % runtime.current().config.SAB_VERSION)
         return None

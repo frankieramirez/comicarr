@@ -23,7 +23,6 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy import func, select
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import activity_events, metadata
 
@@ -31,7 +30,7 @@ from comicarr.app.core.tables import activity_events, metadata
 @pytest.fixture
 def activity_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()

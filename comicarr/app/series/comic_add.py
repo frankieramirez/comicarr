@@ -32,7 +32,7 @@ from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
 from comicarr.app.common import strings as common_strings
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import annuals, comics, issues
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.downloads import snatch_record
@@ -222,7 +222,7 @@ def add_comic(
                 latestissueinfo = []
                 latestissueinfo.append({"latestiss": dbcomic["LatestIssue"], "latestdate": dbcomic["LatestDate"]})
 
-            if comicarr.CONFIG.CREATE_FOLDERS is True:
+            if runtime.current().config.CREATE_FOLDERS is True:
                 checkdirectory = directories.validateAndCreateDirectory(comlocation, True)
                 if not checkdirectory:
                     logger.warn("Error trying to validate/create directory. Aborting this process at this time.")
@@ -245,7 +245,7 @@ def add_comic(
             newValueDict["ComicName"] = "Comic ID: %s" % (comicid)
         if location:
             comlocation = location
-        elif all([imported is not None, imported != "None", comicarr.CONFIG.IMP_PATHS is True]):
+        elif all([imported is not None, imported != "None", runtime.current().config.IMP_PATHS is True]):
             try:
                 comlocation = os.path.dirname(imported["filelisting"][0]["comiclocation"])
             except Exception:
@@ -369,16 +369,16 @@ def add_comic(
         if comic["ComicVersion"].isdigit():
             comicVol = "v" + comic["ComicVersion"]
             logger.info("Updated version to :" + str(comicVol))
-            if all([comicarr.CONFIG.SETDEFAULTVOLUME is False, comicVol == "v1"]):
+            if all([runtime.current().config.SETDEFAULTVOLUME is False, comicVol == "v1"]):
                 comicVol = None
         else:
-            if comicarr.CONFIG.SETDEFAULTVOLUME is True:
+            if runtime.current().config.SETDEFAULTVOLUME is True:
                 comicVol = "v1"
             else:
                 comicVol = None
     else:
         comicVol = oldcomversion
-        if all([comicarr.CONFIG.SETDEFAULTVOLUME is True, comicVol is None]):
+        if all([runtime.current().config.SETDEFAULTVOLUME is True, comicVol is None]):
             comicVol = "v1"
 
     comicIssues = comic["ComicIssues"]
@@ -426,7 +426,7 @@ def add_comic(
         if scheck is not None:
             comlocation = scheck["comlocation"]
     else:
-        comlocation.replace(comicarr.CONFIG.DESTINATION_DIR, "").strip()
+        comlocation.replace(runtime.current().config.DESTINATION_DIR, "").strip()
 
         if comic["ComicYear"] == "2099" and SeriesYear and not (dbcomic or {}).get("dirlocked"):
             badyears = [i.start() for i in re.finditer("2099", comlocation)]
@@ -453,7 +453,7 @@ def add_comic(
                 shutil.move(comlocation, new_location)
             except Exception as e:
                 if "No such file or directory" in e:
-                    if comicarr.CONFIG.CREATE_FOLDERS:
+                    if runtime.current().config.CREATE_FOLDERS:
                         checkdirectory = directories.validateAndCreateDirectory(new_location, True)
                         if not checkdirectory:
                             logger.warn(
@@ -466,7 +466,7 @@ def add_comic(
         if os.path.isdir(comlocation):
             logger.info("Directory (" + comlocation + ") already exists! Continuing...")
         else:
-            if comicarr.CONFIG.CREATE_FOLDERS is True:
+            if runtime.current().config.CREATE_FOLDERS is True:
                 checkdirectory = directories.validateAndCreateDirectory(comlocation, True)
                 if not checkdirectory:
                     logger.warn("Error trying to validate/create directory. Aborting this process at this time.")
@@ -477,9 +477,9 @@ def add_comic(
         )
         return {"status": "incomplete"}
 
-    cimage = os.path.join(comicarr.CONFIG.CACHE_DIR, str(comicid) + ".jpg")
-    if comicarr.CONFIG.ALTERNATE_LATEST_SERIES_COVERS is False or not os.path.isfile(cimage):
-        cimage = os.path.join(comicarr.CONFIG.CACHE_DIR, str(comicid) + ".jpg")
+    cimage = os.path.join(runtime.current().config.CACHE_DIR, str(comicid) + ".jpg")
+    if runtime.current().config.ALTERNATE_LATEST_SERIES_COVERS is False or not os.path.isfile(cimage):
+        cimage = os.path.join(runtime.current().config.CACHE_DIR, str(comicid) + ".jpg")
         PRComicImage = os.path.join("cache", str(comicid) + ".jpg")
         ComicImage = common_strings.replacetheslash(PRComicImage)
         coversize = 0
@@ -496,25 +496,36 @@ def add_comic(
                 logger.info("Attempting to retrieve alternate comic image for the series.")
                 covercheck = metadata_service.getImage(comicid, comic["ComicImageALT"])
 
-        if comicarr.CONFIG.COMIC_COVER_LOCAL is True:
+        if runtime.current().config.COMIC_COVER_LOCAL is True:
             cloc_it = []
             if comlocation is not None and all(
                 [os.path.isdir(comlocation) is True, os.path.isfile(os.path.join(comlocation, "cover.jpg")) is False]
             ):
                 cloc_it.append(comlocation)
 
-            if all([comicarr.CONFIG.MULTIPLE_DEST_DIRS is not None, comicarr.CONFIG.MULTIPLE_DEST_DIRS != "None"]):
+            if all(
+                [
+                    runtime.current().config.MULTIPLE_DEST_DIRS is not None,
+                    runtime.current().config.MULTIPLE_DEST_DIRS != "None",
+                ]
+            ):
                 if all(
                     [
-                        os.path.isdir(os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comlocation)))
+                        os.path.isdir(
+                            os.path.join(runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(comlocation))
+                        )
                         is True,
                         os.path.isfile(
-                            os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comlocation), "cover.jpg")
+                            os.path.join(
+                                runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(comlocation), "cover.jpg"
+                            )
                         )
                         is False,
                     ]
                 ):
-                    cloc_it.append(os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comlocation)))
+                    cloc_it.append(
+                        os.path.join(runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(comlocation))
+                    )
                 else:
                     ff = filers.FileHandlers(comic=comic)
                     cloc = ff.secondary_folders(comlocation)
@@ -525,7 +536,7 @@ def add_comic(
                 try:
                     comiclocal = os.path.join(clocit, "cover.jpg")
                     shutil.copyfile(cimage, comiclocal)
-                    if comicarr.CONFIG.ENFORCE_PERMS:
+                    if runtime.current().config.ENFORCE_PERMS:
                         directories.setperms(comiclocal)
                 except IOError as e:
                     if "No such file or directory" not in str(e):
@@ -537,7 +548,7 @@ def add_comic(
     else:
         ComicImage = None
 
-    if comicarr.CONFIG.COVER_FOLDER_LOCAL is True:
+    if runtime.current().config.COVER_FOLDER_LOCAL is True:
         if comic["ComicImageThumbnail"] != "None":
             if not os.path.exists(os.path.join(comlocation, "folder.jpg")):
                 th_check = metadata_service.getImage(
@@ -657,8 +668,8 @@ def add_comic(
         if anndata:
             add_manual_annual(annchk=anndata, series_status=series_status)
 
-    if comicarr.CONFIG.ALTERNATE_LATEST_SERIES_COVERS is True:
-        cimage = os.path.join(comicarr.CONFIG.CACHE_DIR, comicid + ".jpg")
+    if runtime.current().config.ALTERNATE_LATEST_SERIES_COVERS is True:
+        cimage = os.path.join(runtime.current().config.CACHE_DIR, comicid + ".jpg")
         coversize = 0
         if os.path.isfile(cimage):
             statinfo = os.stat(cimage)
@@ -674,7 +685,9 @@ def add_comic(
             % (lastissueid, importantdates["LatestIssueID"])
         )
 
-    if (comicarr.CONFIG.CVINFO or (comicarr.CONFIG.CV_ONLY and comicarr.CONFIG.CVINFO)) and os.path.isdir(comlocation):
+    if (
+        runtime.current().config.CVINFO or (runtime.current().config.CV_ONLY and runtime.current().config.CVINFO)
+    ) and os.path.isdir(comlocation):
         if os.path.isfile(os.path.join(comlocation, "cvinfo")) is False:
             with open(os.path.join(comlocation, "cvinfo"), "w") as text_file:
                 text_file.write(str(comic["ComicURL"]))
@@ -720,7 +733,7 @@ def add_comic(
     if imported is None or imported == "None" or imported == "futurecheck":
         pass
     else:
-        if comicarr.CONFIG.IMP_MOVE:
+        if runtime.current().config.IMP_MOVE:
             logger.info("Mass import - Move files")
             moveit.movefiles(comicid, comlocation, imported)
         else:
@@ -738,7 +751,7 @@ def add_comic(
     logger.fdebug("issue: " + latestiss + " status before chk :" + str(statbefore["Status"]))
     rescan.rescan_series(comicid)
 
-    if not json_updated and comicarr.CONFIG.SERIES_METADATA_LOCAL is True:
+    if not json_updated and runtime.current().config.SERIES_METADATA_LOCAL is True:
         sm = series_metadata.metadata_Series(comicid, bulk=False, api=False)
         sm.update_metadata()
 
@@ -756,7 +769,7 @@ def add_comic(
     logger.fdebug("lastpubdate: " + str(lastpubdate))
     logger.fdebug("series_status: " + str(series_status))
     if pullupd is None:
-        if comicarr.CONFIG.AUTOWANT_UPCOMING and lastpubdate == "Present" and series_status == "Active":
+        if runtime.current().config.AUTOWANT_UPCOMING and lastpubdate == "Present" and series_status == "Active":
             logger.fdebug("latestissue: #" + str(latestiss))
             with db.get_engine().connect() as conn:
                 stmt = (
@@ -767,7 +780,7 @@ def add_comic(
                 chkstats = next((dict(row._mapping) for row in conn.execute(stmt)), None)
 
             if chkstats is None:
-                if comicarr.CONFIG.ANNUALS_ON:
+                if runtime.current().config.ANNUALS_ON:
                     with db.get_engine().connect() as conn:
                         stmt = (
                             select(annuals)
@@ -806,7 +819,7 @@ def add_comic(
                                     "Status": issr["Status"],
                                 }
                             )
-                    if comicarr.CONFIG.ANNUALS_ON:
+                    if runtime.current().config.ANNUALS_ON:
                         with db.get_engine().connect() as conn:
                             stmt = (
                                 select(annuals)
@@ -983,17 +996,17 @@ def store_issue_rows(issuedata, nostatus, serieslast_updated=None, suppress_adda
                                 % (issue["Issue_Number"])
                             )
                         else:
-                            if comicarr.CONFIG.AUTOWANT_ALL and not suppress_addall:
+                            if runtime.current().config.AUTOWANT_ALL and not suppress_addall:
                                 newValueDict["Status"] = "Wanted"
                             elif serieslast_updated is None:
                                 newValueDict["Status"] = "Skipped"
-                            elif issue_week >= now_week and comicarr.CONFIG.AUTOWANT_UPCOMING:
+                            elif issue_week >= now_week and runtime.current().config.AUTOWANT_UPCOMING:
                                 logger.fdebug("[Marking as Wanted] week %s >= week %s" % (now_week, issue_week))
                                 newValueDict["Status"] = "Wanted"
                             elif all(
                                 [
                                     int(re.sub("-", "", serieslast_updated).strip()) < int(dk),
-                                    comicarr.CONFIG.AUTOWANT_UPCOMING is True,
+                                    runtime.current().config.AUTOWANT_UPCOMING is True,
                                 ]
                             ):
                                 logger.info("Autowant upcoming triggered for issue #%s" % issue["Issue_Number"])
@@ -1096,17 +1109,17 @@ def add_manual_annual(
                     if series_status == "Paused":
                         astatus = "Skipped"
                     else:
-                        if comicarr.CONFIG.AUTOWANT_ALL:
+                        if runtime.current().config.AUTOWANT_ALL:
                             astatus = "Wanted"
                         elif serieslast_updated is None:
                             astatus = "Skipped"
-                        elif issue_week >= now_week and comicarr.CONFIG.AUTOWANT_UPCOMING:
+                        elif issue_week >= now_week and runtime.current().config.AUTOWANT_UPCOMING:
                             logger.fdebug("[Marking as Wanted] week %s >= week %s" % (now_week, issue_week))
                             astatus = "Wanted"
                         elif all(
                             [
                                 int(re.sub("-", "", serieslast_updated).strip()) < int(dk),
-                                comicarr.CONFIG.AUTOWANT_UPCOMING is True,
+                                runtime.current().config.AUTOWANT_UPCOMING is True,
                             ]
                         ):
                             logger.info("Autowant upcoming triggered for issue #%s" % firstval["Issue_Number"])
@@ -1623,7 +1636,7 @@ def update_issue_data(
     importantdates["ComicPublished"] = publishfigure
     importantdates["NewPublish"] = newpublish
 
-    if comicarr.CONFIG.SERIES_METADATA_LOCAL is True:
+    if runtime.current().config.SERIES_METADATA_LOCAL is True:
         sm = series_metadata.metadata_Series(comicid, bulk=False, api=False)
         sm.update_metadata()
 
@@ -1803,9 +1816,9 @@ def check_annuals(ComicName, SeriesYear, comicid, issuetype, issuechk, annualsli
                                 if series_status == "Paused":
                                     astatus = "Skipped"
                                 else:
-                                    if comicarr.CONFIG.AUTOWANT_ALL:
+                                    if runtime.current().config.AUTOWANT_ALL:
                                         astatus = "Wanted"
-                                    elif issue_week >= now_week and comicarr.CONFIG.AUTOWANT_UPCOMING is True:
+                                    elif issue_week >= now_week and runtime.current().config.AUTOWANT_UPCOMING is True:
                                         astatus = "Wanted"
                                     else:
                                         astatus = "Skipped"
@@ -1858,7 +1871,7 @@ def check_annuals(ComicName, SeriesYear, comicid, issuetype, issuechk, annualsli
 
 def fetch_series_image(comicid, latestissueid, comlocation, ComicImage):
 
-    cimage = os.path.join(comicarr.CONFIG.CACHE_DIR, str(comicid) + ".jpg")
+    cimage = os.path.join(runtime.current().config.CACHE_DIR, str(comicid) + ".jpg")
     imageurl = cv.getComic(comicid, "image", issueid=latestissueid)
     if imageurl is None:
         return
@@ -1876,24 +1889,33 @@ def fetch_series_image(comicid, latestissueid, comlocation, ComicImage):
     PRComicImage = os.path.join("cache", str(comicid) + ".jpg")
     ComicImage = common_strings.replacetheslash(PRComicImage)
 
-    if comicarr.CONFIG.COMIC_COVER_LOCAL is True:
+    if runtime.current().config.COMIC_COVER_LOCAL is True:
         cloc_it = []
         if comlocation is not None and all(
             [os.path.isdir(comlocation) is True, os.path.isfile(os.path.join(comlocation, "cover.jpg")) is False]
         ):
             cloc_it.append(comlocation)
-        elif all([comicarr.CONFIG.MULTIPLE_DEST_DIRS is not None, comicarr.CONFIG.MULTIPLE_DEST_DIRS != "None"]):
+        elif all(
+            [
+                runtime.current().config.MULTIPLE_DEST_DIRS is not None,
+                runtime.current().config.MULTIPLE_DEST_DIRS != "None",
+            ]
+        ):
             if all(
                 [
-                    os.path.isdir(os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comlocation)))
+                    os.path.isdir(
+                        os.path.join(runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(comlocation))
+                    )
                     is True,
                     os.path.isfile(
-                        os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comlocation), "cover.jpg")
+                        os.path.join(
+                            runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(comlocation), "cover.jpg"
+                        )
                     )
                     is False,
                 ]
             ):
-                cloc_it.append(os.path.join(comicarr.CONFIG.MULTIPLE_DEST_DIRS, os.path.basename(comlocation)))
+                cloc_it.append(os.path.join(runtime.current().config.MULTIPLE_DEST_DIRS, os.path.basename(comlocation)))
             else:
                 ff = filers.FileHandlers(ComicID=comicid)
                 cloc = ff.secondary_folders(comlocation)
@@ -1904,7 +1926,7 @@ def fetch_series_image(comicid, latestissueid, comlocation, ComicImage):
             try:
                 comiclocal = os.path.join(clocit, "cover.jpg")
                 shutil.copyfile(cimage, comiclocal)
-                if comicarr.CONFIG.ENFORCE_PERMS:
+                if runtime.current().config.ENFORCE_PERMS:
                     directories.setperms(comiclocal)
             except IOError as e:
                 if "No such file or directory" not in str(e):

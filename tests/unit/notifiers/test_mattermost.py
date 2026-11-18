@@ -1,7 +1,7 @@
 """Tests for MATTERMOST notifier."""
 
 import json
-import pytest
+
 import responses
 
 
@@ -9,19 +9,15 @@ class TestMattermostInit:
     """Test MATTERMOST initialization."""
 
     def test_init_uses_config_values(self, notifiers_module, mock_notifier_config):
-        """Init should use comicarr.CONFIG values by default."""
+        """Init should use runtime.current().config values by default."""
         mattermost = notifiers_module.MATTERMOST()
 
         assert mattermost.webhook_url == "https://mattermost.example.com/hooks/test"
         assert mattermost.test_hook is False
 
-    def test_init_test_webhook_sets_test_mode(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_init_test_webhook_sets_test_mode(self, notifiers_module, mock_notifier_config):
         """Test webhook URL sets test mode."""
-        mattermost = notifiers_module.MATTERMOST(
-            test_webhook_url="https://mattermost.example.com/hooks/override"
-        )
+        mattermost = notifiers_module.MATTERMOST(test_webhook_url="https://mattermost.example.com/hooks/override")
 
         assert mattermost.webhook_url == "https://mattermost.example.com/hooks/override"
         assert mattermost.test_hook is True
@@ -51,9 +47,7 @@ class TestMattermostNotify:
         assert len(responses.calls) == 1
 
     @responses.activate
-    def test_notify_payload_includes_branding(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_payload_includes_branding(self, notifiers_module, mock_notifier_config):
         """Payload includes Comicarr branding."""
         responses.add(
             responses.POST,
@@ -107,9 +101,7 @@ class TestMattermostNotify:
         assert "Year" in field_titles
 
     @responses.activate
-    def test_notify_test_mode_no_attachments(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_test_mode_no_attachments(self, notifiers_module, mock_notifier_config):
         """Test mode notification has empty attachments."""
         responses.add(
             responses.POST,
@@ -118,9 +110,7 @@ class TestMattermostNotify:
             status=200,
         )
 
-        mattermost = notifiers_module.MATTERMOST(
-            test_webhook_url="https://mattermost.example.com/hooks/override"
-        )
+        mattermost = notifiers_module.MATTERMOST(test_webhook_url="https://mattermost.example.com/hooks/override")
         result = mattermost.notify(text="Comicarr", attachment_text="Test notification")
 
         assert result is True
@@ -129,9 +119,7 @@ class TestMattermostNotify:
         assert request_body["attachments"] == []
 
     @responses.activate
-    def test_notify_snatched_format(
-        self, notifiers_module, mock_notifier_config, mattermost_metadata
-    ):
+    def test_notify_snatched_format(self, notifiers_module, mock_notifier_config, mattermost_metadata):
         """Snatched notification formats message correctly."""
         responses.add(
             responses.POST,
@@ -157,9 +145,7 @@ class TestMattermostNotify:
         assert "SABnzbd" in request_body["text"]
 
     @responses.activate
-    def test_notify_snatched_without_sent_to(
-        self, notifiers_module, mock_notifier_config, mattermost_metadata
-    ):
+    def test_notify_snatched_without_sent_to(self, notifiers_module, mock_notifier_config, mattermost_metadata):
         """Snatched notification without sent_to."""
         responses.add(
             responses.POST,
@@ -207,9 +193,7 @@ class TestMattermostNotifyErrors:
     """Test MATTERMOST error handling."""
 
     @responses.activate
-    def test_notify_http_error_returns_false(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_http_error_returns_false(self, notifiers_module, mock_notifier_config):
         """HTTP error returns False."""
         responses.add(
             responses.POST,
@@ -228,9 +212,7 @@ class TestMattermostNotifyErrors:
         assert result is False
 
     @responses.activate
-    def test_notify_not_found_returns_false(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_notify_not_found_returns_false(self, notifiers_module, mock_notifier_config):
         """404 error returns False."""
         responses.add(
             responses.POST,
@@ -253,9 +235,7 @@ class TestMattermostTestNotify:
     """Test MATTERMOST test_notify method."""
 
     @responses.activate
-    def test_test_notify_sends_correct_message(
-        self, notifiers_module, mock_notifier_config
-    ):
+    def test_test_notify_sends_correct_message(self, notifiers_module, mock_notifier_config):
         """test_notify sends expected test message in test mode."""
         responses.add(
             responses.POST,
@@ -265,9 +245,7 @@ class TestMattermostTestNotify:
         )
 
         # Use test mode webhook to avoid metadata requirement
-        mattermost = notifiers_module.MATTERMOST(
-            test_webhook_url="https://mattermost.example.com/hooks/override"
-        )
+        mattermost = notifiers_module.MATTERMOST(test_webhook_url="https://mattermost.example.com/hooks/override")
         result = mattermost.test_notify()
 
         assert result is True

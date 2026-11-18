@@ -15,8 +15,7 @@ from urllib.parse import urlparse
 
 import transmission_rpc
 
-import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.downloads.torrent.contracts import connection_failure
 
 DEFAULT_PORT = 9091
@@ -125,14 +124,14 @@ class TorrentClient(object):
     def load_torrent(self, filepath):
         if any(
             [
-                comicarr.CONFIG.TRANSMISSION_DIRECTORY is None,
-                comicarr.CONFIG.TRANSMISSION_DIRECTORY == "",
-                comicarr.CONFIG.TRANSMISSION_DIRECTORY == "None",
+                runtime.current().config.TRANSMISSION_DIRECTORY is None,
+                runtime.current().config.TRANSMISSION_DIRECTORY == "",
+                runtime.current().config.TRANSMISSION_DIRECTORY == "None",
             ]
         ):
-            down_dir = comicarr.CONFIG.CHECK_FOLDER
+            down_dir = runtime.current().config.CHECK_FOLDER
         else:
-            down_dir = comicarr.CONFIG.TRANSMISSION_DIRECTORY
+            down_dir = runtime.current().config.TRANSMISSION_DIRECTORY
         if filepath.startswith("magnet"):
             torrent = self.conn.add_torrent(filepath, download_dir=down_dir)
         else:

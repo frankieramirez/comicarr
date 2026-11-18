@@ -29,7 +29,7 @@ from comicarr.app.common import configured as configured
 from comicarr.app.common.series_names import DYNAMIC_HANDLERS, DYNAMIC_REPLACEMENTS, dynamic_series_name
 from comicarr.app.common.series_names import dynamic_series_key as dynamic_series_key
 from comicarr.app.common.text_dates import parse_text_date
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.library.directories import check_valid_perms as check_valid_perms
 from comicarr.app.library.directories import setperms as setperms
 from comicarr.app.library.directories import validateAndCreateDirectory as validateAndCreateDirectory
@@ -301,7 +301,7 @@ class FileChecker(object):
             parse_name = wrapped.group(1).strip()
 
         comic_ext = (".cbr", ".cbz", ".cb7", ".pdf")
-        comic_ext = tuple(x for x in comic_ext if x not in comicarr.CONFIG.IGNORE_SEARCH_WORDS)
+        comic_ext = tuple(x for x in comic_ext if x not in runtime.current().config.IGNORE_SEARCH_WORDS)
         if os.path.splitext(parse_name)[1].endswith(comic_ext):
             filetype = os.path.splitext(parse_name)[1]
         else:
@@ -310,7 +310,7 @@ class FileChecker(object):
         modfilename = re.sub(filetype, "", parse_name).strip()
         reading_order = None
 
-        if self.sarc and comicarr.CONFIG.READ2FILENAME:
+        if self.sarc and runtime.current().config.READ2FILENAME:
             removest = modfilename.find("-")
             logger.fdebug(
                 "[SARC] Checking filename for Reading Order sequence - candidate: %s" % modfilename[:removest]
@@ -1466,7 +1466,7 @@ class FileChecker(object):
         series_name_decoded = unicodedata.normalize("NFKD", series_name)
         if not self.justparse and all(
             [
-                comicarr.CONFIG.ANNUALS_ON,
+                runtime.current().config.ANNUALS_ON,
                 "annual" not in self.watchcomic.lower(),
                 "special" not in self.watchcomic.lower(),
             ]
@@ -1660,7 +1660,7 @@ class FileChecker(object):
 
         annualisation = False
         n_name = "annual"
-        if comicarr.CONFIG.ANNUALS_ON:
+        if runtime.current().config.ANNUALS_ON:
             ann_year_check = re.findall(r"(\d{4})(?=[\s]|annual\b|$)", self.watchcomic, flags=re.I)
             if all(["annual" in nspace_watchcomic.lower(), "annual" not in series_name.lower()]) or all(
                 ["annual" not in nspace_watchcomic.lower(), "annual" in series_name.lower()]
@@ -1685,7 +1685,7 @@ class FileChecker(object):
                     nspace_altseriesname_decoded = re.sub(n_name, "", nspace_altseriesname_decoded.lower()).strip()
                 nspace_altseriesname = re.sub("annual", "", nspace_altseriesname.lower()).strip()
                 nspace_altseriesname_decoded = re.sub("annual", "", nspace_altseriesname_decoded.lower()).strip()
-        if comicarr.CONFIG.ANNUALS_ON and "special" not in nspace_watchcomic.lower():
+        if runtime.current().config.ANNUALS_ON and "special" not in nspace_watchcomic.lower():
             if "special" in series_name.lower():
                 justthedigits = "Special"
                 if series_info["issue_number"] is not None:
@@ -1835,9 +1835,9 @@ class FileChecker(object):
     def traverse_directories(self, dir):
         filelist = []
         comic_ext = (".cbr", ".cbz", ".cb7", ".pdf")
-        comic_ext = tuple(x for x in comic_ext if x not in comicarr.CONFIG.IGNORE_SEARCH_WORDS)
+        comic_ext = tuple(x for x in comic_ext if x not in runtime.current().config.IGNORE_SEARCH_WORDS)
 
-        if all([comicarr.CONFIG.ENABLE_TORRENTS is True, self.pp_mode is True]):
+        if all([runtime.current().config.ENABLE_TORRENTS is True, self.pp_mode is True]):
             from sqlalchemy import and_, or_, select
 
             from comicarr.app.core import db
@@ -1883,7 +1883,7 @@ class FileChecker(object):
                 if fname.startswith("._"):
                     continue
 
-                if all([comicarr.CONFIG.ENABLE_TORRENTS is True, self.pp_mode is True]):
+                if all([runtime.current().config.ENABLE_TORRENTS is True, self.pp_mode is True]):
                     tcrc = configured.crc(os.path.join(dirname, fname))
                     crcchk = [x for x in pp_crclist if tcrc == x["crc"]]
                     if crcchk:

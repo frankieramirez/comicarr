@@ -28,7 +28,6 @@ from xml.dom.minidom import parseString
 
 import pytest
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.metadata import cv
 
@@ -97,7 +96,7 @@ def comicvine(monkeypatch):
         PROBLEM_DATES=[],
         PROBLEM_DATES_SECONDS=0,
     )
-    monkeypatch.setattr(comicarr, "CONFIG", config)
+    monkeypatch.setattr(runtime.current(), "config", config)
     monkeypatch.setattr(runtime.current(), "cv_url", "https://cv.example/api/")
     monkeypatch.setattr(runtime.current(), "cv_rate_limiter", MagicMock())
     monkeypatch.setattr(runtime.current(), "cv_timeout", 30)
@@ -114,7 +113,7 @@ def comicvine(monkeypatch):
 
 def test_without_an_api_key_nothing_is_requested(comicvine, monkeypatch):
     session = comicvine()
-    monkeypatch.setattr(comicarr.CONFIG, "COMICVINE_API", None)
+    monkeypatch.setattr(runtime.current().config, "COMICVINE_API", None)
 
     assert cv.pulldetails("43", "comic") is None
     assert session.urls == []
@@ -218,13 +217,13 @@ def test_an_issue_description_with_a_digital_date_sets_it(comicvine):
 
 def test_get_comic_reports_a_failed_issue_fetch(comicvine, monkeypatch):
     comicvine()
-    monkeypatch.setattr(comicarr.CONFIG, "COMICVINE_API", None)
+    monkeypatch.setattr(runtime.current().config, "COMICVINE_API", None)
 
     assert cv.getComic("43", "issue") is False
 
 
 def test_a_volume_issue_list_is_read_when_cv_only_is_off(comicvine, monkeypatch):
-    monkeypatch.setattr(comicarr.CONFIG, "CV_ONLY", False)
+    monkeypatch.setattr(runtime.current().config, "CV_ONLY", False)
     dom = parseString(VOLUME_XML)
 
     issues, firstdate = cv.GetIssuesInfo("43", dom)

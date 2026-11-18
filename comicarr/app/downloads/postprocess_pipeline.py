@@ -577,9 +577,7 @@ class PostProcessNotifyStage:
             return False
         config = self._config
         if config is None:
-            import comicarr
-
-            config = comicarr.CONFIG
+            config = runtime.current().config
         try:
             self._send(item, config, self._cover(item, config))
         except Exception as e:
@@ -748,9 +746,8 @@ class PostProcessRun:
         return _JOURNAL.transition(self.context, stage, issue_id=issue_id, issue_arc_id=issue_arc_id, payload=payload)
 
     def tidy(self, odir=None, del_nzbdir=False, sub_path=None, cacheonly=False, filename=None):
-        import comicarr
 
-        config = comicarr.CONFIG
+        config = runtime.current().config
         PostProcessCleanupStage(narrate=self.narrate).tidy(
             PostProcessCleanupContext(
                 nzb_folder=self.nzb_folder,
@@ -789,9 +786,8 @@ _JOURNAL = PostProcessJournalStage()
 
 def run_script(kind, run, nzb_name, nzb_folder, filename, path, seriesmetadata):
     """Run the configured pre (``kind="pre"``) or extra script for one file."""
-    import comicarr
 
-    config = comicarr.CONFIG
+    config = runtime.current().config
     if kind == "pre":
         script, shell_location, label, text = config.PRE_SCRIPTS, config.PRE_SHELL_LOCATION, "pre", False
     else:
@@ -899,7 +895,6 @@ def _pretty_issue_number(run, issuenum, issue_except):
     Returns ``(prettycomiss, issueno)``; ``prettycomiss`` is ``False`` when the
     number cannot be read at all, which ends the item without a queue signal.
     """
-    import comicarr
 
     module = run.module
     iss_decval = None
@@ -928,8 +923,8 @@ def _pretty_issue_number(run, issuenum, issue_except):
         iss = issuenum
         issueno = iss
 
-    zeroadd = zero_suppression_prefix(comicarr.CONFIG.ZERO_LEVEL, comicarr.CONFIG.ZERO_LEVEL_N)
-    logger.fdebug("%s Zero Suppression set to : %s" % (module, comicarr.CONFIG.ZERO_LEVEL_N))
+    zeroadd = zero_suppression_prefix(runtime.current().config.ZERO_LEVEL, runtime.current().config.ZERO_LEVEL_N)
+    logger.fdebug("%s Zero Suppression set to : %s" % (module, runtime.current().config.ZERO_LEVEL_N))
 
     prettycomiss = None
     if issueno.isalpha():
@@ -970,7 +965,7 @@ def _pretty_issue_number(run, issuenum, issue_except):
             prettycomiss = str(prettycomiss) + issue_except
         logger.fdebug(
             "%s Zero level supplement set to %s. Issue will be set as : %s"
-            % (module, comicarr.CONFIG.ZERO_LEVEL_N, prettycomiss)
+            % (module, runtime.current().config.ZERO_LEVEL_N, prettycomiss)
         )
     elif len(str(issueno)) == 0:
         prettycomiss = str(issueno)
@@ -1156,7 +1151,6 @@ def _copy_to_arcs(run, deps, ml, claims, dst):
     cannot be made stops the item; a failed copy returns without signalling
     the queue, as it always has.
     """
-    import comicarr
     from comicarr.app.storyarcs import ArcCopyError, ArcFolderError
 
     module = run.module
@@ -1164,10 +1158,10 @@ def _copy_to_arcs(run, deps, ml, claims, dst):
         logger.info("Watchlist Story Arc match detected.")
         logger.info(ml)
         for membership, arc_context in claims:
-            if comicarr.CONFIG.COPY2ARCDIR is True:
+            if runtime.current().config.COPY2ARCDIR is True:
                 logger.info(
                     "%s[%s] %s into the arc folder for %s"
-                    % (module, comicarr.CONFIG.ARC_FILEOPS.upper(), dst, membership.story_arc)
+                    % (module, runtime.current().config.ARC_FILEOPS.upper(), dst, membership.story_arc)
                 )
             try:
                 finish_arc_copy(arc_context, membership, dst, place=deps.place)
@@ -1179,7 +1173,7 @@ def _copy_to_arcs(run, deps, ml, claims, dst):
                 return run.finish("stop")
             except ArcCopyError as e:
                 run.log_placement_failure(
-                    comicarr.CONFIG.ARC_FILEOPS, dst, "the %s arc folder" % membership.story_arc, e
+                    runtime.current().config.ARC_FILEOPS, dst, "the %s arc folder" % membership.story_arc, e
                 )
                 return run.abort()
             logger.fdebug("%s IssueArcID: %s" % (module, ml["IssueArcID"]))
@@ -1196,7 +1190,6 @@ def process_comic_issue(match: PostProcessComicMatch, run: PostProcessRun, deps:
     weekly/extra-script hooks and the notification. A restart re-enters
     through the journal: see the post-processing migration map.
     """
-    import comicarr
 
     comicid = match.comic_id
     issueid = match.issue_id
@@ -1204,7 +1197,7 @@ def process_comic_issue(match: PostProcessComicMatch, run: PostProcessRun, deps:
     ml = match.manual
     stat = match.position if match.position is not None else " [1/1]"
     module = run.module
-    config = comicarr.CONFIG
+    config = runtime.current().config
 
     annchk = "no"
     comicnzb = db.select_one(select(comics).where(comics.c.ComicID == comicid))
@@ -1834,14 +1827,13 @@ def metatag_manga_file(run, deps, filepath, issueid):
     path otherwise. Tagging is best effort; a metadata failure must not cost
     the import, exactly as it does not on the comic path.
     """
-    import comicarr
 
     module = run.module
 
     # Same condition the comic path uses (ENABLE_META or CBR2CBZ_ONLY), read
     # defensively: a process without configuration loaded places the file
     # untagged rather than failing the import over it.
-    config = comicarr.CONFIG
+    config = runtime.current().config
     if config is None:
         return filepath
     if not (getattr(config, "ENABLE_META", False) or getattr(config, "CBR2CBZ_ONLY", False)):
@@ -1885,9 +1877,8 @@ def tidy_manga_folder(run, nzb_dir):
     is the last thing a manga import does, and it must never turn a successful
     import into an exception.
     """
-    import comicarr
 
-    if getattr(comicarr.CONFIG, "FILE_OPTS", None) != "move" or run.nzb_name == "Manual Run":
+    if getattr(runtime.current().config, "FILE_OPTS", None) != "move" or run.nzb_name == "Manual Run":
         return
     run.tidy(nzb_dir, True)
 
@@ -1899,7 +1890,6 @@ def process_manga_download(run: PostProcessRun, deps: PostProcessItemDeps):
     matches each to a chapter or volume through the manga filename parser,
     and marks the matched rows Downloaded.
     """
-    import comicarr
 
     module = run.module
     comic_id = run.context.comic_id
@@ -1954,7 +1944,7 @@ def process_manga_download(run: PostProcessRun, deps: PostProcessItemDeps):
     from comicarr.app.series.location import is_location_override
 
     if is_location_override(comicnzb):
-        if not is_strict_library_descendant(series_folder, comicarr.CONFIG):
+        if not is_strict_library_descendant(series_folder, runtime.current().config):
             run.narrate("Chosen series folder is outside the allowed library roots — refusing to write")
             logger.error("%s Chosen series folder %s is outside the allowed library roots" % (module, series_folder))
             return run.finish("stop")
@@ -2048,7 +2038,7 @@ def process_manga_download(run: PostProcessRun, deps: PostProcessItemDeps):
         # than samefile, because dst need not exist here.
         if (
             filepath != pre_tag_path
-            and getattr(comicarr.CONFIG, "FILE_OPTS", None) == "move"
+            and getattr(runtime.current().config, "FILE_OPTS", None) == "move"
             and os.path.realpath(pre_tag_path) != os.path.realpath(dst)
             and os.path.isfile(pre_tag_path)
         ):
@@ -2160,7 +2150,7 @@ def process_download(request: PostProcessRequest, *, match: Callable, deps: Post
     """
     import comicarr
 
-    config = comicarr.CONFIG
+    config = runtime.current().config
     module = request.module + "[POST-PROCESSING]" if request.module is not None else "[POST-PROCESSING]"
     extensions = tuple(x for x in DEFAULT_EXTENSIONS if x not in config.IGNORE_SEARCH_WORDS)
     api_call = request.api_call is True
@@ -2355,7 +2345,6 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
 
     Returns None to go on, or how the request ended.
     """
-    import comicarr
     from comicarr.app.downloads._postprocess_completion import complete
 
     module = run.module
@@ -2383,7 +2372,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
             # No copy into the arc folder means no completion write here,
             # and so the legacy unconditional notification.
             completion = None
-            if all([comicarr.CONFIG.STORYARCDIR is True, comicarr.CONFIG.COPY2ARCDIR is True]):
+            if all([runtime.current().config.STORYARCDIR is True, runtime.current().config.COPY2ARCDIR is True]):
                 grdst = storyarcs_service.arcformat(
                     ml["StoryArc"], storyarcs_service.spantheyears(ml["StoryArcID"]), ml["Publisher"]
                 )
@@ -2394,7 +2383,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
 
                 configured.crc(ofilename)
 
-                if comicarr.CONFIG.CMTAG_START_YEAR_AS_VOLUME:
+                if runtime.current().config.CMTAG_START_YEAR_AS_VOLUME:
                     vol_label = ml["SeriesYear"]
                 else:
                     vol_label = ml["Volume"]
@@ -2414,7 +2403,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
 
                     logger.fdebug("readingorder: %s" % (readingorder))
 
-                    if any([comicarr.CONFIG.ENABLE_META, comicarr.CONFIG.CBR2CBZ_ONLY]):
+                    if any([runtime.current().config.ENABLE_META, runtime.current().config.CBR2CBZ_ONLY]):
                         logger.info("[STORY-ARC POST-PROCESSING] Metatagging enabled - proceeding...")
 
                         pre_cmtag_info = None
@@ -2516,7 +2505,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                     )
                     return run.finish("stop")
 
-                if comicarr.CONFIG.RENAME_FILES:
+                if runtime.current().config.RENAME_FILES:
                     renamed_file = downloads_service.rename_param(
                         ml["ComicID"],
                         ml["ComicName"],
@@ -2529,7 +2518,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                         dfilename = renamed_file["nfilename"]
                         logger.fdebug("%s Renaming file to conform to configuration: %s" % (module, ofilename))
 
-                if comicarr.CONFIG.READ2FILENAME:
+                if runtime.current().config.READ2FILENAME:
                     if multiple_arcs > 1:
                         new_path_f = dfilename[dfilename.find("-") + 1 :].strip()
                     else:
@@ -2550,7 +2539,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
 
                 logger.info(
                     "%s[ONE-OFF MODE][%s] %s into directory : %s"
-                    % (module, comicarr.CONFIG.ARC_FILEOPS.upper(), grab_src, grab_dst)
+                    % (module, runtime.current().config.ARC_FILEOPS.upper(), grab_src, grab_dst)
                 )
 
                 # The destination rides on the claim so a restart after a
@@ -2584,7 +2573,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                     )
                 except Exception as e:
                     run.log_placement_failure(
-                        comicarr.CONFIG.ARC_FILEOPS, grab_src, grab_dst, e, module="%s [ONE-OFF MODE]" % module
+                        runtime.current().config.ARC_FILEOPS, grab_src, grab_dst, e, module="%s [ONE-OFF MODE]" % module
                     )
                     return run.abort()
 
@@ -2595,7 +2584,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                 _mark_arc_row_downloaded(ml, grab_dst)
                 run.journal("moved", issue_arc_id=ml["IssueArcID"])
 
-                if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
+                if any([runtime.current().config.FILE_OPTS == "move", runtime.current().config.FILE_OPTS == "copy"]):
                     if mult_count is False:
                         run.tidy(src_location, True, filename=os.path.basename(orig_filename))
                     else:
@@ -2622,7 +2611,7 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
                 IssueArcID=ml["IssueArcID"],
                 down="PP",
             )
-            if all([comicarr.CONFIG.STORYARCDIR is True, comicarr.CONFIG.COPY2ARCDIR is True]):
+            if all([runtime.current().config.STORYARCDIR is True, runtime.current().config.COPY2ARCDIR is True]):
                 logger.fdebug("%s [%s] Post-Processing completed for: %s" % (module, ml["StoryArc"], grab_dst))
             else:
                 logger.fdebug(
@@ -2646,7 +2635,6 @@ def place_arc_only_matches(run: PostProcessRun, deps: PostProcessItemDeps, manua
 
 def dispatch_library_matches(run: PostProcessRun, deps: PostProcessItemDeps, manual_list, manual_arclist):
     """Process each library match, then post the request's summary."""
-    import comicarr
 
     module = run.module
     # The legacy loop read the last arc-only row for a one-arc summary.
@@ -2699,8 +2687,8 @@ def dispatch_library_matches(run: PostProcessRun, deps: PostProcessItemDeps, man
 
             dupthis = downloads_service.duplicate_filecheck(ml["ComicLocation"], ComicID=comicid, IssueID=issueid)
             if dupthis["action"] == "dupe_src" or dupthis["action"] == "dupe_file":
-                if comicarr.CONFIG.DDUMP and not all(
-                    [comicarr.CONFIG.DUPLICATE_DUMP is None, comicarr.CONFIG.DUPLICATE_DUMP == ""]
+                if runtime.current().config.DDUMP and not all(
+                    [runtime.current().config.DUPLICATE_DUMP is None, runtime.current().config.DUPLICATE_DUMP == ""]
                 ):
                     dupchkit = _move_duplicate(deps, dupthis)
                     if not dupchkit:
@@ -2795,7 +2783,6 @@ def dispatch_library_matches(run: PostProcessRun, deps: PostProcessItemDeps, man
 
 def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo=None, manual=None):
     """Process a download identified from what was snatched, not its filename."""
-    import comicarr
     from comicarr.app.downloads._postprocess_completion import complete
 
     module = run.module
@@ -2897,14 +2884,16 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
                     run.narrate(
                         "One-off mode enabled for Post-Processing. All I'm doing is moving the file untouched into the Grab-bag directory."
                     )
-                    if comicarr.CONFIG.GRABBAG_DIR is None:
-                        comicarr.CONFIG.GRABBAG_DIR = os.path.join(comicarr.CONFIG.DESTINATION_DIR, "Grabbag")
+                    if runtime.current().config.GRABBAG_DIR is None:
+                        runtime.current().config.GRABBAG_DIR = os.path.join(
+                            runtime.current().config.DESTINATION_DIR, "Grabbag"
+                        )
                     logger.info(
                         "%s One-off mode enabled for Post-Processing. Will move into Grab-bag directory: %s"
-                        % (module, comicarr.CONFIG.GRABBAG_DIR)
+                        % (module, runtime.current().config.GRABBAG_DIR)
                     )
-                    run.narrate("Grab-Bag Directory set to : %s" % comicarr.CONFIG.GRABBAG_DIR)
-                    grdst = comicarr.CONFIG.GRABBAG_DIR
+                    run.narrate("Grab-Bag Directory set to : %s" % runtime.current().config.GRABBAG_DIR)
+                    grdst = runtime.current().config.GRABBAG_DIR
 
                 odir = location
 
@@ -2973,7 +2962,7 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
                     issueid = arcdata["IssueID"]
                     rdorder = arcdata["ReadingOrder"]
 
-                if comicarr.CONFIG.CMTAG_START_YEAR_AS_VOLUME:
+                if runtime.current().config.CMTAG_START_YEAR_AS_VOLUME:
                     if arcdata:
                         vol_label = arcdata["SeriesYear"]
                     else:
@@ -3004,7 +2993,10 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
                 metaresponse = None
                 configured.crc(os.path.join(location, ofilename))
 
-                if all([comicarr.CONFIG.ENABLE_META, issueid is not None]) or comicarr.CONFIG.CBR2CBZ_ONLY:
+                if (
+                    all([runtime.current().config.ENABLE_META, issueid is not None])
+                    or runtime.current().config.CBR2CBZ_ONLY
+                ):
                     run.narrate("Metatagging enabled - proceeding...")
 
                     pre_cmtag_info = None
@@ -3106,7 +3098,7 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
                     )
                     return run.finish("stop")
 
-                if comicarr.CONFIG.RENAME_FILES:
+                if runtime.current().config.RENAME_FILES:
                     renamed_file = downloads_service.rename_param(
                         comicid, comicname, issuenumber, dfilename, issueid=issueid, arc=sarc
                     )
@@ -3115,7 +3107,7 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
                         logger.fdebug("%s Renaming file to conform to configuration: %s" % (module, dfilename))
 
                 if sandwich is not None and "S" in sandwich:
-                    if comicarr.CONFIG.READ2FILENAME:
+                    if runtime.current().config.READ2FILENAME:
                         logger.fdebug("%s readingorder#: %s" % (module, arcdata["ReadingOrder"]))
                         if int(arcdata["ReadingOrder"]) < 10:
                             readord = "00" + str(arcdata["ReadingOrder"])
@@ -3136,7 +3128,9 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
                 run.narrate("Destination Path : %s" % grab_dst)
 
                 logger.info("%s Destination Path : %s" % (module, grab_dst))
-                logger.info("%s[%s] %s into directory : %s" % (module, comicarr.CONFIG.FILE_OPTS, ofilename, grab_dst))
+                logger.info(
+                    "%s[%s] %s into directory : %s" % (module, runtime.current().config.FILE_OPTS, ofilename, grab_dst)
+                )
 
                 run.journal("post_processing", issue_id=issueid, issue_arc_id=issuearcid)
 
@@ -3148,13 +3142,13 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
                         raise OSError
                     deps.place(grab_src, grab_dst, Purpose.SERIES, on_existing=OnExisting.UNGUARDED)
                 except Exception as e:
-                    run.log_placement_failure(comicarr.CONFIG.FILE_OPTS, grab_src, grab_dst, e)
-                    run.narrate("Failed to %s %s: %s" % (comicarr.CONFIG.FILE_OPTS, grab_src, e))
+                    run.log_placement_failure(runtime.current().config.FILE_OPTS, grab_src, grab_dst, e)
+                    run.narrate("Failed to %s %s: %s" % (runtime.current().config.FILE_OPTS, grab_src, e))
                     return run.finish("stop")
 
                 run.journal("moved", issue_id=issueid, issue_arc_id=issuearcid)
 
-                if any([comicarr.CONFIG.FILE_OPTS == "move", comicarr.CONFIG.FILE_OPTS == "copy"]):
+                if any([runtime.current().config.FILE_OPTS == "move", runtime.current().config.FILE_OPTS == "copy"]):
                     run.tidy(src_location, True, filename=os.path.basename(orig_filename))
 
                 completion = complete(
@@ -3264,8 +3258,8 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
 
             dupthis = downloads_service.duplicate_filecheck(ml["ComicLocation"], ComicID=comicid, IssueID=issueid)
             if dupthis["action"] == "dupe_src" or dupthis["action"] == "dupe_file":
-                if comicarr.CONFIG.DDUMP and not all(
-                    [comicarr.CONFIG.DUPLICATE_DUMP is None, comicarr.CONFIG.DUPLICATE_DUMP == ""]
+                if runtime.current().config.DDUMP and not all(
+                    [runtime.current().config.DUPLICATE_DUMP is None, runtime.current().config.DUPLICATE_DUMP == ""]
                 ):
                     dupchkit = _move_duplicate(deps, dupthis)
                     if not dupchkit:
@@ -3290,9 +3284,9 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
         issuenumOG = issuenzb["Issue_Number"]
         dupthis = downloads_service.duplicate_filecheck(run.nzb_folder, ComicID=comicid, IssueID=issueid)
         if dupthis["action"] == "dupe_src" or dupthis["action"] == "dupe_file":
-            if comicarr.CONFIG.DUPLICATE_DUMP:
-                if comicarr.CONFIG.DDUMP and not all(
-                    [comicarr.CONFIG.DUPLICATE_DUMP is None, comicarr.CONFIG.DUPLICATE_DUMP == ""]
+            if runtime.current().config.DUPLICATE_DUMP:
+                if runtime.current().config.DDUMP and not all(
+                    [runtime.current().config.DUPLICATE_DUMP is None, runtime.current().config.DUPLICATE_DUMP == ""]
                 ):
                     dupchkit = _move_duplicate(deps, dupthis)
                     if not dupchkit:
@@ -3310,18 +3304,17 @@ def process_snatched_match(run: PostProcessRun, deps: PostProcessItemDeps, tinfo
 
 
 def _move_duplicate(deps, dupeinfo):
-    import comicarr
 
     path_to_move = dupeinfo["to_dupe"]
     file_to_move = os.path.split(path_to_move)[1]
 
-    if dupeinfo["action"] == "dupe_src" and comicarr.CONFIG.FILE_OPTS == "move":
+    if dupeinfo["action"] == "dupe_src" and runtime.current().config.FILE_OPTS == "move":
         logger.info(
             "[DUPLICATE-CLEANUP] New File will be post-processed. Moving duplicate [%s] to Duplicate Dump Folder for manual intervention."
             % path_to_move
         )
     else:
-        if comicarr.CONFIG.FILE_OPTS == "move":
+        if runtime.current().config.FILE_OPTS == "move":
             logger.info(
                 "[DUPLICATE-CLEANUP][MOVE-MODE] New File will not be post-processed. Moving duplicate [%s] to Duplicate Dump Folder for manual intervention."
                 % path_to_move
@@ -3333,15 +3326,15 @@ def _move_duplicate(deps, dupeinfo):
             )
             return True
 
-    if comicarr.CONFIG.FILE_OPTS == "move":
-        deps.validate_directory(comicarr.CONFIG.DUPLICATE_DUMP, True, module="[DUPLICATE-CLEANUP]")
+    if runtime.current().config.FILE_OPTS == "move":
+        deps.validate_directory(runtime.current().config.DUPLICATE_DUMP, True, module="[DUPLICATE-CLEANUP]")
 
-        if comicarr.CONFIG.DUPLICATE_DATED_FOLDERS is True:
+        if runtime.current().config.DUPLICATE_DATED_FOLDERS is True:
             todaydate = datetime.datetime.now().strftime("%Y-%m-%d")
-            dump_folder = os.path.join(comicarr.CONFIG.DUPLICATE_DUMP, todaydate)
+            dump_folder = os.path.join(runtime.current().config.DUPLICATE_DUMP, todaydate)
             deps.validate_directory(dump_folder, True, module="[DUPLICATE-DATED CLEANUP]")
         else:
-            dump_folder = comicarr.CONFIG.DUPLICATE_DUMP
+            dump_folder = runtime.current().config.DUPLICATE_DUMP
 
         try:
             shutil.move(path_to_move, os.path.join(dump_folder, file_to_move))

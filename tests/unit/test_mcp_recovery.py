@@ -16,7 +16,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import select, update
 
-import comicarr
 from comicarr.app.acquisition.maintenance import MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.activity import queries as activity_queries
@@ -38,8 +37,8 @@ def _library(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "api_lock", threading.Lock(), raising=False)
     monkeypatch.setattr(runtime.current(), "provider_blocklist", {}, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             FAILED_DOWNLOAD_HANDLING=True,
             FAILED_AUTO=False,

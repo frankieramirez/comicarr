@@ -32,7 +32,7 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "config", None, raising=False)
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:
         monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)
     engine = get_engine()
@@ -642,7 +642,7 @@ def test_labelled_snatch_then_bare_downloaded_does_not_quarantine():
 @pytest.fixture
 def issued_oneoffs(monkeypatch):
     """nzblog has handed out synthetic one-off IssueIDs 900000..900999."""
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(HIGHCOUNT=900999), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(HIGHCOUNT=900999), raising=False)
 
 
 def test_oneoff_release_key_reproducible_across_two_builds(issued_oneoffs):
@@ -681,7 +681,7 @@ def test_real_issueid_above_the_floor_keys_on_issueid_and_provider(issued_oneoff
 
 @pytest.mark.parametrize("highcount", [None, 0, 899999])
 def test_nothing_is_synthetic_before_nzblog_issues_one(monkeypatch, highcount):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(HIGHCOUNT=highcount), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(HIGHCOUNT=highcount), raising=False)
     assert not journal.is_synthetic_oneoff(900000)
     assert journal.is_synthetic_oneoff(None)
     assert journal.is_synthetic_oneoff("  ")

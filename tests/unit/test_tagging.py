@@ -25,8 +25,9 @@ from unittest.mock import patch
 
 import pytest
 
-from comicarr.app.metadata import tagging as cmtag
+from comicarr.app.core import runtime
 from comicarr.app.metadata import comicinfo
+from comicarr.app.metadata import tagging as cmtag
 
 ISSUE = {
     "id": 4242,
@@ -92,7 +93,7 @@ def _run(tmp_path, source, *, issueid="4242", issue=ISSUE, manga_volume=None, co
         return (issue, "Image") if issue else (None, None)
 
     with (
-        patch.object(cmtag.comicarr, "CONFIG", _config(tmp_path, **config)),
+        patch.object(runtime.current(), "config", _config(tmp_path, **config)),
         patch.object(cmtag, "comicvine_issue", side_effect=comicvine_issue),
         patch.object(cmtag, "manga_volume_for_issue", return_value=manga_volume),
         patch.object(cmtag, "sendnotify"),

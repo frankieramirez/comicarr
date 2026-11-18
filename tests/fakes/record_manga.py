@@ -46,6 +46,8 @@ from urllib.parse import parse_qs, urlsplit
 
 import requests
 
+from comicarr.app.core import runtime
+
 ROOT = Path(__file__).resolve().parents[1] / "fixtures"
 MANGADEX_ID = "be7fd0c5-209a-440c-b20d-8b611be1310c"
 MAL_ID = "49017"
@@ -113,9 +115,8 @@ def _write(directory: Path, name: str, exchanges: list[dict]) -> None:
 
 
 def _configure(mal_client_id=None):
-    import comicarr
 
-    comicarr.CONFIG = SimpleNamespace(
+    runtime.current().config = SimpleNamespace(
         CV_USER_AGENT="Comicarr/1.0",
         MANGADEX_ENABLED=True,
         MANGADEX_CONTENT_RATING="safe,suggestive",

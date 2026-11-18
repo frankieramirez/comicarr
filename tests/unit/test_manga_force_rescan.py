@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 from sqlalchemy import create_engine, select
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.tables import comics, issues, manga_volumes, metadata
 from comicarr.app.manga.rescan import mark_parsed_files_downloaded
 from comicarr.app.series import folder_rescan
@@ -81,7 +81,7 @@ def test_force_rescan_volume_bare_file_records_the_volume(monkeypatch, tmp_path)
     _seed_manga(engine, tmp_path, bare_mode="volumes")
 
     monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
-    monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _config(), raising=False)
     monkeypatch.setattr(
         folder_rescan.filechecker,
         "FileChecker",
@@ -107,7 +107,7 @@ def test_force_rescan_empty_manga_folder_does_not_crash(monkeypatch, tmp_path):
     metadata.create_all(engine)
     _seed_manga(engine, tmp_path, bare_mode="auto")
     monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
-    monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _config(), raising=False)
 
     folder_rescan.force_rescan("md-naruto")
 
@@ -131,7 +131,7 @@ def test_force_rescan_hands_an_old_volume_location_back_to_the_volume(monkeypatc
     )
 
     monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
-    monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _config(), raising=False)
     monkeypatch.setattr(
         folder_rescan.filechecker,
         "FileChecker",
@@ -252,7 +252,7 @@ def test_force_rescan_ignores_nested_leftover_cbr_when_root_is_cbz(monkeypatch, 
     )
 
     monkeypatch.setattr(folder_rescan.db, "get_engine", lambda: engine)
-    monkeypatch.setattr(comicarr, "CONFIG", _config(), raising=False)
+    monkeypatch.setattr(runtime.current(), "config", _config(), raising=False)
     monkeypatch.setattr(
         folder_rescan.filechecker,
         "FileChecker",

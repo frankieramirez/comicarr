@@ -26,6 +26,7 @@ from sqlalchemy import create_engine, select
 
 import comicarr
 from comicarr.app.common import configured
+from comicarr.app.core import runtime
 from comicarr.app.core.tables import comics, issues, metadata, upcoming
 from comicarr.app.series import add, refresh
 from comicarr.app.weekly import watchlist_match
@@ -40,8 +41,8 @@ def engine(monkeypatch):
     monkeypatch.setattr(comicarr.app.core.db, "get_engine", lambda: eng)
     monkeypatch.setattr(comicarr, "PULLBYFILE", False, raising=False)
     monkeypatch.setattr(
-        comicarr,
-        "CONFIG",
+        runtime.current(),
+        "config",
         SimpleNamespace(
             ALT_PULL=0,
             ANNUALS_ON=False,

@@ -14,7 +14,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import insert
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import annuals, comics, issues, metadata, storyarcs
 from comicarr.app.system import deprecations
@@ -92,7 +91,7 @@ def test_a_predicate_that_raises_counts_as_not_in_use(monkeypatch, logged):
 @pytest.fixture
 def arc_db(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(STORYARCDIR=False))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(STORYARCDIR=False))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     engine = db.get_engine()
@@ -151,19 +150,19 @@ def test_removed_dead_site_integrations_are_registered_with_their_docs_anchor():
     ],
 )
 def test_a_removed_integration_is_in_use_only_while_its_setting_is_on(monkeypatch, entry_id, setting, on, off):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(**{setting: on}))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(**{setting: on}))
     assert _in_use(entry_id) is True
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(**{setting: off}))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(**{setting: off}))
     assert _in_use(entry_id) is False
 
 
 def test_gcd_is_in_use_when_cv_only_is_off(arc_db, monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=False))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(CV_ONLY=False))
     assert _in_use("removed-gcd") is True
 
 
 def test_gcd_is_in_use_for_a_series_added_from_gcd(arc_db, monkeypatch):
-    monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CV_ONLY=True))
+    monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(CV_ONLY=True))
     assert _in_use("removed-gcd") is False
     with arc_db.begin() as conn:
         conn.execute(insert(comics).values(ComicID="G1234", ComicName="Old Series"))
@@ -199,12 +198,12 @@ def test_folder_match_needs_the_arc_folder_setting_and_a_watched_arc(arc_db, mon
     _arc_row(arc_db, "iss-1", "Downloaded")
     assert _in_use("storyarc-folder-match") is False
 
-    monkeypatch.setattr(comicarr.CONFIG, "STORYARCDIR", True)
+    monkeypatch.setattr(runtime.current().config, "STORYARCDIR", True)
     assert _in_use("storyarc-folder-match") is True
 
 
 def test_folder_match_is_not_in_use_with_the_setting_on_and_no_arcs(arc_db, monkeypatch):
-    monkeypatch.setattr(comicarr.CONFIG, "STORYARCDIR", True)
+    monkeypatch.setattr(runtime.current().config, "STORYARCDIR", True)
 
     assert _in_use("storyarc-folder-match") is False
 

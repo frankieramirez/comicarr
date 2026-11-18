@@ -87,8 +87,8 @@ class TestRunFeedCheck:
     @pytest.fixture
     def feed_env(self, rss_db, monkeypatch):
         monkeypatch.setattr(
-            comicarr,
-            "CONFIG",
+            runtime.current(),
+            "config",
             SimpleNamespace(
                 RSS_CHECKINTERVAL=20,
                 ENABLE_TORRENT_SEARCH=False,
@@ -167,7 +167,10 @@ class TestMangaFeeds:
     @pytest.fixture
     def manga_db(self, rss_db, monkeypatch):
         monkeypatch.setattr(
-            comicarr, "CONFIG", SimpleNamespace(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False), raising=False
+            runtime.current(),
+            "config",
+            SimpleNamespace(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False),
+            raising=False,
         )
         with rss_db.begin() as conn:
             conn.execute(
