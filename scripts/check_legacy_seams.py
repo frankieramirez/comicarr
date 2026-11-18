@@ -93,11 +93,9 @@ DEFERRED = "a change that moves this module's behavior under comicarr/app/; not 
 
 DEFERRED_ALLOWLIST = {
     ("comicarr/app/downloads/recovery.py", "sabnzbd"): ("recovery queries SABnzbd for stranded jobs", DEFERRED),
-    ("comicarr/app/downloads/recovery_classify.py", "nzbget"): ("classifies NZBGet history", DEFERRED),
     ("comicarr/app/downloads/recovery_classify.py", "sabnzbd"): ("classifies SABnzbd history", DEFERRED),
     ("comicarr/app/downloads/service.py", "filechecker"): ("FileChecker for duplicate checks", DEFERRED),
     ("comicarr/app/downloads/service.py", "getcomics"): ("GetComics direct downloads (GC)", DEFERRED),
-    ("comicarr/app/downloads/service.py", "nzbget"): ("NZBGet client", DEFERRED),
     ("comicarr/app/downloads/service.py", "sabnzbd"): ("SABnzbd client", DEFERRED),
     ("comicarr/app/downloads/service.py", "search"): ("FailedMark and searchforissue for retries", DEFERRED),
     ("comicarr/app/imports/finalization.py", "filechecker"): ("validateAndCreateDirectory", DEFERRED),

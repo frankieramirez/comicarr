@@ -7,7 +7,7 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""comicarr/nzbget.py against responses recorded from a real NZBGet.
+"""comicarr/app/downloads/nzbget.py against responses recorded from a real NZBGet.
 
 These run Comicarr's NZBGet calls against ``FakeNzbget``, whose answers come
 from ``tests/fixtures/nzbget/``, so a field NZBGet renamed or a status it
@@ -19,8 +19,7 @@ import xmlrpc.client
 import pytest
 
 import comicarr
-from comicarr import nzbget
-from comicarr.app.downloads import recovery_classify
+from comicarr.app.downloads import nzbget, recovery_classify
 from comicarr.app.system import connections
 from tests.fakes import pipeline
 from tests.fakes.nzbget import FakeNzbget
@@ -44,7 +43,7 @@ def nzb(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(comicarr, "USE_NZBGET", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", False, raising=False)
-    monkeypatch.setattr("comicarr.nzbget.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("comicarr.app.downloads.nzbget.time.sleep", lambda _seconds: None)
     fake.nzb = pipeline.cached_nzb(tmp_path)
     return fake
 

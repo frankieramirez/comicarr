@@ -781,7 +781,7 @@ def test_nzbget_missing_nzbid_is_unprobeable_not_unreachable():
         downloader_type="nzbget",
         payload={"download_info": {}},
     )
-    with patch("comicarr.nzbget.NZBGet.historycheck") as hist:
+    with patch("comicarr.app.downloads.nzbget.NZBGet.historycheck") as hist:
         assert recovery_classify._nzbget_history(row) == "unprobeable"
         hist.assert_not_called()
 
@@ -796,7 +796,7 @@ def test_nzbget_api_failure_is_still_unreachable():
         downloader_type="nzbget",
         payload={"NZBID": 42, "download_info": {"NZBID": 42}},
     )
-    with patch("comicarr.nzbget.NZBGet.historycheck", side_effect=RuntimeError("connection refused")):
+    with patch("comicarr.app.downloads.nzbget.NZBGet.historycheck", side_effect=RuntimeError("connection refused")):
         assert recovery_classify._nzbget_history(row) == "unreachable"
         assert recovery_classify.classify(row) == recovery_classify.UNKNOWN
 
@@ -815,7 +815,7 @@ def test_unprobeable_with_done_signal_is_complete_not_unknown():
         downloader_type="nzbget",
         payload={},
     )
-    with patch("comicarr.nzbget.NZBGet.historycheck") as hist:
+    with patch("comicarr.app.downloads.nzbget.NZBGet.historycheck") as hist:
         details = recovery_classify.classify_details(row)
         assert details["verdict"] == recovery_classify.COMPLETE
         assert details["raw_state"] == "unprobeable"
@@ -838,7 +838,7 @@ def test_unprobeable_without_done_signal_is_unknown_not_gone():
     )
     before = _journal_row("N2|nzbget|n")
     with (
-        patch("comicarr.nzbget.NZBGet.historycheck") as hist,
+        patch("comicarr.app.downloads.nzbget.NZBGet.historycheck") as hist,
         patch.object(recovery_classify.logger, "warn") as warn,
     ):
         details = recovery_classify.classify_details(row)
@@ -905,7 +905,7 @@ def test_unprobeable_imported_oneoff_is_complete_via_builtin_probe():
         payload={},
     )
     assert recovery_classify.has_done_signal(row) is True
-    with patch("comicarr.nzbget.NZBGet.historycheck") as hist:
+    with patch("comicarr.app.downloads.nzbget.NZBGet.historycheck") as hist:
         details = recovery_classify.classify_details(row)
         hist.assert_not_called()
     assert details["verdict"] == recovery_classify.COMPLETE

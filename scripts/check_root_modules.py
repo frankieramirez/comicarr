@@ -52,7 +52,6 @@ SKIP_DIR_NAMES = {"__pycache__"}
 ROOT_MODULES: dict[str, int] = {
     "filechecker": 1422,
     "getcomics": 1422,
-    "nzbget": 1422,
     "postprocessor": 1422,
     "sabnzbd": 1422,
     "search": 1422,

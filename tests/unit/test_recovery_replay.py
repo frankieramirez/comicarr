@@ -712,7 +712,7 @@ def test_nzbget_empty_payload_done_signal_matches_absent_via_builtin_probe(queue
         provider="nzbgeek",
         downloader_type="nzbget",
     )
-    with patch("comicarr.nzbget.NZBGet.historycheck") as hist:
+    with patch("comicarr.app.downloads.nzbget.NZBGet.historycheck") as hist:
         summary = recovery.replay_pipeline()
         hist.assert_not_called()
     row = _journal_row(rkey)
@@ -741,7 +741,7 @@ def test_imported_oneoff_missing_nzbid_marks_done_after_library_status_fix(queue
         provider="nzbgeek",
         downloader_type="nzbget",
     )
-    with patch("comicarr.nzbget.NZBGet.historycheck") as hist:
+    with patch("comicarr.app.downloads.nzbget.NZBGet.historycheck") as hist:
         summary = recovery.replay_pipeline()
         hist.assert_not_called()
     assert _journal_row(rkey)["stage"] == journal.POST_PROCESSED
