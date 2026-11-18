@@ -15,7 +15,7 @@ from sqlalchemy.dialects import mysql
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.schema import CreateTable
 
-import comicarr
+from comicarr.app.common.redaction import redact_diagnostic_error
 from comicarr.app.core.schema import (
     DatabaseState,
     MigrationStateError,
@@ -62,7 +62,7 @@ def test_autogenerate_only_equates_full_same_order_unique_indexes(tmp_path):
 
 
 def test_schema_diagnostic_errors_redact_connection_credentials():
-    message = comicarr._redact_diagnostic_error(
+    message = redact_diagnostic_error(
         "connection failed: postgresql://comicarr:secret@db.example/comicarr?password=another-secret"
     )
 

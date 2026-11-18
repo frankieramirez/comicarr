@@ -1545,7 +1545,7 @@ def get_startup_diagnostics(ctx, include_acquisition=True):
 
     db_empty = True
     try:
-        with comicarr.sql_db() as conn:
+        with db.get_engine().connect() as conn:
             count = conn.execute(select(func.count()).select_from(comics)).scalar() or 0
             db_empty = count == 0
     except Exception as e:

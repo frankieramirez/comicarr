@@ -399,9 +399,9 @@ def apply_legacy_schema_compatibility(connection: Connection) -> None:
     if migrate_readinglist:
         _migrate_readinglist_to_storyarcs(connection)
 
-    import comicarr
+    from comicarr.app.core.unique_constraints import _migrate_unique_constraints
 
-    comicarr._migrate_unique_constraints(connection)
+    _migrate_unique_constraints(connection)
 
     _seed_acquisition_schema_ledger(connection)
 
