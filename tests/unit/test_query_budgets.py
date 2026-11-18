@@ -25,7 +25,7 @@ import pytest
 from sqlalchemy import insert, text
 
 import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import (
     acquisition_run_items,
     activity_events,
@@ -176,7 +176,7 @@ def library_db(tmp_path, monkeypatch):
     def build(size):
         folder = tmp_path / ("lib%d" % len(built))
         folder.mkdir()
-        monkeypatch.setattr(comicarr, "DATA_DIR", str(folder))
+        monkeypatch.setattr(runtime.current(), "data_dir", str(folder))
         db.shutdown_engine()
         engine = db.get_engine()
         metadata.create_all(engine)

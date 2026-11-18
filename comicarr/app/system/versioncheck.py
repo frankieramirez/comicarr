@@ -33,7 +33,7 @@ import requests
 from sqlalchemy import select
 
 import comicarr
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import jobhistory
 
 _VERSION_FIELDS = {
@@ -122,8 +122,8 @@ def runGit(args, ptv=None, suppress_errors=False):
         cmd_list = [cur_git] + shlex.split(args)
 
         try:
-            logger.debug("Trying to execute: %s in %s" % (cmd_list, comicarr.PROG_DIR))
-            output = subprocess.run(cmd_list, text=True, capture_output=True, cwd=comicarr.PROG_DIR)
+            logger.debug("Trying to execute: %s in %s" % (cmd_list, runtime.current().prog_dir))
+            output = subprocess.run(cmd_list, text=True, capture_output=True, cwd=runtime.current().prog_dir)
             logger.debug("Git output: %s" % output)
             gitworked = True
         except Exception as e:
@@ -177,7 +177,7 @@ def getVersion(ptv):
             "current_release_name": current_release_name,
         }
 
-    elif os.path.isdir(os.path.join(comicarr.PROG_DIR, ".git")):
+    elif os.path.isdir(os.path.join(runtime.current().prog_dir, ".git")):
         _set_version_state(install_type="git")
         output = runGit("describe --exact-match --tags", ptv, suppress_errors=True)
         if output:
@@ -293,7 +293,7 @@ def getVersion(ptv):
 
         branch = None
 
-        version_file = os.path.join(comicarr.PROG_DIR, ".LAST_RELEASE")
+        version_file = os.path.join(runtime.current().prog_dir, ".LAST_RELEASE")
         if current_version is None:
             try:
                 if not os.path.isfile(version_file):
@@ -731,7 +731,7 @@ def update():
             comicarr.CONFIG.GIT_USER,
             comicarr.CONFIG.GIT_BRANCH,
         )
-        update_dir = os.path.join(comicarr.PROG_DIR, "update")
+        update_dir = os.path.join(runtime.current().prog_dir, "update")
 
         try:
             logger.info("Downloading update from: " + tar_download_url)
@@ -741,7 +741,7 @@ def update():
             return
 
         download_name = comicarr.CONFIG.GIT_BRANCH + "-github"
-        tar_download_path = os.path.join(comicarr.PROG_DIR, download_name)
+        tar_download_path = os.path.join(runtime.current().prog_dir, download_name)
 
         with open(tar_download_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
@@ -767,7 +767,7 @@ def update():
             dirname = dirname[len(content_dir) + 1 :]
             for curfile in filenames:
                 old_path = os.path.join(content_dir, dirname, curfile)
-                new_path = os.path.join(comicarr.PROG_DIR, dirname, curfile)
+                new_path = os.path.join(runtime.current().prog_dir, dirname, curfile)
 
                 if os.path.isfile(new_path):
                     os.remove(new_path)

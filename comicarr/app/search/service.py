@@ -866,7 +866,7 @@ def torrentinfo(issueid=None, torrent_hash=None, download=False, monitor=False):
                     env=dict(autosnatch_env),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
-                    cwd=comicarr.PROG_DIR,
+                    cwd=runtime.current().prog_dir,
                 )
                 out, err = p.communicate()
                 logger.fdebug("Script result: %s" % out)

@@ -15,8 +15,7 @@ import json
 import pytest
 from sqlalchemy import create_engine, text
 
-import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.schema import upgrade_database
 from tests.benchmark import __main__ as cli
 from tests.benchmark.library import Spec, generate
@@ -130,7 +129,7 @@ def test_the_0_2x_row_is_seeded_at_library_size_and_upgrades(tmp_path, monkeypat
         pull_list=10,
         pull_followed=4,
     )
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     try:
         generate(tmp_path / "lib", seed=3, spec=spec, today=datetime.date(2026, 11, 13))

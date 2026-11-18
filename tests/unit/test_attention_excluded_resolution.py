@@ -23,6 +23,7 @@ import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.attention import ResolutionRequest, read, resolve
 from comicarr.app.attention._policy import is_actionable
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, issues, metadata
@@ -33,7 +34,7 @@ EXCLUDED_REASON = "torrent_hash_not_in_client"
 
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setattr(comicarr, "LOG_LEVEL", 0, raising=False)

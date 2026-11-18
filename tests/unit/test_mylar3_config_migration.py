@@ -24,6 +24,7 @@ import configparser
 import pytest
 
 from comicarr.app.config.ini import _BAD_DEFINITIONS, _CONFIG_DEFINITIONS
+from comicarr.app.core import runtime
 
 MYLAR3_CONFIG = """
 [General]
@@ -126,7 +127,7 @@ class TestUndefinedKeysAreSkippedNotFatal:
                 return True
 
         monkeypatch.setattr(comicarr, "CONFIG", FakeConfig(), raising=False)
-        monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path), raising=False)
+        monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path), raising=False)
         monkeypatch.setattr(migration.encrypted, "_get_fernet", lambda: object())
 
         migration.migrate_mylar3_config(str(tmp_path))

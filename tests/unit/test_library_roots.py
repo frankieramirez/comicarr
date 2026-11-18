@@ -11,6 +11,7 @@ import os
 from types import SimpleNamespace
 
 from comicarr.app.common import library_roots
+from comicarr.app.core import runtime
 
 
 def _config(tmp_path, **overrides):
@@ -85,8 +86,8 @@ def test_additional_roots_survive_an_ini_write_and_reload(tmp_path, monkeypatch)
         % secure_dir,
         encoding="utf-8",
     )
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(data_dir), raising=False)
-    monkeypatch.setattr(comicarr, "PROG_DIR", str(tmp_path), raising=False)
+    monkeypatch.setattr(runtime.current(), "data_dir", str(data_dir), raising=False)
+    monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path), raising=False)
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
     monkeypatch.setattr(
         "comicarr.app.system.maintenance.Maintenance.backup_files", lambda self, **kwargs: True, raising=False

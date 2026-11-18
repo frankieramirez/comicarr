@@ -280,7 +280,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
         else:
             pass
 
-        substitutes = os.path.join(comicarr.DATA_DIR, "substitutes.csv")
+        substitutes = os.path.join(runtime.current().data_dir, "substitutes.csv")
         if not os.path.exists(substitutes):
             logger.debug("no substitues.csv file located - not performing substitutions on weekly pull list")
             substitute_check = False

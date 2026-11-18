@@ -12,16 +12,15 @@ import json
 import pytest
 from sqlalchemy import update
 
-import comicarr
 from comicarr.app.ai import chat_store
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import ai_chat_messages as messages
 from comicarr.app.core.tables import metadata
 
 
 @pytest.fixture
 def conversation(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
     metadata.create_all(db.get_engine())

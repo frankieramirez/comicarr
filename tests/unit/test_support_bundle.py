@@ -15,7 +15,6 @@ import hashlib
 import importlib
 import io
 import json
-import re
 import threading
 import zipfile
 from datetime import datetime, timezone
@@ -29,6 +28,7 @@ from sqlalchemy import insert
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import annuals, comics, issues, metadata
@@ -196,7 +196,7 @@ def _ctx(tmp_path, **config_overrides):
 
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
     monkeypatch.setattr(comicarr, "INSTALL_TYPE", "docker", raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)

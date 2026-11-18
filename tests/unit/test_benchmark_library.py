@@ -15,8 +15,7 @@ import random
 
 from sqlalchemy import create_engine, select
 
-import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, issues, snatched, storyarcs
 from tests.benchmark import __main__ as cli
 from tests.benchmark.library import BENCHMARK, generate, library_files, series_sizes
@@ -37,7 +36,7 @@ def _digest(root):
 
 
 def test_same_seed_gives_the_same_library(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     try:
         first = generate(tmp_path / "a", seed=7, today=TODAY)

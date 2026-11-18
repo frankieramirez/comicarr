@@ -25,6 +25,8 @@ import signal
 import sys
 import threading
 
+from comicarr.app.core import runtime
+
 try:
     import comicarr  # noqa: E402
     from comicarr.app.config import log_level as log_level_source  # noqa: E402
@@ -63,7 +65,7 @@ def main():
     else:
         comicarr.FULL_PATH = os.path.abspath(__file__)
 
-    comicarr.PROG_DIR = os.path.dirname(comicarr.FULL_PATH)
+    runtime.current().prog_dir = os.path.dirname(comicarr.FULL_PATH)
     comicarr.ARGS = sys.argv[1:]
 
     # From sickbeard
@@ -279,9 +281,9 @@ def main():
         )
         comicarr.LOG_LEVEL = 0
         if args_datadir:
-            comicarr.DATA_DIR = args_datadir
+            runtime.current().data_dir = args_datadir
         else:
-            comicarr.DATA_DIR = comicarr.PROG_DIR
+            runtime.current().data_dir = runtime.current().prog_dir
         cp = carepackage.carePackage(maintenance=True)
         resp = cp.loaders()
         if resp["status"] == "success":
@@ -351,14 +353,14 @@ def main():
             print("Not running in daemon mode. PID file creation disabled.")
 
     if args_datadir:
-        comicarr.DATA_DIR = args_datadir
+        runtime.current().data_dir = args_datadir
     else:
-        comicarr.DATA_DIR = comicarr.PROG_DIR
+        runtime.current().data_dir = runtime.current().prog_dir
 
     if args_config:
         comicarr.CONFIG_FILE = args_config
     else:
-        comicarr.CONFIG_FILE = os.path.join(comicarr.DATA_DIR, "config.ini")
+        comicarr.CONFIG_FILE = os.path.join(runtime.current().data_dir, "config.ini")
 
     if args_safe:
         comicarr.SAFESTART = True
@@ -388,8 +390,8 @@ def main():
     except Exception:
         backup = False
 
-    # Put the database in the DATA_DIR
-    comicarr.DB_FILE = os.path.join(comicarr.DATA_DIR, "comicarr.db")
+    # Put the database in the data directory
+    runtime.current().db_file = os.path.join(runtime.current().data_dir, "comicarr.db")
 
     # Read config and start logging
     if comicarr.MAINTENANCE is False:
@@ -408,11 +410,11 @@ def main():
         comicarr.MAINTENANCE = True
 
     if comicarr.MAINTENANCE is False:
-        filechecker.validateAndCreateDirectory(comicarr.DATA_DIR, True, dmode="DATA")
+        filechecker.validateAndCreateDirectory(runtime.current().data_dir, True, dmode="DATA")
 
-        # Make sure the DATA_DIR is writeable
-        if not os.access(comicarr.DATA_DIR, os.W_OK):
-            raise SystemExit("Cannot write to the data directory: " + comicarr.DATA_DIR + ". Exiting...")
+        # Make sure the data directory is writeable
+        if not os.access(runtime.current().data_dir, os.W_OK):
+            raise SystemExit("Cannot write to the data directory: " + runtime.current().data_dir + ". Exiting...")
 
     # backup the db and configs before they load.
     if (backup is True and any([backup_cfg is True, backup_db is True])) or comicarr.CONFIG.BACKUP_ON_START:
@@ -563,13 +565,13 @@ def main():
     # before any scheduler or worker can observe mutable queue/lock state.
     from comicarr.app.core.runtime import create_runtime
 
-    runtime = create_runtime()
+    ctx = create_runtime()
 
     if comicarr.CONFIG.LAUNCH_BROWSER and not args_nolaunch:
         comicarr.launch_browser(comicarr.CONFIG.HTTP_HOST, http_port, comicarr.CONFIG.HTTP_ROOT)
 
     # Start the background threads
-    comicarr.start(runtime)
+    comicarr.start(ctx)
 
     # Register the SIGTERM handler before startup replay: replay_pipeline()
     # below can spend real time probing downloaders and inline-redriving PP,

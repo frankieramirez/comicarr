@@ -341,7 +341,7 @@ def get_release_notes(
       after   — exclusive lower bound (typically last_seen / current when behind)
       through — inclusive upper bound (typically current install or latest remote)
 
-    Sections are newest-first. Source is local CHANGELOG.md under PROG_DIR;
+    Sections are newest-first. Source is local CHANGELOG.md under the program directory;
     when the operator is behind, notes for the notified remote release may
     come from the body already cached by the update check (no second fetch).
     """

@@ -98,7 +98,7 @@ def _reset_signal():
 
 @pytest.fixture
 def _isolated_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)

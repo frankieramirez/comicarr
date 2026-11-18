@@ -31,6 +31,7 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import metadata, pipeline_journal
 from comicarr.app.downloads import handoff, journal
@@ -119,7 +120,7 @@ def test_fetch_exception_writes_no_torrent_file(torrent_client_configured):
 
 @pytest.fixture
 def isolated_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:

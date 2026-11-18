@@ -36,7 +36,7 @@ from comicarr.app.weekly import pull_runner as weeklypullit
 
 @pytest.fixture
 def pull_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
     db.shutdown_engine()

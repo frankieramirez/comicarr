@@ -27,7 +27,7 @@ from comicarr.app.activity import queries
 from comicarr.app.attention import _policy as reasons
 from comicarr.app.attention import _reconciliation as band_reconcile
 from comicarr.app.attention import read
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import (
     annuals,
     comics,
@@ -43,7 +43,7 @@ from comicarr.app.core.tables import (
 
 @pytest.fixture
 def activity_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()

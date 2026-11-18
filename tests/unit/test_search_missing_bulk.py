@@ -26,7 +26,7 @@ from comicarr.app.series import service as series_service
 
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
     monkeypatch.setattr(runtime.current(), "search_queue", queue.Queue(), raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)

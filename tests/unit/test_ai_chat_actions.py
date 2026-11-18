@@ -19,7 +19,7 @@ from comicarr.app.ai import actions as chat_actions
 from comicarr.app.ai import chat_store
 from comicarr.app.ai.chat_service import stream_turn
 from comicarr.app.ai.router import router
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.context import get_context
 from comicarr.app.core.security import require_session
 from comicarr.app.core.tables import annuals, issues, metadata
@@ -27,7 +27,7 @@ from comicarr.app.core.tables import annuals, issues, metadata
 
 @pytest.fixture
 def chat_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()

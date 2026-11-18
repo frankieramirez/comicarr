@@ -1,7 +1,5 @@
 #  Tests for comicarr.db — SQLAlchemy engine, shim, and helpers.
 
-import os
-import tempfile
 import threading
 from unittest.mock import patch
 
@@ -10,6 +8,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.exc import OperationalError
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.db import (
     DBConnection,
     _convert_positional_to_named,
@@ -21,13 +20,13 @@ from comicarr.app.core.db import (
     shutdown_engine,
     upsert,
 )
-from comicarr.app.core.tables import comics, issues, metadata
+from comicarr.app.core.tables import comics, metadata
 
 
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
     """Each test gets its own temporary SQLite database."""
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     # Clear any cached engine
     shutdown_engine()
     # Ensure no DATABASE_URL env var interferes
@@ -377,7 +376,7 @@ class TestDatabaseUrlOverride:
 
     def test_default_sqlite_when_no_env(self, tmp_path, monkeypatch):
         monkeypatch.delenv("DATABASE_URL", raising=False)
-        monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+        monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
         monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
         result = _get_database_url()
         assert result.startswith("sqlite:///")

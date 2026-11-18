@@ -29,6 +29,8 @@ from pathlib import Path
 
 from sqlalchemy import func, insert, select
 
+from comicarr.app.core import runtime
+
 ADJECTIVES = (
     "Amber", "Broken", "Crimson", "Distant", "Electric", "Fallen", "Gilded", "Hollow", "Iron", "Jade",
     "Lunar", "Midnight", "Northern", "Obsidian", "Pale", "Quiet", "Rusted", "Silver", "Tidal", "Velvet",
@@ -354,7 +356,6 @@ def generate(root, seed=DEFAULT_SEED, spec=BENCHMARK, today=None):
     ``root/data`` holds ``comicarr.db`` and ``config.ini``; ``root/library``
     holds the one-byte files. ``root`` must be empty or absent.
     """
-    import comicarr
     from comicarr.app.core import db
     from comicarr.app.core.schema import upgrade_database
     from comicarr.app.core.tables import activity_events, comics, issues, snatched, storyarcs, weekly
@@ -374,7 +375,7 @@ def generate(root, seed=DEFAULT_SEED, spec=BENCHMARK, today=None):
         # zero-byte files would never parse a name.
         (root / relative).write_bytes(b"\0")
 
-    comicarr.DATA_DIR = str(root / "data")
+    runtime.current().data_dir = str(root / "data")
     db.shutdown_engine()
     engine = db.get_engine()
     upgrade_database(engine)

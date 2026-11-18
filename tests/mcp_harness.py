@@ -17,7 +17,7 @@ import httpx2
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import annuals, comics, issues, metadata
 from comicarr.app.main import create_app
@@ -93,7 +93,7 @@ ANNUALS = [
 def seed_library(tmp_path, monkeypatch):
     """Point Comicarr at a fresh SQLite DB holding :data:`SERIES`, :data:`ISSUES` and
     :data:`ANNUALS`; clear the lockout counter."""
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()
     engine = get_engine()

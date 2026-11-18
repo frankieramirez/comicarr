@@ -21,6 +21,7 @@ import pytest
 from sqlalchemy import event
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, metadata, rssdb
 from comicarr.app.search.rss_feeds import mangaCheck, mangadexNewChapterCheck, nzbdbsearch
@@ -166,7 +167,7 @@ class TestMangaCheckRssdb:
 
     @pytest.fixture
     def rss_db(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+        monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
         monkeypatch.setattr(
             comicarr, "CONFIG", SimpleNamespace(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False), raising=False
         )

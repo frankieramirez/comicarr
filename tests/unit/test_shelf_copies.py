@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, insert, select
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.security import require_session
 from comicarr.app.core.tables import annuals, comics, issues, metadata, physical_copies
@@ -24,7 +25,7 @@ from comicarr.app.shelf.router import router
 
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     if getattr(comicarr, "LOG_LEVEL", None) is None:

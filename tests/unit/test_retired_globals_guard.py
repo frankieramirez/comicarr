@@ -76,3 +76,31 @@ def test_a_longer_identifier_is_not_a_violation(scan, name, form):
 @pytest.mark.parametrize("name", RETIRED)
 def test_a_comment_is_not_a_violation(scan, name):
     assert scan("#  comicarr.%s was retired; see the registry for the replacement." % name) == 0
+
+
+def _scan_file(tmp_path, monkeypatch, relative, source):
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(source + "\n")
+    monkeypatch.setattr(GUARD, "ROOT", tmp_path)
+    monkeypatch.setattr(GUARD, "SCAN_ROOTS", ("tests",))
+    monkeypatch.setattr(GUARD, "SCAN_FILES", ())
+    return GUARD.main()
+
+
+def test_a_historical_release_driver_may_name_runtime_fields(tmp_path, monkeypatch):
+    """The upgrade-matrix builder drives old releases, whose globals are real."""
+    name = sorted(GUARD._RUNTIME_FIELD_NAMES)[0]
+    relative = sorted(GUARD.HISTORICAL_FILES)[0]
+    assert _scan_file(tmp_path, monkeypatch, relative, "comicarr.%s = data_dir" % name) == 0
+
+
+def test_a_historical_release_driver_is_still_checked_for_other_names(tmp_path, monkeypatch):
+    other = sorted(set(GUARD.RETIRED_GLOBALS) - GUARD._RUNTIME_FIELD_NAMES)[0]
+    relative = sorted(GUARD.HISTORICAL_FILES)[0]
+    assert _scan_file(tmp_path, monkeypatch, relative, "comicarr.%s = []" % other) == 1
+
+
+def test_the_runtime_field_exemption_is_limited_to_historical_files(tmp_path, monkeypatch):
+    name = sorted(GUARD._RUNTIME_FIELD_NAMES)[0]
+    assert _scan_file(tmp_path, monkeypatch, "tests/unit/test_new.py", "comicarr.%s = data_dir" % name) == 1

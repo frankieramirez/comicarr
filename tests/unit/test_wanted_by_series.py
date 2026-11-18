@@ -20,7 +20,7 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import acquisition_run_items, comics, issues, metadata
 from comicarr.app.series import wanted_groups
 
@@ -87,7 +87,7 @@ def test_group_wanted_counts_every_bucket_and_filters_series_by_state():
 
 @pytest.fixture
 def wanted_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()

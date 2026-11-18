@@ -24,7 +24,7 @@ import comicarr
 from comicarr.app.ai import chat_images, chat_store
 from comicarr.app.ai.chat_service import stream_turn
 from comicarr.app.ai.router import router
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.schema import upgrade_database
 from comicarr.app.core.security import require_session
 from comicarr.app.core.tables import ai_chat_messages, metadata
@@ -32,7 +32,7 @@ from comicarr.app.core.tables import ai_chat_messages, metadata
 
 @pytest.fixture
 def chat_db(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
@@ -48,7 +48,7 @@ def production_chat_db(tmp_path, monkeypatch):
     Mirrors upgraded self-hosted installs that still lack ai_chat_* until 0003
     applies — the path that previously left GET /chat/threads returning 500.
     """
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", None, raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()
@@ -626,3 +626,22 @@ async def test_attachment_route_enforces_thread_owner(chat_db):
         response = client.get(attachment["url"])
         assert response.status_code == 200
         assert response.headers["content-type"] == "image/webp"
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    ["../outside.png", "chat_attachments/../../outside.png", "chat_attachments_evil/x.png", "/etc/passwd"],
+)
+def test_attachment_paths_cannot_escape_the_attachment_root(tmp_path, monkeypatch, relative_path):
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
+
+    with pytest.raises(chat_images.InvalidChatImage, match="Invalid attachment path"):
+        chat_images.resolve_relative_path(relative_path)
+
+
+def test_attachment_paths_inside_the_root_resolve(tmp_path, monkeypatch):
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
+
+    resolved = chat_images.resolve_relative_path("chat_attachments/thread-a/image.png")
+
+    assert resolved == (tmp_path / "chat_attachments" / "thread-a" / "image.png").resolve()

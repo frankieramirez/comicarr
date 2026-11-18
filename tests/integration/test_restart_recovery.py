@@ -64,7 +64,7 @@ def _isolated_db(tmp_path, monkeypatch):
     """Each test gets its own temp SQLite DB with the schema auto-created
     (same convention as tests/unit/test_pipeline_journal.py /
     test_recovery_classify.py)."""
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     shutdown_engine()
     monkeypatch.delenv("DATABASE_URL", raising=False)
     if not hasattr(comicarr, "LOG_LEVEL") or comicarr.LOG_LEVEL is None:

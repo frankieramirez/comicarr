@@ -23,7 +23,7 @@ import platform
 import shutil
 
 import comicarr
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 
 
 class RuntimeCapabilityDiagnostics:
@@ -72,7 +72,7 @@ class RuntimeCapabilityDiagnostics:
         comicarr.REQS["rar"] = {"rar_failure": True, "rar_message": "Unable to locate unrar"}
 
     def release_messages(self):
-        release_path = os.path.join(comicarr.PROG_DIR or ".", ".release_messages")
+        release_path = os.path.join(runtime.current().prog_dir or ".", ".release_messages")
         try:
             with open(release_path, encoding="utf-8") as release_file:
                 messages = release_file.readlines() or None

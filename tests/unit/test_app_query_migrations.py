@@ -20,7 +20,7 @@ import comicarr
 from comicarr.app.ai import pull_list
 from comicarr.app.ai import queries as ai_queries
 from comicarr.app.ai import story_arcs as ai_story_arcs
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import (
     activity_events,
     ai_cache,
@@ -38,7 +38,7 @@ from comicarr.app.weekly import queries as weekly_queries
 @pytest.fixture
 def query_db(tmp_path, monkeypatch):
     """Use a file-backed SQLite engine so domain helpers exercise the real chain."""
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace())
     monkeypatch.delenv("DATABASE_URL", raising=False)
     db.shutdown_engine()

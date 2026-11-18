@@ -17,6 +17,7 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr.app.common.placement import Outcome
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, issues, metadata, storyarcs
 from comicarr.app.storyarcs import ArcCopyError, ArcMembership, copy_issue_to_arc, service
@@ -172,7 +173,7 @@ def test_membership_falls_back_to_the_issue_publisher():
 
 @pytest.fixture
 def arc_db(tmp_path, monkeypatch, library):
-    monkeypatch.setattr(comicarr, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runtime.current(), "data_dir", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
     shutdown_engine()
     metadata.create_all(get_engine())

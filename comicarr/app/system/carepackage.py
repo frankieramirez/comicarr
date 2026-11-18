@@ -31,7 +31,7 @@ from glob import glob
 import comicarr
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.config import ini as config_module
-from comicarr.app.core import encrypted, logger
+from comicarr.app.core import encrypted, logger, runtime
 from comicarr.app.system import versioncheck
 
 _LEGACY_32P_CREDENTIAL_LINE_PATTERN = re.compile(
@@ -45,8 +45,8 @@ class carePackage(object):
     def __init__(self, maintenance=False):
         self.maintenance = maintenance
         self.carepackage_version = 1.06
-        self.configpath = os.path.join(comicarr.DATA_DIR, "config.ini")
-        self.lastrelpath = os.path.join(comicarr.PROG_DIR, ".LASTRELEASE")
+        self.configpath = os.path.join(runtime.current().data_dir, "config.ini")
+        self.lastrelpath = os.path.join(runtime.current().prog_dir, ".LASTRELEASE")
         self.keylist = []
         self.pass_thru_vals = None
         base = set(config_module.ENCRYPTED_CONFIG_ITEMS.values())
@@ -207,7 +207,7 @@ class carePackage(object):
         if self.maintenance is True:
             self.log_dir = tmpconfig["Logs"]["log_dir"]
             if self.log_dir is None:
-                self.log_dir = os.path.join(comicarr.DATA_DIR, "logs")
+                self.log_dir = os.path.join(runtime.current().data_dir, "logs")
 
             git_tmp = tmpconfig["Git"]
             git_user = git_tmp["git_user"]
@@ -269,7 +269,7 @@ class carePackage(object):
             fallback=None,
         )
         if secure_dir in (None, "", "None"):
-            secure_dir = os.path.join(comicarr.DATA_DIR, ".secure")
+            secure_dir = os.path.join(runtime.current().data_dir, ".secure")
         for section, option in (("Newznab", "extra_newznabs"), ("Torznab", "extra_torznabs")):
             try:
                 entries = config_module.parse_provider_extras(
@@ -326,7 +326,7 @@ class carePackage(object):
             key=len,
             reverse=True,
         )
-        dbpath = os.path.join(comicarr.DATA_DIR, "comicarr.db")
+        dbpath = os.path.join(runtime.current().data_dir, "comicarr.db")
         with zipfile.ZipFile(self.panicfile, "w") as zip:
             zip.write(self.filename, os.path.basename(self.filename))
             zip.write(dbpath, os.path.basename(dbpath))
