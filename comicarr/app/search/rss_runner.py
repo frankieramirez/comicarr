@@ -22,9 +22,9 @@ import datetime
 import threading
 
 import comicarr
-from comicarr import rsscheck
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import logger
+from comicarr.app.search import rss_feeds
 from comicarr.app.system import service as system_service
 
 rss_lock = threading.Lock()
@@ -64,13 +64,13 @@ class tehMain:
                 logger.info("[RSS-FEEDS] Initiating Torrent RSS Check.")
                 if comicarr.CONFIG.ENABLE_PUBLIC:
                     logger.info("[RSS-FEEDS] Initiating Torrent RSS Feed Check on Demonoid / WorldWideTorrents.")
-                    rsscheck.torrents(pickfeed="Public")
+                    rss_feeds.torrents(pickfeed="Public")
 
             logger.info("[RSS-FEEDS] Initiating RSS Feed Check for NZB Providers.")
-            rsscheck.nzbs(forcerss=forcerss)
+            rss_feeds.nzbs(forcerss=forcerss)
             if comicarr.CONFIG.ENABLE_DDL is True:
                 logger.info("[RSS-FEEDS] Initiating RSS Feed Check for DDL Provider.")
-                rsscheck.ddl(forcerss=forcerss)
+                rss_feeds.ddl(forcerss=forcerss)
             logger.info("[RSS-FEEDS] RSS Feed Check/Update Complete")
             logger.info("[RSS-FEEDS] Watchlist Check for new Releases")
             rss_start = datetime.datetime.now()

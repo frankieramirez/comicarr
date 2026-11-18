@@ -21,7 +21,7 @@ from comicarr.app.manga.ledger import volume_numbers_match
 from comicarr.app.manga.parse import parse_in_series_context, parse_kwargs_for_series
 from comicarr.app.manga.sync import arm_manga_sync_job, next_interval_run
 from comicarr.app.search.evaluation import manga_volume_satisfies
-from comicarr.rsscheck import mangaCheck
+from comicarr.app.search.rss_feeds import mangaCheck
 from comicarr.search import _build_manga_search_terms, manga_volume_search_terms
 
 _INIT_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "__init__.py"
@@ -155,8 +155,8 @@ def test_manga_check_searches_blended_targets_not_every_wanted_chapter():
     ]
     with (
         patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False)),
-        patch("comicarr.rsscheck.series_service") as mock_helpers,
-        patch("comicarr.rsscheck.db") as mock_db,
+        patch("comicarr.app.search.rss_feeds.series_service") as mock_helpers,
+        patch("comicarr.app.search.rss_feeds.db") as mock_db,
         patch("comicarr.search.search_init") as mock_search,
     ):
         mock_db.select_all.side_effect = [[series], issues, []]
@@ -274,7 +274,7 @@ def test_nzb_search_accepts_and_receives_manga_volume_terms():
 
 def test_manga_rss_path_passes_manga_numbers_to_search_init():
     """The RSS lane already honours the contract; it guards against regression."""
-    rss_path = Path(__file__).resolve().parents[2] / "comicarr" / "rsscheck.py"
+    rss_path = Path(__file__).resolve().parents[2] / "comicarr" / "app" / "search" / "rss_feeds.py"
     calls = _search_init_call_keywords("mangaCheck", rss_path)
     assert calls, "mangaCheck() no longer calls search_init()"
     for keywords in calls:

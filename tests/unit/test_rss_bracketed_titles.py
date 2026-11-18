@@ -67,7 +67,8 @@ def test_a_title_with_nothing_to_parse_fails_instead_of_raising(config, title):
 
 
 def test_rssdbupdate_caches_every_entry_when_one_title_cannot_be_parsed(config, monkeypatch):
-    from comicarr import filechecker, rsscheck
+    from comicarr import filechecker
+    from comicarr.app.search import rss_feeds as rsscheck
 
     real = filechecker.FileChecker
 
