@@ -61,7 +61,6 @@ ROOT_MODULES: dict[str, int] = {
     "sabnzbd": 1422,
     "search": 1422,
     "weeklypull": 1421,
-    "weeklypullit": 1421,
 }
 
 # Directory under comicarr/ other than app/ -> retiring issue.

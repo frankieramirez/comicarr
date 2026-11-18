@@ -9,12 +9,12 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 import comicarr
-from comicarr import weeklypullit
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.workers import BackgroundWorkerRegistry, start_background_thread
 from comicarr.app.system import service as system_service
+from comicarr.app.weekly import pull_runner as weeklypullit
 
 
 def test_weekly_run_records_success_and_returns_to_waiting(monkeypatch):

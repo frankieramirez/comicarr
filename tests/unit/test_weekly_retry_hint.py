@@ -13,8 +13,8 @@ import datetime
 from email.utils import format_datetime
 from unittest.mock import MagicMock
 
-from comicarr import weeklypullit
 from comicarr.app.weekly import locg
+from comicarr.app.weekly import pull_runner as weeklypullit
 
 
 def test_retry_after_seconds_parses_delta_seconds():

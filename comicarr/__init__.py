@@ -49,7 +49,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
 import comicarr.app.config.ini
-from comicarr import rsscheckit, sabnzbd, weeklypullit
+from comicarr import rsscheckit, sabnzbd
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import logger
 from comicarr.app.downloads import service as downloads_service
@@ -59,6 +59,7 @@ from comicarr.app.series import service as series_service
 from comicarr.app.series import watchlist_refresh
 from comicarr.app.system import maintenance, versioncheck, versioncheckit
 from comicarr.app.system import service as system_service
+from comicarr.app.weekly import pull_runner
 
 # Landed Alembic revision 0001 runs ``from comicarr.tables import metadata``, and a
 # landed revision can never be edited. Keep that import path working after the
@@ -980,7 +981,7 @@ def start(ctx):
             )
             SEARCH_SCHEDULER.pause()
 
-            ws = weeklypullit.Weekly()
+            ws = pull_runner.Weekly()
             WEEKLY_SCHEDULER = _add_recurring_job(
                 func=ws.run,
                 id="weekly",

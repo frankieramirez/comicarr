@@ -71,8 +71,8 @@ INFRASTRUCTURE = frozenset()
 # Foundations legacy module -> the seam modules allowed to import it under
 # comicarr/app/. Most seams do not exist yet; each seam ticket creates its file.
 SEAMS = {
-    "weeklypull": frozenset({"comicarr/app/weekly/pull.py"}),
-    "weeklypullit": frozenset({"comicarr/app/weekly/pull.py"}),
+    # pull_runner.py moved from the root in #1521; both edges go when weeklypull moves (#1522).
+    "weeklypull": frozenset({"comicarr/app/weekly/pull.py", "comicarr/app/weekly/pull_runner.py"}),
     "rsscheck": frozenset({"comicarr/app/search/rss.py"}),
     "rsscheckit": frozenset({"comicarr/app/search/rss.py"}),
     "postprocessor": frozenset({"comicarr/app/downloads/postprocessing.py"}),
