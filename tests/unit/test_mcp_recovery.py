@@ -21,6 +21,7 @@ from comicarr.app.acquisition.maintenance import MaintenanceController, ensure_a
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.activity import queries as activity_queries
 from comicarr.app.attention import read as read_attention
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine
 from comicarr.app.core.tables import activity_events, issues
 from comicarr.app.downloads import journal, postprocessing, sab_reconcile
@@ -34,7 +35,7 @@ PAYLOAD = {"issueid": "5001", "comicid": "1001", "comicname": "Saga", "issuenumb
 def _library(tmp_path, monkeypatch):
     seed_library(tmp_path, monkeypatch)
     monkeypatch.delenv("COMICARR_ACQUISITION_MAINTENANCE", raising=False)
-    monkeypatch.setattr(comicarr, "APILOCK", threading.Lock(), raising=False)
+    monkeypatch.setattr(runtime.current(), "api_lock", threading.Lock(), raising=False)
     monkeypatch.setattr(comicarr, "PROVIDER_BLOCKLIST", {}, raising=False)
     monkeypatch.setattr(
         comicarr,
@@ -69,12 +70,12 @@ def _journal_row(release_key, stage):
 @pytest.mark.asyncio
 async def test_retry_post_processing_is_busy_while_the_processing_lock_is_held(monkeypatch):
     _journal_row("saga-66|nzbgeek", journal.POST_PROCESSING)
-    comicarr.APILOCK.acquire()
+    runtime.current().api_lock.acquire()
     try:
         async with mcp_client(_app(), **AUTH) as mcp:
             result = await mcp.call_tool("retry_post_processing", {"release_key": "saga-66|nzbgeek"})
     finally:
-        comicarr.APILOCK.release()
+        runtime.current().api_lock.release()
     assert result.is_error
     assert result.structured_content["code"] == "busy"
     assert result.structured_content["retryable"] is True

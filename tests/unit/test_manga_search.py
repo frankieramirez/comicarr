@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.series import service as series_service
 
 
@@ -191,7 +192,7 @@ class TestSeriesContentKindSearchHandoff:
         )
         search_lock = MagicMock()
         search_lock.locked.return_value = False
-        monkeypatch.setattr(comicarr, "SEARCHLOCK", search_lock)
+        monkeypatch.setattr(runtime.current(), "search_lock", search_lock)
         monkeypatch.setattr(
             search,
             "_search_source_for_issue",

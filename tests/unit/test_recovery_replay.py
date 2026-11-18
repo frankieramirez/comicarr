@@ -17,7 +17,7 @@ the completed-not-reconstructed disambiguation), the two-marker finalizer
 (decided ONLY by `moved`, no file probe), one-off journal-authoritative,
 snapshot-then-recheck skip, AE3 cross-replay exactly-once, AE4 gone->failed,
 `still` re-enqueue, monotonic no-op, the per-row error path, empty journal,
-and the lock-free (no INIT_LOCK) property.
+and the lock-free (no init_lock) property.
 """
 
 import json
@@ -144,14 +144,14 @@ def test_startup_replay_is_a_noop_while_acquisition_workers_are_fenced(queues, m
 
 
 # ---------------------------------------------------------------------------
-# Does NOT acquire INIT_LOCK (no deadlock/starvation vs a SIGTERM halt())
+# Does NOT acquire init_lock (no deadlock/starvation vs a SIGTERM halt())
 # ---------------------------------------------------------------------------
 
 
 def test_replay_does_not_acquire_init_lock(queues):
-    # Hold INIT_LOCK for the entire replay — if replay tried to acquire it
+    # Hold init_lock for the entire replay — if replay tried to acquire it
     # this would deadlock. It must complete lock-free.
-    with comicarr.INIT_LOCK:
+    with runtime.current().init_lock:
         summary = recovery.replay_pipeline(probes=_probe("complete"))
     assert summary["open"] == 0
 

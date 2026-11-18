@@ -10,10 +10,10 @@
 """Bounded Wanted/RSS watchlist passes and the manga RSS lookup memo.
 
 A scheduled RSS watchlist pass over a large Wanted list used to run to
-completion while holding SEARCHLOCK, then start again because the trigger
+completion while holding search_lock, then start again because the trigger
 interval was shorter than the pass. ``PassBudget`` gives that pass an item and
 wall-clock budget, remembers which issues were already checked against the
-current rssdb generation, and keeps the work off SEARCHLOCK so a manual search
+current rssdb generation, and keeps the work off search_lock so a manual search
 can proceed.
 
 ``rss_lookup_memo`` is a separate, pass-scoped cache for the manga RSS pass:

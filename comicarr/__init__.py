@@ -68,61 +68,6 @@ from comicarr.app.weekly import pull_runner
 sys.modules.setdefault("comicarr.tables", importlib.import_module("comicarr.app.core.tables"))
 
 
-class ThreadSafeLock:
-    """
-    Thread-safe lock that provides boolean-like interface for backwards
-    compatibility while using proper threading primitives.
-
-    Usage:
-        lock = ThreadSafeLock()
-        if lock:  # or lock == True or lock.locked()
-            print("locked")
-        lock.acquire()  # instead of lock = True
-        lock.release()  # instead of lock = False
-    """
-
-    def __init__(self):
-        self._lock = threading.Lock()
-
-    def __bool__(self):
-        """Allow `if lock:` syntax."""
-        return self._lock.locked()
-
-    def __eq__(self, other):
-        """Allow `lock == True` or `lock is True` style comparisons."""
-        if isinstance(other, bool):
-            return self._lock.locked() == other
-        return NotImplemented
-
-    def acquire(self, blocking=True, timeout=-1):
-        """Acquire the lock (equivalent to setting to True)."""
-        return self._lock.acquire(blocking=blocking, timeout=timeout)
-
-    def release(self):
-        """
-        Release the lock (equivalent to setting to False).
-        Safe to call even if not locked.
-        """
-        try:
-            self._lock.release()
-        except RuntimeError:
-            pass
-
-    def locked(self):
-        """Check if the lock is currently held."""
-        return self._lock.locked()
-
-    def __enter__(self):
-        """Support context manager usage."""
-        self._lock.acquire()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Support context manager usage."""
-        self._lock.release()
-        return False
-
-
 PROG_DIR = None
 DATA_DIR = None
 FULL_PATH = None
@@ -147,8 +92,6 @@ CREATEPID = False
 MAX_LOGSIZE = 5000000
 SAFESTART = False
 NOWEEKLY = False
-INIT_LOCK = threading.Lock()
-ACQUISITION_RESUME_LOCK = threading.Lock()
 IMPORTLOCK = False
 IMPORTBUTTON = False
 IMPORT_STATUS = None
@@ -241,9 +184,6 @@ CURRENT_RELEASE_NAME = None
 LATEST_VERSION = None
 UPDATE_STATE = None
 UPDATE_REASON = None
-APILOCK = ThreadSafeLock()
-SEARCHLOCK = ThreadSafeLock()
-DDL_LOCK = ThreadSafeLock()
 ISSUE_EXCEPTIONS = [
     "DEATHS",
     "ALPHA",
@@ -363,7 +303,7 @@ def ensure_sab_completed_reconcile():
 
 
 def initialize(config_file):
-    with INIT_LOCK:
+    with runtime.current().init_lock:
         global \
             CONFIG, \
             _INITIALIZED, \
@@ -422,9 +362,6 @@ def initialize(config_file):
             FEED_32P, \
             FEEDINFO_32P, \
             DB_BACKFILL, \
-            APILOCK, \
-            SEARCHLOCK, \
-            DDL_LOCK, \
             LOG_LEVEL, \
             MONITOR_SCHEDULER, \
             SEARCH_SCHEDULER, \
@@ -799,7 +736,7 @@ def resume_acquisition_runtime(config=None):
         else:
             queue_schedule(queue_name, "start")
 
-    with ACQUISITION_RESUME_LOCK:
+    with runtime.current().acquisition_resume_lock:
         gate = refresh_runtime_state(config)
         if gate.blocked:
             raise RuntimeError("acquisition remains blocked: %s" % (gate.reason or "unknown gate"))
@@ -900,7 +837,7 @@ def start(ctx):
         ctx.scheduler is not SCHED
         or ctx.search_queue is not runtime.current().search_queue
         or ctx.ddl_queue is not runtime.current().ddl_queue
-        or ctx.ddl_lock is not DDL_LOCK
+        or ctx.ddl_lock is not runtime.current().ddl_lock
         or ctx.ddl_queued is not DDL_QUEUED
     ):
         raise RuntimeNotInitializedError(
@@ -909,7 +846,7 @@ def start(ctx):
 
     global _INITIALIZED, started
 
-    with INIT_LOCK:
+    with runtime.current().init_lock:
         if _INITIALIZED:
             UPDATER_SCHEDULER = _add_recurring_job(
                 func=watchlist_refresh.run_scheduled_refresh,
@@ -2055,7 +1992,7 @@ def halt():
     """
     global _INITIALIZED, started
 
-    with INIT_LOCK:
+    with runtime.current().init_lock:
         if _INITIALIZED:
             logger.info("[SHUTDOWN] halt() — schedulers/workers already drained by the lifespan")
             _INITIALIZED = False

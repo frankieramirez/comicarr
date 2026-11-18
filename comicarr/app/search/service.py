@@ -1201,7 +1201,7 @@ def search_queue(queue, ledger=None, maintenance=None):
 
                 command_ledger = command_ledger or RunLedger()
 
-            if comicarr.SEARCHLOCK.locked():
+            if runtime.current().search_lock.locked():
                 _requeue_search_command(queue, command, command_ledger, "search lock held")
                 logger.fdebug("[SEARCH-QUEUE] Search lock held; deliberately requeued %s" % command.issueid)
                 time.sleep(1)

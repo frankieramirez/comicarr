@@ -18,7 +18,7 @@ from sqlalchemy import insert, select
 import comicarr
 from comicarr.app.common import series_kind
 from comicarr.app.common.series_kind import manga_sql_clause
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.tables import comics, metadata
 from comicarr.app.dashboard import queries as dashboard_queries
@@ -75,7 +75,7 @@ def _postprocess_uses_manga_branch(row):
     mock_apilock = MagicMock()
     mock_apilock.locked.return_value = False
     with (
-        patch.object(comicarr, "APILOCK", mock_apilock),
+        patch.object(runtime.current(), "api_lock", mock_apilock),
         patch.object(comicarr, "CONFIG", _config()),
         patch("comicarr.app.downloads.postprocess_pipeline.process_manga_download", return_value=None) as process_manga,
         patch("comicarr.app.downloads.postprocess_match.filechecker") as filechecker,

@@ -116,7 +116,7 @@ def test_process_issue_maps_busy_to_retryable_response(monkeypatch):
 def test_direct_processing_returns_http_conflict_while_owned(tmp_path, monkeypatch, compat):
     lock = threading.Lock()
     lock.acquire()
-    monkeypatch.setattr(comicarr, "APILOCK", lock)
+    monkeypatch.setattr(runtime.current(), "api_lock", lock)
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(MANUAL_PP_FOLDER=str(tmp_path)))
 
     if compat:
@@ -136,7 +136,7 @@ def test_folder_monitor_defers_when_processing_is_busy(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "IMPORTLOCK", False)
     lock = threading.Lock()
     lock.acquire()
-    monkeypatch.setattr(comicarr, "APILOCK", lock)
+    monkeypatch.setattr(runtime.current(), "api_lock", lock)
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(CHECK_FOLDER=str(tmp_path)))
     monkeypatch.setattr(runtime.current(), "monitor_status", "Waiting")
     updates = []
@@ -156,7 +156,7 @@ def test_maintenance_controller_failure_releases_processing_lock(sqlite_ddl_db, 
     from comicarr.app.acquisition import maintenance
 
     lock = threading.Lock()
-    monkeypatch.setattr(comicarr, "APILOCK", lock)
+    monkeypatch.setattr(runtime.current(), "api_lock", lock)
     folder = tmp_path / "downloads"
     folder.mkdir()
     monkeypatch.setattr(maintenance, "MaintenanceController", MagicMock(side_effect=RuntimeError("unavailable")))
@@ -169,7 +169,7 @@ def test_maintenance_controller_failure_releases_processing_lock(sqlite_ddl_db, 
 
 def test_malformed_command_cannot_escape_through_quarantine(tmp_path, monkeypatch):
     lock = threading.Lock()
-    monkeypatch.setattr(comicarr, "APILOCK", lock)
+    monkeypatch.setattr(runtime.current(), "api_lock", lock)
 
     result = postprocessing.run({"nzb_name": ["../invalid"], "nzb_folder": str(tmp_path)})
 
@@ -945,7 +945,7 @@ def test_worker_marks_poison_item_failed_and_continues_to_shutdown(monkeypatch):
     work.put({"id": "ddl-bad", "link": "https://example.invalid", "site": "DDL(GetComics)"})
     work.put("exit")
     statuses = []
-    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False)
+    monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False)
     monkeypatch.setattr(comicarr, "DDL_QUEUED", {"ddl-bad"})
     monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", {"ddl-bad"})
     monkeypatch.setattr(
@@ -985,7 +985,7 @@ def _drive_ddl_worker(monkeypatch, ddzstat, *, on_parse=None, link_type_failure=
     work.put(_complete_ddl_payload())
     work.put("exit")
 
-    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False)
+    monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False)
     monkeypatch.setattr(comicarr, "DDL_QUEUED", {"ddl-1"})
     monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", {"ddl-1"})
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(POST_PROCESSING=False), raising=False)
@@ -1107,7 +1107,7 @@ def _downloader(monkeypatch, tmp_path, *, response=None):
     downloader.session.get.return_value = response or _Response()
     downloader.cookie_receipt = MagicMock()
     lock = _TrackingLock()
-    monkeypatch.setattr(comicarr, "DDL_LOCK", lock)
+    monkeypatch.setattr(runtime.current(), "ddl_lock", lock)
     monkeypatch.setattr(comicarr, "DDL_QUEUED", set())
     monkeypatch.setattr(
         comicarr,

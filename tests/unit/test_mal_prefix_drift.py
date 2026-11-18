@@ -29,6 +29,7 @@ import pytest
 from sqlalchemy import create_engine, select
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.tables import comics, metadata
 from comicarr.app.manga import add as manga_add
 from comicarr.app.metadata import service as metadata_service
@@ -44,7 +45,7 @@ def _process(comicid):
     config.FILE_OPTS = "move"
     config.IGNORE_SEARCH_WORDS = []
     config.PRE_SCRIPTS = None
-    with patch.object(comicarr, "APILOCK", lock), patch.object(comicarr, "CONFIG", config):
+    with patch.object(runtime.current(), "api_lock", lock), patch.object(comicarr, "CONFIG", config):
         return folder_request.process("Chapter 1.cbz", "/tmp/downloads", comicid=comicid, apicall=True)
 
 

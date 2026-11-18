@@ -40,6 +40,7 @@ from sqlalchemy import select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import metadata, pipeline_journal
 from comicarr.app.downloads import journal, postprocessing, service
@@ -62,10 +63,10 @@ def _isolated_db(tmp_path, monkeypatch):
         types.SimpleNamespace(HIGHCOUNT=0, POST_PROCESSING=True, MANUAL_PP_FOLDER=str(tmp_path)),
         raising=False,
     )
-    # APILOCK is consulted at the top of the postprocess_main loop.
+    # api_lock is consulted at the top of the postprocess_main loop.
     fake_lock = MagicMock()
     fake_lock.locked.return_value = False
-    monkeypatch.setattr(comicarr, "APILOCK", fake_lock, raising=False)
+    monkeypatch.setattr(runtime.current(), "api_lock", fake_lock, raising=False)
     engine = get_engine()
     metadata.create_all(engine)
     assert ensure_acquisition_schema(engine).ready

@@ -557,9 +557,9 @@ def test_ae3_two_concurrent_pp_threads_only_one_wins_the_atomic_claim():
 
 
 def test_ae3_replay_is_lockfree_concurrent_with_held_init_lock(fake_pp_queue, tmp_path):
-    """AE3 (R3/R5): replay must be lock-free (it does NOT acquire INIT_LOCK)
+    """AE3 (R3/R5): replay must be lock-free (it does NOT acquire init_lock)
     so a concurrent SIGTERM halt() / a still-held startup lock can never
-    deadlock or starve recovery. INIT_LOCK is held by the main thread for the
+    deadlock or starve recovery. init_lock is held by the main thread for the
     whole replay; if replay tried to acquire it the worker would block
     forever and the done event would never be set. Underpins AE3's
     cross-restart convergence (replay always runs to completion)."""
@@ -587,13 +587,13 @@ def test_ae3_replay_is_lockfree_concurrent_with_held_init_lock(fake_pp_queue, tm
         result["summary"] = recovery.replay_pipeline(probes=_probe("complete"))
         done.set()
 
-    with comicarr.INIT_LOCK:
+    with runtime.current().init_lock:
         t = threading.Thread(target=_run)
         t.start()
         finished = done.wait(timeout=10)
         t.join(timeout=5)
 
-    assert finished, "replay blocked while INIT_LOCK was held — it must be lock-free"
+    assert finished, "replay blocked while init_lock was held — it must be lock-free"
     assert result["summary"]["open"] == 1
     items = _drain(fake_pp_queue)
     assert len(items) == 1

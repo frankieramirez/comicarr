@@ -32,6 +32,7 @@ import pytest
 
 import comicarr
 from comicarr.app.common.placement import OnExisting, PlacementError, Purpose
+from comicarr.app.core import runtime
 from comicarr.app.downloads import postprocess_match as postprocessor
 from comicarr.app.downloads import postprocess_pipeline
 from tests.conftest import placement_result
@@ -116,7 +117,7 @@ def _process(nzb_name, nzb_folder, comicid=None, issueid=None, apicall=False):
     """Run one whole request through ``process_download``."""
     mock_apilock = MagicMock()
     mock_apilock.locked.return_value = False
-    with patch.object(comicarr, "APILOCK", mock_apilock), patch.object(comicarr, "CONFIG", _config()):
+    with patch.object(runtime.current(), "api_lock", mock_apilock), patch.object(comicarr, "CONFIG", _config()):
         return folder_request.process(nzb_name, nzb_folder, issueid, comicid=comicid, apicall=apicall)
 
 

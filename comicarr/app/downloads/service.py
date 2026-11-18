@@ -186,7 +186,7 @@ def retry_post_processing(release_key):
         if result.status == "ignored":
             return {"success": False, "status": "not_retryable", "detail": "This download is no longer in flight."}
         return {"success": False, "status": "failed", "detail": result.detail or "Post-processing failed."}
-    lock = getattr(comicarr, "APILOCK", None)
+    lock = runtime.current().api_lock
     if lock is not None and lock.locked():
         return {"success": False, "status": "busy", "detail": "Post-processing is busy; retry later."}
     try:
@@ -1176,9 +1176,9 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
     while True:
         # Every path out of the previous item comes back here.
         _ACTIVE_DDL_ITEM["id"] = None
-        if comicarr.DDL_LOCK.locked():
+        if runtime.current().ddl_lock.locked():
             time.sleep(5)
-        elif not comicarr.DDL_LOCK.locked() and queue.qsize() >= 1:
+        elif not runtime.current().ddl_lock.locked() and queue.qsize() >= 1:
             item = queue.get(True)
             if item == "exit":
                 logger.info("Cleaning up workers for shutdown")
