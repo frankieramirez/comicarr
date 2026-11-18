@@ -41,6 +41,9 @@ from comicarr.app.common import utilities as common_utilities
 from comicarr.app.common.cfscrape_compat import import_cfscrape
 from comicarr.app.core import db, logger
 from comicarr.app.core.tables import comics, rssdb
+from comicarr.app.downloads.torrent.clients import deluge as deluge
+from comicarr.app.downloads.torrent.clients import qbittorrent as qbittorrent
+from comicarr.app.downloads.torrent.clients import transmission
 from comicarr.app.search import rss_utorrent as utorrent
 from comicarr.app.search import service as search_service
 from comicarr.app.search.backlog import (
@@ -51,9 +54,6 @@ from comicarr.app.search.backlog import (
 )
 from comicarr.app.search.provider_config import provider_enabled
 from comicarr.app.series import service as series_service
-from comicarr.torrent.clients import deluge as deluge
-from comicarr.torrent.clients import qbittorrent as qbittorrent
-from comicarr.torrent.clients import transmission
 
 REDIRECT_STATUS_CODES = (301, 302, 303, 307, 308)
 
@@ -1372,7 +1372,7 @@ def torsend2client(seriesname, issue, seriesyear, linkit, site, pubhash=None, co
             return torrent_info
 
     elif comicarr.USE_RTORRENT:
-        from comicarr.torrent.clients import rtorrent
+        from comicarr.app.downloads.torrent.clients import rtorrent
 
         try:
             torrent_info = rtorrent.send_or_check(filepath=filepath)

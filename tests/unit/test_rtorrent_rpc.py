@@ -19,7 +19,7 @@ from xmlrpc.server import SimpleXMLRPCDispatcher, SimpleXMLRPCRequestHandler, Si
 import pytest
 
 from comicarr.app.downloads import rtorrent_rpc
-from comicarr.torrent.clients import rtorrent
+from comicarr.app.downloads.torrent.clients import rtorrent
 
 HASH = "C" * 40
 

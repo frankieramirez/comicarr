@@ -95,7 +95,7 @@ def test_route_save_paths_are_post_processing_roots():
 
 def test_qbittorrent_add_uses_routed_category_and_reports_it(monkeypatch):
     import comicarr
-    from comicarr.torrent.clients import qbittorrent
+    from comicarr.app.downloads.torrent.clients import qbittorrent
 
     _locate(monkeypatch, "/comics/Magazines/Wizard")
     monkeypatch.setattr(comicarr, "CONFIG", _config(QBITTORRENT_LOADACTION="default"))

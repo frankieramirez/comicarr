@@ -17,7 +17,7 @@ import transmission_rpc
 
 import comicarr
 from comicarr.app.core import logger
-from comicarr.torrent.contracts import connection_failure
+from comicarr.app.downloads.torrent.contracts import connection_failure
 
 DEFAULT_PORT = 9091
 DEFAULT_PATH = "/transmission/rpc"

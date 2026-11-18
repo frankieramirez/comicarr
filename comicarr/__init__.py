@@ -838,7 +838,7 @@ def resume_acquisition_runtime(config=None):
 
     from comicarr.app.acquisition.maintenance import refresh_runtime_state
     from comicarr.app.core.runtime import get_runtime_if_initialized, set_runtime_acquisition_status
-    from comicarr.torrent import monitor as torrent_monitor
+    from comicarr.app.downloads.torrent import monitor as torrent_monitor
 
     ctx = get_runtime_if_initialized()
     config = config or (ctx.config if ctx is not None else CONFIG)
@@ -942,7 +942,7 @@ def start(ctx):
     worker from starting against a copied queue/lock/scheduler view.
     """
     from comicarr.app.core.runtime import RuntimeNotInitializedError, set_runtime_acquisition_status, set_runtime_field
-    from comicarr.torrent import monitor as torrent_monitor
+    from comicarr.app.downloads.torrent import monitor as torrent_monitor
 
     if ctx is None or ctx.disposed:
         raise RuntimeNotInitializedError("Workers cannot start before an active runtime context exists")
@@ -1355,7 +1355,7 @@ def start(ctx):
 def queue_schedule(queuetype, mode, ctx=None):
     """Start/stop legacy workers while preserving canonical pool identity."""
     from comicarr.app.core.runtime import POOL_CONTEXT_FIELDS, get_runtime_if_initialized, set_runtime_field
-    from comicarr.torrent import monitor as torrent_monitor
+    from comicarr.app.downloads.torrent import monitor as torrent_monitor
 
     ctx = ctx or get_runtime_if_initialized()
 

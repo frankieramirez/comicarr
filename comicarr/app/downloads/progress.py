@@ -125,7 +125,7 @@ def _nzbget_queue(config):
 def _qbittorrent(config, hashes):
     if not hashes:
         return {}
-    from comicarr.torrent.clients.qbittorrent import TorrentClient
+    from comicarr.app.downloads.torrent.clients.qbittorrent import TorrentClient
 
     client = TorrentClient().connect(
         _text(getattr(config, "QBITTORRENT_HOST", None)),

@@ -31,7 +31,7 @@ import os
 
 import comicarr
 from comicarr.app.core import logger
-from comicarr.torrent.contracts import normalize_connection_result
+from comicarr.app.downloads.torrent.contracts import normalize_connection_result
 
 _TORRENT_FIELDS = (
     "hash",
@@ -109,7 +109,7 @@ def configured_route():
 
 
 def _probe_rtorrent(torrent_hash):
-    from comicarr.torrent.clients import rtorrent
+    from comicarr.app.downloads.torrent.clients import rtorrent
 
     try:
         info = rtorrent.send_or_check(torrent_hash, check=True)
@@ -133,7 +133,7 @@ def _probe_rtorrent(torrent_hash):
 
 
 def _probe_deluge(torrent_hash):
-    from comicarr.torrent.clients import deluge
+    from comicarr.app.downloads.torrent.clients import deluge
 
     client = deluge.TorrentClient()
     conn = normalize_connection_result(
@@ -172,7 +172,7 @@ def _probe_deluge(torrent_hash):
 
 
 def _probe_qbittorrent(torrent_hash):
-    from comicarr.torrent.clients import qbittorrent
+    from comicarr.app.downloads.torrent.clients import qbittorrent
 
     client = qbittorrent.TorrentClient()
     conn = normalize_connection_result(
@@ -216,7 +216,7 @@ def _probe_qbittorrent(torrent_hash):
 
 
 def _probe_transmission(torrent_hash):
-    from comicarr.torrent.clients import transmission
+    from comicarr.app.downloads.torrent.clients import transmission
 
     client = transmission.TorrentClient()
     conn = normalize_connection_result(
@@ -259,7 +259,7 @@ def utorrent_base_url(host):
 
 
 def _probe_utorrent(torrent_hash):
-    from comicarr.torrent.clients import utorrent
+    from comicarr.app.downloads.torrent.clients import utorrent
 
     client = utorrent.TorrentClient()
     conn = normalize_connection_result(
@@ -303,7 +303,7 @@ def _join(folder, path):
 def _pause_credentials(route):
     """Return (client module, host, user, password) for a pausable route."""
     if route == "deluge":
-        from comicarr.torrent.clients import deluge as module
+        from comicarr.app.downloads.torrent.clients import deluge as module
 
         return (
             module,
@@ -312,7 +312,7 @@ def _pause_credentials(route):
             comicarr.CONFIG.DELUGE_PASSWORD,
         )
     if route == "transmission":
-        from comicarr.torrent.clients import transmission as module
+        from comicarr.app.downloads.torrent.clients import transmission as module
 
         return (
             module,
@@ -321,7 +321,7 @@ def _pause_credentials(route):
             comicarr.CONFIG.TRANSMISSION_PASSWORD,
         )
     if route == "utorrent":
-        from comicarr.torrent.clients import utorrent as module
+        from comicarr.app.downloads.torrent.clients import utorrent as module
 
         return (
             module,

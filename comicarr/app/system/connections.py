@@ -246,15 +246,15 @@ def _probe_torrent(client) -> Callable[[object], Probe]:
 
 def _connect_torrent(client, config, host, username, password):
     if client == "qbittorrent":
-        from comicarr.torrent.clients.qbittorrent import TorrentClient
+        from comicarr.app.downloads.torrent.clients.qbittorrent import TorrentClient
 
         return TorrentClient().connect(host, username, password, test=True)
     if client == "deluge":
-        from comicarr.torrent.clients.deluge import TorrentClient
+        from comicarr.app.downloads.torrent.clients.deluge import TorrentClient
 
         return TorrentClient().connect(host, username, password, test=True)
     if client == "transmission":
-        from comicarr.torrent.clients.transmission import TorrentClient
+        from comicarr.app.downloads.torrent.clients.transmission import TorrentClient
 
         conn = TorrentClient().connect(host, username, password)
         if isinstance(conn, dict):
@@ -264,7 +264,7 @@ def _connect_torrent(client, config, host, username, password):
         except Exception as e:
             return {"status": False, "error": str(e)}
     if client == "rtorrent":
-        from comicarr.torrent.clients.rtorrent import TorrentClient
+        from comicarr.app.downloads.torrent.clients.rtorrent import TorrentClient
 
         return TorrentClient().connect(
             host,
@@ -276,7 +276,7 @@ def _connect_torrent(client, config, host, username, password):
             getattr(config, "RTORRENT_CA_BUNDLE", None),
             test=True,
         )
-    from comicarr.torrent.clients.utorrent import TorrentClient
+    from comicarr.app.downloads.torrent.clients.utorrent import TorrentClient
 
     return TorrentClient().connect(host, username, password)
 

@@ -11,8 +11,8 @@ replaced and deleted:
 
 | Former vendor root | Replaced by | Issue |
 | --- | --- | --- |
-| `utorrent/` | first-party `comicarr/torrent/clients/utorrent_webui.py` | #1229 |
-| `mega/` | first-party `comicarr/downloaders/mega_public.py` | #1230 |
+| `utorrent/` | first-party `comicarr/app/downloads/torrent/clients/utorrent_webui.py` | #1229 |
+| `mega/` | first-party `comicarr/app/downloads/ddl/mega_public.py` | #1230 |
 | `bencode.py` | first-party `comicarr/app/common/torrent_hash.py` | #1409 |
 | `get_image_size.py` | deleted, nothing imported it | #1409 |
 | `qbittorrent/` | the maintained `qbittorrent-api` package | #1410 |
@@ -42,13 +42,13 @@ historical snapshot, which stays `unresolved` until the directory is deleted.
 Both integrations stay, and both vendored trees are replaced by first-party
 code under Comicarr's own GPL-3.0 license:
 
-- **uTorrent, first.** A WebUI client in `comicarr/torrent/clients/`, written
+- **uTorrent, first.** A WebUI client in `comicarr/app/downloads/torrent/clients/`, written
   from the public WebUI API description (token fetch, `list`, and the
   `action=` calls the adapter uses). The adapter fixtures required by the
   contract above are captured from the current client before the swap and must
   pass unchanged after it. Then `comicarr/_vendor/utorrent/` and its provenance
   entry are deleted. **Done in #1229.**
-- **Mega, second.** A public-link downloader in `comicarr/downloaders/`: read
+- **Mega, second.** A public-link downloader in `comicarr/app/downloads/ddl/`: read
   the file key from the link, ask Mega's API for the download URL, decrypt the
   stream with AES-CTR using a crypto library Comicarr already depends on, and
   verify the result. Accounts, uploads and folders are out of scope because

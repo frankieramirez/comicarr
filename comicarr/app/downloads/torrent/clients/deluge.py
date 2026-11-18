@@ -5,7 +5,7 @@ from deluge_client import DelugeRPCClient
 
 import comicarr
 from comicarr.app.core import logger
-from comicarr.torrent.contracts import connection_failure
+from comicarr.app.downloads.torrent.contracts import connection_failure
 
 
 class TorrentClient(object):

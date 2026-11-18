@@ -1,7 +1,7 @@
 import os
 
-from comicarr.torrent.clients.utorrent_webui import UTorrentClient
-from comicarr.torrent.contracts import connection_failure
+from comicarr.app.downloads.torrent.clients.utorrent_webui import UTorrentClient
+from comicarr.app.downloads.torrent.contracts import connection_failure
 
 
 class TorrentClient(object):

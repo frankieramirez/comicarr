@@ -23,7 +23,7 @@ from unittest.mock import MagicMock, create_autospec, patch
 import pytest
 
 import comicarr
-from comicarr.torrent import monitor
+from comicarr.app.downloads.torrent import monitor
 
 ROUTE_FLAGS = ("USE_RTORRENT", "USE_DELUGE", "USE_QBITTORRENT", "USE_TRANSMISSION", "USE_UTORRENT")
 
@@ -99,10 +99,10 @@ class TestConnectionFailuresAreUnreachable:
     @pytest.mark.parametrize(
         ("flag", "module_path"),
         [
-            ("USE_DELUGE", "comicarr.torrent.clients.deluge"),
-            ("USE_QBITTORRENT", "comicarr.torrent.clients.qbittorrent"),
-            ("USE_TRANSMISSION", "comicarr.torrent.clients.transmission"),
-            ("USE_UTORRENT", "comicarr.torrent.clients.utorrent"),
+            ("USE_DELUGE", "comicarr.app.downloads.torrent.clients.deluge"),
+            ("USE_QBITTORRENT", "comicarr.app.downloads.torrent.clients.qbittorrent"),
+            ("USE_TRANSMISSION", "comicarr.app.downloads.torrent.clients.transmission"),
+            ("USE_UTORRENT", "comicarr.app.downloads.torrent.clients.utorrent"),
         ],
     )
     def test_a_dead_client_is_never_reported_absent(self, monkeypatch, flag, module_path):
@@ -121,7 +121,7 @@ class TestConnectionFailuresAreUnreachable:
         client = MagicMock()
         client.connect.side_effect = RuntimeError("boom")
 
-        with patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=client):
+        with patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=client):
             result = monitor.probe("abc123")
 
         assert result["reachable"] is False
@@ -134,7 +134,7 @@ class TestAbsence:
         client.connect.return_value = object()
         client.get_torrent.return_value = False
 
-        with patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=client):
+        with patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=client):
             result = monitor.probe("abc123")
 
         assert result["reachable"] is True
@@ -153,7 +153,7 @@ class TestAbsence:
         client.get_torrent.return_value = False
         client.conn.call.side_effect = ConnectionResetError("daemon went away")
 
-        with patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=client):
+        with patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=client):
             result = monitor.probe("abc123")
 
         assert result["reachable"] is False, "a mid-RPC outage must not read as 'torrent gone'"
@@ -166,7 +166,7 @@ class TestAbsence:
         client.get_torrent.return_value = False
         client.conn.call.return_value = "2.1.1"
 
-        with patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=client):
+        with patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=client):
             result = monitor.probe("abc123")
 
         assert result["reachable"] is True
@@ -190,7 +190,7 @@ class TestNormalisation:
             "time_added": 111,
         }
 
-        with patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=client):
+        with patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=client):
             result = monitor.probe("abc123")
 
         assert result["found"] is True
@@ -220,7 +220,7 @@ class TestNormalisation:
         ]
         client.torrent_files.return_value = [{"name": "Chainsaw Man 165.cbz"}]
 
-        with patch("comicarr.torrent.clients.qbittorrent.TorrentClient", return_value=client):
+        with patch("comicarr.app.downloads.torrent.clients.qbittorrent.TorrentClient", return_value=client):
             result = monitor.probe("ABC123")
 
         assert result["found"] is True
@@ -235,7 +235,7 @@ class TestNormalisation:
         client.list_torrents.return_value = [{"hash": "abc123", "progress": 0.42, "save_path": "/downloads"}]
         client.torrent_files.return_value = []
 
-        with patch("comicarr.torrent.clients.qbittorrent.TorrentClient", return_value=client):
+        with patch("comicarr.app.downloads.torrent.clients.qbittorrent.TorrentClient", return_value=client):
             result = monitor.probe("abc123")
 
         assert result["found"] is True
@@ -244,8 +244,8 @@ class TestNormalisation:
     @pytest.mark.parametrize(
         ("flag", "module_path"),
         [
-            ("USE_TRANSMISSION", "comicarr.torrent.clients.transmission"),
-            ("USE_UTORRENT", "comicarr.torrent.clients.utorrent"),
+            ("USE_TRANSMISSION", "comicarr.app.downloads.torrent.clients.transmission"),
+            ("USE_UTORRENT", "comicarr.app.downloads.torrent.clients.utorrent"),
         ],
     )
     def test_two_call_clients_are_resolved_via_find_then_get(self, monkeypatch, flag, module_path):
@@ -284,7 +284,7 @@ class TestNormalisation:
             "label": "",
         }
 
-        with patch("comicarr.torrent.clients.utorrent.TorrentClient", return_value=client):
+        with patch("comicarr.app.downloads.torrent.clients.utorrent.TorrentClient", return_value=client):
             result = monitor.probe("abc123")
 
         for field in ("total_filesize", "upload_total", "download_total", "ratio", "time_started"):
@@ -313,8 +313,8 @@ class TestPauseCapability:
     @pytest.mark.parametrize(
         ("flag", "module_path"),
         [
-            ("USE_DELUGE", "comicarr.torrent.clients.deluge"),
-            ("USE_UTORRENT", "comicarr.torrent.clients.utorrent"),
+            ("USE_DELUGE", "comicarr.app.downloads.torrent.clients.deluge"),
+            ("USE_UTORRENT", "comicarr.app.downloads.torrent.clients.utorrent"),
         ],
     )
     def test_hash_taking_clients_are_paused_and_resumed_by_hash(self, monkeypatch, flag, module_path):
@@ -334,12 +334,12 @@ class TestPauseCapability:
         """transmission's stop_torrent does `torrent.stop()`; a str has no .stop()."""
         _use(monkeypatch, "USE_TRANSMISSION")
         handle = object()
-        client = _spec_client("comicarr.torrent.clients.transmission")
+        client = _spec_client("comicarr.app.downloads.torrent.clients.transmission")
         client.find_torrent.return_value = handle
         client.stop_torrent.return_value = True
         client.start_torrent.return_value = True
 
-        with patch("comicarr.torrent.clients.transmission.TorrentClient", return_value=client):
+        with patch("comicarr.app.downloads.torrent.clients.transmission.TorrentClient", return_value=client):
             assert monitor.pause("abc123") is True
             assert monitor.resume("abc123") is True
 
@@ -348,20 +348,20 @@ class TestPauseCapability:
 
     def test_transmission_without_the_torrent_does_not_pause(self, monkeypatch):
         _use(monkeypatch, "USE_TRANSMISSION")
-        client = _spec_client("comicarr.torrent.clients.transmission")
+        client = _spec_client("comicarr.app.downloads.torrent.clients.transmission")
         client.find_torrent.return_value = False
 
-        with patch("comicarr.torrent.clients.transmission.TorrentClient", return_value=client):
+        with patch("comicarr.app.downloads.torrent.clients.transmission.TorrentClient", return_value=client):
             assert monitor.pause("abc123") is False
 
         client.stop_torrent.assert_not_called()
 
     def test_a_client_that_will_not_connect_cannot_pause(self, monkeypatch):
         _use(monkeypatch, "USE_DELUGE")
-        client = _spec_client("comicarr.torrent.clients.deluge")
+        client = _spec_client("comicarr.app.downloads.torrent.clients.deluge")
         client.connect.return_value = {"status": False, "error": "connection refused"}
 
-        with patch("comicarr.torrent.clients.deluge.TorrentClient", return_value=client):
+        with patch("comicarr.app.downloads.torrent.clients.deluge.TorrentClient", return_value=client):
             assert monitor.pause("abc123") is False
             assert monitor.resume("abc123") is False
 
@@ -419,10 +419,10 @@ class TestUtorrentHostNormalisation:
         """The vendored client does urljoin(base_url, 'token.html') with no fix-up."""
         _use(monkeypatch, "USE_UTORRENT")
         comicarr.CONFIG.UTORRENT_HOST = "utorrent.local:8080"
-        client = _spec_client("comicarr.torrent.clients.utorrent")
+        client = _spec_client("comicarr.app.downloads.torrent.clients.utorrent")
         client.find_torrent.return_value = False
 
-        with patch("comicarr.torrent.clients.utorrent.TorrentClient", return_value=client):
+        with patch("comicarr.app.downloads.torrent.clients.utorrent.TorrentClient", return_value=client):
             monitor.probe("abc123")
 
         assert client.connect.call_args[0][0] == "http://utorrent.local:8080/gui/"
@@ -432,11 +432,11 @@ class TestSnapshotShape:
     def test_the_caller_supplied_hash_wins_over_the_clients_own(self, monkeypatch):
         """Transmission and uTorrent return their own `hash`; the probe's is canonical."""
         _use(monkeypatch, "USE_TRANSMISSION")
-        client = _spec_client("comicarr.torrent.clients.transmission")
+        client = _spec_client("comicarr.app.downloads.torrent.clients.transmission")
         client.find_torrent.return_value = object()
         client.get_torrent.return_value = {"hash": "SOMETHING-ELSE", "name": "n", "completed": True}
 
-        with patch("comicarr.torrent.clients.transmission.TorrentClient", return_value=client):
+        with patch("comicarr.app.downloads.torrent.clients.transmission.TorrentClient", return_value=client):
             result = monitor.probe("abc123")
 
         assert result["hash"] == "abc123"

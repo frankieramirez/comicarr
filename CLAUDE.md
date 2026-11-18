@@ -14,7 +14,7 @@ Comicarr is built on the foundation of Mylar3 with a completely rebuilt React 19
 |Web Layer:{app/main.py:FastAPI app+lifespan,app/<domain>/router.py:HTTP routes,app/core/security.py:JWT+API key+OPDS auth,app/core/middleware.py:CSRF+headers+setup gate,app/mcp/:MCP server at /mcp (docs/architecture/mcp-server.md),app/indexer_sync/:Mylar3-compatible GET /api?cmd= subset so Prowlarr's Mylar app syncs indexers}
 |Business Logic:{search.py:provider search,app/search/evaluation.py:release-candidate evaluation,postprocessor.py:post-processing folder matcher,app/metadata/cv.py:ComicVine,app/metadata/metron.py:Metron,app/manga/mangadex.py:MangaDex,app/manga/myanimelist.py:MyAnimeList,app/manga/mangasync.py:manga library scan,app/manga/manga_parser.py:manga filenames,app/common/series_kind.py:comic-vs-manga,app/manga/:ledger+sync+bare-numbers+rescan,app/series/comic_add.py:series add,app/series/watchlist_refresh.py:series refresh,app/search/rss_feeds.py:RSS,app/weekly/pull_list.py:pull list,app/attention/:needs-attention policy+resolution,app/downloads/:journal+recovery}
 |Config/Data:{app/config/ini.py:INI config,app/core/encrypted.py:Fernet,app/core/db.py:SQLAlchemy Core,__init__.py:global state+scheduler,app/system/migration.py:Mylar3 migration}
-|Downloaders:{app/downloads/ddl/:Mega/MediaFire/Pixeldrain,torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}
+|Downloaders:{app/downloads/ddl/:Mega/MediaFire/Pixeldrain,app/downloads/torrent/clients/:qBittorrent/Deluge/Transmission/rTorrent/uTorrent,nzbget.py,sabnzbd.py}
 |Frontend:{frontend/src/pages,components,hooks,lib,contexts,types}
 |Tests:{tests/unit,tests/integration,frontend/tests}
 
