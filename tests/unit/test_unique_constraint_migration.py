@@ -672,7 +672,7 @@ def test_initialize_source_blocks_workers_after_dbcheck_failure():
     marker = "Checking to see if the database has all tables"
     dbcheck_branch = source[source.index(marker) : source.index(marker) + 900]
     assert "except Exception as e:" in dbcheck_branch
-    assert "ACQUISITION_WORKERS_BLOCKED = True" in dbcheck_branch
+    assert "runtime.current().acquisition_workers_blocked = True" in dbcheck_branch
     assert "[SCHEMA-MIGRATION] Worker startup blocked after migration failure" in dbcheck_branch
 
 

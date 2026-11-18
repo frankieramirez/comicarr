@@ -57,7 +57,7 @@ def test_pending_reconciliation_survives_runtime_refresh_and_blocks_workers():
     assert gate.blocked is True
     assert gate.reason == "migration_reconciliation_pending_preview"
     assert gate.reconciliation_state == "pending_preview"
-    assert comicarr.ACQUISITION_WORKERS_BLOCKED is True
+    assert runtime.current().acquisition_workers_blocked is True
 
 
 def test_pending_reconciliation_blocks_new_leases_after_the_migration_fence_releases():
@@ -137,7 +137,7 @@ def test_runtime_resume_replays_obligations_starts_queues_and_resumes_jobs(monke
     config = SimpleNamespace(ACQUISITION_MAINTENANCE=False)
     scheduler = FakeScheduler()
     queues = []
-    monkeypatch.setattr(comicarr, "ACQUISITION_SCHEMA_READY", True)
+    monkeypatch.setattr(runtime.current(), "acquisition_schema_ready", True)
     monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
     monkeypatch.setattr(comicarr, "replay_acquisition_obligations", lambda: {"search": 2, "refresh": 1})
     monkeypatch.setattr(comicarr, "queue_schedule", lambda queue_name, mode: queues.append((queue_name, mode)))
@@ -186,7 +186,7 @@ def test_snatched_queue_starts_for_every_client_the_searcher_enqueues(monkeypatc
         TORRENT_DOWNLOADER=downloader,
     )
     queues = []
-    monkeypatch.setattr(comicarr, "ACQUISITION_SCHEMA_READY", True)
+    monkeypatch.setattr(runtime.current(), "acquisition_schema_ready", True)
     monkeypatch.setattr(comicarr, "OS_DETECT", "Linux")
     monkeypatch.setattr(runtime.current(), "scheduler", SimpleNamespace(get_job=lambda _job_id: None))
     monkeypatch.setattr(comicarr, "replay_acquisition_obligations", lambda: {"search": 0, "refresh": 0})

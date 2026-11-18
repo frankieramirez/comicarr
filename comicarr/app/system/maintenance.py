@@ -623,7 +623,7 @@ class Maintenance(object):
                         for x in self.progressBar(
                             xlist, prefix="Progress", suffix="Complete", length=50, resume=dmode["resume"]
                         ):
-                            if any([comicarr.SIGNAL == "shutdown", comicarr.SIGNAL == "restart"]):
+                            if any([runtime.current().signal == "shutdown", runtime.current().signal == "restart"]):
                                 try:
                                     self.db_cursor.executemany(
                                         "UPDATE rssdb SET Issue_Number=?, ComicName=? WHERE rowid=?", (resultlist)
@@ -644,7 +644,7 @@ class Maintenance(object):
 
                                 self.toggle_logging(level=prev_log_level)
 
-                                if comicarr.SIGNAL == "shutdown":
+                                if runtime.current().signal == "shutdown":
                                     logger.info("[MAINTENANCE-MODE][DB-CONVERSION][SHUTDOWN]Shutting Down...")
                                     return False
                                 else:

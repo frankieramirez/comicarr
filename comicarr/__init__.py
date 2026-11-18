@@ -68,17 +68,11 @@ sys.modules.setdefault("comicarr.tables", importlib.import_module("comicarr.app.
 
 FULL_PATH = None
 MAINTENANCE = False
-ACQUISITION_SCHEMA_READY = False
-ACQUISITION_SCHEMA_VERSION = 0
-ACQUISITION_SCHEMA_ERROR = "acquisition schema has not been verified"
-ACQUISITION_WORKERS_BLOCKED = True
-ACQUISITION_BLOCK_REASON = "schema_unavailable"
 LOG_DIR = None
 LOGTYPE = "log"
 LOG_LEVEL = None
 LOGLIST = []
 ARGS = None
-SIGNAL = None
 SYS_ENCODING = None
 OS_DETECT = platform.system()
 USER_AGENT = None
@@ -89,7 +83,6 @@ MAX_LOGSIZE = 5000000
 SAFESTART = False
 NOWEEKLY = False
 _INITIALIZED = False
-started = False
 RSS_SCHEDULER = None
 WEEKLY_SCHEDULER = None
 MONITOR_SCHEDULER = None
@@ -102,14 +95,6 @@ DB_BACKFILL = False
 MAINTENANCE_UPDATE = []
 MAINTENANCE_DB_TOTAL = 0
 MAINTENANCE_DB_COUNT = 0
-DB_EMPTY = False
-MIGRATION_IN_PROGRESS = False
-MIGRATION_STATUS = "idle"
-MIGRATION_CURRENT_TABLE = ""
-MIGRATION_TABLES_COMPLETE = 0
-MIGRATION_TABLES_TOTAL = 0
-MIGRATION_ERROR = None
-MIGRATION_RECONCILIATION = None
 UMASK = None
 WANTED_TAB_OFF = False
 PULLNEW = None
@@ -168,7 +153,6 @@ ISSUE_EXCEPTIONS = [
     "(DC)",
 ]
 SESSION_ID = None
-START_UP = True
 REQS = {}
 GC_URL = "https://getcomics.org"
 IMPRINT_MAPPING = {
@@ -264,7 +248,6 @@ def initialize(config_file):
             VERSION_SCHEDULER, \
             UPDATER_SCHEDULER, \
             MANGA_SYNC_SCHEDULER, \
-            START_UP, \
             SEARCH_TIER_DATE, \
             ISSUE_EXCEPTIONS, \
             SESSION_ID, \
@@ -290,10 +273,10 @@ def initialize(config_file):
             dbcheck()
         except Exception as e:
             diagnostic_error = _redact_diagnostic_error(e)
-            comicarr.ACQUISITION_SCHEMA_READY = False
-            comicarr.ACQUISITION_SCHEMA_ERROR = diagnostic_error
-            comicarr.ACQUISITION_WORKERS_BLOCKED = True
-            comicarr.ACQUISITION_BLOCK_REASON = "schema_migration_failed"
+            runtime.current().acquisition_schema_ready = False
+            runtime.current().acquisition_schema_error = diagnostic_error
+            runtime.current().acquisition_workers_blocked = True
+            runtime.current().acquisition_block_reason = "schema_migration_failed"
             logger.error("[SCHEMA-MIGRATION] Worker startup blocked after migration failure: %s" % diagnostic_error)
         else:
             try:
@@ -310,7 +293,7 @@ def initialize(config_file):
                             )
                             maintenance.auto_backup_db(runtime.current().db_file, backup_dir, retention)
                     else:
-                        comicarr.DB_EMPTY = True
+                        runtime.current().db_empty = True
             except Exception as e:
                 logger.warn("[STARTUP] Startup diagnostics skipped: %s" % e)
 
@@ -327,8 +310,8 @@ def initialize(config_file):
 
             refresh_runtime_state(runtime.current().config)
         except Exception as e:
-            comicarr.ACQUISITION_WORKERS_BLOCKED = True
-            comicarr.ACQUISITION_BLOCK_REASON = "maintenance_gate_unavailable"
+            runtime.current().acquisition_workers_blocked = True
+            runtime.current().acquisition_block_reason = "maintenance_gate_unavailable"
             logger.error("[ACQUISITION] Maintenance gate unavailable; workers remain blocked: %s" % e)
 
         if comicarr.MAINTENANCE_UPDATE:
@@ -732,7 +715,7 @@ def start(ctx):
             "Workers must start with the canonical runtime's shared scheduler, queues, locks, and DDL state"
         )
 
-    global _INITIALIZED, started
+    global _INITIALIZED
 
     with runtime.current().init_lock:
         if _INITIALIZED:
@@ -1920,7 +1903,7 @@ def halt():
     the only remaining step is the non-blocking terminal branch in
     shutdown()).
     """
-    global _INITIALIZED, started
+    global _INITIALIZED
 
     with runtime.current().init_lock:
         if _INITIALIZED:

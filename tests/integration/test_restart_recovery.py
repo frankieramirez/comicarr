@@ -81,19 +81,19 @@ def _isolated_db(tmp_path, monkeypatch):
         raising=False,
     )
     monkeypatch.setattr(runtime.current(), "ddl_stuck_notified", set(), raising=False)
-    monkeypatch.setattr(comicarr, "ACQUISITION_WORKERS_BLOCKED", False, raising=False)
-    monkeypatch.setattr(comicarr, "ACQUISITION_BLOCK_REASON", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "acquisition_workers_blocked", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "acquisition_block_reason", None, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
-    # comicarr.SIGNAL is process-global; the AE5 lifespan-drain test mutates
+    # runtime.current().signal is process-global; the AE5 lifespan-drain test mutates
     # it (restart intent) — isolate every test so it cannot leak.
-    saved_signal = getattr(comicarr, "SIGNAL", None)
-    comicarr.SIGNAL = None
+    saved_signal = runtime.current().signal
+    runtime.current().signal = None
     engine = get_engine()
     metadata.create_all(engine)
     assert ensure_acquisition_schema(engine).ready
     yield
-    comicarr.SIGNAL = saved_signal
+    runtime.current().signal = saved_signal
     shutdown_engine()
 
 
@@ -733,7 +733,7 @@ async def test_ae5_inflight_write_completes_before_dispose_then_replay_finishes(
     from comicarr.app.core.context import AppContext
     from comicarr.app.main import lifespan
 
-    comicarr.SIGNAL = "restart"  # restart initiated mid-pipeline
+    runtime.current().signal = "restart"  # restart initiated mid-pipeline
 
     rkey = journal.release_key("4711", "nzb.su", nzbname="Series 001")
     payload = {
@@ -833,12 +833,12 @@ async def test_ae5_inflight_write_completes_before_dispose_then_replay_finishes(
     assert match[0]["issueid"] == "4711"
 
     # 3. Restart intent survived the full drain (NOT clobbered to shutdown).
-    assert comicarr.SIGNAL == "restart"
+    assert runtime.current().signal == "restart"
 
     # 4. The subsequent real replay_pipeline() completes the recovered
     #    obligation EXACTLY ONCE (no manual action, no silent drop).
-    comicarr.ACQUISITION_WORKERS_BLOCKED = False
-    comicarr.ACQUISITION_BLOCK_REASON = None
+    runtime.current().acquisition_workers_blocked = False
+    runtime.current().acquisition_block_reason = None
     recovery.replay_pipeline(probes=_probe("complete"))
     items = _drain(fake_pp_queue)
     assert len(items) == 1, "AE5: recovered record must be driven to PP exactly once"

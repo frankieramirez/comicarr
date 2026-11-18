@@ -22,16 +22,14 @@ Ownership categories and boundaries:
 * long-lived services: scheduler, provider sessions, crypto, AI clients, and
   the event bus are created once. Lifespan first quiesces scheduler jobs, then
   closes the event bus before draining workers and closing other clients.
-* queues and locks: all worker/request-visible queues and locks are adopted by
-  identity from the legacy runtime.  The compatibility bridge may expose the
-  same object to an unmigrated caller, but it must never clone one.
+* queues and locks: all worker/request-visible queues and locks are carried
+  over by identity from the bootstrap context and are never cloned.
 * request-visible state: statuses, progress, migration/acquisition gate, and
-  lifecycle values are updated through the runtime bridge's lock.  Durable
+  lifecycle values are updated under ``runtime_lock``.  Durable
   acquisition decisions remain serialized by ``MaintenanceController``'s
   database transaction/fence before their in-memory projection is updated.
-* legacy compatibility state: worker-pool references and scalar aliases stay
-  projected into ``comicarr`` temporarily for legacy engines.  Context is the
-  canonical writer for migrated code; the projection is not a second owner.
+* worker-pool references live on the context only; no field has a
+  ``comicarr`` package alias.
 
 Shutdown owner/order is the FastAPI lifespan: quiesce scheduled jobs off the
 event loop, close the event bus, signal queues, join workers off the event
@@ -175,7 +173,7 @@ class AppContext:
     db_empty: bool = False
     acquisition_schema_ready: bool = False
     acquisition_schema_version: int = 0
-    acquisition_schema_error: str = None
+    acquisition_schema_error: str = "acquisition schema has not been verified"
     acquisition_workers_blocked: bool = True
     acquisition_block_reason: str = "schema_unavailable"
 

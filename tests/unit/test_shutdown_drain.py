@@ -13,14 +13,14 @@ Characterization-first: the first test class pins the *post-collapse* contract
 that the FastAPI lifespan is the single authoritative ordered drain. The legacy
 pre-collapse topology was:
 
-    SIGTERM -> handler_sigterm sets comicarr.SIGNAL='shutdown'
+    SIGTERM -> handler_sigterm sets runtime.current().signal='shutdown'
             -> uvicorn/lifespan shutdown runs:
                  scheduler.shutdown(wait=False)
                  q.put('exit') for all 5 queues  (NO join)
                  ai/cv client close
                  engine.dispose()                 (main.py:203)
                  executor.shutdown(wait=False)     (main.py:209)
-                 if not comicarr.SIGNAL: SIGNAL='shutdown'
+                 if not runtime.current().signal: signal='shutdown'
             -> uvicorn.run() returns
             -> main thread (Comicarr.py:574-579) -> comicarr.shutdown()
                  -> halt(): scheduler.shutdown(wait=False)
@@ -44,9 +44,9 @@ Post-U7 the lifespan owns the single ordered sequence:
   4. recheck every pool's liveness after join
   5. ai/cv client close and engine.dispose()      (ONLY when all stopped)
   6. executor.shutdown / drain-executor shutdown  (AFTER the drain)
-  7. if not comicarr.SIGNAL: SIGNAL='shutdown'
+  7. if not runtime.current().signal: signal='shutdown'
 
-``halt()`` is reduced to idempotent SIGNAL signalling only; ``shutdown()``
+``halt()`` is reduced to idempotent shutdown signalling only; ``shutdown()``
 keeps the pidfile removal + terminal os.execv/os._exit branch plus a single
 unconditional, non-blocking hard-kill backstop. The
 ``except AssertionError: os._exit(0)`` landmine is removed from
@@ -89,11 +89,11 @@ from comicarr.app.main import _drain_worker_pools, lifespan
 
 @pytest.fixture(autouse=True)
 def _reset_signal():
-    """comicarr.SIGNAL is process-global; isolate every test."""
-    saved = comicarr.SIGNAL
-    comicarr.SIGNAL = None
+    """runtime.current().signal is process-global; isolate every test."""
+    saved = runtime.current().signal
+    runtime.current().signal = None
     yield
-    comicarr.SIGNAL = saved
+    runtime.current().signal = saved
 
 
 @pytest.fixture
@@ -281,8 +281,8 @@ class TestHappyPath:
         assert "dispose" in order
         assert order.index("sched") < order.index("dispose")
         assert ctx.refresh_queue.get_nowait() == "exit"
-        # Idle-queue happy path leaves SIGNAL defaulting to shutdown.
-        assert comicarr.SIGNAL == "shutdown"
+        # Idle-queue happy path leaves the signal defaulting to shutdown.
+        assert ctx.signal == "shutdown"
         assert ctx.disposed
 
     @pytest.mark.asyncio
@@ -523,7 +523,7 @@ class TestAE5InFlightJournal:
         read_open() must return a consistent (non-partial) record. Designed so
         U8 can reuse the assertion as an integration test.
         """
-        comicarr.SIGNAL = "restart"  # restart initiated
+        runtime.current().signal = "restart"  # restart initiated
         scheduler = MagicMock()
         ctx = _make_ctx(scheduler=scheduler)
 
@@ -580,7 +580,7 @@ class TestAE5InFlightJournal:
         assert match[0]["issueid"] == "4711"
 
         # restart intent survived the drain (NOT clobbered to shutdown).
-        assert comicarr.SIGNAL == "restart"
+        assert runtime.current().signal == "restart"
 
 
 # ---------------------------------------------------------------------------
@@ -862,7 +862,7 @@ class TestRestartIntentPreserved:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("intent", ["restart", "update"])
     async def test_signal_not_clobbered_then_terminal_branch_taken(self, _isolated_db, intent):
-        comicarr.SIGNAL = intent
+        runtime.current().signal = intent
         scheduler = MagicMock()
         ctx = _make_ctx(scheduler=scheduler)
 
@@ -876,12 +876,12 @@ class TestRestartIntentPreserved:
             await _run_shutdown(ctx, scheduler)
 
         # Lifespan must NOT clobber a pre-existing restart/update signal.
-        assert comicarr.SIGNAL == intent
+        assert runtime.current().signal == intent
 
         # halt() must remain idempotent and preserve the signal too.
         with patch.object(comicarr, "_INITIALIZED", True, create=True):
             comicarr.halt()
-        assert comicarr.SIGNAL == intent
+        assert runtime.current().signal == intent
 
         # shutdown(restart=True) reaches os.execv, NOT os._exit, for a restart.
         with (
@@ -946,7 +946,7 @@ class TestHardKillLiveness:
         # The terminal step is shutdown()'s os._exit / os.execv. Even with a
         # pool that never joins, halt() (signalling only) must return promptly
         # and shutdown() must reach the terminal branch without blocking.
-        comicarr.SIGNAL = None
+        runtime.current().signal = None
 
         class _WedgedPool:
             def is_alive(self):

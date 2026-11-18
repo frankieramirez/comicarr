@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from sqlalchemy import func, insert, inspect, literal, select, text, update
 from sqlalchemy.exc import IntegrityError
 
-import comicarr
 from comicarr.app.core import logger, runtime
 from comicarr.app.core.db import get_engine
 from comicarr.app.core.tables import (
@@ -1107,7 +1106,7 @@ def _operator_requested(config=None):
 def refresh_runtime_state(config=None, engine=None):
     """Refresh the fail-closed startup/claim projection used by adapters."""
 
-    schema_ready = bool(getattr(comicarr, "ACQUISITION_SCHEMA_READY", False))
+    schema_ready = bool(runtime.current().acquisition_schema_ready)
     if not schema_ready:
         status = RuntimeGateStatus(
             blocked=True,

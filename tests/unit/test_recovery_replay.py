@@ -57,8 +57,8 @@ def _isolated_db(tmp_path, monkeypatch):
         raising=False,
     )
     monkeypatch.setattr(runtime.current(), "ddl_stuck_notified", set(), raising=False)
-    monkeypatch.setattr(comicarr, "ACQUISITION_WORKERS_BLOCKED", False, raising=False)
-    monkeypatch.setattr(comicarr, "ACQUISITION_BLOCK_REASON", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "acquisition_workers_blocked", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "acquisition_block_reason", None, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
     monkeypatch.setattr(
@@ -134,8 +134,8 @@ def test_empty_journal_is_noop(queues):
 
 
 def test_startup_replay_is_a_noop_while_acquisition_workers_are_fenced(queues, monkeypatch):
-    monkeypatch.setattr(comicarr, "ACQUISITION_WORKERS_BLOCKED", True)
-    monkeypatch.setattr(comicarr, "ACQUISITION_BLOCK_REASON", "persistent_maintenance")
+    monkeypatch.setattr(runtime.current(), "acquisition_workers_blocked", True)
+    monkeypatch.setattr(runtime.current(), "acquisition_block_reason", "persistent_maintenance")
 
     summary = recovery.replay_pipeline(probes=_probe("complete"))
 

@@ -35,7 +35,6 @@ import time
 
 from sqlalchemy import and_, or_, select
 
-import comicarr
 from comicarr.app.attention import ManualReview, record
 from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import ddl_info, nzblog, pipeline_journal, snatched, storyarcs
@@ -881,7 +880,7 @@ def replay_pipeline(probes=None):
         "actions": {},
     }
 
-    if getattr(comicarr, "ACQUISITION_WORKERS_BLOCKED", False):
+    if runtime.current().acquisition_workers_blocked:
         summary["actions"]["blocked"] = 1
         logger.warn("[RECOVERY] Startup recovery replay skipped because acquisition workers are fenced.")
         return summary

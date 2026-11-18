@@ -13,10 +13,9 @@ instance to `app.state.ctx`; it does not construct a second view.
 | --- | --- | --- | --- | --- |
 | Immutable configuration | paths, `config`, build metadata | startup configuration | routes/services; no disposal | fixed after factory creation |
 | Long-lived services | scheduler, CV session/cache, Metron, AI bundle, event bus, background-worker registry | runtime factory; event loop is attached in lifespan | workers/routes; lifespan quiesces jobs, closes the event bus, then closes clients after drain | one instance per process |
-| Queues and locks | `ddl_queued`, all work queues, search/API/DDL locks, acquisition resume lock | existing bootstrap objects adopted by factory | workers, scheduler, routes; lifespan signals queues then drains pools | must be the exact same object, never a copy |
-| Request-visible state | scheduler status, setup/JWT state, import progress, version state | migrated services write with `set_runtime_field()` | system/API readers; discarded with process | bridge serializes migrated writes with `runtime_lock` |
+| Queues and locks | `ddl_queued`, all work queues, search/API/DDL locks, acquisition resume lock | bootstrap context; the factory carries them over | workers, scheduler, routes; lifespan signals queues then drains pools | must be the exact same object, never a copy |
+| Request-visible state | scheduler status, setup/JWT state, import progress, version state | migrated services write with `set_runtime_field()` | system/API readers; discarded with process | `set_runtime_field()` serializes writes with `runtime_lock` |
 | Durable-acquisition projection | schema readiness, maintenance block reason, migration reconciliation | `MaintenanceController` database transactions/fences, then runtime projection | startup diagnostics and acquisition workers | durable DB fence is authoritative; context is its live projection |
-| Legacy compatibility | module aliases and worker-pool references | `runtime.py` projection while legacy engines remain | unmigrated legacy code only | aliases share object identities; mutable data is never cloned |
 
 ### Complete field classification
 
@@ -30,7 +29,7 @@ instance to `app.state.ctx`; it does not construct a second view.
 - Queues: `snatched_queue`, `nzb_queue`, `pp_queue`, `search_queue`,
   `ddl_queue`, `return_nzb_queue`, `add_list`, `issue_watch_list`,
   `refresh_queue`.
-- Compatibility worker references: `sn_pool`, `nzb_pool`, `search_pool`,
+- Worker-pool references: `sn_pool`, `nzb_pool`, `search_pool`,
   `pp_pool`, `ddl_pool`, `mass_add_pool`, `mass_refresh_pool`.
 - Mutable process state: `comic_sort`, `publisher_imprints`,
   `provider_blocklist`, `ddl_queued`, `ddl_stuck_notified`,
@@ -61,13 +60,13 @@ instance to `app.state.ctx`; it does not construct a second view.
 1. `comicarr.initialize()` establishes config, schema/migration state, and
    secrets. A schema or maintenance failure closes the acquisition gate but
    still permits authenticated diagnostics.
-2. `create_runtime()` adopts the initialized objects exactly once and projects
-   the same identities to temporary legacy aliases. It also builds the AI
+2. `create_runtime()` copies the bootstrap context exactly once, shallowly,
+   so every object keeps its identity. It also builds the AI
    client bundle and loads the persisted JWT signing key at this lifecycle
    boundary.
 3. `comicarr.start(runtime)` rejects a missing or divergent context before
    starting scheduler/worker activity. Worker pool references are written
-   through the compatibility bridge so the shutdown owner sees the same pools.
+   on that context so the shutdown owner sees the same pools.
 4. FastAPI lifespan stores that instance on `app.state.ctx`, sets the event-bus
    loop, and re-reads the durable acquisition gate.
 5. Lifespan shutdown quiesces running scheduler jobs off the event loop,
@@ -99,20 +98,14 @@ start-up, a CLI entry point, or a unit test reads and writes through it
 without caring which phase it runs in. `get_runtime()` stays the accessor for
 code where running before start-up is a bug.
 
-Each retirement slice moves one group of globals in a single change:
-
-1. Every reader and writer, including bare-name globals inside
-   `comicarr/__init__.py` and `monkeypatch.setattr(comicarr, "X", v)` in tests
-   (which becomes `monkeypatch.setattr(runtime.current(), "x", v)`), switches
-   to `runtime.current().<field>`.
-2. The field joins `MIGRATED_FIELDS`, so the factory copies it from the
-   bootstrap context by identity instead of adopting the legacy global, and
-   the projection stops writing it back to the package.
-3. The global is deleted, its `_CONTEXT_TO_LEGACY` entry goes, and the name
-   joins `RETIRED_GLOBALS` in `scripts/check_retired_globals.py` so it cannot
-   return.
-
-The projection and `_CONTEXT_TO_LEGACY` are removed once the last group is.
+Each retirement slice moved one group of globals in a single change: every
+reader and writer switched to `runtime.current().<field>`, the global was
+deleted, and its name joined `RETIRED_GLOBALS` in
+`scripts/check_retired_globals.py` so it cannot return. The factory used to
+adopt each remaining global and project it back onto the package; with the
+last projected group retired, `create_runtime()` is now a plain shallow copy
+of the bootstrap context (`dataclasses.replace`), and nothing on `AppContext`
+has a `comicarr` alias.
 
 Retired so far: scheduler status and schedule stamps (`*_status`,
 `force_status`, `weekly_manual_next_run`, `sched_*_last`; #1539) and the work
@@ -122,9 +115,11 @@ and worker-pool references (`*_pool`; #1540), the install paths
 (`prog_dir`, `data_dir`, `db_file`), version and install state
 (`install_type`, `current_*`, `latest_version`, `update_*`), metadata and
 provider sessions (`cv_*`, `metron_api`, `provider_*`, `backend_status_*`;
-#1541), the configuration object (`config`; #1542), and the scheduler, AI
-clients, DDL and folder-cache state, import progress and first-run secrets
-(#1543). The bootstrap context builds the process's one scheduler
+#1541), the configuration object (`config`; #1542), the scheduler, AI
+clients, DDL and folder-cache state, import progress, first-run secrets, and
+the lifecycle and acquisition gate state (`signal`, `started`, `start_up`,
+`db_empty`, `acquisition_*`, `migration_*`; #1543). The bootstrap context
+builds the process's one scheduler
 (`comicarr/app/core/scheduler.py`); `runtime.new_bootstrap()` gives a test a
 fresh one.
 

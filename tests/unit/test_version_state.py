@@ -18,7 +18,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import comicarr
 from comicarr.app.config.registry import REGISTRY
 from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
@@ -271,14 +270,14 @@ class TestDeadToastPathRetired:
         assert result.get("event") != "check_update"
 
     def test_check_github_does_not_set_auto_update_signal(self, ctx):
-        comicarr.SIGNAL = None
+        runtime.current().signal = None
         with patch.object(
             versioncheck.requests,
             "get",
             return_value=_github_response({"tag_name": "v0.21.0"}),
         ):
             versioncheck.checkGithub()
-        assert comicarr.SIGNAL is None
+        assert runtime.current().signal is None
 
 
 class TestVersionStateHelper:

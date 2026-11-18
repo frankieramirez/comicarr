@@ -7,15 +7,16 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""Single-shot creation and temporary legacy projection for ``AppContext``.
+"""Single-shot creation of the process ``AppContext``, and its bootstrap.
 
-The factory deliberately *adopts* initialized legacy objects.  In particular,
-queues, locks, sets, dictionaries, scheduler, and client instances are passed
-to ``AppContext`` by reference.  No mutable object is copied during this
-transition: unmigrated legacy code and migrated context consumers therefore
-observe the same state until the legacy aliases can be removed.
+Every piece of process state lives on ``AppContext``; nothing is stored on the
+``comicarr`` package. Before ``create_runtime`` runs, ``current()`` returns a
+bootstrap context that start-up code writes into. The factory copies that
+context field by field, so queues, locks, sets, dictionaries, the scheduler
+and client instances keep their identity across the hand-over.
 """
 
+import dataclasses
 import os
 import threading
 
@@ -34,15 +35,15 @@ _runtime = None
 _UNSET = object()
 
 
-# The context that exists before ``create_runtime`` runs. Module-level code,
-# CLI entry points and unit tests read and write runtime state through
-# ``current()`` without waiting for the factory, so a value set during
-# start-up is never lost: the factory carries it over (see MIGRATED_FIELDS).
 def new_bootstrap():
     """Return a fresh pre-factory context with the process's real scheduler."""
     return AppContext(scheduler=build_scheduler())
 
 
+# The context that exists before ``create_runtime`` runs. Module-level code,
+# CLI entry points and unit tests read and write runtime state through
+# ``current()`` without waiting for the factory, so a value set during
+# start-up is never lost: the factory carries every field over.
 _bootstrap = new_bootstrap()
 
 # The worker-pool references a shutdown drain joins.
@@ -56,144 +57,11 @@ POOL_FIELDS = (
     "mass_refresh_pool",
 )
 
-# Fields whose ``comicarr.X`` global has been retired. ``create_runtime``
-# copies these from the bootstrap context instead of adopting a legacy global,
-# and ``_project_context`` no longer writes them back to the package. Each
-# 8f slice (#1478) adds its group here in the same change that deletes the
-# global, removes it from ``_CONTEXT_TO_LEGACY`` and lists it in
-# ``RETIRED_GLOBALS``.
-MIGRATED_FIELDS = frozenset(
-    {
-        # Scheduler status and schedule stamps (#1539).
-        "monitor_status",
-        "search_status",
-        "rss_status",
-        "weekly_status",
-        "version_status",
-        "updater_status",
-        "manga_sync_status",
-        "importinbox_status",
-        "force_status",
-        "weekly_manual_next_run",
-        "sched_rss_last",
-        "sched_weekly_last",
-        "sched_monitor_last",
-        "sched_search_last",
-        "sched_version_last",
-        "sched_dbupdate_last",
-        "sched_manga_sync_last",
-        # Work queues (#1540).
-        "snatched_queue",
-        "nzb_queue",
-        "pp_queue",
-        "search_queue",
-        "ddl_queue",
-        "return_nzb_queue",
-        "add_list",
-        "issue_watch_list",
-        "refresh_queue",
-        # Process locks (#1540).
-        "init_lock",
-        "acquisition_resume_lock",
-        "api_lock",
-        "search_lock",
-        "ddl_lock",
-        # Worker-pool references (#1540).
-        *POOL_FIELDS,
-        # Install paths (#1541).
-        "prog_dir",
-        "data_dir",
-        "db_file",
-        # Version and install state (#1541).
-        "install_type",
-        "current_branch",
-        "current_version",
-        "current_version_name",
-        "current_release_name",
-        "latest_version",
-        "update_state",
-        "update_reason",
-        "update_value",
-        # Scheduler, AI clients, DDL and cache state, import progress and
-        # first-run secrets (#1543).
-        "scheduler",
-        "ai_client",
-        "ai_async_client",
-        "ai_circuit_breaker",
-        "ai_rate_limiter",
-        "comic_sort",
-        "publisher_imprints",
-        "ddl_queued",
-        "ddl_stuck_notified",
-        "pack_issueids_dont_queue",
-        "folder_cache",
-        "check_folder_cache",
-        "import_status",
-        "import_files",
-        "import_totalfiles",
-        "import_cid_count",
-        "import_parsed_count",
-        "import_failure_count",
-        "import_lock",
-        "import_button",
-        "sse_key",
-        "setup_token",
-        # Configuration (#1542).
-        "config",
-        # Metadata and provider sessions (#1541).
-        "cv_session",
-        "cv_rate_limiter",
-        "cv_cache",
-        "cv_headers",
-        "cv_url",
-        "cv_timeout",
-        "metron_api",
-        "provider_status",
-        "provider_blocklist",
-        "provider_start_id",
-        "backend_status_cv",
-        "backend_status_ws",
-    }
-)
-
-
-_CONTEXT_TO_LEGACY = {
-    "signal": "SIGNAL",
-    "started": "started",
-    "start_up": "START_UP",
-    "db_empty": "DB_EMPTY",
-    "acquisition_schema_ready": "ACQUISITION_SCHEMA_READY",
-    "acquisition_schema_version": "ACQUISITION_SCHEMA_VERSION",
-    "acquisition_schema_error": "ACQUISITION_SCHEMA_ERROR",
-    "acquisition_workers_blocked": "ACQUISITION_WORKERS_BLOCKED",
-    "acquisition_block_reason": "ACQUISITION_BLOCK_REASON",
-    "migration_in_progress": "MIGRATION_IN_PROGRESS",
-    "migration_status": "MIGRATION_STATUS",
-    "migration_current_table": "MIGRATION_CURRENT_TABLE",
-    "migration_tables_complete": "MIGRATION_TABLES_COMPLETE",
-    "migration_tables_total": "MIGRATION_TABLES_TOTAL",
-    "migration_error": "MIGRATION_ERROR",
-    "migration_reconciliation": "MIGRATION_RECONCILIATION",
-}
-
-
-def _legacy_value(comicarr, field, default=None):
-    """Read an initialized legacy value without fabricating a mutable default."""
-    return getattr(comicarr, _CONTEXT_TO_LEGACY[field], default)
-
-
-def _adopt_legacy_runtime():
-    """Build context kwargs from existing process objects, preserving identity."""
-    import comicarr
-
-    return {field: _legacy_value(comicarr, field) for field in _CONTEXT_TO_LEGACY if field not in MIGRATED_FIELDS}
-
 
 def _initialize_ai_clients(ctx):
     """Create one AI client bundle at the runtime lifecycle boundary.
 
-    Canonical consumers read this context bundle. Remaining legacy aliases
-    receive these same instances through the temporary bridge below.
+    Consumers read this bundle from the runtime context.
     """
     ai_config = ctx.config
     if not ai_config or not getattr(ai_config, "AI_BASE_URL", None) or not getattr(ai_config, "AI_API_KEY", None):
@@ -221,16 +89,6 @@ def _initialize_ai_clients(ctx):
     logger.info("[AI] Client initialized: %s" % getattr(ai_config, "AI_BASE_URL", ""))
 
 
-def _project_context(ctx):
-    """Expose context values to remaining legacy engines without copying them."""
-    import comicarr
-
-    for field, legacy_name in _CONTEXT_TO_LEGACY.items():
-        if field == "disposed" or field in MIGRATED_FIELDS:
-            continue
-        setattr(comicarr, legacy_name, getattr(ctx, field))
-
-
 def create_runtime():
     """Create and return the single canonical process runtime.
 
@@ -249,10 +107,8 @@ def create_runtime():
                 "Runtime context cannot be created before configuration, schema, and secret initialization"
             )
 
-        kwargs = _adopt_legacy_runtime()
-        for field in MIGRATED_FIELDS:
-            kwargs[field] = getattr(_bootstrap, field)
-        ctx = AppContext(**kwargs)
+        # A shallow copy: every mutable value keeps its identity.
+        ctx = dataclasses.replace(_bootstrap)
         ctx.sse_key = ctx.sse_key or generate_ephemeral_key()
         ctx.event_bus = EventBus()
 
@@ -260,7 +116,6 @@ def create_runtime():
         ctx.jwt_secure_dir = secure_dir
         ctx.jwt_secret_key = load_or_create_jwt_key(secure_dir) if secure_dir else os.urandom(32)
         _initialize_ai_clients(ctx)
-        _project_context(ctx)
         _runtime = ctx
         return ctx
 
@@ -277,27 +132,26 @@ def get_runtime():
 def current():
     """Return the runtime context, before or after the factory has run.
 
-    This is the accessor for state that used to live on the ``comicarr``
-    package. It never raises: before ``create_runtime`` it returns the
-    bootstrap context, whose migrated fields the factory carries over, so a
-    reader never has to care which phase of start-up it runs in. Use
-    ``get_runtime`` instead where running before start-up is a bug.
+    This is the accessor for process state. It never raises: before
+    ``create_runtime`` it returns the bootstrap context, which the factory
+    carries over, so a reader never has to care which phase of start-up it
+    runs in. Use ``get_runtime`` instead where running before start-up is a
+    bug.
     """
     ctx = _runtime
     return _bootstrap if ctx is None else ctx
 
 
 def get_runtime_if_initialized():
-    """Best-effort compatibility helper for legacy code that runs pre-factory."""
+    """Return the factory runtime, or None before ``create_runtime`` runs."""
     return _runtime
 
 
-def set_runtime_field(ctx, field, value, *, project_legacy=True):
-    """Write a canonical field and, while needed, its legacy projection.
+def set_runtime_field(ctx, field, value):
+    """Write one field of a live runtime context under its lock.
 
-    This is intentionally the only bridge used by migrated lifecycle/system/
-    acquisition writers. Mutable values are assigned by identity; no clone or
-    value snapshot is produced.
+    Mutable values are assigned by identity; no clone or value snapshot is
+    produced.
     """
     if ctx is None:
         raise RuntimeNotInitializedError("Runtime context is not initialized")
@@ -306,12 +160,6 @@ def set_runtime_field(ctx, field, value, *, project_legacy=True):
 
     with ctx.runtime_lock:
         setattr(ctx, field, value)
-        if project_legacy:
-            legacy_name = _CONTEXT_TO_LEGACY.get(field)
-            if legacy_name:
-                import comicarr
-
-                setattr(comicarr, legacy_name, value)
     return value
 
 
@@ -323,15 +171,12 @@ def set_runtime_acquisition_status(
     workers_blocked=_UNSET,
     block_reason=_UNSET,
 ):
-    """Project durable acquisition status into context when it already exists.
+    """Record durable acquisition status on the runtime context.
 
-    Schema setup runs before runtime creation, so pre-factory calls keep the
-    existing globals authoritative. Once the factory exists, all values are
-    updated under the runtime lock and projected to legacy callers.
+    Schema setup runs before the factory, so early calls write the bootstrap
+    context, which the factory carries over.
     """
-    import comicarr
-
-    ctx = get_runtime_if_initialized()
+    ctx = current()
     values = {
         "acquisition_schema_ready": schema_ready,
         "acquisition_schema_version": schema_version,
@@ -339,11 +184,7 @@ def set_runtime_acquisition_status(
         "acquisition_workers_blocked": workers_blocked,
         "acquisition_block_reason": block_reason,
     }
-    for field, value in values.items():
-        if value is _UNSET:
-            continue
-        if ctx is None:
-            legacy_name = _CONTEXT_TO_LEGACY[field]
-            setattr(comicarr, legacy_name, value)
-        else:
-            set_runtime_field(ctx, field, value)
+    with ctx.runtime_lock:
+        for field, value in values.items():
+            if value is not _UNSET:
+                setattr(ctx, field, value)

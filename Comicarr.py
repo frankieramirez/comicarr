@@ -50,11 +50,11 @@ if sys.platform == "win32" and sys.executable.split("\\")[-1] == "pythonw.exe":
 
 def handler_sigterm(signum, frame):
     # Guard the write (documented prior regression): the shutdown/restart
-    # API endpoints set comicarr.SIGNAL *before* sending SIGTERM. An
+    # API endpoints set runtime.current().signal *before* sending SIGTERM. An
     # unconditional write here clobbers a pending 'restart'/'update'/
     # 'maintenance' intent, degrading a restart to a plain stop.
-    if not comicarr.SIGNAL:
-        comicarr.SIGNAL = "shutdown"
+    if not runtime.current().signal:
+        runtime.current().signal = "shutdown"
 
 
 def main():
@@ -576,7 +576,7 @@ def main():
     # Register the SIGTERM handler before startup replay: replay_pipeline()
     # below can spend real time probing downloaders and inline-redriving PP,
     # so a SIGTERM during that window must be caught here to preserve any
-    # pending restart/update intent (handler_sigterm guards comicarr.SIGNAL).
+    # pending restart/update intent (handler_sigterm guards runtime.current().signal).
     signal.signal(signal.SIGTERM, handler_sigterm)
 
     # Startup recovery replay (U6). MUST run here: after comicarr.start()
@@ -590,10 +590,10 @@ def main():
     try:
         from comicarr.app.downloads import recovery
 
-        if comicarr.ACQUISITION_WORKERS_BLOCKED:
+        if runtime.current().acquisition_workers_blocked:
             logger.warn(
                 "[RECOVERY] Startup replay skipped because acquisition workers are blocked: %s"
-                % comicarr.ACQUISITION_BLOCK_REASON
+                % runtime.current().acquisition_block_reason
             )
         else:
             recovery.replay_pipeline()
@@ -616,9 +616,9 @@ def main():
         **ssl_kwargs,
     )
 
-    if comicarr.SIGNAL == "restart":
+    if runtime.current().signal == "restart":
         comicarr.shutdown(restart=True)
-    elif comicarr.SIGNAL == "update":
+    elif runtime.current().signal == "update":
         comicarr.shutdown(restart=True, update=True)
     else:
         comicarr.shutdown()

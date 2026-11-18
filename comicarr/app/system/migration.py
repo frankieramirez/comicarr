@@ -25,23 +25,11 @@ import threading
 
 import sqlalchemy as sa
 
-import comicarr
 from comicarr.app.core import db, encrypted, logger, runtime
 from comicarr.app.system import maintenance
 
 _migration_lock = threading.Lock()
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-
-
-def _set_runtime_scalar(context_field, legacy_name, value):
-    """Write a projected scalar through AppContext when the runtime exists."""
-    from comicarr.app.core.runtime import get_runtime_if_initialized, set_runtime_field
-
-    ctx = get_runtime_if_initialized()
-    if ctx is not None and not getattr(ctx, "disposed", False):
-        return set_runtime_field(ctx, context_field, value)
-    setattr(comicarr, legacy_name, value)
-    return value
 
 
 def _set_acquisition_reconciliation(state, message):
@@ -51,9 +39,9 @@ def _set_acquisition_reconciliation(state, message):
         from comicarr.app.acquisition.maintenance import set_reconciliation_state
 
         persisted = set_reconciliation_state(state, message)
-        comicarr.MIGRATION_RECONCILIATION = persisted
+        runtime.current().migration_reconciliation = persisted
     except Exception as e:
-        comicarr.MIGRATION_RECONCILIATION = {"state": "failed", "reason": "reconciliation_state_unavailable"}
+        runtime.current().migration_reconciliation = {"state": "failed", "reason": "reconciliation_state_unavailable"}
         logger.error("[MIGRATION] Unable to persist reconciliation state: %s" % e)
 
 
@@ -295,17 +283,17 @@ class Mylar3Migration:
             return False
 
         try:
-            comicarr.MIGRATION_IN_PROGRESS = True
-            comicarr.MIGRATION_STATUS = "migrating"
-            comicarr.MIGRATION_ERROR = None
-            comicarr.MIGRATION_TABLES_COMPLETE = 0
+            runtime.current().migration_in_progress = True
+            runtime.current().migration_status = "migrating"
+            runtime.current().migration_error = None
+            runtime.current().migration_tables_complete = 0
             _set_acquisition_reconciliation("migrating", "Mylar3 migration is mutating the destination database")
 
             if self.dbfile is None or self.real_path is None:
                 valid, result = _validate_source_path(self.source_path)
                 if not valid:
-                    comicarr.MIGRATION_STATUS = "error"
-                    comicarr.MIGRATION_ERROR = "Migration validation failed"
+                    runtime.current().migration_status = "error"
+                    runtime.current().migration_error = "Migration validation failed"
                     _set_acquisition_reconciliation(
                         "failed",
                         "Migration validation failed; operator review required before acquisition resumes",
@@ -334,17 +322,17 @@ class Mylar3Migration:
                 }
                 dest_tables = _reflect_destination(engine, set(MIGRATABLE_TABLES) & source_tables)
                 tables_to_migrate = [t for t in MIGRATABLE_TABLES if t in source_tables and t in dest_tables]
-                comicarr.MIGRATION_TABLES_TOTAL = len(tables_to_migrate)
+                runtime.current().migration_tables_total = len(tables_to_migrate)
 
                 for table in tables_to_migrate:
-                    comicarr.MIGRATION_CURRENT_TABLE = table
+                    runtime.current().migration_current_table = table
                     logger.info("[MIGRATION][%s] Starting import..." % table.upper())
 
                     dest_table = dest_tables[table]
                     columns = _get_common_columns(source_conn, dest_table, table)
                     if not columns:
                         logger.warn("[MIGRATION][%s] No common columns found, skipping" % table.upper())
-                        comicarr.MIGRATION_TABLES_COMPLETE += 1
+                        runtime.current().migration_tables_complete += 1
                         continue
 
                     write_rows = _duplicate_skipping_writer(dest_table, dialect, columns)
@@ -364,15 +352,15 @@ class Mylar3Migration:
                         logger.info("[MIGRATION][%s] Imported %d rows" % (table.upper(), total_rows))
                     except Exception as e:
                         logger.error("[MIGRATION][%s] Failed: %s" % (table.upper(), e))
-                        comicarr.MIGRATION_STATUS = "error"
-                        comicarr.MIGRATION_ERROR = "Failed on table %s" % table
+                        runtime.current().migration_status = "error"
+                        runtime.current().migration_error = "Failed on table %s" % table
                         _set_acquisition_reconciliation(
                             "failed",
                             "Migration failed on table %s; operator review required before acquisition resumes" % table,
                         )
                         return False
 
-                    comicarr.MIGRATION_TABLES_COMPLETE += 1
+                    runtime.current().migration_tables_complete += 1
 
             logger.info("[MIGRATION] Migrating config settings...")
             try:
@@ -385,9 +373,9 @@ class Mylar3Migration:
 
             _verify_migration(self.dbfile)
 
-            _set_runtime_scalar("db_empty", "DB_EMPTY", False)
-            comicarr.MIGRATION_STATUS = "complete"
-            comicarr.MIGRATION_CURRENT_TABLE = ""
+            runtime.current().db_empty = False
+            runtime.current().migration_status = "complete"
+            runtime.current().migration_current_table = ""
             _set_acquisition_reconciliation(
                 "pending_preview",
                 "Migration copied rows successfully. Preview acquisition reconciliation before enabling automatic search.",
@@ -397,14 +385,14 @@ class Mylar3Migration:
 
         except Exception as e:
             logger.error("[MIGRATION] Migration failed: %s" % e)
-            comicarr.MIGRATION_STATUS = "error"
-            comicarr.MIGRATION_ERROR = "Migration failed unexpectedly"
+            runtime.current().migration_status = "error"
+            runtime.current().migration_error = "Migration failed unexpectedly"
             _set_acquisition_reconciliation(
                 "failed", "Migration failed; inspect and reconcile before acquisition resumes"
             )
             return False
         finally:
-            comicarr.MIGRATION_IN_PROGRESS = False
+            runtime.current().migration_in_progress = False
             _migration_lock.release()
 
 
