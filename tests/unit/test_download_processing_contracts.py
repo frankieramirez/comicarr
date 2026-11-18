@@ -799,7 +799,7 @@ def test_ddl_startup_sweep_runs_before_worker_thread(monkeypatch):
     events = []
     work_queue = queue.Queue()
     monkeypatch.setattr(runtime.current(), "ddl_queue", work_queue)
-    monkeypatch.setattr(comicarr, "DDLPOOL", None)
+    monkeypatch.setattr(runtime.current(), "ddl_pool", None)
     monkeypatch.setattr(
         downloads_service,
         "recover_queued_ddl_commands",
@@ -809,7 +809,7 @@ def test_ddl_startup_sweep_runs_before_worker_thread(monkeypatch):
     monkeypatch.setattr(downloads_service, "ddl_downloader", lambda ddl_queue: events.append("worker"))
 
     comicarr.queue_schedule("ddl_queue", "start")
-    comicarr.DDLPOOL.join(timeout=2)
+    runtime.current().ddl_pool.join(timeout=2)
 
     assert events == ["recovery", "worker"]
 
@@ -821,7 +821,7 @@ def test_ddl_startup_sweep_is_skipped_when_worker_is_alive(monkeypatch):
     recover = MagicMock()
     worker = MagicMock()
     monkeypatch.setattr(runtime.current(), "ddl_queue", work_queue)
-    monkeypatch.setattr(comicarr, "DDLPOOL", live_worker)
+    monkeypatch.setattr(runtime.current(), "ddl_pool", live_worker)
     monkeypatch.setattr(downloads_service, "recover_queued_ddl_commands", recover, raising=False)
     monkeypatch.setattr(downloads_service, "ddl_downloader", worker)
 
@@ -829,7 +829,7 @@ def test_ddl_startup_sweep_is_skipped_when_worker_is_alive(monkeypatch):
 
     recover.assert_not_called()
     worker.assert_not_called()
-    assert comicarr.DDLPOOL is live_worker
+    assert runtime.current().ddl_pool is live_worker
 
 
 def test_recovery_preserves_complete_canonical_ddl_command():

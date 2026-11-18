@@ -25,7 +25,7 @@ from starlette.exceptions import HTTPException
 from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
 
-from comicarr.app.core import access_log
+from comicarr.app.core import access_log, runtime
 from comicarr.app.core.events import EventBus
 from comicarr.app.core.exceptions import register_exception_handlers
 from comicarr.app.core.middleware import (
@@ -34,7 +34,7 @@ from comicarr.app.core.middleware import (
     SetupGateMiddleware,
 )
 from comicarr.app.core.runtime import (
-    POOL_CONTEXT_FIELDS,
+    POOL_FIELDS,
     get_runtime,
     set_runtime_acquisition_status,
     set_runtime_field,
@@ -45,7 +45,7 @@ SHUTDOWN_DRAIN_TIMEOUT = 30.0
 
 SCHEDULER_DRAIN_TIMEOUT = 30.0
 
-_WORKER_POOLS = tuple(POOL_CONTEXT_FIELDS)
+_WORKER_POOLS = POOL_FIELDS
 
 
 @dataclass(frozen=True)
@@ -73,7 +73,6 @@ def _drain_worker_pools(timeout, ctx=None):
     """
     import threading
 
-    import comicarr
     from comicarr.app.core import logger
 
     deadline = time.monotonic() + timeout
@@ -85,10 +84,9 @@ def _drain_worker_pools(timeout, ctx=None):
             live_owners.append(pool_attr)
         logger.warn("[SHUTDOWN] Worker pool %s remains live or uncertain after drain: %s" % (pool_attr, reason))
 
+    source = ctx if ctx is not None else runtime.current()
     for pool_attr in _WORKER_POOLS:
-        pool = getattr(ctx, POOL_CONTEXT_FIELDS[pool_attr], None) if ctx is not None else None
-        if pool is None:
-            pool = getattr(comicarr, pool_attr, None)
+        pool = getattr(source, pool_attr, None)
         if pool is None:
             continue
         try:

@@ -116,6 +116,6 @@ The projection and `_CONTEXT_TO_LEGACY` are removed once the last group is.
 
 Retired so far: scheduler status and schedule stamps (`*_status`,
 `force_status`, `weekly_manual_next_run`, `sched_*_last`; #1539) and the work
-queues (`*_queue`, `add_list`, `issue_watch_list`) and process locks
-(`init_lock`, `api_lock`, `search_lock`, `ddl_lock`, `acquisition_resume_lock`;
-#1540).
+queues (`*_queue`, `add_list`, `issue_watch_list`), process locks
+(`init_lock`, `api_lock`, `search_lock`, `ddl_lock`, `acquisition_resume_lock`)
+and worker-pool references (`*_pool`; #1540).
