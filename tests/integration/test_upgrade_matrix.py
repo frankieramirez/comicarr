@@ -39,7 +39,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import MetaData, create_engine, func, inspect, select, text
 from sqlalchemy.engine import make_url
 
-import comicarr
 from alembic import command
 from comicarr.app.config import ini as config_module
 from comicarr.app.core import db, runtime
@@ -174,18 +173,6 @@ ROWS = (
     ),
 )
 
-# Process globals the Mylar3 import writes as it reports progress.
-_MIGRATION_GLOBALS = (
-    "DB_EMPTY",
-    "MIGRATION_IN_PROGRESS",
-    "MIGRATION_STATUS",
-    "MIGRATION_ERROR",
-    "MIGRATION_RECONCILIATION",
-    "MIGRATION_TABLES_COMPLETE",
-    "MIGRATION_TABLES_TOTAL",
-    "MIGRATION_CURRENT_TABLE",
-)
-
 
 def _head_revision():
     return ScriptDirectory.from_config(alembic_config()).get_current_head()
@@ -273,17 +260,6 @@ class Install:
         monkeypatch.setattr(runtime.current(), "data_dir", str(self.data_dir), raising=False)
         monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path), raising=False)
         monkeypatch.setattr(runtime.current(), "config", None, raising=False)
-        for name in (
-            "ACQUISITION_SCHEMA_READY",
-            "ACQUISITION_SCHEMA_VERSION",
-            "ACQUISITION_SCHEMA_ERROR",
-            "ACQUISITION_WORKERS_BLOCKED",
-            "ACQUISITION_BLOCK_REASON",
-            "SIGNAL",
-        ):
-            monkeypatch.setattr(comicarr, name, getattr(comicarr, name, None), raising=False)
-        for name in _MIGRATION_GLOBALS:
-            monkeypatch.setattr(comicarr, name, getattr(comicarr, name, None), raising=False)
         monkeypatch.setattr(runtime.current(), "db_file", str(self.database), raising=False)
         monkeypatch.setattr(runtime, "_runtime", None)
         monkeypatch.setattr(

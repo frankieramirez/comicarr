@@ -376,13 +376,13 @@ class TestInitialSetup:
         ctx.config.HTTP_USERNAME = None
         ctx.config.HTTP_PASSWORD = None
         mock_encrypted.hash_password.return_value = "$2b$12$hashed"
-        monkeypatch.setattr(comicarr, "SIGNAL", None)
+        monkeypatch.setattr(runtime.current(), "signal", None)
 
         result = system_service.initial_setup(ctx, "admin", "password123", None)
         assert result == {"success": True, "username": "admin", "needs_restart": False}
         # A parked "restart" turns the next SIGTERM (docker stop) into a re-exec.
         assert ctx.signal is None
-        assert comicarr.SIGNAL is None
+        assert runtime.current().signal is None
         ctx.config.apply_transaction.assert_called_once_with(
             {
                 "http_username": "admin",
@@ -401,7 +401,7 @@ class TestInitialSetup:
         ctx.config.apply_transaction.return_value = False
         mock_encrypted.hash_password.return_value = "$2b$12$hashed"
         monkeypatch.setattr(runtime.current(), "setup_token", "setup-token")
-        monkeypatch.setattr(comicarr, "SIGNAL", None)
+        monkeypatch.setattr(runtime.current(), "signal", None)
 
         result = system_service.initial_setup(ctx, "admin", "password123", "setup-token")
 
@@ -411,7 +411,7 @@ class TestInitialSetup:
         assert ctx.setup_token == "setup-token"
         assert runtime.current().setup_token == "setup-token"
         assert ctx.signal is None
-        assert comicarr.SIGNAL is None
+        assert runtime.current().signal is None
 
     @patch("comicarr.app.core.encrypted")
     def test_setup_hash_failure_preserves_setup_state(self, mock_encrypted, monkeypatch):
@@ -421,7 +421,7 @@ class TestInitialSetup:
         ctx.config.HTTP_PASSWORD = None
         mock_encrypted.hash_password.side_effect = RuntimeError("hash failed")
         monkeypatch.setattr(runtime.current(), "setup_token", "setup-token")
-        monkeypatch.setattr(comicarr, "SIGNAL", None)
+        monkeypatch.setattr(runtime.current(), "signal", None)
 
         result = system_service.initial_setup(ctx, "admin", "password123", "setup-token")
 
@@ -430,7 +430,7 @@ class TestInitialSetup:
         assert ctx.setup_token == "setup-token"
         assert runtime.current().setup_token == "setup-token"
         assert ctx.signal is None
-        assert comicarr.SIGNAL is None
+        assert runtime.current().signal is None
 
     def test_setup_rejects_short_password(self):
         """Setup rejects passwords shorter than 8 characters."""

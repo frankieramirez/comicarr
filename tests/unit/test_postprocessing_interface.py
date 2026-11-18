@@ -16,7 +16,6 @@ import types
 import pytest
 from sqlalchemy import insert, select
 
-import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
@@ -36,13 +35,12 @@ def isolated_db(tmp_path, monkeypatch):
             HIGHCOUNT=0,
             MANUAL_PP_FOLDER=str(tmp_path),
             POST_PROCESSING=True,
-            ACQUISITION_WORKERS_BLOCKED=False,
             FILE_OPTS="move",
             ENABLE_META=False,
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "ACQUISITION_WORKERS_BLOCKED", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "acquisition_workers_blocked", False, raising=False)
     engine = get_engine()
     metadata.create_all(engine)
     assert ensure_acquisition_schema(engine).ready

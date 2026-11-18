@@ -1605,12 +1605,11 @@ _MIGRATION_PATH_CODES = {
 
 def start_migration(ctx, path):
     """Start a migration only after globally fencing acquisition work."""
-    import comicarr as _comicarr
 
     if not path:
         return {"success": False, "error": "path parameter is required"}
 
-    if _comicarr.MIGRATION_IN_PROGRESS:
+    if runtime.current().migration_in_progress:
         return {"success": False, "error": "Migration already in progress"}
 
     import time
@@ -1646,13 +1645,13 @@ def start_migration(ctx, path):
     def _run_fenced_migration():
         success = False
         try:
-            _comicarr.MIGRATION_STATUS = "waiting_for_quiescence"
+            runtime.current().migration_status = "waiting_for_quiescence"
             deadline = time.monotonic() + 300
             while not controller.status().drained:
                 controller.heartbeat_fence("migration", run_id, fence.epoch)
                 if time.monotonic() >= deadline:
-                    _comicarr.MIGRATION_STATUS = "blocked"
-                    _comicarr.MIGRATION_ERROR = "Acquisition workers did not drain before migration"
+                    runtime.current().migration_status = "blocked"
+                    runtime.current().migration_error = "Acquisition workers did not drain before migration"
                     set_reconciliation_state(
                         "failed",
                         "Acquisition workers did not drain before migration; operator review required",
@@ -1669,8 +1668,8 @@ def start_migration(ctx, path):
                 )
         except Exception as e:
             logger.error("[MIGRATION] Fenced migration runner failed: %s" % e)
-            _comicarr.MIGRATION_STATUS = "error"
-            _comicarr.MIGRATION_ERROR = "Migration runner failed"
+            runtime.current().migration_status = "error"
+            runtime.current().migration_error = "Migration runner failed"
             try:
                 set_reconciliation_state(
                     "failed",
@@ -1690,7 +1689,7 @@ def start_migration(ctx, path):
                 from comicarr.app.acquisition.maintenance import get_reconciliation_status, refresh_runtime_state
 
                 gate = refresh_runtime_state(ctx.config, db.get_engine())
-                _comicarr.MIGRATION_RECONCILIATION = get_reconciliation_status(db.get_engine())
+                runtime.current().migration_reconciliation = get_reconciliation_status(db.get_engine())
                 if gate.blocked:
                     logger.info("[MIGRATION] Acquisition remains blocked: %s" % gate.reason)
             except Exception as gate_error:
@@ -1713,23 +1712,22 @@ def start_migration(ctx, path):
 
 def get_migration_progress(ctx):
     """Return current migration progress."""
-    import comicarr as _comicarr
 
     try:
         from comicarr.app.acquisition.maintenance import get_reconciliation_status
 
         reconciliation = get_reconciliation_status(db.get_engine())
-        _comicarr.MIGRATION_RECONCILIATION = reconciliation
+        runtime.current().migration_reconciliation = reconciliation
     except Exception as e:
         reconciliation = {"state": "unavailable", "reason": "reconciliation status unavailable"}
         logger.error("[MIGRATION] Unable to read reconciliation state: %s" % e)
 
     return {
-        "status": _comicarr.MIGRATION_STATUS,
-        "current_table": _comicarr.MIGRATION_CURRENT_TABLE,
-        "tables_complete": _comicarr.MIGRATION_TABLES_COMPLETE,
-        "tables_total": _comicarr.MIGRATION_TABLES_TOTAL,
-        "error": _comicarr.MIGRATION_ERROR,
+        "status": runtime.current().migration_status,
+        "current_table": runtime.current().migration_current_table,
+        "tables_complete": runtime.current().migration_tables_complete,
+        "tables_total": runtime.current().migration_tables_total,
+        "error": runtime.current().migration_error,
         "reconciliation": reconciliation,
     }
 
@@ -1763,7 +1761,7 @@ def mark_reconciliation_ready(ctx, *, actor, reason):
         )
         gate = refresh_runtime_state(ctx.config, db.get_engine())
         try:
-            runtime = comicarr.resume_acquisition_runtime(ctx.config)
+            resumed = comicarr.resume_acquisition_runtime(ctx.config)
         except Exception as e:
             reconciliation = set_reconciliation_state(
                 "failed",
@@ -1771,7 +1769,7 @@ def mark_reconciliation_ready(ctx, *, actor, reason):
                 db.get_engine(),
             )
             gate = refresh_runtime_state(ctx.config, db.get_engine())
-            comicarr.MIGRATION_RECONCILIATION = reconciliation
+            runtime.current().migration_reconciliation = reconciliation
             logger.error("[MIGRATION] Automatic acquisition resume failed closed: %s" % type(e).__name__)
             return {
                 "success": False,
@@ -1780,12 +1778,12 @@ def mark_reconciliation_ready(ctx, *, actor, reason):
                 "reconciliation": reconciliation,
                 "gate": gate.as_dict(),
             }
-        comicarr.MIGRATION_RECONCILIATION = reconciliation
+        runtime.current().migration_reconciliation = reconciliation
         return {
             "success": True,
             "reconciliation": reconciliation,
             "gate": gate.as_dict(),
-            "runtime": runtime,
+            "runtime": resumed,
         }
     except Exception as e:
         logger.error("[MIGRATION] Unable to mark reconciliation ready: %s" % e)

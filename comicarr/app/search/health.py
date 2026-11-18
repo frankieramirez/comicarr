@@ -15,8 +15,7 @@ import os
 import re
 import time
 
-import comicarr
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.db import get_engine
 from comicarr.app.search import prowlarr, queries
 from comicarr.app.search.provider_config import provider_enabled
@@ -503,8 +502,8 @@ def get_maintenance_health(engine=None):
 
         status = MaintenanceController(engine).status()
         return {
-            "blocked": bool(status.active or getattr(comicarr, "ACQUISITION_WORKERS_BLOCKED", False)),
-            "reason": status.reason or getattr(comicarr, "ACQUISITION_BLOCK_REASON", None),
+            "blocked": bool(status.active or runtime.current().acquisition_workers_blocked),
+            "reason": status.reason or runtime.current().acquisition_block_reason,
             "owner": status.owner,
             "run_id": status.run_id,
             "epoch": status.epoch,

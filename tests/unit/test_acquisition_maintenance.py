@@ -14,7 +14,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import String, create_engine, inspect, text
 
-import comicarr
 from comicarr.app.acquisition.maintenance import (
     SCHEMA_VERSION,
     MaintenanceBlocked,
@@ -174,15 +173,15 @@ def test_schema_uses_bounded_types_for_every_indexed_text_column():
 
 
 def test_schema_or_operator_gate_fails_closed_without_preventing_runtime_status(monkeypatch):
-    monkeypatch.setattr(comicarr, "ACQUISITION_SCHEMA_READY", False, raising=False)
-    monkeypatch.setattr(comicarr, "ACQUISITION_SCHEMA_ERROR", "missing required index", raising=False)
+    monkeypatch.setattr(runtime.current(), "acquisition_schema_ready", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "acquisition_schema_error", "missing required index", raising=False)
 
     blocked = refresh_runtime_state(SimpleNamespace(ACQUISITION_MAINTENANCE=False), get_engine())
     assert blocked.blocked is True
     assert blocked.reason == "schema_unavailable"
-    assert comicarr.ACQUISITION_WORKERS_BLOCKED is True
+    assert runtime.current().acquisition_workers_blocked is True
 
-    monkeypatch.setattr(comicarr, "ACQUISITION_SCHEMA_READY", True, raising=False)
+    monkeypatch.setattr(runtime.current(), "acquisition_schema_ready", True, raising=False)
     monkeypatch.setenv("COMICARR_ACQUISITION_MAINTENANCE", "1")
     operator_block = refresh_runtime_state(SimpleNamespace(ACQUISITION_MAINTENANCE=False), get_engine())
     assert operator_block.blocked is True

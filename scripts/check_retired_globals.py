@@ -172,6 +172,25 @@ _RUNTIME_FIELD_GROUPS = {
         "SSE_KEY",
         "SETUP_TOKEN",
     ),
+    # ``started`` is retired too, but as a lowercase English word it cannot be
+    # banned; the general comicarr.<UPPER> gate does not cover it either.
+    "lifecycle and acquisition gate state (#1543)": (
+        "SIGNAL",
+        "START_UP",
+        "DB_EMPTY",
+        "ACQUISITION_SCHEMA_READY",
+        "ACQUISITION_SCHEMA_VERSION",
+        "ACQUISITION_SCHEMA_ERROR",
+        "ACQUISITION_WORKERS_BLOCKED",
+        "ACQUISITION_BLOCK_REASON",
+        "MIGRATION_IN_PROGRESS",
+        "MIGRATION_STATUS",
+        "MIGRATION_CURRENT_TABLE",
+        "MIGRATION_TABLES_COMPLETE",
+        "MIGRATION_TABLES_TOTAL",
+        "MIGRATION_ERROR",
+        "MIGRATION_RECONCILIATION",
+    ),
 }
 
 # Retired names whose context field is not simply the lowercased name.

@@ -222,8 +222,6 @@ async def lifespan(app: FastAPI):
 
         app.state.acquisition_maintenance = refresh_runtime_state(ctx.config).as_dict()
     except Exception:
-        import comicarr
-
         set_runtime_acquisition_status(
             workers_blocked=True,
             block_reason="maintenance_gate_unavailable",
@@ -231,7 +229,7 @@ async def lifespan(app: FastAPI):
         app.state.acquisition_maintenance = {
             "blocked": True,
             "reason": "maintenance_gate_unavailable",
-            "schema_ready": bool(getattr(comicarr, "ACQUISITION_SCHEMA_READY", False)),
+            "schema_ready": bool(runtime.current().acquisition_schema_ready),
         }
 
     from comicarr.app.core import logger
@@ -247,7 +245,6 @@ async def lifespan(app: FastAPI):
     async with mcp.run() if mcp is not None else nullcontext():
         yield
 
-    import comicarr
     from comicarr.app.core import logger
 
     logger.info("[SHUTDOWN] FastAPI lifespan shutdown starting...")
@@ -333,9 +330,9 @@ async def lifespan(app: FastAPI):
 
     _shutdown_executors(drain_executor, executor)
 
-    signal = comicarr.SIGNAL or ctx.signal or "shutdown"
+    signal = runtime.current().signal or ctx.signal or "shutdown"
     set_runtime_field(ctx, "signal", signal)
-    set_runtime_field(ctx, "disposed", True, project_legacy=False)
+    set_runtime_field(ctx, "disposed", True)
 
     logger.info("[SHUTDOWN] FastAPI lifespan shutdown complete")
 

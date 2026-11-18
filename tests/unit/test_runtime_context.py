@@ -28,33 +28,12 @@ import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.runtime import (
-    _CONTEXT_TO_LEGACY,
     RuntimeNotInitializedError,
     create_runtime,
     get_runtime,
     set_runtime_field,
 )
 from comicarr.app.system import service as system_service
-
-# Remaining projected-scalar assignments in files that still talk to the
-# legacy aliases. Shrink-only: deleting a write must drop its name here,
-# and a new assignment of a projected name that is not listed fails.
-PROJECTED_SCALAR_REBIND_ALLOWLIST = {
-    "comicarr/app/system/service.py": {
-        "MIGRATION_STATUS",
-        "MIGRATION_ERROR",
-        "MIGRATION_RECONCILIATION",
-    },
-    "comicarr/app/system/migration.py": {
-        "MIGRATION_RECONCILIATION",
-        "MIGRATION_IN_PROGRESS",
-        "MIGRATION_STATUS",
-        "MIGRATION_ERROR",
-        "MIGRATION_TABLES_COMPLETE",
-        "MIGRATION_TABLES_TOTAL",
-        "MIGRATION_CURRENT_TABLE",
-    },
-}
 
 RUNTIME_GLOBAL_ALLOWLIST = {
     # These files are the first migrated system/acquisition ownership boundary.
@@ -98,15 +77,6 @@ def _legacy_runtime_objects(monkeypatch):
     mass_add_pool = MagicMock(name="mass_add_pool")
     mass_add_pool.is_alive.return_value = False
 
-    values = {
-        "ACQUISITION_SCHEMA_READY": True,
-        "ACQUISITION_SCHEMA_VERSION": 1,
-        "ACQUISITION_SCHEMA_ERROR": None,
-        "ACQUISITION_WORKERS_BLOCKED": False,
-        "ACQUISITION_BLOCK_REASON": None,
-    }
-    for name, value in values.items():
-        monkeypatch.setattr(comicarr, name, value, raising=False)
     monkeypatch.setattr(
         runtime,
         "_bootstrap",
@@ -123,6 +93,11 @@ def _legacy_runtime_objects(monkeypatch):
             prog_dir="/runtime/program",
             data_dir="/runtime/data",
             db_file="/runtime/data/comicarr.db",
+            acquisition_schema_ready=True,
+            acquisition_schema_version=1,
+            acquisition_schema_error=None,
+            acquisition_workers_blocked=False,
+            acquisition_block_reason=None,
         ),
     )
 
@@ -139,15 +114,14 @@ def _legacy_runtime_objects(monkeypatch):
 
 
 def test_runtime_factory_is_single_shot_and_adopts_identity_sensitive_objects(_legacy_runtime_objects):
-    """The bridge may project legacy aliases, but it must never snapshot them."""
+    """The factory copies the bootstrap shallowly: mutable values keep their identity."""
     from comicarr.app.core import runtime
 
-    with patch("comicarr.app.core.runtime.AppContext", wraps=AppContext) as context_type:
-        first = create_runtime()
-        second = create_runtime()
+    first = create_runtime()
+    second = create_runtime()
 
     assert first is second
-    assert context_type.call_count == 1
+    assert first is not runtime._bootstrap
     assert first.scheduler is _legacy_runtime_objects.scheduler
     assert first.search_queue is _legacy_runtime_objects.search_queue
     assert first.ddl_queue is _legacy_runtime_objects.ddl_queue
@@ -228,8 +202,8 @@ def test_current_returns_the_factory_context_once_it_exists(_legacy_runtime_obje
 def test_factory_carries_migrated_fields_over_from_the_bootstrap(_legacy_runtime_objects, monkeypatch):
     """A retired global's value set during start-up survives the factory.
 
-    The factory must take a migrated field from the bootstrap context, by
-    identity, and must neither adopt nor project a ``comicarr`` global for it.
+    The factory must take every field from the bootstrap context, by
+    identity, and must not publish a ``comicarr`` global for it.
     """
     from comicarr.app.core import runtime
 
@@ -241,20 +215,51 @@ def test_factory_carries_migrated_fields_over_from_the_bootstrap(_legacy_runtime
 
     ctx = create_runtime()
 
-    assert {"search_status", "force_status", "sched_rss_last"} <= runtime.MIGRATED_FIELDS
     assert ctx.search_status == "Running"
     assert ctx.force_status is force_status
     assert ctx.sched_rss_last == 1700000000.0
     assert runtime.current() is ctx
 
 
-def test_migrated_fields_have_no_legacy_projection():
-    """A retired global must not come back through the compatibility bridge."""
+def test_runtime_fields_have_no_package_alias():
+    """No AppContext field is published as a ``comicarr`` module global."""
+    import dataclasses
+
+    for field in dataclasses.fields(AppContext):
+        assert not hasattr(comicarr, field.name.upper()), field.name
+
+
+def test_runtime_module_has_no_legacy_projection():
+    """The factory no longer adopts or projects ``comicarr`` globals."""
     from comicarr.app.core import runtime
 
-    assert not runtime.MIGRATED_FIELDS & set(runtime._CONTEXT_TO_LEGACY)
-    for field in runtime.MIGRATED_FIELDS:
-        assert not hasattr(comicarr, field.upper()), field
+    for name in ("_CONTEXT_TO_LEGACY", "MIGRATED_FIELDS", "_adopt_legacy_runtime", "_project_context"):
+        assert not hasattr(runtime, name), name
+
+
+def test_no_function_shadows_the_runtime_module():
+    """A local named ``runtime`` breaks every ``runtime.current()`` in that function."""
+    project_root = Path(__file__).resolve().parents[2]
+    offenders = []
+    for path in [project_root / "Comicarr.py", *sorted((project_root / "comicarr").rglob("*.py"))]:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            binds = any(arg.arg == "runtime" for arg in ast.walk(fn.args) if isinstance(arg, ast.arg)) or any(
+                isinstance(node, ast.Name) and node.id == "runtime" and isinstance(node.ctx, ast.Store)
+                for node in ast.walk(fn)
+            )
+            calls = any(
+                isinstance(node, ast.Attribute)
+                and node.attr == "current"
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "runtime"
+                for node in ast.walk(fn)
+            )
+            if binds and calls:
+                offenders.append("%s:%s" % (path.relative_to(project_root), fn.lineno))
+    assert not offenders
 
 
 def test_worker_bootstrap_refuses_to_start_before_a_runtime_exists(monkeypatch):
@@ -366,45 +371,8 @@ def test_fastapi_lifespan_has_no_legacy_snapshot_builder():
     assert "_build_context_from_globals" not in Path(main.__file__).read_text(encoding="utf-8")
 
 
-def _assigned_projected_names(source):
-    """Return projected legacy names that the module rebinds on comicarr."""
-    projected = set(_CONTEXT_TO_LEGACY.values())
-    found = set()
-    tree = ast.parse(source)
-
-    def consider(node):
-        if not isinstance(node, ast.Attribute):
-            return
-        if not isinstance(node.value, ast.Name):
-            return
-        if node.attr in projected:
-            found.add(node.attr)
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                consider(target)
-        elif isinstance(node, ast.AnnAssign):
-            consider(node.target)
-        elif isinstance(node, ast.AugAssign):
-            consider(node.target)
-    return found
-
-
-def test_system_and_migration_do_not_rebind_unallowlisted_projected_scalars():
-    """Scalar alias writes fork AppContext; remaining names here must shrink."""
-    project_root = Path(__file__).resolve().parents[2]
-    for relative_path, allowed in PROJECTED_SCALAR_REBIND_ALLOWLIST.items():
-        source = (project_root / relative_path).read_text(encoding="utf-8")
-        found = _assigned_projected_names(source)
-        extra = found - allowed
-        stale = allowed - found
-        assert not extra, "%s rebound projected scalars: %s" % (relative_path, sorted(extra))
-        assert not stale, "%s allowlist is stale: %s" % (relative_path, sorted(stale))
-
-
 def test_start_migration_gate_refresh_failure_blocks_context_and_alias(_legacy_runtime_objects, monkeypatch):
-    """A failed post-migration gate refresh must update context and the alias."""
+    """A failed post-migration gate refresh must update the context."""
     ctx = create_runtime()
     set_runtime_field(ctx, "acquisition_workers_blocked", False)
     set_runtime_field(ctx, "acquisition_block_reason", None)
@@ -460,14 +428,14 @@ def test_start_migration_gate_refresh_failure_blocks_context_and_alias(_legacy_r
 
     assert result["status"] == "started"
     assert ctx.acquisition_workers_blocked is True
-    assert comicarr.ACQUISITION_WORKERS_BLOCKED is True
-    assert ctx.acquisition_workers_blocked == comicarr.ACQUISITION_WORKERS_BLOCKED
+    assert runtime.current().acquisition_workers_blocked is True
+    assert ctx.acquisition_workers_blocked == runtime.current().acquisition_workers_blocked
     assert ctx.acquisition_block_reason == "migration_reconciliation_gate_unavailable"
-    assert comicarr.ACQUISITION_BLOCK_REASON == "migration_reconciliation_gate_unavailable"
+    assert runtime.current().acquisition_block_reason == "migration_reconciliation_gate_unavailable"
 
 
 def test_job_management_paused_weekly_updates_context_and_alias(_legacy_runtime_objects, monkeypatch):
-    """The scheduler Paused branch must write weekly_status through the bridge."""
+    """The scheduler Paused branch must write weekly_status on the context."""
     ctx = create_runtime()
     set_runtime_field(ctx, "weekly_status", "Waiting")
 
@@ -486,7 +454,7 @@ def test_job_management_paused_weekly_updates_context_and_alias(_legacy_runtime_
 
 
 def test_mylar3_migration_success_projects_db_empty(_legacy_runtime_objects, monkeypatch, tmp_path):
-    """Successful Mylar3 migration must clear db_empty on context and the alias."""
+    """Successful Mylar3 migration must clear db_empty on the context."""
     source_db = tmp_path / "mylar.db"
     dest_db = tmp_path / "comicarr.db"
     sqlite3.connect(source_db).close()
@@ -511,5 +479,5 @@ def test_mylar3_migration_success_projects_db_empty(_legacy_runtime_objects, mon
 
     assert migration.execute() is True
     assert ctx.db_empty is False
-    assert comicarr.DB_EMPTY is False
-    assert ctx.db_empty == comicarr.DB_EMPTY
+    assert runtime.current().db_empty is False
+    assert ctx.db_empty == runtime.current().db_empty
