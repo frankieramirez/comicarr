@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.63.0
+
+### Minor Changes
+
+- 32a4226: Activity → Needs you now lists problems that stop work for the whole library: a scheduled job whose last run failed, no indexer, no download client, and no Comic Vine API key. Each has a link to fix it, so the page no longer says "Nothing needs your attention" while the RSS check fails every run. Run now on a job now tells you whether that run finished or failed, and a long job error can be opened in full on the Health tab and on Needs you.
+
+### Patch Changes
+
+- 18eb85d: Screen reader and voice control users hear the same words they see on issue status badges, the series filter chips (All, Have, Wanted) and the dashboard's In flight line. The test suite now runs an automated accessibility check (WCAG 2.2 AA) on the main pages in light, dark and phone layouts.
+- 56047d7: A GetComics TPB download whose page lists its parts under a "TPBs" heading no longer fails. Comicarr now queues each listed part along with the main link, as it was meant to.
+- 764238f: Activity → Health no longer makes a partly failed job look like a success. When a search, RSS check, import or library refresh had some failures, or a connection did not answer, the job shows a warning with the counts (for example "1 grabbed of 3 searched, 2 failed"). A job that reports nothing now says so instead of "Finished without errors". Releases stops waiting after 30 seconds and shows an error with Retry instead of loading forever, and the page heading names the week you are looking at.
+- 9777196: An issue's page now offers the next step that fits it: Search now for a wanted or failed issue, and Mark wanted for a skipped one. Its Details column lists only what is known (release date, file, size) instead of empty rows. Adding a story arc from arc search works again; it used to fail every time. Muted text in light mode is a little darker so it meets WCAG AA contrast on every surface, and the API key copy button has a name screen readers can announce.
+- 5892115: `Comicarr.py maintenance --exportjson` writes the series list to the JSON file again. It used to stop with a "bytes-like object is required" error before writing anything.
+- 89f43e0: Manga searches on Usenet indexers are faster. Alternate titles with no Latin letters, such as Japanese, Chinese or Persian titles, are no longer searched there, because Usenet posts name manga in Latin script. The series' own name is always searched, and torrent indexers still search every alternate title.
+- 09df48a: Sending an RSS torrent to uTorrent no longer fails when the magnet link carries its hash in the 32-character base32 form.
+- 32a4226: With no Comic Vine API key, Add a series now points to Settings → Sources and keys, and its button opens that page. It no longer says it searched Comic Vine and Metron when no search ran. Story arc search says the same.
+- dedafba: One Wanted issue that hits an error during a search scan no longer ends the whole scan. Comicarr logs that issue and goes on to the next one.
+- 32a4226: Settings no longer changes a value behind your back. A search interval, RSS check interval, database update interval, search delay or AI requests-per-minute below its minimum is now refused with a message under the field, instead of being saved as the minimum while the page said "Saved". Each of those fields shows its minimum. Settings also refuses unknown MangaDex language codes or content ratings, and turning on Discord without a webhook URL.
+- 606a7d3: Setup is easier to get right. Add a series shows a visible Search button, and warns next to the search box when comic search has no Comic Vine API key, with a link to add one. The completed downloads folder the Folder Monitor watches can now be set in Settings → Download clients instead of only in config.ini. Indexers and Prowlarr are at the top of Indexers and search, above the pacing and quality settings. When the Mylar3 import can't find the folder you entered, it names that path, says whether it looked inside the Docker container, and links to the volume example.
+- b6e05a1: Several small fixes from an outside walkthrough. Clicking a Settings section right after the page loads always opens it now. The log level picker shows its name (Info, Debug) instead of a number. A mistyped or old link shows a "This page doesn't exist" page with the address you tried, instead of quietly opening the dashboard. Reloading Search on Manga stays on Manga. Library filters ignore spaces at the ends of what you type. The Blackhole folder and Watch folder download clients can be set up in Settings → Download clients. The SABnzbd Test button works right after saving, without a reload. A failed settings save shows one error, not two. A missing series shows a friendly not-found page, and the Releases page no longer names an internal data source when the release calendar is down.
+- 79c0948: Story arcs imported from Mylar3, or added from search, no longer vanish from the Story Arcs page, and Want all now counts their issues. Searching for a wanted story arc issue no longer adds an empty arc row each time; the upgrade removes the empty rows earlier searches left behind. Story arc search results you don't have yet show Add Arc again instead of a disabled Added button.
+- 51101e5: Send to Reading List now works for a new pull-list download when the series has both an issue and an annual with the same number. Before, Comicarr hit an error and added neither.
+
 ## 0.62.0
 
 ### Minor Changes
