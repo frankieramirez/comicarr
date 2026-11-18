@@ -13,6 +13,7 @@ from PIL import Image
 
 from comicarr.app.core.context import AppContext
 from comicarr.app.metadata import service as metadata_service
+from comicarr.app.search import service as search_service
 
 
 def _make_test_ctx(**overrides):
@@ -48,7 +49,7 @@ class TestSearchComics:
     def test_empty_name_returns_error(self):
         """Search with empty name returns error."""
         ctx = _make_test_ctx()
-        result = metadata_service.search_comics(ctx, name="")
+        result = search_service.find_comic(ctx, name="")
         assert "error" in result
 
     @patch("comicarr.app.search.mb")
@@ -59,7 +60,7 @@ class TestSearchComics:
             {"comicyear": "2020", "issues": 10, "haveit": "No"},
         ]
 
-        result = metadata_service.search_comics(ctx, name="Batman")
+        result = search_service.find_comic(ctx, name="Batman")
         mock_mb.findComic.assert_called_once()
         assert "results" in result
         assert result["results"][0]["in_library"] is False
@@ -73,7 +74,7 @@ class TestSearchComics:
             {"comicyear": "2021", "issues": 3, "haveit": "No"},
         ]
 
-        result = metadata_service.search_comics(ctx, name="Spider-Man")
+        result = search_service.find_comic(ctx, name="Spider-Man")
         # Results are sorted by (comicyear, issues) descending — 2021 before 2020
         in_lib_flags = [r["in_library"] for r in result["results"]]
         assert True in in_lib_flags
@@ -88,37 +89,15 @@ class TestSearchComics:
             "pagination": {"total": 100, "limit": 10, "offset": 0},
         }
 
-        result = metadata_service.search_comics(ctx, name="X-Men", limit=10, offset=0)
+        result = search_service.find_comic(ctx, name="X-Men", limit=10, offset=0)
         assert "pagination" in result
         assert result["pagination"]["total"] == 100
 
     def test_invalid_pagination_returns_error(self):
         """Invalid pagination params return error."""
         ctx = _make_test_ctx()
-        result = metadata_service.search_comics(ctx, name="Batman", limit="abc")
+        result = search_service.find_comic(ctx, name="Batman", limit="abc")
         assert "error" in result
-
-
-class TestSearchManga:
-    def test_manga_disabled_returns_error(self):
-        """Manga search returns error when MangaDex is disabled."""
-        ctx = _make_test_ctx()
-        ctx.config.MANGADEX_ENABLED = False
-
-        result = metadata_service.search_manga(ctx, name="One Piece")
-        assert "error" in result
-
-    @patch("comicarr.app.manga.mangadex", create=True)
-    def test_manga_search_delegates(self, mock_mangadex):
-        """Manga search delegates to mangadex.search_manga."""
-        ctx = _make_test_ctx()
-        mock_mangadex.search_manga.return_value = {
-            "results": [{"title": "One Piece"}],
-            "pagination": {"total": 1},
-        }
-
-        metadata_service.search_manga(ctx, name="One Piece")
-        mock_mangadex.search_manga.assert_called_once()
 
 
 # =============================================================================

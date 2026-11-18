@@ -27,6 +27,7 @@ from comicarr.app.ai.chat_service import get_thread_lock, release_thread_lock, s
 from comicarr.app.core import logger
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.security import require_session
+from comicarr.app.system import deprecated_routes
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -66,9 +67,12 @@ async def ai_activity(limit: int = 50, offset: int = 0):
     return JSONResponse(content={"entries": entries})
 
 
-@router.post("/chat/stream", dependencies=[Depends(require_session)])
+@router.post("/chat/stream", deprecated=True, dependencies=[Depends(require_session)])
 async def chat_stream(request: Request, ctx: AppContext = Depends(get_context)):
     """Stream a chat response via Server-Sent Events.
+
+    Deprecated (#1501): ``POST /chat/turns/stream`` replaces it, keeps the
+    thread, and is what the app uses. This stateless form stays until 1.0.0.
 
     Expects JSON body: {"messages": [{"role": "user", "content": "..."}]}
     Yields SSE events with type: text | results | error | done.
@@ -113,7 +117,9 @@ async def chat_stream(request: Request, ctx: AppContext = Depends(get_context)):
             if event.get("type") != "usage":
                 yield json.dumps(event)
 
-    return EventSourceResponse(generator(), media_type="text/event-stream")
+    return deprecated_routes.answer(
+        "api-ai-chat-stream", EventSourceResponse(generator(), media_type="text/event-stream")
+    )
 
 
 @router.get("/chat/threads")
