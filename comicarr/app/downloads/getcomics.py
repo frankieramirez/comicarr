@@ -43,6 +43,7 @@ from comicarr.app.common.remote_artifacts import (
 )
 from comicarr.app.core import db, logger
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
+from comicarr.app.library import directories
 from comicarr.app.search import diagnostics as search_diagnostics
 from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import EvaluationSession
@@ -989,7 +990,7 @@ class GC(object):
                 check_extras = soup.findAll("h3")
                 for sb in check_extras:
                     header = sb.findNext(text=True)
-                    if header == "TPBs" and bookype == "TPB":
+                    if header == "TPBs" and booktype == "TPB":
                         nxt = sb.next_sibling
                         if nxt.name == "ul":
                             bb = nxt.findAll("li")
@@ -1225,7 +1226,7 @@ class GC(object):
                 )
 
                 if comicarr.CONFIG.DDL_LOCATION is not None and not os.path.isdir(comicarr.CONFIG.DDL_LOCATION):
-                    checkdirectory = comicarr.filechecker.validateAndCreateDirectory(comicarr.CONFIG.DDL_LOCATION, True)
+                    checkdirectory = directories.validateAndCreateDirectory(comicarr.CONFIG.DDL_LOCATION, True)
                     if not checkdirectory:
                         logger.warn(
                             "[ABORTING] Error trying to validate/create DDL download"

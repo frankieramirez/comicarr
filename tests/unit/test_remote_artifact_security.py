@@ -17,8 +17,9 @@ from unittest.mock import MagicMock
 import pytest
 
 import comicarr
-from comicarr import getcomics, search
+from comicarr import search
 from comicarr.app.common import remote_artifacts
+from comicarr.app.downloads import getcomics
 from comicarr.downloaders import mediafire
 
 
