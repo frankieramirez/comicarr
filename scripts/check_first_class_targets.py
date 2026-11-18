@@ -60,8 +60,7 @@ COVERAGE_TARGET = 80.0
 
 # (table, scenario, column) -> the build ticket that will fill the cell.
 # Shrink-only: a filled cell must leave this list in the same change.
-PENDING = {
-}
+PENDING = {}
 
 # Group -> (module paths relative to the repo root, line-coverage floor in percent).
 # A path ending in "/" covers every .py file below it, and a path starting with
@@ -79,7 +78,7 @@ MANGA_PROVIDERS = (
 )
 COVERAGE_FLOORS = {
     "SABnzbd": (("comicarr/sabnzbd.py",), 82.3),
-    "NZBGet": (("comicarr/nzbget.py",), 56.4),
+    "NZBGet": (("comicarr/app/downloads/nzbget.py",), 56.4),
     "Manga": (("comicarr/app/manga/",) + tuple("!" + path for path in MANGA_PROVIDERS), 91.3),
     "Manga providers": (MANGA_PROVIDERS, 77.3),
     "Downloads": (

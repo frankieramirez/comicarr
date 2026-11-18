@@ -129,7 +129,7 @@ places.
 | Group | Modules | Lines covered | Floor | Points to 80% |
 |---|---|---|---|---|
 | SABnzbd | `comicarr/sabnzbd.py` | 82.3% of 395 lines (78.0% before #1219) | 82.3% | met |
-| NZBGet | `comicarr/nzbget.py` | 56.4% of 220 lines (6.4% before #1220) | 56.4% | 23.6 |
+| NZBGet | `comicarr/app/downloads/nzbget.py` | 56.4% of 220 lines (6.4% before #1220) | 56.4% | 23.6 |
 | Manga | `comicarr/app/manga/` except the providers below | 91.3% of 526 lines (91.1% before #1221) | 91.3% | met |
 | Manga providers | `comicarr/app/manga/mangadex.py`, `myanimelist.py`, `mangasync.py`, `manga_parser.py` (moved from the package root by #1406) | 77.3% of 851 lines | 77.3% | 2.7 |
 | Downloads | `comicarr/app/downloads/handoff.py`, `completed_path.py`, `sab_reconcile.py` | 84.3% of 350 lines | 84.3% | met |

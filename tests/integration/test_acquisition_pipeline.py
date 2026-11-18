@@ -645,7 +645,7 @@ def nzb(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "USE_SABNZBD", False, raising=False)
     monkeypatch.setattr(comicarr, "NZB_QUEUE", queue.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "RETURN_THE_NZBQUEUE", queue.Queue(), raising=False)
-    monkeypatch.setattr("comicarr.nzbget.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("comicarr.app.downloads.nzbget.time.sleep", lambda _seconds: None)
     monkeypatch.setattr("comicarr.app.downloads.service.time.sleep", lambda _seconds: None)
     monkeypatch.setattr(
         "comicarr.postprocessor.time", SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _seconds: None)

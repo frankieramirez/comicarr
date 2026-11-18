@@ -446,7 +446,7 @@ def _nzbget_history(row, payload=None):
         logger.warn("[RECOVERY-CLASSIFY] NZBGet row %s has no NZBID to probe." % row.get("release_key"))
         return "unprobeable"
     try:
-        from comicarr import nzbget
+        from comicarr.app.downloads import nzbget
 
         nzbinfo = {
             "NZBID": nzbid,

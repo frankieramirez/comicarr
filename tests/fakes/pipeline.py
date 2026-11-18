@@ -34,10 +34,10 @@ import zipfile
 from types import SimpleNamespace
 
 import comicarr
-from comicarr import nzbget, sabnzbd
+from comicarr import sabnzbd
 from comicarr.app.config.ini import _CONFIG_DEFINITIONS, Config
 from comicarr.app.core.context import AppContext
-from comicarr.app.downloads import handoff, journal, postprocessing, service, snatch_record
+from comicarr.app.downloads import handoff, journal, nzbget, postprocessing, service, snatch_record
 from comicarr.app.series import service as series_service
 from tests.fakes.nntp import nzb_document
 
