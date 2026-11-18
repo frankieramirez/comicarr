@@ -1590,7 +1590,7 @@ def preview_migration(ctx, path):
         # The UI words these itself. Docker users usually have not mounted the
         # Mylar3 folder, so say whether the path was checked inside a
         # container (#1498).
-        in_container = getattr(comicarr, "INSTALL_TYPE", None) == "docker"
+        in_container = runtime.current().install_type == "docker"
         refusal.update({"code": code, "path": path, "in_container": in_container})
         if code == "not_a_directory":
             where = " inside the Comicarr container" if in_container else ""

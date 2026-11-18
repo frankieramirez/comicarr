@@ -30,7 +30,7 @@ import datetime
 from sqlalchemy import and_, func, select
 
 import comicarr
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import acquisition_runs, activity_events, comics, importresults, weekly
 
 
@@ -164,8 +164,8 @@ def _import_inbox(_since):
 
 
 def _version(_since):
-    current = getattr(comicarr, "CURRENT_VERSION", None)
-    latest = getattr(comicarr, "LATEST_VERSION", None)
+    current = runtime.current().current_version
+    latest = runtime.current().latest_version
     if not latest or not current:
         return None
     if str(latest) == str(current):

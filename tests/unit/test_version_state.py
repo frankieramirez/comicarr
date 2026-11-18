@@ -19,10 +19,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
-from comicarr.app.system import versioncheck
 from comicarr.app.config.registry import REGISTRY
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.system import service as system_service
+from comicarr.app.system import versioncheck
 
 
 def test_git_user_default_is_project_owner():
@@ -61,8 +62,8 @@ def ctx(monkeypatch):
         update_reason="never_checked",
     )
     monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
-    monkeypatch.setattr(comicarr, "INSTALL_TYPE", "git", raising=False)
-    monkeypatch.setattr(comicarr, "CURRENT_VERSION", "aaaaaaa", raising=False)
+    context.install_type = "git"
+    monkeypatch.setattr(runtime, "_runtime", context)
     with (
         patch("comicarr.app.core.runtime.get_runtime_if_initialized", return_value=context),
         patch.object(system_service, "get_release_version", return_value="0.20.0"),
@@ -141,10 +142,10 @@ class TestSemverReleaseCheck:
         ):
             versioncheck.checkGithub()
 
-        assert comicarr.LATEST_VERSION == "0.21.0"
-        assert comicarr.UPDATE_STATE == "behind"
-        assert ctx.latest_version == comicarr.LATEST_VERSION
-        assert ctx.update_state == comicarr.UPDATE_STATE
+        assert runtime.current().latest_version == "0.21.0"
+        assert runtime.current().update_state == "behind"
+        assert ctx.latest_version == runtime.current().latest_version
+        assert ctx.update_state == runtime.current().update_state
 
 
 class TestUnknownReasons:
@@ -281,25 +282,23 @@ class TestDeadToastPathRetired:
 
 
 class TestVersionStateHelper:
-    def test_writes_context_and_legacy_together(self, ctx):
+    def test_writes_the_runtime_context(self, ctx):
         versioncheck._set_version_state(current_branch="python3-dev")
 
         assert ctx.current_branch == "python3-dev"
-        assert comicarr.CURRENT_BRANCH == "python3-dev"
+        assert versioncheck._get_version_state("current_branch") == "python3-dev"
 
-    def test_falls_back_to_the_module_before_the_runtime_exists(self):
-        with patch("comicarr.app.core.runtime.get_runtime_if_initialized", return_value=None):
-            versioncheck._set_version_state(current_version="preboot")
+    def test_writes_the_bootstrap_context_before_the_runtime_exists(self, monkeypatch):
+        monkeypatch.setattr(runtime, "_runtime", None)
+        monkeypatch.setattr(runtime, "_bootstrap", AppContext())
 
-        assert comicarr.CURRENT_VERSION == "preboot"
+        versioncheck._set_version_state(current_version="preboot")
 
-    def test_falls_back_to_the_module_after_disposal(self, ctx):
-        ctx.disposed = True
+        assert runtime._bootstrap.current_version == "preboot"
 
-        versioncheck._set_version_state(latest_version="postdispose")
-
-        assert comicarr.LATEST_VERSION == "postdispose"
-        assert ctx.latest_version != "postdispose"
+    def test_rejects_a_field_that_is_not_version_state(self, ctx):
+        with pytest.raises(KeyError, match="search_status"):
+            versioncheck._set_version_state(search_status="Running")
 
     def test_every_mapped_field_exists_on_the_context(self, ctx):
         for field in versioncheck._VERSION_FIELDS:

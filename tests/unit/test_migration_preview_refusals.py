@@ -12,12 +12,12 @@
 
 from types import SimpleNamespace
 
-import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.system import service
 
 
 def test_missing_folder_names_the_path_and_the_container(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "INSTALL_TYPE", "docker", raising=False)
+    monkeypatch.setattr(runtime.current(), "install_type", "docker", raising=False)
     missing = str(tmp_path / "mylar3")
 
     result = service.preview_migration(SimpleNamespace(), missing)
@@ -31,7 +31,7 @@ def test_missing_folder_names_the_path_and_the_container(tmp_path, monkeypatch):
 
 
 def test_folder_without_database_has_its_own_code(tmp_path, monkeypatch):
-    monkeypatch.setattr(comicarr, "INSTALL_TYPE", "source", raising=False)
+    monkeypatch.setattr(runtime.current(), "install_type", "source", raising=False)
 
     result = service.preview_migration(SimpleNamespace(), str(tmp_path))
 

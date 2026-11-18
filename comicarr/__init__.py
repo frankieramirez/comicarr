@@ -166,14 +166,6 @@ PULLBYFILE = False
 PUBLISHER_IMPRINTS = None
 CURRENT_WEEKNUMBER = None
 CURRENT_YEAR = None
-INSTALL_TYPE = None
-CURRENT_BRANCH = None
-CURRENT_VERSION = None
-CURRENT_VERSION_NAME = None
-CURRENT_RELEASE_NAME = None
-LATEST_VERSION = None
-UPDATE_STATE = None
-UPDATE_REASON = None
 ISSUE_EXCEPTIONS = [
     "DEATHS",
     "ALPHA",
@@ -210,7 +202,6 @@ SSE_KEY = None
 SESSION_ID = None
 SETUP_TOKEN = None
 START_UP = True
-UPDATE_VALUE = {}
 REQS = {}
 GC_URL = "https://getcomics.org"
 IMPRINT_MAPPING = {
@@ -300,11 +291,6 @@ def initialize(config_file):
             CONFIG_FILE, \
             OS_DETECT, \
             MAINTENANCE, \
-            CURRENT_VERSION, \
-            LATEST_VERSION, \
-            UPDATE_STATE, \
-            UPDATE_REASON, \
-            INSTALL_TYPE, \
             IMPORTLOCK, \
             PULLBYFILE, \
             INKDROPS_32P, \
@@ -364,7 +350,6 @@ def initialize(config_file):
             MAINTENANCE_UPDATE, \
             MAINTENANCE_DB_COUNT, \
             MAINTENANCE_DB_TOTAL, \
-            UPDATE_VALUE, \
             REQS, \
             IMPRINT_MAPPING, \
             GC_URL, \

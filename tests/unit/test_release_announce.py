@@ -21,10 +21,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
-from comicarr.app.system import versioncheck
 from comicarr.app.config.registry import REGISTRY
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.system import service as system_service
+from comicarr.app.system import versioncheck
 
 
 def test_announce_releases_defaults_off_and_is_settings_writable():
@@ -165,8 +166,8 @@ def announce_ctx(monkeypatch):
         update_reason="never_checked",
     )
     monkeypatch.setattr(comicarr, "CONFIG", config, raising=False)
-    monkeypatch.setattr(comicarr, "INSTALL_TYPE", "docker", raising=False)
-    monkeypatch.setattr(comicarr, "CURRENT_VERSION", "aaaaaaa", raising=False)
+    monkeypatch.setattr(runtime.current(), "install_type", "docker", raising=False)
+    monkeypatch.setattr(runtime.current(), "current_version", "aaaaaaa", raising=False)
     with (
         patch("comicarr.app.core.runtime.get_runtime_if_initialized", return_value=context),
         patch.object(system_service, "get_release_version", return_value="0.20.0"),
@@ -380,7 +381,7 @@ class TestCheckGithubAnnounceHook:
 
     def test_announces_for_docker_install_type(self, announce_ctx):
         _ctx, config = announce_ctx
-        comicarr.INSTALL_TYPE = "docker"
+        runtime.current().install_type = "docker"
         config.ANNOUNCE_RELEASES = True
 
         with (

@@ -112,9 +112,9 @@ class carePackage(object):
         if not vers_vals:
             vers_vals = {
                 "current_branch": comicarr.CONFIG.GIT_BRANCH,
-                "current_version": comicarr.CURRENT_VERSION,
-                "current_version_name": comicarr.CURRENT_VERSION_NAME,
-                "current_release_name": comicarr.CURRENT_RELEASE_NAME,
+                "current_version": runtime.current().current_version,
+                "current_version_name": runtime.current().current_version_name,
+                "current_release_name": runtime.current().current_release_name,
             }
 
         if vers_vals["current_branch"] == "master" and vers_vals["current_version_name"] is not None:
