@@ -65,7 +65,7 @@ class TestPostProcessingRoutesBothProviders:
     def test_a_comicvine_id_still_does_not(self):
         with (
             patch("comicarr.app.downloads.postprocess_pipeline.process_manga_download") as process_manga,
-            patch("comicarr.postprocessor.filechecker") as filechecker,
+            patch("comicarr.app.downloads.postprocess_match.filechecker") as filechecker,
             patch("comicarr.app.downloads.postprocess_pipeline.db") as mock_db,
         ):
             mock_db.select_one.return_value = {"ComicID": "12345"}

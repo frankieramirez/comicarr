@@ -50,7 +50,6 @@ SKIP_DIR_NAMES = {"__pycache__"}
 
 # Root module -> the GitHub issue that retires it (all children of #1402).
 ROOT_MODULES: dict[str, int] = {
-    "postprocessor": 1422,
     "search": 1422,
 }
 

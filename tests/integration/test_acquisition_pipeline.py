@@ -391,7 +391,8 @@ def sab(tmp_path, monkeypatch):
     # Post-processing waits for a file renamed in the last ten seconds to
     # settle. Its clock runs a minute ahead so the wait passes at once.
     monkeypatch.setattr(
-        "comicarr.postprocessor.time", SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _seconds: None)
+        "comicarr.app.downloads.postprocess_match.time",
+        SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _seconds: None),
     )
     series_root = tmp_path / "library" / "Absolute Batman (2024)"
     series_root.mkdir(parents=True)
@@ -648,7 +649,8 @@ def nzb(tmp_path, monkeypatch):
     monkeypatch.setattr("comicarr.app.downloads.nzbget.time.sleep", lambda _seconds: None)
     monkeypatch.setattr("comicarr.app.downloads.service.time.sleep", lambda _seconds: None)
     monkeypatch.setattr(
-        "comicarr.postprocessor.time", SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _seconds: None)
+        "comicarr.app.downloads.postprocess_match.time",
+        SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _seconds: None),
     )
     series_root = tmp_path / "library" / "Absolute Batman (2024)"
     series_root.mkdir(parents=True)
@@ -1065,7 +1067,8 @@ def recorded(tmp_path, monkeypatch):
     monkeypatch.setattr("comicarr.app.downloads.sabnzbd.time.sleep", lambda _seconds: None)
     monkeypatch.setattr("comicarr.app.downloads.service.time.sleep", lambda _seconds: None)
     monkeypatch.setattr(
-        "comicarr.postprocessor.time", SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _seconds: None)
+        "comicarr.app.downloads.postprocess_match.time",
+        SimpleNamespace(time=lambda: time.time() + 60, sleep=lambda _seconds: None),
     )
     mangadex.clear_cache()
     return SimpleNamespace(

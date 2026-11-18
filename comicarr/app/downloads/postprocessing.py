@@ -82,7 +82,7 @@ def _run_processor(item, *, outside=False):
     outside the folder it was given: the folder is processed again as a
     manual run with no issue identity.
     """
-    from comicarr import postprocessor
+    from comicarr.app.downloads import postprocess_match as postprocessor
     from comicarr.app.downloads.postprocess_pipeline import PostProcessRequest, process_download
 
     if outside:

@@ -35,11 +35,11 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import postprocessor
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, ddl_info, issues, metadata, pipeline_journal
 from comicarr.app.downloads import journal, postprocessing, service
+from comicarr.app.downloads import postprocess_match as postprocessor
 from comicarr.app.downloads.postprocess_pipeline import _JOURNAL, PostProcessRun, process_manga_download
 from tests.conftest import placement_result
 from tests.fakes import folder_request
@@ -526,7 +526,7 @@ def test_manga_pp_writes_processing_moved_processed_in_order(tmp_path, monkeypat
     monkeypatch.setattr(postprocessor, "place", _fake_fileop)
 
     with (
-        patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+        patch("comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")),
         patch.object(PostProcessRun, "journal", _spy),
     ):
         _process_manga(pp)
@@ -560,7 +560,7 @@ def test_manga_pp_failure_path_does_not_write_post_processed(tmp_path, monkeypat
 
     monkeypatch.setattr(postprocessor, "place", _boom_fileop)
 
-    with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
+    with patch("comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")):
         _process_manga(pp)
 
     # No file matched/processed → the per-chapter release_key never reached
@@ -630,7 +630,7 @@ def test_manga_multichapter_shared_key_not_terminalized_midloop(tmp_path, monkey
     monkeypatch.setattr(postprocessor, "place", _fileop)
     assert real_fileop_target.exists()
 
-    with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
+    with patch("comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")):
         with pytest.raises(KeyboardInterrupt):
             _process_manga(pp)
 
@@ -708,7 +708,7 @@ def test_manga_multichapter_per_file_marker_is_post_processing_not_moved(tmp_pat
     monkeypatch.setattr(postprocessor, "place", _fileop)
 
     with (
-        patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+        patch("comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")),
         patch.object(PostProcessRun, "journal", _spy),
     ):
         _process_manga(pp)
@@ -782,7 +782,7 @@ def test_manga_multichapter_replay_redrives_in_full_after_midloop_crash(tmp_path
         return placement_result(d)
 
     monkeypatch.setattr(postprocessor, "place", _crashing_fileop)
-    with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
+    with patch("comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")):
         with pytest.raises(KeyboardInterrupt):
             _process_manga(pp1)
 
@@ -860,7 +860,7 @@ def test_manga_multichapter_terminalizes_once_after_full_loop(tmp_path, monkeypa
 
     monkeypatch.setattr(postprocessor, "place", _fileop)
 
-    with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
+    with patch("comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")):
         _process_manga(pp)
 
     assert _stage_of(rkey) == "post_processed"

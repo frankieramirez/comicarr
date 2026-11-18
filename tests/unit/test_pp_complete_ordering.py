@@ -17,7 +17,7 @@ copy/hardlink/softlink FILE_OPTS modes where the source is never deleted).
 
 ------------------------------------------------------------------------
 ENUMERATED MAP — every destructive op + nzblog-delete + Status-write shape
-on every PP exit path (current comicarr/postprocessor.py; matches U3's
+on every PP exit path (current comicarr/app/downloads/postprocess_match.py; matches U3's
 report of 4 regions / 5 distinct destructive ops). Pinned here so an
 unlisted site or extra move cannot silently retain the C3 bug.
 
@@ -93,10 +93,10 @@ import pytest
 from sqlalchemy import insert, select
 
 import comicarr
-from comicarr import postprocessor
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, issues, metadata, nzblog, pipeline_journal
 from comicarr.app.downloads import journal
+from comicarr.app.downloads import postprocess_match as postprocessor
 from comicarr.app.downloads.postprocess_pipeline import _JOURNAL, process_manga_download
 from tests.conftest import placement_result
 from tests.fakes import folder_request
@@ -238,7 +238,7 @@ def test_characterization_manga_marker_ordering_around_destructive_move(tmp_path
     monkeypatch.setattr(postprocessor, "place", _fake_fileop)
 
     with (
-        patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")),
+        patch("comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")),
         patch.object(journal, "record_transition", side_effect=_spy),
     ):
         _process_manga(pp)
@@ -266,7 +266,7 @@ def test_characterization_manga_failed_move_stays_at_post_processing(tmp_path, m
 
     monkeypatch.setattr(postprocessor, "place", _boom_fileop)
 
-    with patch("comicarr.postprocessor.get_manga_destination", return_value=str(tmp_path / "manga")):
+    with patch("comicarr.app.downloads.postprocess_match.get_manga_destination", return_value=str(tmp_path / "manga")):
         _process_manga(pp)
 
     release_rk = _JOURNAL.release_key(pp.context)

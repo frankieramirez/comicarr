@@ -78,7 +78,7 @@ def _postprocess_uses_manga_branch(row):
         patch.object(comicarr, "APILOCK", mock_apilock),
         patch.object(comicarr, "CONFIG", _config()),
         patch("comicarr.app.downloads.postprocess_pipeline.process_manga_download", return_value=None) as process_manga,
-        patch("comicarr.postprocessor.filechecker") as filechecker,
+        patch("comicarr.app.downloads.postprocess_match.filechecker") as filechecker,
         patch("comicarr.app.downloads.postprocess_pipeline.db") as mock_db,
     ):
         mock_db.select_one.return_value = row

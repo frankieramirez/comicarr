@@ -58,7 +58,7 @@ def folder_run(
 
 def process(nzb_name, nzb_folder, issueid=None, *, comicid=None, apicall=False, ddl=False, journal_release_key=None):
     """Run one request through the real pipeline; return its messages or None."""
-    from comicarr import postprocessor
+    from comicarr.app.downloads import postprocess_match as postprocessor
 
     request = PostProcessRequest(
         nzb_name,

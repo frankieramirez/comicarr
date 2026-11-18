@@ -273,7 +273,7 @@ def test_run_executes_real_legacy_manga_adapter_and_completes(tmp_path, monkeypa
     monkeypatch.setattr(comicarr.CONFIG, "IGNORE_SEARCH_WORDS", [], raising=False)
     monkeypatch.setattr(comicarr.CONFIG, "FILE_OPTS", "move", raising=False)
     monkeypatch.setattr(
-        "comicarr.postprocessor.get_manga_destination",
+        "comicarr.app.downloads.postprocess_match.get_manga_destination",
         lambda: str(manga_root),
     )
     stages = []

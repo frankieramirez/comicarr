@@ -2155,7 +2155,7 @@ def _rename(src, dst):
 def process_download(request: PostProcessRequest, *, match: Callable, deps: PostProcessItemDeps):
     """Run one request; return the messages it posted, or None for none.
 
-    ``match`` is the folder matcher (``comicarr.postprocessor.match_folder``),
+    ``match`` is the folder matcher (``comicarr.app.downloads.postprocess_match.match_folder``),
     passed in by the facade like the other legacy collaborators.
     """
     import comicarr

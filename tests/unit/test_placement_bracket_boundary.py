@@ -25,7 +25,7 @@ PLACEMENT = COMICARR_ROOT / "app" / "common" / "placement.py"
 # Every module permitted to call place(). Adding a module here is a deliberate
 # act: it means someone has decided who writes that call's journal bracket.
 PLACE_CALLERS = {
-    "comicarr/postprocessor.py",
+    "comicarr/app/downloads/postprocess_match.py",
     "comicarr/app/storyarcs/service.py",
     "comicarr/app/imports/finalization.py",
     "comicarr/app/series/location.py",
@@ -75,7 +75,7 @@ def test_post_processor_callers_also_write_the_pre_move_marker():
     The marker is written per release phase rather than per call, so this checks
     co-presence in the module rather than adjacency to any one call.
     """
-    postprocessor = COMICARR_ROOT / "postprocessor.py"
+    postprocessor = COMICARR_ROOT / "app" / "downloads" / "postprocess_match.py"
     source = postprocessor.read_text()
 
     if "placement.place(" not in source and "= place(" not in source:
