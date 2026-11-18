@@ -161,7 +161,7 @@ class SABnzbd(object):
             from requests.packages.urllib3 import disable_warnings
 
             disable_warnings()
-        except:
+        except Exception:
             logger.warn("Unable to disable https warnings. Expect some spam if using https nzb providers.")
 
         files = None

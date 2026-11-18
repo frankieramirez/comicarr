@@ -390,7 +390,7 @@ def release_sab_history(nzo_id, failed):
     if not nzo_id:
         return
     try:
-        from comicarr import sabnzbd
+        from comicarr.app.downloads import sabnzbd
 
         client = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
         client.remove_history(str(nzo_id), "Failed" if failed else "Completed")

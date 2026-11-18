@@ -7,7 +7,7 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-"""comicarr/sabnzbd.py against responses recorded from a real SABnzbd.
+"""comicarr/app/downloads/sabnzbd.py against responses recorded from a real SABnzbd.
 
 Older SABnzbd tests mock the JSON they expect. These run the same calls
 against ``FakeSabnzbd``, whose bodies come from ``tests/fixtures/sabnzbd/``,
@@ -18,8 +18,7 @@ import pytest
 import requests
 
 import comicarr
-from comicarr import sabnzbd
-from comicarr.app.downloads import recovery_classify
+from comicarr.app.downloads import recovery_classify, sabnzbd
 from comicarr.app.system import connections
 from tests.fakes import pipeline
 from tests.fakes import sabnzbd as sab_fake
@@ -43,7 +42,7 @@ def sab(monkeypatch, tmp_path):
         raising=False,
     )
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
-    monkeypatch.setattr("comicarr.sabnzbd.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("comicarr.app.downloads.sabnzbd.time.sleep", lambda _seconds: None)
     fake.nzb = pipeline.cached_nzb(tmp_path)
     return fake
 

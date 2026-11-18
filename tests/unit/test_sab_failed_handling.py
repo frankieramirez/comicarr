@@ -17,11 +17,10 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
-from comicarr import sabnzbd
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import metadata, pipeline_journal
 from comicarr.app.downloads import failed as failed_mod
-from comicarr.app.downloads import journal
+from comicarr.app.downloads import journal, sabnzbd
 from comicarr.app.downloads.service import _cdh_monitor_owned
 
 NZO_ID = "SABnzbd_nzo_x"

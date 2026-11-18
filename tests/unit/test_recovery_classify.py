@@ -55,7 +55,7 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.queuecheck",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.queuecheck",
         lambda self, nzo_id, ignore_category=False: False,
     )
     engine = get_engine()
@@ -389,7 +389,7 @@ def test_sab_real_historycheck_status_true_maps_complete():
         downloader_type="nzb",
         payload={"comicid": "C1", "download_info": {"nzo_id": "nzoX"}},
     )
-    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": True, "failed": False}):
+    with patch("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value={"status": True, "failed": False}):
         assert recovery_classify.classify(row) == recovery_classify.COMPLETE
 
 
@@ -413,7 +413,7 @@ def test_sab_historycheck_keeps_completion_location():
         },
     )
     nzstat = {"status": True, "location": location, "name": nzb_name, "failed": False}
-    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value=nzstat):
+    with patch("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value=nzstat):
         details = recovery_classify.classify_details(row)
         assert recovery_classify.classify(row) == recovery_classify.COMPLETE
     assert details["verdict"] == recovery_classify.COMPLETE
@@ -452,7 +452,7 @@ def test_sab_connection_error_during_historycheck_is_unreachable_not_gone(monkey
         downloader_type="nzb",
         payload={"comicid": "C2", "download_info": {"nzo_id": "nzoY"}},
     )
-    with patch("comicarr.sabnzbd.requests.get", side_effect=requests.ConnectionError("sab down")):
+    with patch("comicarr.app.downloads.sabnzbd.requests.get", side_effect=requests.ConnectionError("sab down")):
         assert recovery_classify.classify(row) == recovery_classify.UNKNOWN
 
 
@@ -468,7 +468,7 @@ def test_sab_real_historycheck_status_false_is_absent_then_gone():
         downloader_type="nzb",
         payload={"comicid": "C2", "download_info": {"nzo_id": "nzoY"}},
     )
-    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": False}):
+    with patch("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value={"status": False}):
         assert recovery_classify.classify(row) == recovery_classify.GONE
 
 
@@ -485,7 +485,7 @@ def test_sab_failed_no_auto_handling_is_not_complete():
         payload={"comicid": "C2", "download_info": {"nzo_id": "nzoFail"}},
     )
     nzstat = {"status": "failed_no_auto_handling", "failed": True, "name": "x"}
-    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value=nzstat):
+    with patch("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value=nzstat):
         details = recovery_classify.classify_details(row)
         assert details["raw_state"] == "failed_no_auto_handling"
         assert details["verdict"] != recovery_classify.COMPLETE
@@ -943,7 +943,7 @@ def _sab_probe_row(issueid="SAB1"):
 )
 def test_sab_historycheck_status_maps_to_raw_state(case_id, nzstat, raw_state, verdict):
     row = _sab_probe_row("map-%s" % case_id)
-    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value=nzstat):
+    with patch("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value=nzstat):
         details = recovery_classify.classify_details(row)
     assert details["raw_state"] == raw_state
     assert details["verdict"] == verdict
@@ -952,8 +952,8 @@ def test_sab_historycheck_status_maps_to_raw_state(case_id, nzstat, raw_state, v
 def test_sab_queue_hit_is_still_without_calling_historycheck():
     row = _sab_probe_row("QSTILL")
     with (
-        patch("comicarr.sabnzbd.SABnzbd.queuecheck", return_value=True),
-        patch("comicarr.sabnzbd.SABnzbd.historycheck") as hist,
+        patch("comicarr.app.downloads.sabnzbd.SABnzbd.queuecheck", return_value=True),
+        patch("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck") as hist,
     ):
         details = recovery_classify.classify_details(row)
         hist.assert_not_called()
@@ -965,8 +965,8 @@ def test_sab_recovery_bypasses_category_filter():
     """Startup recovery must see NZOs that SAB's change_cat moved out of SAB_CATEGORY."""
     row = _sab_probe_row("CATBYPASS")
     with (
-        patch("comicarr.sabnzbd.SABnzbd.queuecheck", return_value=False) as queue,
-        patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": "nzb removed"}) as hist,
+        patch("comicarr.app.downloads.sabnzbd.SABnzbd.queuecheck", return_value=False) as queue,
+        patch("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value={"status": "nzb removed"}) as hist,
     ):
         recovery_classify.classify_details(row)
     assert queue.call_args.kwargs.get("ignore_category") is True
@@ -984,7 +984,7 @@ def test_file_not_found_quarantines_for_manual_review(monkeypatch):
     monkeypatch.setattr(comicarr, "NZB_QUEUE", queue_module.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", queue_module.Queue(), raising=False)
     row = _sab_probe_row("FNFMR")
-    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": "file not found"}):
+    with patch("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value={"status": "file not found"}):
         details = recovery_classify.classify_details(row)
         action = recovery._resolve_row(row)
     assert details["raw_state"] == "unplaced"
@@ -1012,7 +1012,9 @@ def test_failed_no_auto_handling_is_terminal_gone(monkeypatch):
     monkeypatch.setattr(comicarr, "NZB_QUEUE", queue_module.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", queue_module.Queue(), raising=False)
     row = _sab_probe_row("NOAUTO")
-    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": "failed_no_auto_handling"}):
+    with patch(
+        "comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value={"status": "failed_no_auto_handling"}
+    ):
         details = recovery_classify.classify_details(row)
         action = recovery._resolve_row(row)
     assert details["raw_state"] == "failed_no_auto_handling"
@@ -1032,7 +1034,7 @@ def test_nzb_removed_does_not_enqueue_pp(monkeypatch):
     monkeypatch.setattr(comicarr, "NZB_QUEUE", queue_module.Queue(), raising=False)
     monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", queue_module.Queue(), raising=False)
     row = _sab_probe_row("GONEPP")
-    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": "nzb removed"}):
+    with patch("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value={"status": "nzb removed"}):
         details = recovery_classify.classify_details(row)
         action = recovery._resolve_row(row)
     assert details["verdict"] == recovery_classify.GONE
@@ -1051,7 +1053,9 @@ def test_unhandled_repairing_does_not_enqueue_pp(monkeypatch):
     monkeypatch.setattr(comicarr, "NZB_QUEUE", nzb, raising=False)
     monkeypatch.setattr(comicarr, "SNATCHED_QUEUE", queue_module.Queue(), raising=False)
     row = _sab_probe_row("REPAIR")
-    with patch("comicarr.sabnzbd.SABnzbd.historycheck", return_value={"status": "unhandled status of: Repairing"}):
+    with patch(
+        "comicarr.app.downloads.sabnzbd.SABnzbd.historycheck", return_value={"status": "unhandled status of: Repairing"}
+    ):
         details = recovery_classify.classify_details(row)
         action = recovery._resolve_row(row)
     assert details["verdict"] == recovery_classify.STILL

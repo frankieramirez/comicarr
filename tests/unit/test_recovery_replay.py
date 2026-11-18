@@ -61,7 +61,7 @@ def _isolated_db(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.queuecheck",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.queuecheck",
         lambda self, nzo_id, ignore_category=False: False,
     )
     engine = get_engine()
@@ -201,7 +201,7 @@ def test_complete_sab_recovery_keeps_historycheck_folder(queues, tmp_path, monke
         downloader_type="sabnzbd",
     )
 
-    import comicarr.sabnzbd as sabnzbd_mod
+    import comicarr.app.downloads.sabnzbd as sabnzbd_mod
 
     monkeypatch.setattr(sabnzbd_mod.SABnzbd, "historycheck", lambda self, nzbinfo, **k: history)
 
@@ -244,10 +244,10 @@ def test_sab_queue_hit_reenqueues_nzb_monitor(queues, monkeypatch):
         downloader_type="sabnzbd",
     )
     monkeypatch.setattr(
-        "comicarr.sabnzbd.SABnzbd.queuecheck",
+        "comicarr.app.downloads.sabnzbd.SABnzbd.queuecheck",
         lambda self, nzo_id, ignore_category=False: nzo_id == "nzo-still-in-queue",
     )
-    with patch("comicarr.sabnzbd.SABnzbd.historycheck") as hist:
+    with patch("comicarr.app.downloads.sabnzbd.SABnzbd.historycheck") as hist:
         action = recovery._resolve_row(journal.read_one(rkey))
         hist.assert_not_called()
     assert action == "still-reenqueued"

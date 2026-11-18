@@ -19,7 +19,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import comicarr
-from comicarr import sabnzbd
+from comicarr.app.downloads import sabnzbd
 
 
 @pytest.fixture

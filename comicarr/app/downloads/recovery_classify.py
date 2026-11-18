@@ -378,7 +378,7 @@ def _sab_history_or_queue(row, payload=None, keep_history=False):
     nzo_id = _sab_client_id(payload, row)
     names = None
     try:
-        from comicarr import sabnzbd
+        from comicarr.app.downloads import sabnzbd
 
         names = sabnzbd.release_names(payload, di, row)
         s = sabnzbd.SABnzbd({"queue": {"apikey": comicarr.CONFIG.SAB_APIKEY}})
