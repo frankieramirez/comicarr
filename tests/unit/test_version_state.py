@@ -290,7 +290,7 @@ class TestVersionStateHelper:
 
     def test_writes_the_bootstrap_context_before_the_runtime_exists(self, monkeypatch):
         monkeypatch.setattr(runtime, "_runtime", None)
-        monkeypatch.setattr(runtime, "_bootstrap", AppContext())
+        monkeypatch.setattr(runtime, "_bootstrap", runtime.new_bootstrap())
 
         versioncheck._set_version_state(current_version="preboot")
 

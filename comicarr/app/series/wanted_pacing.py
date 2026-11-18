@@ -29,7 +29,6 @@ import time
 
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import rss_search_seen
 from comicarr.app.search.backlog import DEFAULT_ITEM_BUDGET, PASS_RSS_WANTED, _config_int
@@ -58,7 +57,7 @@ def _seen():
 
 
 def _job_next_run(job_id):
-    scheduler = getattr(comicarr, "SCHED", None)
+    scheduler = runtime.current().scheduler
     if scheduler is None:
         return None
     try:

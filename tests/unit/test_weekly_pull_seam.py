@@ -21,7 +21,6 @@ from unittest.mock import MagicMock, call
 import pytest
 from sqlalchemy import insert, select
 
-import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import db, runtime
@@ -251,7 +250,7 @@ def test_run_weekly_refresh_fetches_then_checks_future_releases(monkeypatch):
     monkeypatch.setattr(weeklypullit.pull_list, "pullit", lambda: order.append("pullit") or {"status": "success"})
     monkeypatch.setattr(weeklypullit.pull_list, "future_check", lambda: order.append("future_check"))
     monkeypatch.setattr(runtime.current(), "weekly_status", "Queued")
-    monkeypatch.setattr(comicarr, "AI_CLIENT", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "ai_client", None, raising=False)
 
     assert pull.run_weekly_refresh() is None
 

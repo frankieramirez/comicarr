@@ -13,6 +13,7 @@ import datetime
 from email.utils import format_datetime
 from unittest.mock import MagicMock
 
+from comicarr.app.core import runtime
 from comicarr.app.weekly import locg
 from comicarr.app.weekly import pull_runner as weeklypullit
 
@@ -47,7 +48,7 @@ def test_honor_upstream_retry_moves_next_run_earlier(monkeypatch):
     job = _job_with_next_run(now + datetime.timedelta(hours=6))
     scheduler = MagicMock()
     scheduler.get_job.return_value = job
-    monkeypatch.setattr(weeklypullit, "_get_weekly_runtime_value", lambda *_args: scheduler)
+    monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
 
     weeklypullit._honor_upstream_retry(120)
 
@@ -61,7 +62,7 @@ def test_honor_upstream_retry_never_delays_a_sooner_schedule(monkeypatch):
     job = _job_with_next_run(now + datetime.timedelta(seconds=30))
     scheduler = MagicMock()
     scheduler.get_job.return_value = job
-    monkeypatch.setattr(weeklypullit, "_get_weekly_runtime_value", lambda *_args: scheduler)
+    monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
 
     weeklypullit._honor_upstream_retry(120)
 
@@ -70,7 +71,7 @@ def test_honor_upstream_retry_never_delays_a_sooner_schedule(monkeypatch):
 
 def test_honor_upstream_retry_ignores_bad_or_excessive_hints(monkeypatch):
     scheduler = MagicMock()
-    monkeypatch.setattr(weeklypullit, "_get_weekly_runtime_value", lambda *_args: scheduler)
+    monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
 
     weeklypullit._honor_upstream_retry(None)
     weeklypullit._honor_upstream_retry("soon")

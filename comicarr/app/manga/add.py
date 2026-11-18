@@ -18,7 +18,6 @@ import os
 
 from sqlalchemy import select
 
-import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
@@ -401,7 +400,7 @@ def add_mangadex(mangaid, imported=None, calledfrom=None, location=None):
 
     _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, None, controlValueDict)
 
-    series_service.ComicSort(comicorder=comicarr.COMICSORT, imported=mangaid)
+    series_service.ComicSort(comicorder=runtime.current().comic_sort, imported=mangaid)
 
     logger.info("[MANGADEX] Successfully added manga: %s" % manga_name)
     emit_add_activity("succeeded", mangaid, comicname=manga_name)
@@ -580,7 +579,7 @@ def add_myanimelist(mangaid, imported=None, calledfrom=None, location=None):
     mal_num_chapters = manga.get("last_chapter")
     _populate_manga_chapters(mangaid, manga_name, mangadex_uuid, mal_num_chapters, controlValueDict)
 
-    series_service.ComicSort(comicorder=comicarr.COMICSORT, imported=mangaid)
+    series_service.ComicSort(comicorder=runtime.current().comic_sort, imported=mangaid)
 
     logger.info("[MAL] Successfully added manga: %s" % manga_name)
     emit_add_activity("succeeded", mangaid, comicname=manga_name)

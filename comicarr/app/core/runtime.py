@@ -21,6 +21,7 @@ import threading
 
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.events import EventBus
+from comicarr.app.core.scheduler import build_scheduler
 from comicarr.app.core.security import generate_ephemeral_key, load_or_create_jwt_key
 
 
@@ -32,11 +33,17 @@ _runtime_lock = threading.Lock()
 _runtime = None
 _UNSET = object()
 
+
 # The context that exists before ``create_runtime`` runs. Module-level code,
 # CLI entry points and unit tests read and write runtime state through
 # ``current()`` without waiting for the factory, so a value set during
 # start-up is never lost: the factory carries it over (see MIGRATED_FIELDS).
-_bootstrap = AppContext()
+def new_bootstrap():
+    """Return a fresh pre-factory context with the process's real scheduler."""
+    return AppContext(scheduler=build_scheduler())
+
+
+_bootstrap = new_bootstrap()
 
 # The worker-pool references a shutdown drain joins.
 POOL_FIELDS = (
@@ -107,6 +114,30 @@ MIGRATED_FIELDS = frozenset(
         "update_state",
         "update_reason",
         "update_value",
+        # Scheduler, AI clients, DDL and cache state, import progress and
+        # first-run secrets (#1543).
+        "scheduler",
+        "ai_client",
+        "ai_async_client",
+        "ai_circuit_breaker",
+        "ai_rate_limiter",
+        "comic_sort",
+        "publisher_imprints",
+        "ddl_queued",
+        "ddl_stuck_notified",
+        "pack_issueids_dont_queue",
+        "folder_cache",
+        "check_folder_cache",
+        "import_status",
+        "import_files",
+        "import_totalfiles",
+        "import_cid_count",
+        "import_parsed_count",
+        "import_failure_count",
+        "import_lock",
+        "import_button",
+        "sse_key",
+        "setup_token",
         # Configuration (#1542).
         "config",
         # Metadata and provider sessions (#1541).
@@ -127,28 +158,6 @@ MIGRATED_FIELDS = frozenset(
 
 
 _CONTEXT_TO_LEGACY = {
-    "scheduler": "SCHED",
-    "ai_client": "AI_CLIENT",
-    "ai_async_client": "AI_ASYNC_CLIENT",
-    "ai_circuit_breaker": "AI_CIRCUIT_BREAKER",
-    "ai_rate_limiter": "AI_RATE_LIMITER",
-    "comic_sort": "COMICSORT",
-    "publisher_imprints": "PUBLISHER_IMPRINTS",
-    "ddl_queued": "DDL_QUEUED",
-    "ddl_stuck_notified": "DDL_STUCK_NOTIFIED",
-    "pack_issueids_dont_queue": "PACK_ISSUEIDS_DONT_QUEUE",
-    "folder_cache": "FOLDER_CACHE",
-    "check_folder_cache": "CHECK_FOLDER_CACHE",
-    "import_status": "IMPORT_STATUS",
-    "import_files": "IMPORT_FILES",
-    "import_totalfiles": "IMPORT_TOTALFILES",
-    "import_cid_count": "IMPORT_CID_COUNT",
-    "import_parsed_count": "IMPORT_PARSED_COUNT",
-    "import_failure_count": "IMPORT_FAILURE_COUNT",
-    "import_lock": "IMPORTLOCK",
-    "import_button": "IMPORTBUTTON",
-    "sse_key": "SSE_KEY",
-    "setup_token": "SETUP_TOKEN",
     "signal": "SIGNAL",
     "started": "started",
     "start_up": "START_UP",
@@ -177,19 +186,7 @@ def _adopt_legacy_runtime():
     """Build context kwargs from existing process objects, preserving identity."""
     import comicarr
 
-    return {
-        field: _legacy_value(comicarr, field)
-        for field in _CONTEXT_TO_LEGACY
-        if field not in MIGRATED_FIELDS
-        and field
-        not in {
-            "sse_key",
-            "ai_client",
-            "ai_async_client",
-            "ai_circuit_breaker",
-            "ai_rate_limiter",
-        }
-    }
+    return {field: _legacy_value(comicarr, field) for field in _CONTEXT_TO_LEGACY if field not in MIGRATED_FIELDS}
 
 
 def _initialize_ai_clients(ctx):
@@ -247,8 +244,6 @@ def create_runtime():
         if _runtime is not None:
             return _runtime
 
-        import comicarr
-
         if _bootstrap.config is None:
             raise RuntimeNotInitializedError(
                 "Runtime context cannot be created before configuration, schema, and secret initialization"
@@ -258,7 +253,7 @@ def create_runtime():
         for field in MIGRATED_FIELDS:
             kwargs[field] = getattr(_bootstrap, field)
         ctx = AppContext(**kwargs)
-        ctx.sse_key = getattr(comicarr, "SSE_KEY", None) or generate_ephemeral_key()
+        ctx.sse_key = ctx.sse_key or generate_ephemeral_key()
         ctx.event_bus = EventBus()
 
         secure_dir = getattr(ctx.config, "SECURE_DIR", None)

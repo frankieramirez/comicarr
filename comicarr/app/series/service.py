@@ -1521,9 +1521,9 @@ def ComicSort(comicorder=None, sequence=None, imported=None):
         comicorder = {}
         comicidlist = []
         if sequence == "update":
-            comicarr.COMICSORT["SortOrder"] = None
-            comicarr.COMICSORT["LastOrderNo"] = None
-            comicarr.COMICSORT["LastOrderID"] = None
+            runtime.current().comic_sort["SortOrder"] = None
+            runtime.current().comic_sort["LastOrderNo"] = None
+            runtime.current().comic_sort["LastOrderID"] = None
         for csort in comicsort:
             if csort["ComicID"] is None:
                 pass
@@ -1554,18 +1554,20 @@ def ComicSort(comicorder=None, sequence=None, imported=None):
             logger.info("Sucessfully ordered " + str(i - 1) + " series in your watchlist.")
             return comicorder
         elif sequence == "update":
-            comicarr.COMICSORT["SortOrder"] = comicorderlist
+            runtime.current().comic_sort["SortOrder"] = comicorderlist
             if i == 0:
                 placemnt = 1
             else:
                 placemnt = int(i - 1)
             try:
-                comicarr.COMICSORT["LastOrderNo"] = placemnt
-                comicarr.COMICSORT["LastOrderID"] = comicarr.COMICSORT["SortOrder"][placemnt]["ComicID"]
+                runtime.current().comic_sort["LastOrderNo"] = placemnt
+                runtime.current().comic_sort["LastOrderID"] = runtime.current().comic_sort["SortOrder"][placemnt][
+                    "ComicID"
+                ]
             except Exception:
                 comicorder["SortOrder"] = {"ComicID": "99999", "ComicOrder": 1}
-                comicarr.COMICSORT["LastOrderNo"] = 1
-                comicarr.COMICSORT["LastOrderID"] = 99999
+                runtime.current().comic_sort["LastOrderNo"] = 1
+                runtime.current().comic_sort["LastOrderID"] = 99999
             return
     else:
         sortedapp = []
@@ -1574,9 +1576,9 @@ def ComicSort(comicorder=None, sequence=None, imported=None):
         else:
             lastorderval = 999
         sortedapp.append({"ComicID": imported, "ComicOrder": lastorderval})
-        comicarr.COMICSORT["SortOrder"] = sortedapp
-        comicarr.COMICSORT["LastOrderNo"] = lastorderval
-        comicarr.COMICSORT["LastOrderID"] = imported
+        runtime.current().comic_sort["SortOrder"] = sortedapp
+        runtime.current().comic_sort["LastOrderNo"] = lastorderval
+        runtime.current().comic_sort["LastOrderID"] = imported
         return
 
 

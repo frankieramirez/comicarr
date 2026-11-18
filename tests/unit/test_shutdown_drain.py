@@ -23,7 +23,7 @@ pre-collapse topology was:
                  if not comicarr.SIGNAL: SIGNAL='shutdown'
             -> uvicorn.run() returns
             -> main thread (Comicarr.py:574-579) -> comicarr.shutdown()
-                 -> halt(): SCHED.shutdown(wait=False)
+                 -> halt(): scheduler.shutdown(wait=False)
                             queue_schedule('all','shutdown')
                               -> per pool: queue.put('exit'); pool.join(5)
                               -> except AssertionError: os._exit(0)  (LANDMINE)
@@ -236,7 +236,7 @@ class TestCharacterization:
             body = body[1:]
         code_only = "\n".join(ast.unparse(n) for n in body)
         assert "queue_schedule" not in code_only, "halt() must not drive queue_schedule"
-        assert "SCHED.shutdown" not in code_only, "halt() must not shut the scheduler"
+        assert "scheduler.shutdown" not in code_only, "halt() must not shut the scheduler"
 
     def test_shutdown_keeps_terminal_branch(self):
         src = inspect.getsource(comicarr.shutdown)

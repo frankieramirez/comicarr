@@ -784,9 +784,9 @@ def apply_verdict(row, verdict, conn=None):
     ddl_id = di.get("id") or row.get("ddl_id")
     if ddl_id is not None:
         try:
-            comicarr.DDL_STUCK_NOTIFIED.add(ddl_id)
+            runtime.current().ddl_stuck_notified.add(ddl_id)
         except Exception as e:
-            logger.warn("[RECOVERY-CLASSIFY] could not reconcile DDL_STUCK_NOTIFIED for %s: %s" % (ddl_id, e))
+            logger.warn("[RECOVERY-CLASSIFY] could not reconcile ddl_stuck_notified for %s: %s" % (ddl_id, e))
         try:
             if conn is not None:
                 db.upsert_conn(conn, "ddl_info", {"status": "Failed"}, {"ID": ddl_id})

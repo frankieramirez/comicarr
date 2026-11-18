@@ -610,7 +610,7 @@ def pullit(forcecheck=None, weeknumber=None, year=None):
     if runtime.current().config.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
         pullitcheck(forcecheck=forcecheck)
 
-    if comicarr.AI_CLIENT is not None:
+    if runtime.current().ai_client is not None:
         try:
             from comicarr.app.ai.pull_list import generate_suggestions
 

@@ -214,7 +214,7 @@ def test_refresh_replay_preserves_weekly_mode_arguments(monkeypatch, acquisition
 def test_import_lock_requeues_refresh_before_durable_claim(monkeypatch, acquisition_ledger):
     refresh_queue = queue.Queue()
     monkeypatch.setattr(runtime.current(), "refresh_queue", refresh_queue)
-    monkeypatch.setattr(comicarr, "IMPORTLOCK", True)
+    monkeypatch.setattr(runtime.current(), "import_lock", True)
     monkeypatch.setattr(watchlist_refresh.time, "sleep", lambda _seconds: None)
     add_workers.queue_refreshes(
         [{"comicid": "160294", "comicname": "Absolute Batman", "seriesyear": "2024"}],
@@ -241,7 +241,7 @@ def test_import_lock_requeues_refresh_before_durable_claim(monkeypatch, acquisit
 def test_durable_refresh_failure_does_not_kill_following_item(monkeypatch, acquisition_ledger):
     refresh_queue = queue.Queue()
     monkeypatch.setattr(runtime.current(), "refresh_queue", refresh_queue)
-    monkeypatch.setattr(comicarr, "IMPORTLOCK", False)
+    monkeypatch.setattr(runtime.current(), "import_lock", False)
     monkeypatch.setattr(watchlist_refresh.time, "sleep", lambda _seconds: None)
     update = MagicMock(side_effect=[RuntimeError("metadata provider failed"), None])
     monkeypatch.setattr(watchlist_refresh, "refresh_series_list", update)

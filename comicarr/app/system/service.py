@@ -2309,7 +2309,7 @@ def job_management(
             },
         }
 
-    for jb in comicarr.SCHED.get_jobs():
+    for jb in runtime.current().scheduler.get_jobs():
         jobinfo = str(jb)
         jobname = jobinfo[: jobinfo.find("(") - 1].strip()
         jobstatus = jobinfo[jobinfo.find("],") + 2 : len(jobinfo) - 1].strip()
@@ -2483,7 +2483,7 @@ def job_management(
                     jobstore = None
                     nextrun_stamp = None
                     nextrun_date = None
-                    for jbst in comicarr.SCHED.get_jobs():
+                    for jbst in runtime.current().scheduler.get_jobs():
                         jb = str(jbst)
                         if "Status Updater" in jb.lower():
                             continue
@@ -2505,7 +2505,7 @@ def job_management(
                                         int(runtime.current().config.DBUPDATE_INTERVAL) * 60
                                     )
                             else:
-                                comicarr.SCHED.pause_job("dbupdater")
+                                runtime.current().scheduler.pause_job("dbupdater")
                             jobstore = jbst
                             break
                         elif job == "Auto-Search" and "search" in jb.lower():
@@ -2523,7 +2523,7 @@ def job_management(
                                     s_interval = runtime.current().config.SEARCH_INTERVAL * 60
                                 nextrun_stamp = utctimestamp() + s_interval
                             else:
-                                comicarr.SCHED.pause_job("search")
+                                runtime.current().scheduler.pause_job("search")
                             jobstore = jbst
                             break
                         elif job == "RSS Feeds" and "rss" in jb.lower():
@@ -2534,7 +2534,7 @@ def job_management(
                             if runtime.current().rss_status != "Paused":
                                 nextrun_stamp = utctimestamp() + (int(runtime.current().config.RSS_CHECKINTERVAL) * 60)
                             else:
-                                comicarr.SCHED.pause_job("rss")
+                                runtime.current().scheduler.pause_job("rss")
                             runtime.current().sched_rss_last = last_run_completed
                             jobstore = jbst
                             break
@@ -2548,7 +2548,7 @@ def job_management(
                                 if nextrun_date is not None:
                                     nextrun_stamp = nextrun_date.timestamp()
                             else:
-                                comicarr.SCHED.pause_job("weekly")
+                                runtime.current().scheduler.pause_job("weekly")
                             runtime.current().sched_weekly_last = last_run_completed
                             jobstore = jbst
                             break
@@ -2560,7 +2560,7 @@ def job_management(
                             if runtime.current().version_status != "Paused":
                                 nextrun_stamp = utctimestamp() + (runtime.current().config.CHECK_GITHUB_INTERVAL * 60)
                             else:
-                                comicarr.SCHED.pause_job("version")
+                                runtime.current().scheduler.pause_job("version")
                             jobstore = jbst
                             break
                         elif job == "Folder Monitor" and "monitor" in jb.lower():
@@ -2573,7 +2573,7 @@ def job_management(
                                     int(runtime.current().config.DOWNLOAD_SCAN_INTERVAL) * 60
                                 )
                             else:
-                                comicarr.SCHED.pause_job("monitor")
+                                runtime.current().scheduler.pause_job("monitor")
                             jobstore = jbst
                             break
 

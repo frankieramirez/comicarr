@@ -43,7 +43,6 @@ import comicarr
 from alembic import command
 from comicarr.app.config import ini as config_module
 from comicarr.app.core import db, runtime
-from comicarr.app.core.context import AppContext
 from comicarr.app.core.schema import (
     DatabaseState,
     alembic_config,
@@ -270,7 +269,7 @@ class Install:
         # Lifespan shutdown puts "exit" on every worker queue the runtime
         # carries over, so give the row a fresh bootstrap context.
         monkeypatch.setattr(runtime, "_runtime", None)
-        monkeypatch.setattr(runtime, "_bootstrap", AppContext())
+        monkeypatch.setattr(runtime, "_bootstrap", runtime.new_bootstrap())
         monkeypatch.setattr(runtime.current(), "data_dir", str(self.data_dir), raising=False)
         monkeypatch.setattr(runtime.current(), "prog_dir", str(tmp_path), raising=False)
         monkeypatch.setattr(runtime.current(), "config", None, raising=False)

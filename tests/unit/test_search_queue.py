@@ -73,8 +73,8 @@ class _OpenMaintenance:
 def _configure_worker(monkeypatch):
     provider_search = MagicMock()
     monkeypatch.setattr(runtime.current(), "search_lock", threading.Lock())
-    monkeypatch.setattr(comicarr, "PACK_ISSUEIDS_DONT_QUEUE", {})
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", [])
+    monkeypatch.setattr(runtime.current(), "pack_issueids_dont_queue", {})
+    monkeypatch.setattr(runtime.current(), "ddl_queued", [])
     monkeypatch.setattr(runtime.current(), "pp_queue", queue.Queue())
     monkeypatch.setattr(service, "filers", SimpleNamespace(FileHandlers=lambda **_kwargs: _FileCheck()))
     monkeypatch.setattr(comicarr.app.search, "engine", SimpleNamespace(searchforissue=provider_search))

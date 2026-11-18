@@ -56,7 +56,7 @@ def _isolated_db(tmp_path, monkeypatch):
         ),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", set(), raising=False)
+    monkeypatch.setattr(runtime.current(), "ddl_stuck_notified", set(), raising=False)
     monkeypatch.setattr(comicarr, "ACQUISITION_WORKERS_BLOCKED", False, raising=False)
     monkeypatch.setattr(comicarr, "ACQUISITION_BLOCK_REASON", None, raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)

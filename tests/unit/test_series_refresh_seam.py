@@ -50,7 +50,7 @@ def engine(monkeypatch):
     eng = create_engine("sqlite://")
     metadata.create_all(eng)
     monkeypatch.setattr(comicarr.app.core.db, "get_engine", lambda: eng)
-    monkeypatch.setattr(comicarr, "IMPORTLOCK", False, raising=False)
+    monkeypatch.setattr(runtime.current(), "import_lock", False, raising=False)
     monkeypatch.setattr(runtime.current(), "config", _config(), raising=False)
     return eng
 
@@ -205,7 +205,7 @@ def test_manga_refresh_goes_through_manga_importer_and_rescans(engine, fakes):
 
 def test_refresh_is_skipped_while_an_import_holds_the_lock(engine, fakes, monkeypatch):
     _insert_comic(engine)
-    monkeypatch.setattr(comicarr, "IMPORTLOCK", True)
+    monkeypatch.setattr(runtime.current(), "import_lock", True)
 
     series_refresh.refresh_series_metadata(["100"], calledfrom="dupechk")
 

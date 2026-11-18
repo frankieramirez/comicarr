@@ -397,25 +397,25 @@ class FileHandlers(object):
         logger.info("checking locally...")
         filelist = None
 
-        logger.info("check_folder_cache: %s" % (comicarr.CHECK_FOLDER_CACHE))
-        if comicarr.CHECK_FOLDER_CACHE is not None:
-            rd = comicarr.CHECK_FOLDER_CACHE
+        logger.info("check_folder_cache: %s" % (runtime.current().check_folder_cache))
+        if runtime.current().check_folder_cache is not None:
+            rd = runtime.current().check_folder_cache
             rd_mins = rd + datetime.timedelta(seconds=600)
             rd_now = datetime.datetime.utcfromtimestamp(time.time())
             if calendar.timegm(rd_mins.utctimetuple()) > calendar.timegm(rd_now.utctimetuple()):
                 logger.info("using cached folder listing since < 10 minutes since last file check.")
-                filelist = comicarr.FOLDER_CACHE
+                filelist = runtime.current().folder_cache
 
         if filelist is None:
             logger.info("generating new directory listing for folder_cache")
             flc = filechecker.FileChecker(folder_location, justparse=True, pp_mode=True)
-            comicarr.FOLDER_CACHE = flc.listFiles()
-            comicarr.CHECK_FOLDER_CACHE = datetime.datetime.utcfromtimestamp(common_dates.utctimestamp())
+            runtime.current().folder_cache = flc.listFiles()
+            runtime.current().check_folder_cache = datetime.datetime.utcfromtimestamp(common_dates.utctimestamp())
 
         local_status = False
         filepath = None
         filename = None
-        for fl in comicarr.FOLDER_CACHE["comiclist"]:
+        for fl in runtime.current().folder_cache["comiclist"]:
             logger.info("fl: %s" % (fl,))
             if self.arc is not None:
                 comicname = self.arc["ComicName"]

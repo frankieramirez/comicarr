@@ -1327,7 +1327,7 @@ def get_imprint_volume_and_booktype(
 
     if series is True:
         try:
-            for k, v in comicarr.PUBLISHER_IMPRINTS.items():
+            for k, v in runtime.current().publisher_imprints.items():
                 if k == "publishers":
                     for b in v:
                         for d, e in b.items():

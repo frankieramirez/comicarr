@@ -23,7 +23,6 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy import create_engine, select
 
-import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.core import db, runtime
@@ -44,7 +43,7 @@ def library(tmp_path, monkeypatch):
     engine = create_engine("sqlite:///%s" % (tmp_path / "library.db"))
     metadata.create_all(engine)
     monkeypatch.setattr(db, "get_engine", lambda: engine)
-    monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "comic_sort", None, raising=False)
     monkeypatch.setattr(
         runtime.current(),
         "config",

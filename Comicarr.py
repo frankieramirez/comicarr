@@ -549,8 +549,8 @@ def main():
 
         from comicarr.app.system import service as system_service
 
-        comicarr.SETUP_TOKEN = secrets.token_urlsafe(32)
-        system_service.announce_setup_token(comicarr.SETUP_TOKEN)
+        runtime.current().setup_token = secrets.token_urlsafe(32)
+        system_service.announce_setup_token(runtime.current().setup_token)
 
     # check for version here after web server initialized so it doesn't try to repeatidly hit github
     # for version info if it's already running

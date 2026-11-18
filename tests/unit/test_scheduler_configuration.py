@@ -57,7 +57,7 @@ class _FakeScheduler:
 def test_add_recurring_job_sets_single_instance_options(monkeypatch):
     scheduler = _FakeScheduler()
     job_func = object()
-    monkeypatch.setattr(comicarr, "SCHED", scheduler)
+    monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
 
     result = comicarr._add_recurring_job(func=job_func, id="example")
 
@@ -88,7 +88,12 @@ def test_listed_recurring_jobs_use_recurring_helper():
             continue
         if not isinstance(node.func, ast.Attribute) or node.func.attr != "add_job":
             continue
-        if not isinstance(node.func.value, ast.Name) or node.func.value.id != "SCHED":
+        receiver = node.func.value
+        # The scheduler is reached as runtime.current().scheduler or a local `scheduler`.
+        if not (
+            (isinstance(receiver, ast.Attribute) and receiver.attr == "scheduler")
+            or (isinstance(receiver, ast.Name) and receiver.id == "scheduler")
+        ):
             continue
 
         has_interval_trigger = False

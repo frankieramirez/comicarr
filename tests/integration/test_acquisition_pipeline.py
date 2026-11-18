@@ -1061,7 +1061,7 @@ def recorded(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
     monkeypatch.setattr(runtime.current(), "nzb_queue", queue.Queue(), raising=False)
     monkeypatch.setattr(runtime.current(), "return_nzb_queue", queue.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "COMICSORT", series_service.ComicSort(sequence="startup"), raising=False)
+    monkeypatch.setattr(runtime.current(), "comic_sort", series_service.ComicSort(sequence="startup"), raising=False)
     monkeypatch.setattr("comicarr.app.manga.mangadex._rate_limit", lambda: None)
     monkeypatch.setattr("comicarr.app.manga.myanimelist._rate_limit", lambda: None)
     monkeypatch.setattr("comicarr.app.downloads.sabnzbd.time.sleep", lambda _seconds: None)

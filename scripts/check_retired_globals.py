@@ -148,6 +148,30 @@ _RUNTIME_FIELD_GROUPS = {
         "BACKENDSTATUS_CV",
         "BACKENDSTATUS_WS",
     ),
+    "scheduler, AI clients, DDL and cache state and import progress (#1543)": (
+        "SCHED",
+        "AI_CLIENT",
+        "AI_ASYNC_CLIENT",
+        "AI_CIRCUIT_BREAKER",
+        "AI_RATE_LIMITER",
+        "COMICSORT",
+        "PUBLISHER_IMPRINTS",
+        "DDL_QUEUED",
+        "DDL_STUCK_NOTIFIED",
+        "PACK_ISSUEIDS_DONT_QUEUE",
+        "FOLDER_CACHE",
+        "CHECK_FOLDER_CACHE",
+        "IMPORT_STATUS",
+        "IMPORT_FILES",
+        "IMPORT_TOTALFILES",
+        "IMPORT_CID_COUNT",
+        "IMPORT_PARSED_COUNT",
+        "IMPORT_FAILURE_COUNT",
+        "IMPORTLOCK",
+        "IMPORTBUTTON",
+        "SSE_KEY",
+        "SETUP_TOKEN",
+    ),
 }
 
 # Retired names whose context field is not simply the lowercased name.
@@ -165,6 +189,10 @@ _FIELD_RENAMES = {
     "CVURL": "cv_url",
     "BACKENDSTATUS_CV": "backend_status_cv",
     "BACKENDSTATUS_WS": "backend_status_ws",
+    "SCHED": "scheduler",
+    "COMICSORT": "comic_sort",
+    "IMPORTLOCK": "import_lock",
+    "IMPORTBUTTON": "import_button",
 }
 
 for _group, _names in _RUNTIME_FIELD_GROUPS.items():

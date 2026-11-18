@@ -99,11 +99,6 @@ def _legacy_runtime_objects(monkeypatch):
     mass_add_pool.is_alive.return_value = False
 
     values = {
-        "SCHED": scheduler,
-        "DDL_QUEUED": ddl_queued,
-        "PUBLISHER_IMPRINTS": {},
-        "DDL_STUCK_NOTIFIED": set(),
-        "PACK_ISSUEIDS_DONT_QUEUE": {},
         "ACQUISITION_SCHEMA_READY": True,
         "ACQUISITION_SCHEMA_VERSION": 1,
         "ACQUISITION_SCHEMA_ERROR": None,
@@ -117,6 +112,8 @@ def _legacy_runtime_objects(monkeypatch):
         "_bootstrap",
         AppContext(
             config=config,
+            scheduler=scheduler,
+            ddl_queued=ddl_queued,
             search_queue=search_queue,
             ddl_queue=ddl_queue,
             search_lock=search_lock,
@@ -163,7 +160,7 @@ def test_runtime_factory_is_single_shot_and_adopts_identity_sensitive_objects(_l
     assert first.acquisition_workers_blocked is False
 
     first.ddl_queued.add("issue-42")
-    assert "issue-42" in comicarr.DDL_QUEUED
+    assert "issue-42" in runtime.current().ddl_queued
     assert runtime.get_runtime() is first
 
 
@@ -195,10 +192,10 @@ def test_runtime_factory_owns_and_projects_one_ai_client_bundle(_legacy_runtime_
     create_clients.assert_called_once_with(config)
     assert ctx.ai_client is sync_client
     assert ctx.ai_async_client is async_client
-    assert comicarr.AI_CLIENT is sync_client
-    assert comicarr.AI_ASYNC_CLIENT is async_client
-    assert comicarr.AI_CIRCUIT_BREAKER is ctx.ai_circuit_breaker
-    assert comicarr.AI_RATE_LIMITER is ctx.ai_rate_limiter
+    assert runtime.current().ai_client is sync_client
+    assert runtime.current().ai_async_client is async_client
+    assert runtime.current().ai_circuit_breaker is ctx.ai_circuit_breaker
+    assert runtime.current().ai_rate_limiter is ctx.ai_rate_limiter
 
 
 def test_runtime_access_fails_closed_before_initialization():
@@ -263,7 +260,7 @@ def test_migrated_fields_have_no_legacy_projection():
 def test_worker_bootstrap_refuses_to_start_before_a_runtime_exists(monkeypatch):
     """A missing context is rejected before scheduler/worker bootstrap can run."""
     scheduler = MagicMock(name="scheduler")
-    monkeypatch.setattr(comicarr, "SCHED", scheduler)
+    monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
     monkeypatch.setattr(comicarr, "_INITIALIZED", True)
 
     with pytest.raises(RuntimeNotInitializedError, match="before an active runtime"):
@@ -295,7 +292,7 @@ async def test_lifespan_attaches_the_factory_runtime_instance(_legacy_runtime_ob
     await cm.__aenter__()
     try:
         assert app.state.ctx is ctx
-        assert app.state.ctx.ddl_queued is comicarr.DDL_QUEUED
+        assert app.state.ctx.ddl_queued is runtime.current().ddl_queued
         assert get_runtime() is ctx
     finally:
         await cm.__aexit__(None, None, None)

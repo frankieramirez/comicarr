@@ -21,7 +21,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import comicarr
 from comicarr.app.core import runtime
 
 
@@ -113,7 +112,7 @@ class TestAddComictoDBResolution:
             patch("comicarr.app.series.comic_add.db") as mock_db,
             patch("comicarr.app.series.comic_add.series_service"),
             patch("comicarr.app.series.comic_add.cv") as mock_cv,
-            patch.object(comicarr, "COMICSORT", {}, create=True),
+            patch.object(runtime.current(), "comic_sort", {}, create=True),
             patch.object(runtime.current(), "config", MagicMock(IMP_PATHS=False)),
         ):
             conn = mock_db.get_engine.return_value.connect.return_value.__enter__.return_value

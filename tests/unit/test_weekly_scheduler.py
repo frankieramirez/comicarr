@@ -8,7 +8,6 @@ import pytest
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext
@@ -50,7 +49,7 @@ def test_recommendations_run_after_weekly_lock_and_status_are_released(monkeypat
     monkeypatch.setattr(common_dates, "utctimestamp", lambda: 123.0)
     monkeypatch.setattr(weeklypullit.pull_list, "pullit", MagicMock(return_value={"status": "success"}))
     monkeypatch.setattr(weeklypullit.pull_list, "future_check", MagicMock())
-    monkeypatch.setattr(comicarr, "AI_CLIENT", object())
+    monkeypatch.setattr(runtime.current(), "ai_client", object())
     monkeypatch.setattr(runtime.current(), "weekly_status", "Queued")
     monkeypatch.setattr(weeklypullit, "_recommendation_active", False)
     monkeypatch.setattr(weeklypullit, "_recommendation_pending", False)
@@ -91,7 +90,7 @@ def test_recommendation_refreshes_coalesce_while_worker_is_busy(monkeypatch):
     generation_started = threading.Event()
     release_generation = threading.Event()
     calls = []
-    monkeypatch.setattr(comicarr, "AI_CLIENT", object())
+    monkeypatch.setattr(runtime.current(), "ai_client", object())
     monkeypatch.setattr(weeklypullit, "_recommendation_active", False)
     monkeypatch.setattr(weeklypullit, "_recommendation_pending", False)
     monkeypatch.setattr(
@@ -202,12 +201,8 @@ def _scheduler_job(monkeypatch, hours_ahead=4):
     scheduler = MagicMock()
     scheduler.get_job.return_value = job
 
-    def runtime_value(field, _legacy):
-        if field == "scheduler":
-            return scheduler
-        return None
-
-    monkeypatch.setattr(weeklypullit, "_get_weekly_runtime_value", runtime_value)
+    monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
+    monkeypatch.setattr(runtime.current(), "ai_client", None)
     monkeypatch.setattr(system_service, "job_management", MagicMock())
     monkeypatch.setattr(common_dates, "utctimestamp", lambda: 456.0)
     monkeypatch.setattr(weeklypullit.pull_list, "future_check", MagicMock())
@@ -333,7 +328,7 @@ def test_manual_run_restores_the_original_future_schedule(monkeypatch):
     job = MagicMock()
     scheduler = MagicMock()
     scheduler.get_job.return_value = job
-    monkeypatch.setattr(comicarr, "SCHED", scheduler)
+    monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
     monkeypatch.setattr(runtime.current(), "weekly_manual_next_run", scheduled_run)
 
     weeklypullit._restore_manual_next_run()
@@ -355,7 +350,7 @@ def test_manual_refresh_restores_a_real_interval_trigger_schedule(monkeypatch):
     ctx = AppContext(scheduler=scheduler, weekly_status="Waiting")
     monkeypatch.setattr(runtime, "_runtime", ctx)
     monkeypatch.setattr(system_service.db, "upsert", MagicMock())
-    monkeypatch.setattr(comicarr, "SCHED", scheduler)
+    monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
 
     result = system_service.request_weekly_refresh(ctx)
     weeklypullit._restore_manual_next_run()

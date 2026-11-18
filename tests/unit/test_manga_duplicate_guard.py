@@ -15,7 +15,6 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy import create_engine, select
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, metadata
 from comicarr.app.manga import add as manga_add
@@ -36,7 +35,7 @@ def manga_db(monkeypatch, tmp_path):
     metadata.create_all(engine)
     monkeypatch.setattr(db, "get_engine", lambda: engine)
     monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
-    monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "comic_sort", None, raising=False)
     monkeypatch.setattr(
         runtime.current(),
         "config",

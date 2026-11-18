@@ -138,7 +138,7 @@ def test_runtime_resume_replays_obligations_starts_queues_and_resumes_jobs(monke
     scheduler = FakeScheduler()
     queues = []
     monkeypatch.setattr(comicarr, "ACQUISITION_SCHEMA_READY", True)
-    monkeypatch.setattr(comicarr, "SCHED", scheduler)
+    monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
     monkeypatch.setattr(comicarr, "replay_acquisition_obligations", lambda: {"search": 2, "refresh": 1})
     monkeypatch.setattr(comicarr, "queue_schedule", lambda queue_name, mode: queues.append((queue_name, mode)))
     for name in (
@@ -188,7 +188,7 @@ def test_snatched_queue_starts_for_every_client_the_searcher_enqueues(monkeypatc
     queues = []
     monkeypatch.setattr(comicarr, "ACQUISITION_SCHEMA_READY", True)
     monkeypatch.setattr(comicarr, "OS_DETECT", "Linux")
-    monkeypatch.setattr(comicarr, "SCHED", SimpleNamespace(get_job=lambda _job_id: None))
+    monkeypatch.setattr(runtime.current(), "scheduler", SimpleNamespace(get_job=lambda _job_id: None))
     monkeypatch.setattr(comicarr, "replay_acquisition_obligations", lambda: {"search": 0, "refresh": 0})
     monkeypatch.setattr(comicarr, "queue_schedule", lambda queue_name, mode: queues.append(queue_name))
 

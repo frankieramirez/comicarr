@@ -277,7 +277,7 @@ def add_comic(
     db.upsert("comics", newValueDict, controlValueDict)
 
     if all([pullupd is None, calledfrom != "maintenance"]):
-        series_service.ComicSort(comicorder=comicarr.COMICSORT, imported=comicid)
+        series_service.ComicSort(comicorder=runtime.current().comic_sort, imported=comicid)
 
     comic = cv.getComic(comicid, "comic", series=True)
 
