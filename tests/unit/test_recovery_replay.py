@@ -549,7 +549,7 @@ def test_failed_no_auto_handling_closes_journal_not_pp(queues):
     """SAB failed_no_auto_handling must close the journal on restart recovery.
     Mapping it as complete would enqueue PP; leaving it unmapped keeps the row
     open forever."""
-    from comicarr import failed as failed_mod
+    from comicarr.app.downloads import failed as failed_mod
 
     rkey = journal.release_key("30fail", "nzb.su", nzbname="C.cbz")
     _insert_journal(

@@ -16,6 +16,7 @@ import requests
 import comicarr
 from comicarr import sabnzbd
 from comicarr.app.core import logger
+from comicarr.app.downloads import failed as failed_mod
 from comicarr.app.downloads import postprocessing
 from comicarr.app.search import commands
 from comicarr.app.system import maintenance
@@ -45,7 +46,7 @@ def test_failed_download_retry_uses_durable_search_command(monkeypatch, annchk, 
             self.queue.put([failure])
 
     monkeypatch.setattr(comicarr, "CONFIG", SimpleNamespace(FAILED_DOWNLOAD_HANDLING=True), raising=False)
-    monkeypatch.setattr(comicarr, "failed", SimpleNamespace(FailedProcessor=FakeFailedProcessor), raising=False)
+    monkeypatch.setattr(failed_mod, "FailedProcessor", FakeFailedProcessor)
     monkeypatch.setattr(
         comicarr,
         "webserve",

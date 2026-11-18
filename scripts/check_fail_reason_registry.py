@@ -36,7 +36,7 @@ REASONS_PATH = ROOT / "comicarr" / "app" / "attention" / "_policy.py"
 # are out of scope for the gate.
 SCAN_GLOBS = (
     "comicarr/app/**/*.py",
-    "comicarr/failed.py",
+    "comicarr/app/downloads/failed.py",
 )
 
 SKIP_DIR_NAMES = {"_vendor", "__pycache__", ".venv", "node_modules"}
@@ -52,7 +52,7 @@ PASS_THROUGH_WRITERS = frozenset(
     {
         ("comicarr/app/attention/_recording.py", "record"),
         ("comicarr/app/attention/_recording.py", "_record_on_connection"),
-        ("comicarr/failed.py", "terminalize_failed_download"),
+        ("comicarr/app/downloads/failed.py", "terminalize_failed_download"),
         ("comicarr/app/downloads/postprocessing.py", "_quarantine"),
     }
 )

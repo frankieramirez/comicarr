@@ -426,7 +426,7 @@ def _nzb_name(row, payload):
 
 def terminalize_failed_completion(row, payload, details):
     """SAB failed the job and failed-download handling is off: close the row."""
-    from comicarr import failed as failed_mod
+    from comicarr.app.downloads import failed as failed_mod
 
     failed_mod.terminalize_failed_download(
         row.get("release_key"),

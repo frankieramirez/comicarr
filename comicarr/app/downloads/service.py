@@ -2081,7 +2081,7 @@ def _cdh_job_identity(item, nzstat):
 
 def _cdh_resolve_release_key(item, nzstat):
     """Prefer a propagated journal key; else derive the same way 1047 / Process do."""
-    from comicarr import failed as failed_mod
+    from comicarr.app.downloads import failed as failed_mod
 
     ident = _cdh_job_identity(item, nzstat)
     return failed_mod.resolve_failed_release_key(
@@ -2112,7 +2112,7 @@ def _cdh_terminalize_no_auto_handling(item, nzstat, known_nzb_id):
     ``failed.terminalize_failed_download`` so merge order 1030 → 1047 → 1025
     keeps a single journal transition.
     """
-    from comicarr import failed as failed_mod
+    from comicarr.app.downloads import failed as failed_mod
 
     ident = _cdh_job_identity(item, nzstat)
     rkey = _cdh_resolve_release_key(item, nzstat)
@@ -2149,7 +2149,7 @@ def run_failed_processor(item):
     """Hand a failed download to ``FailedProcessor`` and return its message, or None."""
     import queue
 
-    from comicarr import failed as failed_mod
+    from comicarr.app.downloads import failed as failed_mod
 
     info = item["download_info"]
     messages = queue.Queue()
@@ -2174,7 +2174,7 @@ def terminalize_unhandled_failed_download(item):
     ``download_info`` and the issue identity. Returns the fail reason written,
     or None when no release key resolves.
     """
-    from comicarr import failed as failed_mod
+    from comicarr.app.downloads import failed as failed_mod
 
     info = item.get("download_info") if isinstance(item.get("download_info"), dict) else {}
     issueid = item.get("issueid") or info.get("issueid")

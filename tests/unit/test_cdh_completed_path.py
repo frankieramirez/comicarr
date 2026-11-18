@@ -17,12 +17,12 @@ from unittest.mock import MagicMock
 
 import comicarr
 from comicarr.app.attention import ManualReview
+from comicarr.app.downloads.failed import FAIL_REASON_NO_AUTO_HANDLING
 from comicarr.app.downloads.service import (
     _cdh_monitor_owned,
     check_file_condition,
     resolve_completed_download_file,
 )
-from comicarr.failed import FAIL_REASON_NO_AUTO_HANDLING
 
 
 def _write_zip(path, payload=b"page"):
@@ -173,7 +173,7 @@ def test_cdh_monitor_owned_failed_in_sab_retries_when_handling_on(monkeypatch):
         lambda entry, **kwargs: recorded.append(entry),
     )
     monkeypatch.setattr(
-        "comicarr.failed.terminalize_failed_download",
+        "comicarr.app.downloads.failed.terminalize_failed_download",
         lambda *a, **k: terminalized.append((a, k)) or True,
     )
     monkeypatch.setattr(comicarr, "PP_QUEUE", fake_pp, raising=False)
@@ -210,7 +210,7 @@ def test_cdh_monitor_owned_failed_in_sab_terminalizes_when_handling_off(monkeypa
         lambda entry, **kwargs: recorded.append(entry),
     )
     monkeypatch.setattr(
-        "comicarr.failed.terminalize_failed_download",
+        "comicarr.app.downloads.failed.terminalize_failed_download",
         lambda rkey, reason, **kwargs: terminalized.append({"rkey": rkey, "reason": reason}) or True,
     )
     monkeypatch.setattr(
@@ -233,7 +233,7 @@ def test_cdh_monitor_owned_failed_in_sab_terminalizes_when_handling_off(monkeypa
 def test_cdh_monitor_owned_failed_no_auto_handling_uses_shared_helper(monkeypatch):
     terminalized = []
     monkeypatch.setattr(
-        "comicarr.failed.terminalize_failed_download",
+        "comicarr.app.downloads.failed.terminalize_failed_download",
         lambda rkey, reason, **kwargs: terminalized.append({"rkey": rkey, "reason": reason}) or True,
     )
     monkeypatch.setattr(

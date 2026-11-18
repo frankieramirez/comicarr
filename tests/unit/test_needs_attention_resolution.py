@@ -1182,7 +1182,7 @@ def test_reason_to_stage_is_a_function():
             "reason",
         ),
         (
-            "comicarr/failed.py",
+            "comicarr/app/downloads/failed.py",
             "terminalize_failed_download",
             "Failure",
             journal.FAILED,
