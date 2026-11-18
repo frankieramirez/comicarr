@@ -1173,9 +1173,54 @@ function seriesDetail(id: string) {
   const cover = COVERS.find((c) => c.id === coverId);
   if (!cover) return null;
   const issues = issuesFor(id);
+  const missing = cover.total - cover.have;
+  // Manga: most of what is held sits inside volume files, ten chapters each.
+  const inVolumes =
+    cover.kind === "manga" ? Math.floor(cover.have / 10) * 10 : 0;
+  const files = cover.have - inVolumes;
+  const segments = [
+    { kind: "volume", from: "1", to: String(inVolumes), count: inVolumes },
+    {
+      kind: "chapter",
+      from: String(inVolumes + 1),
+      to: String(cover.have),
+      count: files,
+    },
+    {
+      kind: "wanted",
+      from: String(cover.have + 1),
+      to: String(cover.total),
+      count: missing,
+    },
+  ].filter((segment) => segment.count > 0);
   return {
     comic: coverToComic(cover),
     issues,
+    summary: {
+      total: cover.total,
+      issues: cover.total,
+      annuals: 0,
+      owned: files,
+      covered: inVolumes,
+      inFlight: 0,
+      missing,
+      wantedMissing: missing,
+      notWanted: 0,
+    },
+    manga:
+      cover.kind === "manga"
+        ? {
+            volumes: [],
+            progress: {
+              volumesTotal: Math.ceil(cover.total / 10),
+              volumesOwned: inVolumes / 10,
+              volumesEstimated: 0,
+              chaptersOwned: files,
+              chaptersGap: 0,
+              segments,
+            },
+          }
+        : null,
   };
 }
 

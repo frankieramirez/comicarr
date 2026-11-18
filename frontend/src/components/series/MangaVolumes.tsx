@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/toast";
 import { useSetMangaVolumeEnd } from "@/hooks/useSeries";
 import { formatNumber } from "@/lib/intl";
 import { SEGMENTED_GROUP, SEGMENTED_ITEM } from "@/lib/segmented";
+import { cn } from "@/lib/utils";
 import type { MangaCoverageKind, MangaProgress, MangaVolume } from "@/types";
 
 /**
@@ -54,6 +55,40 @@ function segmentRange(from: string, to: string): string {
   return from === to ? t`ch ${from}` : t`ch ${from}–${to}`;
 }
 
+/** The coverage bar on its own: one segment per run of chapters. */
+export function MangaCoverageStrip({
+  progress,
+  className,
+  label,
+}: {
+  progress: MangaProgress;
+  className?: string;
+  label: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex overflow-hidden rounded-full bg-surface-3",
+        className,
+      )}
+      role="img"
+      aria-label={label}
+    >
+      {progress.segments.map((segment) => (
+        <div
+          key={`${segment.kind}-${segment.from}`}
+          title={`${kindLabel(segment.kind)}: ${segmentRange(segment.from, segment.to)}`}
+          style={{
+            flexGrow: segment.count,
+            background: KIND_COLOR[segment.kind],
+            opacity: KIND_OPACITY[segment.kind],
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function MangaCoverageBar({ progress }: { progress: MangaProgress }) {
   const segments = progress.segments;
   const kinds = Array.from(new Set(segments.map((segment) => segment.kind)));
@@ -89,23 +124,11 @@ export function MangaCoverageBar({ progress }: { progress: MangaProgress }) {
           />
         )}
       </dl>
-      <div
-        className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-surface-3"
-        role="img"
-        aria-label={summary}
-      >
-        {segments.map((segment) => (
-          <div
-            key={`${segment.kind}-${segment.from}`}
-            title={`${kindLabel(segment.kind)}: ${segmentRange(segment.from, segment.to)}`}
-            style={{
-              flexGrow: segment.count,
-              background: KIND_COLOR[segment.kind],
-              opacity: KIND_OPACITY[segment.kind],
-            }}
-          />
-        ))}
-      </div>
+      <MangaCoverageStrip
+        progress={progress}
+        className="mt-3 h-2.5"
+        label={summary}
+      />
       <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
         {order
           .filter((kind) => kinds.includes(kind))

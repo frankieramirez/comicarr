@@ -4,6 +4,8 @@ import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
 import { act, render, screen } from "../test-utils";
 import SeriesTable from "@/components/series/SeriesTable";
 import type { Comic } from "@/types";
+import { http, HttpResponse } from "msw";
+import { server } from "../mocks/server";
 
 function series(count: number): Comic[] {
   return Array.from({ length: count }, (_, index) => {
@@ -88,6 +90,72 @@ describe("SeriesTable", () => {
     expect(
       screen.getByRole("img", { name: "One Piece" }).getAttribute("src"),
     ).not.toContain("uploads.mangadex.org");
+  });
+
+  it("opens the chapter and volume breakdown from the Have count", async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, "", "/library");
+    server.use(
+      http.get("/api/series/md-1", () =>
+        HttpResponse.json({
+          comic: [],
+          issues: [],
+          summary: { owned: 27, covered: 190, wantedMissing: 3 },
+          manga: {
+            volumes: [],
+            progress: {
+              volumesTotal: 22,
+              volumesOwned: 20,
+              volumesEstimated: 0,
+              chaptersOwned: 27,
+              chaptersGap: 0,
+              segments: [],
+            },
+          },
+        }),
+      ),
+    );
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable
+          data={[
+            {
+              ComicID: "md-1",
+              ComicName: "Berserk",
+              Status: "Active",
+              Have: 217,
+              Total: 220,
+              ContentType: "manga",
+            } as Comic,
+          ]}
+        />
+      </NuqsAdapter>,
+    );
+
+    // A click (or a tap) opens it, and does not follow the row to the series.
+    await user.click(
+      screen.getByRole("button", { name: "What you have of Berserk" }),
+    );
+
+    const breakdown = await screen.findByTestId("have-breakdown");
+    expect(await screen.findByText("20 of 22")).toBeTruthy();
+    expect(breakdown.textContent).toContain("Chapters inside those volumes190");
+    expect(breakdown.textContent).toContain("Chapter files27");
+    expect(window.location.pathname).toBe("/library");
+  });
+
+  it("leaves a comic's Have count as plain text", () => {
+    window.history.pushState({}, "", "/library");
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={series(1)} />
+      </NuqsAdapter>,
+    );
+
+    expect(screen.getByText("Series 1")).toBeTruthy();
+    expect(screen.queryByTestId("have-breakdown-trigger")).toBeNull();
   });
 
   it("shows the next page when pagination advances", async () => {

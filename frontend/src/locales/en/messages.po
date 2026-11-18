@@ -1115,7 +1115,12 @@ msgstr "{totalIssues, plural, one {These series will be added to your library, a
 msgid "{totalTokens, plural, one {# token} other {# tokens}}"
 msgstr "{totalTokens, plural, one {# token} other {# tokens}}"
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "{volumesOwned} of {volumesTotal}"
+msgstr "{volumesOwned} of {volumesTotal}"
+
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 msgid "{volumesOwned} of {volumesTotal} volumes, {chapterFiles} chapter files"
 msgstr "{volumesOwned} of {volumesTotal} volumes, {chapterFiles} chapter files"
 
@@ -2303,6 +2308,7 @@ msgid "chapter files"
 msgstr "chapter files"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 msgid "Chapter files"
 msgstr "Chapter files"
 
@@ -2317,6 +2323,10 @@ msgstr "Chapters"
 #: src/lib/importUtils.ts
 msgid "Chapters {first}-{last}"
 msgstr "Chapters {first}-{last}"
+
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "Chapters inside those volumes"
+msgstr "Chapters inside those volumes"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Chapters only"
@@ -3479,6 +3489,7 @@ msgid "downloader unreachable"
 msgstr "downloader unreachable"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/lib/releaseState.ts
 msgid "Downloading"
 msgstr "Downloading"
@@ -5029,6 +5040,10 @@ msgstr "last sync {when}"
 msgid "Last week"
 msgstr "Last week"
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "Latest release"
+msgstr "Latest release"
+
 #: src/pages/SearchPage.tsx
 msgid "Latest Upload"
 msgstr "Latest Upload"
@@ -5665,6 +5680,7 @@ msgid "missing before your latest chapter"
 msgstr "missing before your latest chapter"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 msgid "Missing before your latest chapter"
 msgstr "Missing before your latest chapter"
 
@@ -9060,6 +9076,10 @@ msgstr "the archive wouldn't open"
 msgid "The best guess scored {best}%, under your {confidence_bar}% auto-import bar."
 msgstr "The best guess scored {best}%, under your {confidence_bar}% auto-import bar."
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "The breakdown could not be loaded."
+msgstr "The breakdown could not be loaded."
+
 #: src/components/releases/pullAttempts.ts
 msgid "The built-in release calendar could not be reached. It needs no setup, and Comicarr tries it again on the next refresh."
 msgstr "The built-in release calendar could not be reached. It needs no setup, and Comicarr tries it again on the next refresh."
@@ -9970,6 +9990,7 @@ msgstr "Volume"
 msgid "volumes"
 msgstr "volumes"
 
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Volumes"
 msgstr "Volumes"
@@ -10026,6 +10047,7 @@ msgstr "wanted"
 #: src/components/releases/IndustryReleasesView.tsx
 #: src/components/series/IssueStatusMenu.tsx
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/components/storyarcs/ArcIssueRow.tsx
 #: src/lib/statusTone.ts
 #: src/pages/SeriesDetailPage.tsx
@@ -10102,6 +10124,10 @@ msgstr "What happened"
 #: src/components/ai/ChatExamplePrompts.tsx
 msgid "What landed in the last seven days?"
 msgstr "What landed in the last seven days?"
+
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "What you have of {name}"
+msgstr "What you have of {name}"
 
 #: src/components/layout/VersionChip.tsx
 #: src/components/settings/AboutTab.tsx

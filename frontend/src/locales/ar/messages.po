@@ -1116,7 +1116,12 @@ msgstr "{totalIssues, plural, one {ستُضاف هذه السلاسل إلى م�
 msgid "{totalTokens, plural, one {# token} other {# tokens}}"
 msgstr "{totalTokens, plural, one {رمز واحد} two {رمزان} few {# رموز} many {# رمزًا} other {# رمز}}"
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "{volumesOwned} of {volumesTotal}"
+msgstr "{volumesOwned} من {volumesTotal}"
+
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 msgid "{volumesOwned} of {volumesTotal} volumes, {chapterFiles} chapter files"
 msgstr "{volumesOwned} من {volumesTotal} مجلدًا، {chapterFiles} من ملفات الفصول"
 
@@ -2304,6 +2309,7 @@ msgid "chapter files"
 msgstr "ملفات الفصول"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 msgid "Chapter files"
 msgstr "ملفات الفصول"
 
@@ -2318,6 +2324,10 @@ msgstr "الفصول"
 #: src/lib/importUtils.ts
 msgid "Chapters {first}-{last}"
 msgstr "الفصول {first}-{last}"
+
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "Chapters inside those volumes"
+msgstr "الفصول داخل هذه المجلدات"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Chapters only"
@@ -3480,6 +3490,7 @@ msgid "downloader unreachable"
 msgstr "تعذّر الوصول إلى أداة التنزيل"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/lib/releaseState.ts
 msgid "Downloading"
 msgstr "جارٍ التنزيل"
@@ -5030,6 +5041,10 @@ msgstr "آخر مزامنة {when}"
 msgid "Last week"
 msgstr "الأسبوع الماضي"
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "Latest release"
+msgstr "أحدث إصدار"
+
 #: src/pages/SearchPage.tsx
 msgid "Latest Upload"
 msgstr "أحدث رفع"
@@ -5666,6 +5681,7 @@ msgid "missing before your latest chapter"
 msgstr "ناقصة قبل أحدث فصل لديك"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 msgid "Missing before your latest chapter"
 msgstr "ناقصة قبل أحدث فصل لديك"
 
@@ -9061,6 +9077,10 @@ msgstr "تعذّر فتح الأرشيف"
 msgid "The best guess scored {best}%, under your {confidence_bar}% auto-import bar."
 msgstr "حصل أفضل تخمين على {best}%، وهو أقل من حد الاستيراد التلقائي لديك البالغ {confidence_bar}%."
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "The breakdown could not be loaded."
+msgstr "تعذّر تحميل التفاصيل."
+
 #: src/components/releases/pullAttempts.ts
 msgid "The built-in release calendar could not be reached. It needs no setup, and Comicarr tries it again on the next refresh."
 msgstr "تعذّر الوصول إلى تقويم الإصدارات المدمج. لا يحتاج إلى إعداد، وسيعيد Comicarr المحاولة عند التحديث التالي."
@@ -9971,6 +9991,7 @@ msgstr "المجلد"
 msgid "volumes"
 msgstr "المجلدات"
 
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Volumes"
 msgstr "المجلدات"
@@ -10027,6 +10048,7 @@ msgstr "مطلوب"
 #: src/components/releases/IndustryReleasesView.tsx
 #: src/components/series/IssueStatusMenu.tsx
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/components/storyarcs/ArcIssueRow.tsx
 #: src/lib/statusTone.ts
 #: src/pages/SeriesDetailPage.tsx
@@ -10103,6 +10125,10 @@ msgstr "ما الذي حدث"
 #: src/components/ai/ChatExamplePrompts.tsx
 msgid "What landed in the last seven days?"
 msgstr "ما الذي وصل في الأيام السبعة الأخيرة؟"
+
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "What you have of {name}"
+msgstr "ما لديك من {name}"
 
 #: src/components/layout/VersionChip.tsx
 #: src/components/settings/AboutTab.tsx

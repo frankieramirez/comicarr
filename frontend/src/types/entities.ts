@@ -137,6 +137,8 @@ export interface SeriesIssueSummary {
   issues?: number;
   annuals?: number;
   owned?: number;
+  /** Manga: chapters with no file of their own, held inside an owned volume. */
+  covered?: number;
   physicalOwned?: number;
   archived?: number;
   inFlight?: number;
