@@ -14,9 +14,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
-from comicarr import weeklypull
 from comicarr.app.common import configured as configured
 from comicarr.app.weekly import cv_source
+from comicarr.app.weekly import pull_list as weeklypull
 
 WALKSOFTLY_DOWN = {
     "status": "failure",

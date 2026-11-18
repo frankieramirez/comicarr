@@ -44,7 +44,7 @@ from dataclasses import dataclass
 from sqlalchemy import Integer, and_, func, inspect, or_, select
 
 import comicarr
-from comicarr import filechecker, weeklypull
+from comicarr import filechecker
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
@@ -67,6 +67,7 @@ from comicarr.app.downloads.postprocess_pipeline import PostProcessItemDeps
 from comicarr.app.library import getimage
 from comicarr.app.manga.ledger import normalize_volume_number
 from comicarr.app.series import folder_rescan, watchlist_refresh
+from comicarr.app.weekly import pull_list as weeklypull
 
 
 def format_scan_summary(filename, candidate_count, selected_items, annual_count, story_arc):

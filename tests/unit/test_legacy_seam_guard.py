@@ -44,6 +44,9 @@ def _tree(guard, monkeypatch, tmp_path, files, foundations=None, router=None, de
         path.write_text(source, encoding="utf-8")
 
     monkeypatch.setattr(guard, "ROOT", tmp_path)
+    # The fake tree keeps weeklypull as a Foundations module with its old seam, so
+    # these tests do not depend on which real modules are still at the root.
+    monkeypatch.setattr(guard, "SEAMS", {**guard.SEAMS, "weeklypull": frozenset({"comicarr/app/weekly/pull.py"})})
     monkeypatch.setattr(guard, "FOUNDATIONS_ALLOWLIST", foundations or {})
     monkeypatch.setattr(guard, "ROUTER_ALLOWLIST", router or {})
     monkeypatch.setattr(guard, "DEFERRED_ALLOWLIST", deferred or {})

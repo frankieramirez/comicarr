@@ -9,7 +9,7 @@
 
 """Seam for the legacy weekly pull list (ADR-0005, #1203).
 
-``comicarr/app/`` reaches ``weeklypull`` only through
+``comicarr/app/`` reaches ``pull_list`` only through
 these functions. Each one delegates to the legacy body unchanged; the bodies
 move behind this module later, one stage at a time.
 """
@@ -40,23 +40,23 @@ def fetch_pull_list(
     ``retry_after``, ``origin_error``, ``cause`` and ``source``; other sources
     return ``None``.
     """
-    from comicarr import weeklypull
+    from comicarr.app.weekly import pull_list
 
-    return weeklypull.pullit(forcecheck=forcecheck, weeknumber=weeknumber, year=year)
+    return pull_list.pullit(forcecheck=forcecheck, weeknumber=weeknumber, year=year)
 
 
 def match_pull_list(weeknumber: int | str, year: int | str) -> None:
     """Match one stored pull-list week against the library, marking issues Wanted."""
-    from comicarr import weeklypull
+    from comicarr.app.weekly import pull_list
 
-    weeklypull.new_pullcheck(weeknumber, year)
+    pull_list.new_pullcheck(weeknumber, year)
 
 
 def check_future_releases() -> None:
     """Look up new series on the future pull list and add the auto-watched ones."""
-    from comicarr import weeklypull
+    from comicarr.app.weekly import pull_list
 
-    weeklypull.future_check()
+    pull_list.future_check()
 
 
 def match_new_series(comic_name: str, comic_id: str, issue: str | None = None) -> None:
@@ -67,12 +67,12 @@ def match_new_series(comic_name: str, comic_id: str, issue: str | None = None) -
     it matches the current week.
     """
     import comicarr
-    from comicarr import weeklypull
+    from comicarr.app.weekly import pull_list
 
     if comicarr.CONFIG.ALT_PULL != 2 or comicarr.PULLBYFILE is True:
-        weeklypull.pullitcheck(comic1off_name=comic_name, comic1off_id=comic_id, issue=issue)
+        pull_list.pullitcheck(comic1off_name=comic_name, comic1off_id=comic_id, issue=issue)
     else:
-        weeklypull.new_pullcheck(
+        pull_list.new_pullcheck(
             weeknumber=comicarr.CURRENT_WEEKNUMBER,
             pullyear=comicarr.CURRENT_YEAR,
             comic1off_name=comic_name,

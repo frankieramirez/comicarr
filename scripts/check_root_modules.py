@@ -60,7 +60,6 @@ ROOT_MODULES: dict[str, int] = {
     "rsscheckit": 1421,
     "sabnzbd": 1422,
     "search": 1422,
-    "weeklypull": 1421,
 }
 
 # Directory under comicarr/ other than app/ -> retiring issue.

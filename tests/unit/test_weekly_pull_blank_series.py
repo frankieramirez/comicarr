@@ -22,12 +22,12 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import weeklypull
 from comicarr.app.common import configured as configured
 from comicarr.app.core import db
 from comicarr.app.core.tables import comics, metadata, weekly
 from comicarr.app.search import service as search_service
 from comicarr.app.series import service as series_service
+from comicarr.app.weekly import pull_list as weeklypull
 
 
 @pytest.fixture
