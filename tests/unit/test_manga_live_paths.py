@@ -86,7 +86,7 @@ def test_arm_manga_sync_job_modifies_next_run_unless_paused():
 def test_init_arms_manga_sync_after_pause():
     tree = ast.parse(_INIT_PATH.read_text(encoding="utf-8"))
     source = _INIT_PATH.read_text(encoding="utf-8")
-    assert "MANGA_SYNC_SCHEDULER.pause()" in source
+    assert "manga_sync_job.pause()" in source
     assert "arm_manga_sync_job" in source
     helper_ids = set()
     for node in ast.walk(tree):
