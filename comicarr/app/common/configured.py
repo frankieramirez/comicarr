@@ -21,7 +21,7 @@ from comicarr.app.common.filesystem import checkFolder as _checkFolder_impl
 from comicarr.app.common.numbers import issuedigits as _issuedigits_impl
 from comicarr.app.common.utilities import crc as _crc_impl
 from comicarr.app.common.utilities import log_that_exception as _log_that_exception_impl
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 
 
 def issuedigits(issnum):
@@ -40,7 +40,7 @@ def weekly_info(week=None, year=None, current=None):
         weekfolder_loc=comicarr.CONFIG.WEEKFOLDER_LOC,
         destination_dir=comicarr.CONFIG.DESTINATION_DIR,
         weekfolder_format=comicarr.CONFIG.WEEKFOLDER_FORMAT,
-        sched_weekly_last=comicarr.SCHED_WEEKLY_LAST,
+        sched_weekly_last=runtime.current().sched_weekly_last,
     )
 
 

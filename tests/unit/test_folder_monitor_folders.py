@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.downloads import postprocessing, pp_commands
 from comicarr.app.downloads.folder_monitor import FolderCheck
 
@@ -55,7 +56,7 @@ def test_extras_are_post_processing_roots(tmp_path):
 @pytest.fixture
 def monitor(monkeypatch):
     monkeypatch.setattr(comicarr, "IMPORTLOCK", False)
-    monkeypatch.setattr(comicarr, "MONITOR_STATUS", "Waiting")
+    monkeypatch.setattr(runtime.current(), "monitor_status", "Waiting")
     updates = []
     monkeypatch.setattr("comicarr.app.system.service.job_management", lambda **kw: updates.append(kw))
     calls = []
@@ -108,4 +109,4 @@ def test_busy_processing_stops_the_pass_and_defers(tmp_path, monkeypatch, monito
 
     assert result == {"status": "IN PROGRESS"}
     assert [call["nzb_folder"] for call in monitor.calls] == [str(main)]
-    assert comicarr.MONITOR_STATUS == "Waiting"
+    assert runtime.current().monitor_status == "Waiting"

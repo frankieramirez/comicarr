@@ -38,6 +38,7 @@ from comicarr.app.config.ini import (
     clamp_scheduler_intervals,
 )
 from comicarr.app.config.registry import REGISTRY
+from comicarr.app.core import runtime
 from comicarr.app.system import service as system_service
 
 
@@ -266,7 +267,7 @@ class TestReconfigureSchedulers:
         """job_management() derives comicarr.<JOB>_STATUS from the live scheduler, so
         once it runs, a job we parked is indistinguishable from an operator-paused one
         by status alone. Remembering who parked it is what makes the recovery work."""
-        monkeypatch.setattr(comicarr, "MONITOR_STATUS", "Paused")
+        monkeypatch.setattr(runtime.current(), "monitor_status", "Paused")
         scheduler = _scheduler_with_jobs(monitor=_now() + datetime.timedelta(minutes=30))
 
         system_service._reconfigure_schedulers(_ctx(scheduler, DOWNLOAD_SCAN_INTERVAL=0))

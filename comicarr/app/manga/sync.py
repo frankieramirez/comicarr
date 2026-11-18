@@ -17,7 +17,7 @@ legacy ``md-``/``mal-`` rows stay in sync. Does not invent live NAS counts.
 from sqlalchemy import func, or_, select
 
 from comicarr.app.common.series_kind import manga_sql_clause
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import comics as t_comics
 from comicarr.app.core.tables import issues as t_issues
 
@@ -104,11 +104,10 @@ def heal_empty_ledgers():
 
 def run_manga_sync():
     """Scheduled: heal empty ledgers, poll MangaDex, then search wanted."""
-    import comicarr
     from comicarr.app.common.dates import utctimestamp
     from comicarr.app.search.rss import check_manga_releases, check_mangadex_new_chapters
 
-    comicarr.SCHED_MANGA_SYNC_LAST = utctimestamp()
+    runtime.current().sched_manga_sync_last = utctimestamp()
     healed = heal_empty_ledgers()
     check_mangadex_new_chapters()
     check_manga_releases()

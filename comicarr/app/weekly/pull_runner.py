@@ -23,7 +23,7 @@ import threading
 
 import comicarr
 from comicarr.app.common import dates as common_dates
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.system import service as system_service
 from comicarr.app.weekly import pull_list
@@ -45,21 +45,11 @@ def _get_weekly_runtime_value(context_field, legacy_name):
     return getattr(comicarr, legacy_name)
 
 
-def _set_weekly_runtime_value(context_field, legacy_name, value):
-    """Write weekly state once and project the same value to legacy callers."""
-    ctx = _weekly_runtime_context()
-    if ctx is not None:
-        from comicarr.app.core.runtime import set_runtime_field
-
-        return set_runtime_field(ctx, context_field, value)
-    setattr(comicarr, legacy_name, value)
-    return value
-
-
 def _restore_manual_next_run():
     """Restore the recurring schedule displaced by an immediate manual run."""
-    scheduled_run = _get_weekly_runtime_value("weekly_manual_next_run", "WEEKLY_MANUAL_NEXT_RUN")
-    _set_weekly_runtime_value("weekly_manual_next_run", "WEEKLY_MANUAL_NEXT_RUN", None)
+    ctx = runtime.current()
+    scheduled_run = ctx.weekly_manual_next_run
+    ctx.weekly_manual_next_run = None
     if not isinstance(scheduled_run, datetime.datetime):
         return
 
@@ -180,7 +170,7 @@ class Weekly:
             system_service.job_management(
                 write=True, job="Weekly Pullist", current_run=common_dates.utctimestamp(), status="Running"
             )
-            _set_weekly_runtime_value("weekly_status", "WEEKLY_STATUS", "Running")
+            runtime.current().weekly_status = "Running"
             retry_hint = None
             pull_result = None
             try:
@@ -203,7 +193,7 @@ class Weekly:
                     failure=True,
                     failure_message=e,
                 )
-                _set_weekly_runtime_value("weekly_status", "WEEKLY_STATUS", "Error")
+                runtime.current().weekly_status = "Error"
                 raise
 
             _restore_manual_next_run()
@@ -212,6 +202,6 @@ class Weekly:
             system_service.job_management(
                 write=True, job="Weekly Pullist", last_run_completed=common_dates.utctimestamp(), status="Waiting"
             )
-            _set_weekly_runtime_value("weekly_status", "WEEKLY_STATUS", "Waiting")
+            runtime.current().weekly_status = "Waiting"
 
         _queue_recommendations_after_pull()

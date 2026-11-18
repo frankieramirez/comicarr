@@ -17,6 +17,7 @@ import pytest
 
 import comicarr
 from comicarr.app.common import dates as common_dates
+from comicarr.app.core import runtime
 
 # Ensure LOG_LEVEL is set for tests (logger.info checks LOG_LEVEL > 0)
 if comicarr.LOG_LEVEL is None:
@@ -869,7 +870,9 @@ class TestConfigService:
         ctx = _make_test_ctx()
         assert system_service.check_indexer_connection(ctx, {"type": "x"})["error"] == "Invalid provider type"
         assert (
-            system_service.check_indexer_connection(ctx, {"type": "torznab", "host": "ftp://x", "api_key": "k"})["error"]
+            system_service.check_indexer_connection(ctx, {"type": "torznab", "host": "ftp://x", "api_key": "k"})[
+                "error"
+            ]
             == "Indexer URL must be a valid HTTP or HTTPS URL"
         )
 
@@ -1460,8 +1463,7 @@ class TestConfigService:
         job.next_run_time = datetime.datetime(2026, 7, 12, 0, 0, 0)
         ctx.scheduler.get_job.return_value = job
         ctx.weekly_status = "Waiting"
-        monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Waiting")
-        monkeypatch.setattr(comicarr, "WEEKLY_MANUAL_NEXT_RUN", None)
+        monkeypatch.setattr(runtime, "_runtime", ctx)
 
         with patch.object(system_service.db, "upsert") as upsert:
             result = system_service.request_weekly_refresh(ctx)
@@ -1472,7 +1474,7 @@ class TestConfigService:
         upsert.assert_called_once_with("jobhistory", {"status": "Queued"}, {"JobName": "Weekly Pullist"})
         assert ctx.weekly_manual_next_run == job.next_run_time
         assert ctx.weekly_status == "Queued"
-        assert comicarr.WEEKLY_MANUAL_NEXT_RUN == job.next_run_time
+        assert runtime.current().weekly_manual_next_run == job.next_run_time
 
     def test_weekly_refresh_coalesces_an_already_queued_request(self, monkeypatch):
         """Repeated clicks leave one scheduled run in place."""
@@ -1481,7 +1483,7 @@ class TestConfigService:
         job.next_run_time = "2026-07-12T00:00:00Z"
         ctx.scheduler.get_job.return_value = job
         ctx.weekly_status = "Queued"
-        monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Queued")
+        monkeypatch.setattr(runtime.current(), "weekly_status", "Queued")
 
         result = system_service.request_weekly_refresh(ctx)
 
@@ -1499,7 +1501,7 @@ class TestConfigService:
         job.next_run_time = "2026-07-12T00:00:00Z"
         ctx.scheduler.get_job.return_value = job
         ctx.weekly_status = "Running"
-        monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Running")
+        monkeypatch.setattr(runtime.current(), "weekly_status", "Running")
 
         result = system_service.request_weekly_refresh(ctx)
 
@@ -1527,9 +1529,9 @@ class TestConfigService:
         scheduler = MagicMock()
         scheduler.get_jobs.return_value = [job]
         monkeypatch.setattr(comicarr, "SCHED", scheduler)
-        monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Waiting")
-        monkeypatch.setattr(comicarr, "SCHED_WEEKLY_LAST", None)
-        monkeypatch.setattr(comicarr, "FORCE_STATUS", {})
+        monkeypatch.setattr(runtime.current(), "weekly_status", "Waiting")
+        monkeypatch.setattr(runtime.current(), "sched_weekly_last", None)
+        monkeypatch.setattr(runtime.current(), "force_status", {})
 
         with patch.object(system_service.db, "upsert") as upsert:
             system_service.job_management(
@@ -1554,9 +1556,9 @@ class TestConfigService:
         scheduler = MagicMock()
         scheduler.get_jobs.return_value = [job]
         monkeypatch.setattr(comicarr, "SCHED", scheduler)
-        monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Waiting")
-        monkeypatch.setattr(comicarr, "SCHED_WEEKLY_LAST", None)
-        monkeypatch.setattr(comicarr, "FORCE_STATUS", {})
+        monkeypatch.setattr(runtime.current(), "weekly_status", "Waiting")
+        monkeypatch.setattr(runtime.current(), "sched_weekly_last", None)
+        monkeypatch.setattr(runtime.current(), "force_status", {})
         monkeypatch.setattr(
             common_dates,
             "utc_date_to_local",
@@ -1580,8 +1582,8 @@ class TestConfigService:
 
     def test_startup_recovers_an_interrupted_weekly_refresh(self, monkeypatch):
         """A persisted Running state becomes safe-to-schedule after a restart."""
-        monkeypatch.setattr(comicarr, "SCHED_WEEKLY_LAST", None)
-        monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Waiting")
+        monkeypatch.setattr(runtime.current(), "sched_weekly_last", None)
+        monkeypatch.setattr(runtime.current(), "weekly_status", "Waiting")
         monkeypatch.setattr(
             system_service.db,
             "select_all",
@@ -1611,8 +1613,8 @@ class TestConfigService:
 
     def test_startup_normalizes_queued_weekly_refresh(self, monkeypatch):
         """A queued weekly state becomes waiting after a restart."""
-        monkeypatch.setattr(comicarr, "SCHED_WEEKLY_LAST", None)
-        monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Waiting")
+        monkeypatch.setattr(runtime.current(), "sched_weekly_last", None)
+        monkeypatch.setattr(runtime.current(), "weekly_status", "Waiting")
         monkeypatch.setattr(
             system_service.db,
             "select_all",
@@ -1633,8 +1635,8 @@ class TestConfigService:
         upsert.assert_called_once_with("jobhistory", {"status": "Waiting"}, {"JobName": "Weekly Pullist"})
 
     def test_startup_marks_every_running_acquisition_job_interrupted(self, monkeypatch):
-        monkeypatch.setattr(comicarr, "SCHED_SEARCH_LAST", None)
-        monkeypatch.setattr(comicarr, "SEARCH_STATUS", "Waiting")
+        monkeypatch.setattr(runtime.current(), "sched_search_last", None)
+        monkeypatch.setattr(runtime.current(), "search_status", "Waiting")
         monkeypatch.setattr(
             system_service.db,
             "select_all",

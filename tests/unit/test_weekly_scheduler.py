@@ -23,11 +23,11 @@ def test_weekly_run_records_success_and_returns_to_waiting(monkeypatch):
     monkeypatch.setattr(common_dates, "utctimestamp", lambda: 123.0)
     monkeypatch.setattr(weeklypullit.pull_list, "pullit", MagicMock())
     monkeypatch.setattr(weeklypullit.pull_list, "future_check", MagicMock())
-    monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Queued")
+    monkeypatch.setattr(runtime.current(), "weekly_status", "Queued")
 
     weeklypullit.Weekly().run()
 
-    assert comicarr.WEEKLY_STATUS == "Waiting"
+    assert runtime.current().weekly_status == "Waiting"
     assert job_management.call_args_list[-1].kwargs == {
         "write": True,
         "job": "Weekly Pullist",
@@ -51,7 +51,7 @@ def test_recommendations_run_after_weekly_lock_and_status_are_released(monkeypat
     monkeypatch.setattr(weeklypullit.pull_list, "pullit", MagicMock(return_value={"status": "success"}))
     monkeypatch.setattr(weeklypullit.pull_list, "future_check", MagicMock())
     monkeypatch.setattr(comicarr, "AI_CLIENT", object())
-    monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Queued")
+    monkeypatch.setattr(runtime.current(), "weekly_status", "Queued")
     monkeypatch.setattr(weeklypullit, "_recommendation_active", False)
     monkeypatch.setattr(weeklypullit, "_recommendation_pending", False)
     monkeypatch.setattr(
@@ -64,7 +64,7 @@ def test_recommendations_run_after_weekly_lock_and_status_are_released(monkeypat
         acquired = refresh_lock.acquire(blocking=False)
         if acquired:
             refresh_lock.release()
-        observations.append((comicarr.WEEKLY_STATUS, acquired))
+        observations.append((runtime.current().weekly_status, acquired))
         generation_started.set()
         assert release_generation.wait(timeout=3)
 
@@ -126,12 +126,12 @@ def test_weekly_run_records_failure_and_recovers_status(monkeypatch):
     monkeypatch.setattr(common_dates, "utctimestamp", lambda: 456.0)
     monkeypatch.setattr(weeklypullit.pull_list, "pullit", MagicMock(side_effect=RuntimeError("upstream down")))
     monkeypatch.setattr(weeklypullit.pull_list, "future_check", MagicMock())
-    monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Queued")
+    monkeypatch.setattr(runtime.current(), "weekly_status", "Queued")
 
     with pytest.raises(RuntimeError, match="upstream down"):
         weeklypullit.Weekly().run()
 
-    assert comicarr.WEEKLY_STATUS == "Error"
+    assert runtime.current().weekly_status == "Error"
     failure_call = job_management.call_args_list[-1].kwargs
     assert failure_call["write"] is True
     assert failure_call["job"] == "Weekly Pullist"
@@ -334,12 +334,12 @@ def test_manual_run_restores_the_original_future_schedule(monkeypatch):
     scheduler = MagicMock()
     scheduler.get_job.return_value = job
     monkeypatch.setattr(comicarr, "SCHED", scheduler)
-    monkeypatch.setattr(comicarr, "WEEKLY_MANUAL_NEXT_RUN", scheduled_run)
+    monkeypatch.setattr(runtime.current(), "weekly_manual_next_run", scheduled_run)
 
     weeklypullit._restore_manual_next_run()
 
     job.modify.assert_called_once_with(next_run_time=scheduled_run)
-    assert comicarr.WEEKLY_MANUAL_NEXT_RUN is None
+    assert runtime.current().weekly_manual_next_run is None
 
 
 def test_manual_refresh_restores_a_real_interval_trigger_schedule(monkeypatch):
@@ -353,8 +353,7 @@ def test_manual_refresh_restores_a_real_interval_trigger_schedule(monkeypatch):
         next_run_time=original_next_run,
     )
     ctx = AppContext(scheduler=scheduler, weekly_status="Waiting")
-    monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Waiting")
-    monkeypatch.setattr(comicarr, "WEEKLY_MANUAL_NEXT_RUN", None)
+    monkeypatch.setattr(runtime, "_runtime", ctx)
     monkeypatch.setattr(system_service.db, "upsert", MagicMock())
     monkeypatch.setattr(comicarr, "SCHED", scheduler)
 

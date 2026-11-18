@@ -117,9 +117,18 @@ class AppContext:
     weekly_status: str = "Waiting"
     version_status: str = "Waiting"
     updater_status: str = "Waiting"
+    manga_sync_status: str = "Waiting"
     force_status: dict = field(default_factory=dict)
     importinbox_status: str = "Waiting"
     weekly_manual_next_run: object = None
+    # Last-run timestamps the scheduler restores at start-up (epoch seconds).
+    sched_rss_last: object = None
+    sched_weekly_last: object = None
+    sched_monitor_last: object = None
+    sched_search_last: object = None
+    sched_version_last: object = None
+    sched_dbupdate_last: object = None
+    sched_manga_sync_last: object = None
 
     import_status: str = None
     import_files: int = 0

@@ -24,7 +24,7 @@ from sqlalchemy import insert, select
 import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import comics, issues, metadata, weekly
 from comicarr.app.search import service as search_service
 from comicarr.app.series import service as series_service
@@ -250,13 +250,13 @@ def test_run_weekly_refresh_fetches_then_checks_future_releases(monkeypatch):
     monkeypatch.setattr(common_dates, "utctimestamp", lambda: 123.0)
     monkeypatch.setattr(weeklypullit.pull_list, "pullit", lambda: order.append("pullit") or {"status": "success"})
     monkeypatch.setattr(weeklypullit.pull_list, "future_check", lambda: order.append("future_check"))
-    monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Queued")
+    monkeypatch.setattr(runtime.current(), "weekly_status", "Queued")
     monkeypatch.setattr(comicarr, "AI_CLIENT", None, raising=False)
 
     assert pull.run_weekly_refresh() is None
 
     assert order == ["pullit", "future_check"]
-    assert comicarr.WEEKLY_STATUS == "Waiting"
+    assert runtime.current().weekly_status == "Waiting"
 
 
 def test_run_weekly_refresh_reraises_a_reported_pull_failure(monkeypatch):
@@ -265,10 +265,10 @@ def test_run_weekly_refresh_reraises_a_reported_pull_failure(monkeypatch):
     monkeypatch.setattr(common_dates, "utctimestamp", lambda: 123.0)
     monkeypatch.setattr(weeklypullit.pull_list, "pullit", lambda: {"status": "failure", "cause": "down"})
     monkeypatch.setattr(weeklypullit.pull_list, "future_check", future_check)
-    monkeypatch.setattr(comicarr, "WEEKLY_STATUS", "Queued")
+    monkeypatch.setattr(runtime.current(), "weekly_status", "Queued")
 
     with pytest.raises(RuntimeError, match="down"):
         pull.run_weekly_refresh()
 
     future_check.assert_not_called()
-    assert comicarr.WEEKLY_STATUS == "Error"
+    assert runtime.current().weekly_status == "Error"

@@ -26,7 +26,7 @@ import requests
 
 import comicarr
 from comicarr.app.acquisition.models import DispatchState, ItemOutcome, RunState
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import issues, ref32p
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.downloads.torrent import monitor as torrent_monitor
@@ -1285,11 +1285,11 @@ def run_scheduled_search() -> None:
     system_service.job_management(
         write=True, job="Auto-Search", current_run=common_dates.utctimestamp(), status="Running"
     )
-    comicarr.SEARCH_STATUS = "Running"
+    runtime.current().search_status = "Running"
     try:
         comicarr.app.search.engine.searchforissue()
     except Exception as e:
-        comicarr.SEARCH_STATUS = "Error"
+        runtime.current().search_status = "Error"
         system_service.job_management(
             write=True,
             job="Auto-Search",
@@ -1302,4 +1302,4 @@ def run_scheduled_search() -> None:
     system_service.job_management(
         write=True, job="Auto-Search", last_run_completed=common_dates.utctimestamp(), status="Waiting"
     )
-    comicarr.SEARCH_STATUS = "Waiting"
+    runtime.current().search_status = "Waiting"

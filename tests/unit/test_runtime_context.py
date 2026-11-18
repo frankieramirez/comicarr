@@ -25,6 +25,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.runtime import (
     _CONTEXT_TO_LEGACY,
@@ -44,11 +45,6 @@ PROJECTED_SCALAR_REBIND_ALLOWLIST = {
         "MIGRATION_STATUS",
         "MIGRATION_ERROR",
         "MIGRATION_RECONCILIATION",
-        "UPDATER_STATUS",
-        "SEARCH_STATUS",
-        "RSS_STATUS",
-        "VERSION_STATUS",
-        "MONITOR_STATUS",
     },
     "comicarr/app/system/migration.py": {
         "MIGRATION_RECONCILIATION",
@@ -120,7 +116,6 @@ def _legacy_runtime_objects(monkeypatch):
         "PROVIDER_BLOCKLIST": [],
         "DDL_STUCK_NOTIFIED": set(),
         "PACK_ISSUEIDS_DONT_QUEUE": {},
-        "FORCE_STATUS": {},
         "PROVIDER_STATUS": {},
         "UPDATE_VALUE": {},
         "ACQUISITION_SCHEMA_READY": True,
@@ -235,25 +230,32 @@ def test_factory_carries_migrated_fields_over_from_the_bootstrap(_legacy_runtime
     """A retired global's value set during start-up survives the factory.
 
     The factory must take a migrated field from the bootstrap context, by
-    identity, and must neither adopt nor project the old ``comicarr`` global.
+    identity, and must neither adopt nor project a ``comicarr`` global for it.
     """
     from comicarr.app.core import runtime
 
-    monkeypatch.setattr(runtime, "MIGRATED_FIELDS", frozenset({"search_status", "provider_status"}))
     monkeypatch.setattr(runtime, "_bootstrap", AppContext())
-    provider_status = {"nzb.example": "up"}
+    force_status = {"search": "Running"}
     runtime.current().search_status = "Running"
-    runtime.current().provider_status = provider_status
-    monkeypatch.setattr(comicarr, "SEARCH_STATUS", "stale legacy value", raising=False)
-    monkeypatch.delattr(comicarr, "PROVIDER_STATUS", raising=False)
+    runtime.current().force_status = force_status
+    runtime.current().sched_rss_last = 1700000000.0
 
     ctx = create_runtime()
 
+    assert {"search_status", "force_status", "sched_rss_last"} <= runtime.MIGRATED_FIELDS
     assert ctx.search_status == "Running"
-    assert ctx.provider_status is provider_status
-    assert comicarr.SEARCH_STATUS == "stale legacy value"
-    assert not hasattr(comicarr, "PROVIDER_STATUS")
+    assert ctx.force_status is force_status
+    assert ctx.sched_rss_last == 1700000000.0
     assert runtime.current() is ctx
+
+
+def test_migrated_fields_have_no_legacy_projection():
+    """A retired global must not come back through the compatibility bridge."""
+    from comicarr.app.core import runtime
+
+    assert not runtime.MIGRATED_FIELDS & set(runtime._CONTEXT_TO_LEGACY)
+    for field in runtime.MIGRATED_FIELDS:
+        assert not hasattr(comicarr, field.upper()), field
 
 
 def test_worker_bootstrap_refuses_to_start_before_a_runtime_exists(monkeypatch):
@@ -475,13 +477,13 @@ def test_job_management_paused_weekly_updates_context_and_alias(_legacy_runtime_
             return "Weekly Pullist (trigger: interval], paused)"
 
     ctx.scheduler.get_jobs.return_value = [WeeklyJob()]
-    monkeypatch.setattr(comicarr, "SCHED_WEEKLY_LAST", None, raising=False)
-    monkeypatch.setattr(comicarr, "FORCE_STATUS", {})
+    monkeypatch.setattr(runtime.current(), "sched_weekly_last", None, raising=False)
+    monkeypatch.setattr(runtime.current(), "force_status", {})
 
     system_service.job_management(write=False)
 
     assert ctx.weekly_status == "Paused"
-    assert comicarr.WEEKLY_STATUS == "Paused"
+    assert runtime.current().weekly_status == "Paused"
 
 
 def test_mylar3_migration_success_projects_db_empty(_legacy_runtime_objects, monkeypatch, tmp_path):

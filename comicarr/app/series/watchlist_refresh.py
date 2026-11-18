@@ -30,7 +30,7 @@ from sqlalchemy import select
 import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import series_kind
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import (
     annuals,
     comics,
@@ -814,7 +814,7 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
     system_service.job_management(
         write=True, job="DB Updater", current_run=common_dates.utctimestamp(), status="Running"
     )
-    comicarr.UPDATER_STATUS = "Running"
+    runtime.current().updater_status = "Running"
 
     logger.info("[BACKFILL-UPDATE] last date set to : %s" % last_date)
 
@@ -829,7 +829,7 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
             system_service.job_management(
                 write=True, job="DB Updater", last_run_completed=common_dates.utctimestamp(), status="Waiting"
             )
-            comicarr.UPDATER_STATUS = "Waiting"
+            runtime.current().updater_status = "Waiting"
             return
     except Exception:
         logger.warn(
@@ -840,7 +840,7 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
         system_service.job_management(
             write=True, job="DB Updater", last_run_completed=common_dates.utctimestamp(), status="Waiting"
         )
-        comicarr.UPDATER_STATUS = "Waiting"
+        runtime.current().updater_status = "Waiting"
         return
 
     if update_list["count"] == 0:
@@ -848,7 +848,7 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
         system_service.job_management(
             write=True, job="DB Updater", current_run=common_dates.utctimestamp(), status="Waiting"
         )
-        comicarr.UPDATER_STATUS = "Waiting"
+        runtime.current().updater_status = "Waiting"
         return
 
     set_the_bar = False
@@ -1030,7 +1030,7 @@ def run_scheduled_refresh(calledfrom=None, sched=False):
     system_service.job_management(
         write=True, job="DB Updater", last_run_completed=common_dates.utctimestamp(), status="Waiting"
     )
-    comicarr.UPDATER_STATUS = "Waiting"
+    runtime.current().updater_status = "Waiting"
 
     if comicarr.DB_BACKFILL is True and loaddate_stamp is None:
         comicarr.DB_BACKFILL = False

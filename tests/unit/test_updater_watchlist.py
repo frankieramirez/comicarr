@@ -19,6 +19,7 @@ import comicarr
 from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.runs import RunLedger
 from comicarr.app.common import dates as common_dates
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import issues, metadata
 from comicarr.app.series import add, add_workers, folder_rescan, watchlist_refresh
@@ -274,7 +275,7 @@ def _configure_updater(monkeypatch, *, annuals_on, rows, cv_results):
         SimpleNamespace(ANNUALS_ON=annuals_on, BACKFILL_TIMESPAN=15),
     )
     monkeypatch.setattr(comicarr, "DB_BACKFILL", False)
-    monkeypatch.setattr(comicarr, "UPDATER_STATUS", "Waiting")
+    monkeypatch.setattr(runtime.current(), "updater_status", "Waiting")
     monkeypatch.setattr(comicarr, "REFRESH_QUEUE", SimpleNamespace(queue=[]))
     monkeypatch.setattr(add, "refresh_series", refresh_thread)
     monkeypatch.setattr(

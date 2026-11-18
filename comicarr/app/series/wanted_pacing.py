@@ -30,7 +30,7 @@ import time
 from sqlalchemy import select
 
 import comicarr
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import rss_search_seen
 from comicarr.app.search.backlog import DEFAULT_ITEM_BUDGET, PASS_RSS_WANTED, _config_int
 
@@ -87,7 +87,7 @@ def _indexer_count(config):
 
 
 def _rss_on(config):
-    return bool(getattr(config, "ENABLE_RSS", False)) and str(getattr(comicarr, "RSS_STATUS", "")) != "Paused"
+    return bool(getattr(config, "ENABLE_RSS", False)) and str(runtime.current().rss_status) != "Paused"
 
 
 def _order_key(row):
