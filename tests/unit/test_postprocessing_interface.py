@@ -18,6 +18,7 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, issues, metadata, nzblog, pipeline_journal
 from comicarr.app.downloads import journal, postprocess_pipeline, postprocessing
@@ -52,7 +53,7 @@ def isolated_db(tmp_path, monkeypatch):
 @pytest.fixture
 def apilock(monkeypatch):
     lock = threading.Lock()
-    monkeypatch.setattr(comicarr, "APILOCK", lock, raising=False)
+    monkeypatch.setattr(runtime.current(), "api_lock", lock, raising=False)
     return lock
 
 

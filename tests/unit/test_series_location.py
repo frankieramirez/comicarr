@@ -15,7 +15,7 @@ import pytest
 
 import comicarr
 from comicarr.app.common import placement
-from comicarr.app.core import db
+from comicarr.app.core import db, runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import metadata
 from comicarr.app.imports import finalization
@@ -271,12 +271,12 @@ def test_a_running_post_processor_or_import_blocks_the_change(library):
     old_folder = _wizard_with_one_issue(library)
     new_folder = str(library.magazines / "Wizard")
 
-    comicarr.APILOCK.acquire()
+    runtime.current().api_lock.acquire()
     try:
         with pytest.raises(series_location.SeriesLocationError) as busy_pp:
             series_location.change_series_location(library.ctx, WIZARD, new_folder)
     finally:
-        comicarr.APILOCK.release()
+        runtime.current().api_lock.release()
 
     with finalization.finalization_paused():
         with pytest.raises(series_location.SeriesLocationError) as busy_import:

@@ -1991,7 +1991,7 @@ def searchforissue(
     a single operation without changing the per-issue worker contract.
     """
     evaluator = evaluator or EvaluationSession()
-    if rsschecker != "yes" and comicarr.SEARCHLOCK.locked():
+    if rsschecker != "yes" and runtime.current().search_lock.locked():
         logger.info("A search is currently in progress....queueing this up again to try in a bit.")
         return {"status": "IN PROGRESS"}
 
@@ -2729,8 +2729,8 @@ def searchforissue(
                         rss_budget.log_summary()
                 else:
                     logger.info("Completed Queueing API Search scan")
-                    if comicarr.SEARCHLOCK.locked():
-                        comicarr.SEARCHLOCK.release()
+                    if runtime.current().search_lock.locked():
+                        runtime.current().search_lock.release()
                     return {
                         "status": "QUEUED",
                         "queued_count": queued_count,
@@ -2742,11 +2742,11 @@ def searchforissue(
                     release_pass()
         else:
             try:
-                comicarr.SEARCHLOCK.acquire()
+                runtime.current().search_lock.acquire()
                 result, smode, oneoff = _search_source_for_issue(issueid, entity_type=entity_type)
                 if result is None:
                     logger.fdebug("Unable to locate IssueID - you probably should delete/refresh the series.")
-                    comicarr.SEARCHLOCK.release()
+                    runtime.current().search_lock.release()
                     return
 
                 if not manual:
@@ -2903,10 +2903,10 @@ def searchforissue(
                     evaluator=evaluator,
                 )
                 if manual is True:
-                    comicarr.SEARCHLOCK.release()
+                    runtime.current().search_lock.release()
                     return foundNZB
                 if foundNZB["status"] is True:
-                    comicarr.SEARCHLOCK.release()
+                    runtime.current().search_lock.release()
                     logger.fdebug("I found %s #%s" % (ComicName, IssueNumber))
                 return foundNZB
 
@@ -2938,7 +2938,7 @@ def searchforissue(
                 logger.exception(tracebackline)
 
             finally:
-                comicarr.SEARCHLOCK.release()
+                runtime.current().search_lock.release()
     else:
         if rsschecker:
             logger.warn("There are no search providers enabled atm - not performing an RSS check for obvious reasons")

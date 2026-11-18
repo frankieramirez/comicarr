@@ -24,6 +24,7 @@ from sqlalchemy import insert, select
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
 from comicarr.app.common.placement import PlacementError, Purpose, place
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import annuals, comics, issues, metadata, nzblog, pipeline_journal, storyarcs
 from comicarr.app.downloads import journal, postprocessing
@@ -417,7 +418,7 @@ def test_a_restart_before_the_arc_copy_finishes_it_on_recover(library, arc, monk
 
     library_stat = library_file.stat()
     executed = []
-    monkeypatch.setattr(comicarr, "APILOCK", threading.Lock(), raising=False)
+    monkeypatch.setattr(runtime.current(), "api_lock", threading.Lock(), raising=False)
     with (
         patch.object(comicarr, "CONFIG", _arc_config(arc)),
         patch.object(postprocessing, "_execute", side_effect=lambda item: executed.append(item)),
@@ -445,7 +446,7 @@ def test_recovering_an_arc_copy_already_made_only_records_it(library, arc, monke
         arc_key, journal.MOVED, payload={"arc_copy": True, "arc_destination": str(arc_file)}, issueid="A1"
     )
 
-    monkeypatch.setattr(comicarr, "APILOCK", threading.Lock(), raising=False)
+    monkeypatch.setattr(runtime.current(), "api_lock", threading.Lock(), raising=False)
     with (
         patch.object(comicarr, "CONFIG", _arc_config(arc)),
         patch("comicarr.app.common.placement.place", side_effect=AssertionError("must not copy again")),
@@ -518,7 +519,7 @@ def test_an_arc_only_move_interrupted_after_placement_finishes_on_recover(librar
     assert _row(storyarcs, IssueArcID="A1")["Status"] == "Snatched"
 
     executed = []
-    monkeypatch.setattr(comicarr, "APILOCK", threading.Lock(), raising=False)
+    monkeypatch.setattr(runtime.current(), "api_lock", threading.Lock(), raising=False)
     with (
         patch.object(comicarr, "CONFIG", config),
         patch.object(postprocessing, "_execute", side_effect=lambda item: executed.append(item)),

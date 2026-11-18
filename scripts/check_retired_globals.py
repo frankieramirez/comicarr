@@ -102,10 +102,21 @@ _RUNTIME_FIELD_GROUPS = {
         "ISSUE_WATCH_LIST",
         "REFRESH_QUEUE",
     ),
+    "process locks (#1540)": (
+        "INIT_LOCK",
+        "ACQUISITION_RESUME_LOCK",
+        "APILOCK",
+        "SEARCHLOCK",
+        "DDL_LOCK",
+    ),
 }
 
 # Retired names whose context field is not simply the lowercased name.
-_FIELD_RENAMES = {"RETURN_THE_NZBQUEUE": "return_nzb_queue"}
+_FIELD_RENAMES = {
+    "RETURN_THE_NZBQUEUE": "return_nzb_queue",
+    "APILOCK": "api_lock",
+    "SEARCHLOCK": "search_lock",
+}
 
 for _group, _names in _RUNTIME_FIELD_GROUPS.items():
     for _name in _names:

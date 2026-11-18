@@ -249,7 +249,7 @@ def test_ddl_complete_cocommits_ddl_info_and_journal_downloaded(monkeypatch):
     journal `downloaded` row are committed together in the one begin() block,
     and the journal write precedes pp_queue.put (ordering asserted via a spy
     on record_transition vs pp_queue.put — the U3 download-seam guarantee)."""
-    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+    monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False, raising=False)
 
     order = []
     real_record = journal.record_transition
@@ -308,7 +308,7 @@ def test_ddl_complete_journal_failure_quarantines_artifact_without_resubmission(
     could duplicate an external download. The durable DDL row therefore moves
     to Manual Review even if the companion journal quarantine cannot persist.
     """
-    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+    monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False, raising=False)
     fake_pp_queue = MagicMock()
     monkeypatch.setattr(runtime.current(), "pp_queue", fake_pp_queue, raising=False)
     fake_ddl_queue = MagicMock()

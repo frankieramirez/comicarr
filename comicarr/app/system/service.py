@@ -106,8 +106,8 @@ PROVIDER_CONFIG_PERSISTENCE_ERROR = "Failed to persist provider configuration"
 
 
 def get_weekly_refresh_lock():
-    """Return the process-wide weekly lock after package initialization."""
-    return getattr(comicarr, "WEEKLY_REFRESH_LOCK", _fallback_weekly_refresh_lock)
+    """Return the process-wide lock that serializes weekly refresh requests."""
+    return _fallback_weekly_refresh_lock
 
 
 # A download client's host and the secret Comicarr sends it. Pointing a client

@@ -446,7 +446,7 @@ def _run_ddl_once(item):
 
 
 def test_ddl_reservation_failure_prevents_external_side_effect(monkeypatch, capture_logs):
-    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+    monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False, raising=False)
 
     boom = RuntimeError("journal down inside ddl begin()")
     with patch.object(journal, "record_transition", side_effect=boom):
@@ -464,7 +464,7 @@ def test_ddl_reservation_failure_prevents_external_side_effect(monkeypatch, capt
 def test_ddl_worker_survives_journal_failure_and_processes_next_item(monkeypatch):
     """P1-3: a journal raise on the FIRST item must not kill the worker — a
     SECOND queued item after it is still processed (loop survived)."""
-    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+    monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False, raising=False)
 
     # Stop the legacy worker right after the (committed) snatch block of the
     # SECOND item so we can assert it was reached.
@@ -506,7 +506,7 @@ def test_ddl_worker_survives_journal_failure_and_processes_next_item(monkeypatch
 
 
 def test_ddl_reservation_persists_before_external_download(monkeypatch):
-    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+    monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False, raising=False)
 
     # The atomic snatch block runs BEFORE the download dispatch. Make the
     # download dispatch raise a sentinel so the worker stops immediately after
@@ -542,7 +542,7 @@ def test_ddl_reservation_persists_before_external_download(monkeypatch):
 def test_ddl_maintenance_fence_retains_durable_queued_command(monkeypatch):
     from comicarr.app.acquisition.maintenance import MaintenanceBlocked
 
-    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+    monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False, raising=False)
     monkeypatch.setattr(
         handoff,
         "perform_handoff",
@@ -627,7 +627,7 @@ def test_nzb_journal_retry_cap_failure_logs_and_keeps_snatch(capture_logs):
 
 
 def test_ddl_reservation_failure_does_not_requeue_or_redownload(monkeypatch, capture_logs):
-    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+    monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False, raising=False)
 
     boom = RuntimeError("journal down inside ddl begin()")
     item = _ddl_item(idv="ddl-rq", issueid="DRQ1")
@@ -646,7 +646,7 @@ def test_ddl_reservation_failure_does_not_requeue_or_redownload(monkeypatch, cap
 
 
 def test_ddl_persistent_reservation_failure_never_hot_loops(monkeypatch, capture_logs):
-    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+    monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False, raising=False)
 
     # A drive-controlled queue: qsize() always reports work so the loop never
     # parks in its `time.sleep(5)` idle branch; get() serves the item while
@@ -743,7 +743,7 @@ def test_expected_reservation_failure_logs_one_line_without_traceback(monkeypatc
 
 
 def test_ddl_download_failure_logs_site_link_type_and_traceback(monkeypatch, capture_logs):
-    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+    monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False, raising=False)
 
     class BrokenGC:
         def downloadit(self, **_kwargs):
@@ -764,7 +764,7 @@ def test_ddl_download_failure_logs_site_link_type_and_traceback(monkeypatch, cap
 
 
 def test_rejected_ddl_item_logs_identity_and_redacted_traceback(monkeypatch, capture_logs):
-    monkeypatch.setattr(comicarr.DDL_LOCK, "locked", lambda: False, raising=False)
+    monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False, raising=False)
 
     def malformed(_item):
         raise ValueError("bad command from https://getcomics.example/dl?token=SECRET4")

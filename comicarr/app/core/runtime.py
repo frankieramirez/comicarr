@@ -74,6 +74,12 @@ MIGRATED_FIELDS = frozenset(
         "add_list",
         "issue_watch_list",
         "refresh_queue",
+        # Process locks (#1540).
+        "init_lock",
+        "acquisition_resume_lock",
+        "api_lock",
+        "search_lock",
+        "ddl_lock",
     }
 )
 
@@ -84,11 +90,6 @@ _CONTEXT_TO_LEGACY = {
     "db_file": "DB_FILE",
     "config": "CONFIG",
     "scheduler": "SCHED",
-    "init_lock": "INIT_LOCK",
-    "search_lock": "SEARCHLOCK",
-    "api_lock": "APILOCK",
-    "ddl_lock": "DDL_LOCK",
-    "acquisition_resume_lock": "ACQUISITION_RESUME_LOCK",
     "sn_pool": "SNPOOL",
     "nzb_pool": "NZBPOOL",
     "search_pool": "SEARCHPOOL",

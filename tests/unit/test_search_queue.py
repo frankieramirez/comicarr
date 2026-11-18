@@ -72,7 +72,7 @@ class _OpenMaintenance:
 
 def _configure_worker(monkeypatch):
     provider_search = MagicMock()
-    monkeypatch.setattr(comicarr, "SEARCHLOCK", threading.Lock())
+    monkeypatch.setattr(runtime.current(), "search_lock", threading.Lock())
     monkeypatch.setattr(comicarr, "PACK_ISSUEIDS_DONT_QUEUE", {})
     monkeypatch.setattr(comicarr, "DDL_QUEUED", [])
     monkeypatch.setattr(runtime.current(), "pp_queue", queue.Queue())
@@ -200,7 +200,7 @@ def test_unlocked_command_reaches_provider_search_once(monkeypatch):
 
 def test_held_lock_requeues_then_processes_one_command(monkeypatch):
     provider_search = _configure_worker(monkeypatch)
-    comicarr.SEARCHLOCK.acquire()
+    runtime.current().search_lock.acquire()
     work = queue.Queue()
     work.put(_command())
 
@@ -220,8 +220,8 @@ def test_held_lock_requeues_then_processes_one_command(monkeypatch):
     monkeypatch.setattr(work, "get", tracking_get)
 
     def release_lock(_seconds):
-        if comicarr.SEARCHLOCK.locked():
-            comicarr.SEARCHLOCK.release()
+        if runtime.current().search_lock.locked():
+            runtime.current().search_lock.release()
 
     monkeypatch.setattr(service.time, "sleep", release_lock)
 
@@ -701,7 +701,7 @@ def test_manual_wanted_scan_queues_eligible_backlog_outside_automatic_tier(acqui
         ),
     )
     monkeypatch.setattr(comicarr, "SEARCH_TIER_DATE", "2026-01-01")
-    monkeypatch.setattr(comicarr, "SEARCHLOCK", threading.Lock())
+    monkeypatch.setattr(runtime.current(), "search_lock", threading.Lock())
     work = queue.Queue()
     monkeypatch.setattr(runtime.current(), "search_queue", work)
     with get_engine().begin() as conn:

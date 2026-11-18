@@ -16,7 +16,7 @@ from functools import wraps
 import comicarr
 from comicarr.app.attention import ManualReview, record
 from comicarr.app.common.redaction import redacted_traceback
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.downloads import journal
 from comicarr.app.downloads.pp_commands import PostProcessCommandError, validate_postprocess_item
 
@@ -365,7 +365,7 @@ def run(request):
                 "nzbname": item["nzb_name"],
             }
         )
-    lock = comicarr.APILOCK
+    lock = runtime.current().api_lock
     if not lock.acquire(blocking=False):
         return PostProcessResult(
             "busy", detail="Post-processing is busy; retry later", action="retry", outcome=DEFERRED
@@ -472,7 +472,7 @@ def recover(release_key):
     from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController
     from comicarr.app.downloads._postprocess_completion import finish_obligation, obligation_already_fulfilled
 
-    lock = comicarr.APILOCK
+    lock = runtime.current().api_lock
     if not lock.acquire(blocking=False):
         return PostProcessResult(
             "busy", detail="Post-processing is busy; retry later", action="post_processing-busy", outcome=DEFERRED

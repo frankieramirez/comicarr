@@ -775,7 +775,7 @@ def test_import_busy_lock_does_not_fail_http(tmp_path, monkeypatch):
         lambda item: processed.append(item),
     )
     ctx = AppContext(config=comicarr.CONFIG, provider_blocklist={})
-    lock = comicarr.APILOCK
+    lock = runtime.current().api_lock
     assert lock.acquire(blocking=False)
     try:
         result = _resolve_one(ctx, key, "import")

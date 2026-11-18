@@ -18,6 +18,7 @@ from sqlalchemy import insert, select
 
 import comicarr
 from comicarr.app.acquisition.maintenance import ensure_acquisition_schema
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import metadata, pipeline_journal
 from comicarr.app.downloads import failed as failed_mod
@@ -44,7 +45,7 @@ def isolated_db(tmp_path, monkeypatch):
         raising=False,
     )
     monkeypatch.setattr(comicarr, "ACQUISITION_WORKERS_BLOCKED", False, raising=False)
-    monkeypatch.setattr(comicarr, "APILOCK", threading.Lock(), raising=False)
+    monkeypatch.setattr(runtime.current(), "api_lock", threading.Lock(), raising=False)
     engine = get_engine()
     metadata.create_all(engine)
     assert ensure_acquisition_schema(engine).ready
@@ -246,7 +247,7 @@ def test_a_processor_that_posts_nothing_has_nothing_to_do(tmp_path, processor_ru
 def test_a_busy_run_is_deferred_and_touches_nothing(tmp_path, processor_runs, source):
     runs, _ = processor_runs
     _downloaded("rk-busy")
-    assert comicarr.APILOCK.acquire(blocking=False)
+    assert runtime.current().api_lock.acquire(blocking=False)
     try:
         if source == "monitor":
             request = {"nzb_name": "Manual Run", "nzb_folder": str(tmp_path), "source": "monitor"}
@@ -254,7 +255,7 @@ def test_a_busy_run_is_deferred_and_touches_nothing(tmp_path, processor_runs, so
             request = _item(tmp_path, "rk-busy")
         result = postprocessing.run(request)
     finally:
-        comicarr.APILOCK.release()
+        runtime.current().api_lock.release()
 
     assert result.status == "busy"
     assert result.outcome == postprocessing.DEFERRED
@@ -266,11 +267,11 @@ def test_a_busy_run_is_deferred_and_touches_nothing(tmp_path, processor_runs, so
 def test_a_busy_direct_request_answers_409(tmp_path, monkeypatch, processor_runs):
     from comicarr.app.downloads import service
 
-    assert comicarr.APILOCK.acquire(blocking=False)
+    assert runtime.current().api_lock.acquire(blocking=False)
     try:
         response = service.process_issue("C1", str(tmp_path), issueid="I1")
     finally:
-        comicarr.APILOCK.release()
+        runtime.current().api_lock.release()
 
     assert response["status_code"] == 409
     assert processor_runs[0] == []

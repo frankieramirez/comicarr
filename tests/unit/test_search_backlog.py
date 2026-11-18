@@ -18,6 +18,7 @@ import pytest
 from sqlalchemy import select
 
 import comicarr
+from comicarr.app.core import runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import comics, issues, metadata, rss_search_seen
 from comicarr.app.search.backlog import (
@@ -155,7 +156,7 @@ def test_rss_lookup_key_separates_year_version_and_oneoff():
 
 def test_backlog_lock_does_not_use_searchlock(backlog_db, monkeypatch):
     search_lock = MagicMock()
-    monkeypatch.setattr(comicarr, "SEARCHLOCK", search_lock)
+    monkeypatch.setattr(runtime.current(), "search_lock", search_lock)
 
     assert try_acquire_pass() is True
     assert try_acquire_pass() is False
@@ -244,7 +245,7 @@ def rss_watchlist(tmp_path, monkeypatch):
     monkeypatch.setattr(comicarr, "SEARCH_TIER_DATE", "2000-01-01")
     search_lock = MagicMock()
     search_lock.locked.return_value = False
-    monkeypatch.setattr(comicarr, "SEARCHLOCK", search_lock)
+    monkeypatch.setattr(runtime.current(), "search_lock", search_lock)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setattr(legacy_search, "provider_order", lambda: [])
     shutdown_engine()

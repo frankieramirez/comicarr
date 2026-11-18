@@ -24,7 +24,7 @@ import comicarr
 from comicarr.app.acquisition.evidence import has_verified_library_file
 from comicarr.app.common import placement, series_kind
 from comicarr.app.common.library_roots import configured_library_roots, is_strict_library_descendant
-from comicarr.app.core import logger
+from comicarr.app.core import logger, runtime
 from comicarr.app.imports import finalization as import_finalization
 from comicarr.app.series import queries as series_queries
 
@@ -131,7 +131,7 @@ def default_series_location(series):
 
 @contextmanager
 def _library_writes_paused():
-    api_lock = comicarr.APILOCK
+    api_lock = runtime.current().api_lock
     if not api_lock.acquire(blocking=False):
         raise SeriesLocationError("Post-processing is running. Try again when it finishes.", status=409)
     try:

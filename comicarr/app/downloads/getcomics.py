@@ -41,7 +41,7 @@ from comicarr.app.common.remote_artifacts import (
     safe_remote_filename,
     write_chunks_atomically,
 )
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.downloads.ddl_commands import DDLCommand, DDLCommandError
 from comicarr.app.library import directories
 from comicarr.app.search import diagnostics as search_diagnostics
@@ -1143,7 +1143,7 @@ class GC(object):
             )
             return {"success": False, "filename": None, "path": None, "link_type": link_type}
 
-        ddl_lock = comicarr.DDL_LOCK
+        ddl_lock = runtime.current().ddl_lock
         if ddl_lock.locked():
             logger.fdebug(
                 "[DDL] Another item is currently downloading via DDL. Only one item can"

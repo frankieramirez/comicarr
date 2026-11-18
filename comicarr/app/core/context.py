@@ -50,6 +50,7 @@ from dataclasses import dataclass, field
 
 from fastapi import Request
 
+from comicarr.app.core.locks import ThreadSafeLock
 from comicarr.app.core.workers import BackgroundWorkerRegistry
 from comicarr.app.search.queue import FairSearchQueue
 
@@ -66,10 +67,10 @@ class AppContext:
 
     runtime_lock: object = field(default_factory=threading.RLock)
     init_lock: threading.Lock = field(default_factory=threading.Lock)
-    search_lock: object = None
-    api_lock: object = None
-    ddl_lock: object = None
-    acquisition_resume_lock: object = None
+    search_lock: object = field(default_factory=ThreadSafeLock)
+    api_lock: object = field(default_factory=ThreadSafeLock)
+    ddl_lock: object = field(default_factory=ThreadSafeLock)
+    acquisition_resume_lock: object = field(default_factory=threading.Lock)
 
     snatched_queue: queue.Queue = field(default_factory=queue.Queue)
     nzb_queue: queue.Queue = field(default_factory=queue.Queue)
