@@ -14,7 +14,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import create_engine
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import issues, metadata
 from comicarr.app.search.evaluation import EvaluationSession
@@ -26,7 +25,7 @@ def library(tmp_path, monkeypatch):
     engine = create_engine("sqlite:///%s" % (tmp_path / "library.db"))
     metadata.create_all(engine)
     monkeypatch.setattr(db, "get_engine", lambda: engine)
-    monkeypatch.setattr(comicarr, "PACK_ISSUEIDS_DONT_QUEUE", {})
+    monkeypatch.setattr(runtime.current(), "pack_issueids_dont_queue", {})
     monkeypatch.setattr(
         runtime.current(),
         "config",
@@ -144,7 +143,7 @@ def test_pack_satisfaction_and_claim_timing_use_library_rows():
     assert result.verdict["reason_code"] == "accepted.pack"
     assert result.satisfies == list(eligible.values())
     # These claims historically happen during evaluation, before any handoff.
-    assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {"i1": "pack-1", "i2": "pack-1"}
+    assert runtime.current().pack_issueids_dont_queue == {"i1": "pack-1", "i2": "pack-1"}
     assert session.evaluations == [result]
     assert handoff_matches([result])[0]["pack_issuelist"]["valid"] is True
 

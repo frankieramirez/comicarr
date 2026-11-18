@@ -11,8 +11,7 @@
 
 import re
 
-import comicarr
-from comicarr.app.core import db, logger
+from comicarr.app.core import db, logger, runtime
 from comicarr.app.core.tables import issues
 from comicarr.app.manga.ledger import is_volume_target, volume_numbers_match
 
@@ -42,7 +41,7 @@ def _pack_row_matches(row, int_iss, iss_item, kind):
 def _register_pack_claims(write_valids, valid):
     if valid:
         for wv in write_valids:
-            comicarr.PACK_ISSUEIDS_DONT_QUEUE[wv["issueid"]] = wv["pack_id"]
+            runtime.current().pack_issueids_dont_queue[wv["issueid"]] = wv["pack_id"]
 
 
 def _row_released_after(row, cutoff_year):

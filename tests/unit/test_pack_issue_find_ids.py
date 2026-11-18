@@ -9,8 +9,8 @@
 
 import pytest
 
-import comicarr
 from comicarr.app.common.configured import issuedigits
+from comicarr.app.core import runtime
 from comicarr.app.search import _pack_membership as pack_membership
 
 
@@ -30,7 +30,7 @@ def _row(issueid, number, status="Wanted", chapter=None, volume=None, released=N
 
 @pytest.fixture(autouse=True)
 def _pack_state(monkeypatch):
-    monkeypatch.setattr(comicarr, "PACK_ISSUEIDS_DONT_QUEUE", {}, raising=False)
+    monkeypatch.setattr(runtime.current(), "pack_issueids_dont_queue", {}, raising=False)
 
 
 def _install_rows(monkeypatch, rows):
@@ -45,7 +45,7 @@ def test_default_kind_matches_issue_numbers_and_registers_pack_ids(monkeypatch):
 
     assert result["valid"] is True
     assert [x["issueid"] for x in result["issues"]] == ["id-1", "id-2"]
-    assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {"id-1": "pack-1", "id-2": "pack-1"}
+    assert runtime.current().pack_issueids_dont_queue == {"id-1": "pack-1", "id-2": "pack-1"}
 
 
 def test_comma_separated_ranges_expand_each_token(monkeypatch):
@@ -92,7 +92,7 @@ def test_volume_kind_skips_chapter_rows_of_unknown_volume(monkeypatch):
 
     assert result["valid"] is True
     assert [x["issueid"] for x in result["issues"]] == ["vol-7", "vol-8"]
-    assert "chap-7" not in comicarr.PACK_ISSUEIDS_DONT_QUEUE
+    assert "chap-7" not in runtime.current().pack_issueids_dont_queue
 
 
 def test_volume_pack_covers_every_chapter_row_in_its_volumes(monkeypatch):
@@ -110,7 +110,7 @@ def test_volume_pack_covers_every_chapter_row_in_its_volumes(monkeypatch):
 
     assert result["valid"] is True
     assert [x["issueid"] for x in result["issues"]] == ["c-1", "c-2", "c-3"]
-    assert "c-99" not in comicarr.PACK_ISSUEIDS_DONT_QUEUE
+    assert "c-99" not in runtime.current().pack_issueids_dont_queue
 
 
 def test_chapter_kind_does_not_claim_volume_rows(monkeypatch):
@@ -151,8 +151,8 @@ def test_series_kind_claims_every_undownloaded_row(monkeypatch):
 
     assert result["valid"] is True
     assert [x["issueid"] for x in result["issues"]] == ["vol-1", "c-2", "c-3"]
-    assert "done" not in comicarr.PACK_ISSUEIDS_DONT_QUEUE
-    assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {"vol-1": "pack-7", "c-2": "pack-7", "c-3": "pack-7"}
+    assert "done" not in runtime.current().pack_issueids_dont_queue
+    assert runtime.current().pack_issueids_dont_queue == {"vol-1": "pack-7", "c-2": "pack-7", "c-3": "pack-7"}
 
 
 def test_series_kind_excludes_rows_released_after_the_pack_span(monkeypatch):
@@ -170,7 +170,7 @@ def test_series_kind_excludes_rows_released_after_the_pack_span(monkeypatch):
 
     assert result["valid"] is True
     assert [x["issueid"] for x in result["issues"]] == ["c-1", "c-2", "c-4"]
-    assert "c-3" not in comicarr.PACK_ISSUEIDS_DONT_QUEUE
+    assert "c-3" not in runtime.current().pack_issueids_dont_queue
 
 
 def test_series_kind_invalid_when_searched_issue_is_past_the_span(monkeypatch):
@@ -180,7 +180,7 @@ def test_series_kind_invalid_when_searched_issue_is_past_the_span(monkeypatch):
     result = pack_membership.issue_find_ids("Example", "comic-1", "all", "9", "pack-10", kind="series", span_end="2023")
 
     assert result["valid"] is False
-    assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {}
+    assert runtime.current().pack_issueids_dont_queue == {}
 
 
 def test_series_kind_invalid_when_searched_issue_already_downloaded(monkeypatch):
@@ -190,7 +190,7 @@ def test_series_kind_invalid_when_searched_issue_already_downloaded(monkeypatch)
     result = pack_membership.issue_find_ids("Example", "comic-1", "all", "2", "pack-8", kind="series")
 
     assert result["valid"] is False
-    assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {}
+    assert runtime.current().pack_issueids_dont_queue == {}
 
 
 def test_volume_kind_invalid_when_searched_number_outside_pack(monkeypatch):
@@ -200,4 +200,4 @@ def test_volume_kind_invalid_when_searched_number_outside_pack(monkeypatch):
     result = pack_membership.issue_find_ids("Example", "comic-1", "1-2", "9", "pack-4", kind="volume")
 
     assert result["valid"] is False
-    assert comicarr.PACK_ISSUEIDS_DONT_QUEUE == {}
+    assert runtime.current().pack_issueids_dont_queue == {}

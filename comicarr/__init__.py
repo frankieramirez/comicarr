@@ -42,8 +42,6 @@ import webbrowser
 from datetime import timedelta
 
 import requests
-from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, EVENT_JOB_MAX_INSTANCES, EVENT_JOB_MISSED
-from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -90,14 +88,6 @@ CREATEPID = False
 MAX_LOGSIZE = 5000000
 SAFESTART = False
 NOWEEKLY = False
-IMPORTLOCK = False
-IMPORTBUTTON = False
-IMPORT_STATUS = None
-IMPORT_FILES = 0
-IMPORT_TOTALFILES = 0
-IMPORT_CID_COUNT = 0
-IMPORT_PARSED_COUNT = 0
-IMPORT_FAILURE_COUNT = 0
 _INITIALIZED = False
 started = False
 RSS_SCHEDULER = None
@@ -124,10 +114,6 @@ UMASK = None
 WANTED_TAB_OFF = False
 PULLNEW = None
 CONFIG_FILE = None
-AI_CLIENT = None
-AI_ASYNC_CLIENT = None
-AI_CIRCUIT_BREAKER = None
-AI_RATE_LIMITER = None
 EXPURL = None
 DEMURL = None
 WWTURL = None
@@ -146,15 +132,10 @@ USE_TRANSMISSION = False
 USE_QBITTORRENT = False
 USE_UTORRENT = False
 USE_WATCHDIR = False
-DDL_QUEUED = set()
-DDL_STUCK_NOTIFIED = set()
 DDL_HEALTH_SCHEDULER = None
-PACK_ISSUEIDS_DONT_QUEUE = {}
 EXT_SERVER = False
 SEARCH_TIER_DATE = None
-COMICSORT = None
 PULLBYFILE = False
-PUBLISHER_IMPRINTS = None
 CURRENT_WEEKNUMBER = None
 CURRENT_YEAR = None
 ISSUE_EXCEPTIONS = [
@@ -186,11 +167,7 @@ ISSUE_EXCEPTIONS = [
     "DIRECTOR'S CUT",
     "(DC)",
 ]
-CHECK_FOLDER_CACHE = None
-FOLDER_CACHE = None
-SSE_KEY = None
 SESSION_ID = None
-SETUP_TOKEN = None
 START_UP = True
 REQS = {}
 GC_URL = "https://getcomics.org"
@@ -202,34 +179,10 @@ IMPRINT_MAPPING = {
     "Skybound": "Skybound Entertainment",
     "Top Cow": "Top Cow Productions",
 }
-SCHED = BackgroundScheduler(
-    {
-        "apscheduler.executors.default": {
-            "class": "apscheduler.executors.pool:ThreadPoolExecutor",
-            "max_workers": "20",
-        },
-        "apscheduler.job_defaults.coalesce": "true",
-        "apscheduler.job_defaults.max_instances": "3",
-        "apscheduler.timezone": "UTC",
-    }
-)
-
-
-def _persist_scheduler_health_event(event):
-    """Late import avoids a package-initialization cycle while keeping every event durable."""
-    from comicarr.app.system.service import persist_scheduler_event
-
-    return persist_scheduler_event(event)
-
-
-SCHED.add_listener(
-    _persist_scheduler_health_event,
-    EVENT_JOB_EXECUTED | EVENT_JOB_ERROR | EVENT_JOB_MISSED | EVENT_JOB_MAX_INSTANCES,
-)
 
 
 def _add_recurring_job(**kwargs):
-    return SCHED.add_job(max_instances=1, coalesce=True, **kwargs)
+    return runtime.current().scheduler.add_job(max_instances=1, coalesce=True, **kwargs)
 
 
 def ensure_sab_completed_reconcile():
@@ -247,7 +200,7 @@ def ensure_sab_completed_reconcile():
 
     enabled = sab_client_post_processing_enabled()
     try:
-        existing = SCHED.get_job(JOB_ID)
+        existing = runtime.current().scheduler.get_job(JOB_ID)
     except Exception:
         existing = None
     if not enabled:
@@ -277,7 +230,6 @@ def initialize(config_file):
             CONFIG_FILE, \
             OS_DETECT, \
             MAINTENANCE, \
-            IMPORTLOCK, \
             PULLBYFILE, \
             INKDROPS_32P, \
             CURRENT_WEEKNUMBER, \
@@ -285,19 +237,11 @@ def initialize(config_file):
             UMASK, \
             USER_AGENT, \
             PULLNEW, \
-            COMICSORT, \
             WANTED_TAB_OFF, \
-            IMPORTBUTTON, \
-            IMPORT_FILES, \
-            IMPORT_TOTALFILES, \
-            IMPORT_CID_COUNT, \
-            IMPORT_PARSED_COUNT, \
-            IMPORT_FAILURE_COUNT, \
             DEMURL, \
             EXPURL, \
             WWTURL, \
             WWT_CF_COOKIEVALUE, \
-            SSE_KEY, \
             USE_SABNZBD, \
             USE_NZBGET, \
             USE_BLACKHOLE, \
@@ -307,7 +251,6 @@ def initialize(config_file):
             USE_DELUGE, \
             USE_TRANSMISSION, \
             USE_WATCHDIR, \
-            PUBLISHER_IMPRINTS, \
             KEYS_32P, \
             AUTHKEY_32P, \
             FEED_32P, \
@@ -324,8 +267,6 @@ def initialize(config_file):
             START_UP, \
             SEARCH_TIER_DATE, \
             ISSUE_EXCEPTIONS, \
-            CHECK_FOLDER_CACHE, \
-            FOLDER_CACHE, \
             SESSION_ID, \
             MAINTENANCE_UPDATE, \
             MAINTENANCE_DB_COUNT, \
@@ -333,9 +274,6 @@ def initialize(config_file):
             REQS, \
             IMPRINT_MAPPING, \
             GC_URL, \
-            PACK_ISSUEIDS_DONT_QUEUE, \
-            DDL_QUEUED, \
-            DDL_STUCK_NOTIFIED, \
             DDL_HEALTH_SCHEDULER, \
             EXT_SERVER
 
@@ -431,10 +369,10 @@ def initialize(config_file):
                 else:
                     logger.info("Synology Parsing Fix already implemented. No changes required at this time.")
 
-            if comicarr.SSE_KEY is None:
+            if runtime.current().sse_key is None:
                 import secrets
 
-                comicarr.SSE_KEY = secrets.token_hex(16)
+                runtime.current().sse_key = secrets.token_hex(16)
 
             if not runtime.current().config.API_KEY or len(runtime.current().config.API_KEY) != 32:
                 import secrets
@@ -538,7 +476,7 @@ def initialize(config_file):
                     update_imprints = False
                     logger.info("[IMPRINT_LOADS] Loading Publisher imprints data from local file.")
                     with open(pub_path) as json_file:
-                        PUBLISHER_IMPRINTS = json.load(json_file)
+                        runtime.current().publisher_imprints = json.load(json_file)
             else:
                 logger.info("[IMPRINT_LOADS] No data for publisher imprints locally. Retrieving up-to-date listing")
 
@@ -552,23 +490,23 @@ def initialize(config_file):
                     logger.error("Unable to write imprints.json to %s. Error returned: %s" % (pub_path, e))
                 else:
                     logger.fdebug("Successfully written imprints.json file to %s" % pub_path)
-                    PUBLISHER_IMPRINTS = json_pub
+                    runtime.current().publisher_imprints = json_pub
 
         except requests.exceptions.RequestException as e:
             logger.warn("[IMPRINT_LOADS] Unable to retrieve publisher imprints listing at this time. Error: %s" % e)
-            PUBLISHER_IMPRINTS = None
+            runtime.current().publisher_imprints = None
         except Exception as e:
             logger.warn("[IMPRINT_LOADS] Unable to load publisher -> imprint file. Error: %s" % e)
-            PUBLISHER_IMPRINTS = None
+            runtime.current().publisher_imprints = None
         else:
-            if PUBLISHER_IMPRINTS is not None:
+            if runtime.current().publisher_imprints is not None:
                 logger.info(
                     "[IMPRINT_LOADS] Successfully loaded imprints for %s publishers"
-                    % (len(PUBLISHER_IMPRINTS["publishers"]))
+                    % (len(runtime.current().publisher_imprints["publishers"]))
                 )
 
             logger.info("Remapping the sorting to allow for new additions.")
-            COMICSORT = series_service.ComicSort(sequence="startup")
+            runtime.current().comic_sort = series_service.ComicSort(sequence="startup")
 
         if runtime.current().config.LOCMOVE:
             series_service.updateComicLocation()
@@ -744,7 +682,7 @@ def resume_acquisition_runtime(config=None):
             "importinbox": runtime.current().importinbox_status,
             "manga_sync": runtime.current().manga_sync_status,
         }
-        scheduler = ctx.scheduler if ctx is not None else SCHED
+        scheduler = (ctx if ctx is not None else runtime.current()).scheduler
         resumed_jobs = []
         for job_id, status in scheduler_statuses.items():
             if status == "Paused":
@@ -784,11 +722,11 @@ def start(ctx):
     if ctx is None or ctx.disposed:
         raise RuntimeNotInitializedError("Workers cannot start before an active runtime context exists")
     if (
-        ctx.scheduler is not SCHED
+        ctx.scheduler is not runtime.current().scheduler
         or ctx.search_queue is not runtime.current().search_queue
         or ctx.ddl_queue is not runtime.current().ddl_queue
         or ctx.ddl_lock is not runtime.current().ddl_lock
-        or ctx.ddl_queued is not DDL_QUEUED
+        or ctx.ddl_queued is not runtime.current().ddl_queued
     ):
         raise RuntimeNotInitializedError(
             "Workers must start with the canonical runtime's shared scheduler, queues, locks, and DDL state"
@@ -951,7 +889,7 @@ def start(ctx):
                     % (acquisition_gate.reason if acquisition_gate else ctx.acquisition_block_reason)
                 )
                 try:
-                    SCHED.start()
+                    runtime.current().scheduler.start()
                 except Exception as e:
                     logger.error("[ACQUISITION] Unable to start diagnostics scheduler: %s" % e)
                 set_runtime_field(ctx, "started", True)
@@ -966,7 +904,7 @@ def start(ctx):
                 )
                 logger.error("[ACQUISITION] Durable obligation replay failed; workers remain blocked: %s" % e)
                 try:
-                    SCHED.start()
+                    runtime.current().scheduler.start()
                 except Exception as scheduler_error:
                     logger.error("[ACQUISITION] Unable to start diagnostics scheduler: %s" % scheduler_error)
                 set_runtime_field(ctx, "started", True)
@@ -1210,12 +1148,12 @@ def start(ctx):
             logger.info("Firing up the Background Schedulers now....")
 
             try:
-                SCHED.start()
+                runtime.current().scheduler.start()
                 logger.info("Background Schedulers successfully started...")
                 system_service.job_management(write=True)
             except Exception as e:
                 logger.info(e)
-                SCHED.print_jobs()
+                runtime.current().scheduler.print_jobs()
 
         set_runtime_field(ctx, "started", True)
 

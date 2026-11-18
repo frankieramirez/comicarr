@@ -13,7 +13,6 @@
 
 import os
 
-import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import logger, runtime
 from comicarr.app.system import service as system_service
@@ -26,7 +25,7 @@ class FolderCheck:
         self.module = "[FOLDER-CHECK]"
 
     def run(self):
-        if comicarr.IMPORTLOCK:
+        if runtime.current().import_lock:
             logger.info(
                 "There is an import currently running. In order to ensure successful import - deferring this until the import is finished."
             )
@@ -36,7 +35,7 @@ class FolderCheck:
                 "%s Unable to initialise folder monitor properly - you need to specify a folder to monitor first"
                 % self.module
             )
-            comicarr.SCHED.pause_job("monitor")
+            runtime.current().scheduler.pause_job("monitor")
             runtime.current().monitor_status = "Paused"
             system_service.job_management(write=True)
         else:

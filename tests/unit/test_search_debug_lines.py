@@ -15,7 +15,6 @@ import types
 
 import pytest
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.search import engine as search
 from comicarr.app.search.diagnostics import log_query, quoted, safe_provider_name
@@ -163,14 +162,14 @@ def test_search_behaves_the_same_at_log_level_0_and_2(providers, captured):
         logging.getLogger("comicarr").setLevel(level)
         providers.requests.clear()
         providers.selected.clear()
-        comicarr.PACK_ISSUEIDS_DONT_QUEUE.clear()
+        runtime.current().pack_issueids_dont_queue.clear()
         captured.lines.clear()
         _run_everything()
         runs.append(
             (
                 list(providers.requests),
                 list(providers.selected),
-                dict(comicarr.PACK_ISSUEIDS_DONT_QUEUE),
+                dict(runtime.current().pack_issueids_dont_queue),
                 list(captured.lines),
             )
         )

@@ -322,7 +322,7 @@ def delete_ddl_item(item_id):
 def _enqueue_ddl_queue_item(target_queue, item):
     """Hand a DDL command to the in-memory worker queue with process-local dedupe.
 
-    ``DDL_QUEUED`` tracks ids already handed to this process's worker (queued or
+    ``ddl_queued`` tracks ids already handed to this process's worker (queued or
     in-flight). Skipping duplicates prevents cold-start Queued recovery from
     racing journal STILL re-enqueue of the same id, and allows live outbox
     sweeps without double-dispatching items already sitting in the queue.
@@ -330,11 +330,11 @@ def _enqueue_ddl_queue_item(target_queue, item):
     item_id = None
     if isinstance(item, dict):
         item_id = item.get("id") or item.get("ID")
-    if item_id and item_id in comicarr.DDL_QUEUED:
+    if item_id and item_id in runtime.current().ddl_queued:
         return False
     target_queue.put(item)
     if item_id:
-        comicarr.DDL_QUEUED.add(item_id)
+        runtime.current().ddl_queued.add(item_id)
     return True
 
 
@@ -955,7 +955,9 @@ def reverse_the_pack_snatch(pack_id, comicid):
     logger.info(
         "[REVERSE UNO] Reversal of issues marked as Snatched via pack download reversing due to invalid link retrieval.."
     )
-    reverselist = [issueid for issueid, packid in comicarr.PACK_ISSUEIDS_DONT_QUEUE.items() if pack_id == packid]
+    reverselist = [
+        issueid for issueid, packid in runtime.current().pack_issueids_dont_queue.items() if pack_id == packid
+    ]
     for x in reverselist:
         db.upsert("issues", {"Status": "Skipped"}, {"IssueID": x})
     if reverselist:
@@ -1161,8 +1163,8 @@ def ddl_downloader(queue):
                         "[DOWNLOADS-DDL] Unable to close journal for rejected DDL item %s: %s"
                         % (item_id, journal_error)
                     )
-                comicarr.DDL_QUEUED.discard(item_id)
-                comicarr.DDL_STUCK_NOTIFIED.discard(item_id)
+                runtime.current().ddl_queued.discard(item_id)
+                runtime.current().ddl_stuck_notified.discard(item_id)
                 link_type_failure.pop(item_id, None)
                 ddl_cleanup(item_id)
             active_item["value"] = None
@@ -1194,8 +1196,8 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
             item = canonical_item
             active_item["value"] = item
             _ACTIVE_DDL_ITEM["id"] = item["id"]
-            if item["id"] not in comicarr.DDL_QUEUED:
-                comicarr.DDL_QUEUED.add(item["id"])
+            if item["id"] not in runtime.current().ddl_queued:
+                runtime.current().ddl_queued.add(item["id"])
             try:
                 link_type_failure[item["id"]].append(item["link_type_failure"])
             except Exception:
@@ -1225,7 +1227,7 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                     "[DOWNLOADS-DDL] could not persist Downloading state for id=%s; external side effect NOT started: %s"
                     % (item.get("id"), type(e).__name__)
                 )
-                comicarr.DDL_QUEUED.discard(item["id"])
+                runtime.current().ddl_queued.discard(item["id"])
                 continue
 
             ddl_result = {}
@@ -1298,7 +1300,7 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                     {"status": "Queued", "updated_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")},
                     {"ID": item["id"]},
                 )
-                comicarr.DDL_QUEUED.discard(item["id"])
+                runtime.current().ddl_queued.discard(item["id"])
                 logger.info("[DOWNLOADS-DDL] Maintenance fence retained id=%s as durable Queued work." % item["id"])
                 continue
             except Exception as e:
@@ -1327,13 +1329,13 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                         "[DOWNLOADS-DDL] unable to reconcile durable status for id=%s: %s"
                         % (item.get("id"), type(status_error).__name__)
                     )
-                comicarr.DDL_QUEUED.discard(item["id"])
+                runtime.current().ddl_queued.discard(item["id"])
                 continue
             ddzstat = ddl_result["value"]
 
             if ddl_finalization["complete"]:
-                comicarr.DDL_QUEUED.discard(item["id"])
-                comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
+                runtime.current().ddl_queued.discard(item["id"])
+                runtime.current().ddl_stuck_notified.discard(item["id"])
                 link_type_failure.pop(item["id"], None)
                 ddl_cleanup(item["id"])
                 active_item["value"] = None
@@ -1417,8 +1419,8 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                             "[DOWNLOADS-DDL] unable to persist quarantine for id=%s: %s"
                             % (item.get("id"), type(quarantine_error).__name__)
                         )
-                    comicarr.DDL_QUEUED.discard(item["id"])
-                    comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
+                    runtime.current().ddl_queued.discard(item["id"])
+                    runtime.current().ddl_stuck_notified.discard(item["id"])
                     try:
                         link_type_failure.pop(item["id"])
                     except KeyError:
@@ -1458,8 +1460,8 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                 except Exception as e:
                     logger.error("process error: %s [%s]" % (e, ddzstat))
 
-                comicarr.DDL_QUEUED.discard(item["id"])
-                comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
+                runtime.current().ddl_queued.discard(item["id"])
+                runtime.current().ddl_stuck_notified.discard(item["id"])
                 try:
                     link_type_failure.pop(item["id"])
                 except KeyError:
@@ -1467,10 +1469,10 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                 try:
                     pck_cnt = 0
                     if item["comicinfo"][0]["pack"] is True:
-                        for x, y in dict(comicarr.PACK_ISSUEIDS_DONT_QUEUE).items():
+                        for x, y in dict(runtime.current().pack_issueids_dont_queue).items():
                             if y == item["id"]:
                                 pck_cnt += 1
-                                del comicarr.PACK_ISSUEIDS_DONT_QUEUE[x]
+                                del runtime.current().pack_issueids_dont_queue[x]
                 except Exception:
                     pass
                 ddl_cleanup(item["id"])
@@ -1486,7 +1488,7 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                             link_type_failure[item["id"]].append(item["link_type"])
                         except KeyError:
                             link_type_failure[item["id"]] = [item["link_type"]]
-                        comicarr.DDL_QUEUED.discard(item["id"])
+                        runtime.current().ddl_queued.discard(item["id"])
                         ggc = getcomics.GC(comicid=item["comicid"], issueid=item["issueid"], oneoff=item["oneoff"])
                         ggc.parse_downloadresults(
                             item["id"],
@@ -1499,15 +1501,15 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                         nval = {"status": "Failed", "updated_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
                         db.upsert("ddl_info", nval, ctrlval)
                         reverse_the_pack_snatch(item["id"], item["comicid"])
-                        comicarr.DDL_QUEUED.discard(item["id"])
-                        comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
+                        runtime.current().ddl_queued.discard(item["id"])
+                        runtime.current().ddl_stuck_notified.discard(item["id"])
                         link_type_failure.pop(item["id"], None)
                         ddl_cleanup(item["id"])
                 else:
                     with db.get_engine().begin() as conn:
                         conn.execute(delete(ddl_info).where(ddl_info.c.ID == item["id"]))
-                    comicarr.DDL_QUEUED.discard(item["id"])
-                    comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
+                    runtime.current().ddl_queued.discard(item["id"])
+                    runtime.current().ddl_stuck_notified.discard(item["id"])
                     comicarr.app.search.engine.FailedMark(
                         item["issueid"],
                         item["comicid"],
@@ -1555,9 +1557,9 @@ def _notify_ddl_stuck_once(item, age_minutes):
     """Log and notify a stuck row once per process."""
 
     item_id = item["ID"]
-    if item_id in comicarr.DDL_STUCK_NOTIFIED:
+    if item_id in runtime.current().ddl_stuck_notified:
         return
-    comicarr.DDL_STUCK_NOTIFIED.add(item_id)
+    runtime.current().ddl_stuck_notified.add(item_id)
     logger.warn("[DDL-HEALTH] Download stuck for %d minutes: %s (%s)" % (int(age_minutes), item.get("series"), item_id))
     if not runtime.current().config.DDL_STUCK_NOTIFY:
         return
@@ -1663,7 +1665,7 @@ def ddl_health_check():
             continue
 
         item_id = item["ID"]
-        if item_id == active_ddl_item_id() or item_id in comicarr.DDL_QUEUED:
+        if item_id == active_ddl_item_id() or item_id in runtime.current().ddl_queued:
             _notify_ddl_stuck_once(item, age_minutes)
             continue
         try:

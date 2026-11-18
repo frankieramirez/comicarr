@@ -52,7 +52,7 @@ def _isolated_db(tmp_path, monkeypatch):
         types.SimpleNamespace(HIGHCOUNT=ISSUED_HIGHCOUNT, SAB_APIKEY="k", SAB_HOST="http://sab.local"),
         raising=False,
     )
-    monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", set(), raising=False)
+    monkeypatch.setattr(runtime.current(), "ddl_stuck_notified", set(), raising=False)
     monkeypatch.setattr(comicarr, "USE_SABNZBD", True, raising=False)
     monkeypatch.setattr(comicarr, "USE_NZBGET", False, raising=False)
     monkeypatch.setattr(
@@ -354,13 +354,13 @@ def test_apply_verdict_noop_for_non_gone_verdicts():
 
 def test_apply_verdict_gone_reconciles_ddl_stuck_notified():
     """When U5 marks a DDL row GONE it registers the DDL id into
-    comicarr.DDL_STUCK_NOTIFIED so ddl_health_check does not double-report."""
+    runtime.current().ddl_stuck_notified so ddl_health_check does not double-report."""
     payload = {"ddl": True, "download_info": {"provider": "DDL", "id": "ddl-99"}}
     row = _insert_journal(
         "DG|DDL|n", journal.SNATCHED, issueid="DG", provider="DDL", downloader_type="ddl", payload=payload
     )
     recovery_classify.apply_verdict(row, recovery_classify.GONE)
-    assert "ddl-99" in comicarr.DDL_STUCK_NOTIFIED
+    assert "ddl-99" in runtime.current().ddl_stuck_notified
 
 
 def test_gone_failed_row_is_terminal_not_reenqueued_by_replay():

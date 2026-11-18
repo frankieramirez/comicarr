@@ -400,7 +400,7 @@ class TestInitialSetup:
         ctx.config.apply_transaction.side_effect = None
         ctx.config.apply_transaction.return_value = False
         mock_encrypted.hash_password.return_value = "$2b$12$hashed"
-        monkeypatch.setattr(comicarr, "SETUP_TOKEN", "setup-token")
+        monkeypatch.setattr(runtime.current(), "setup_token", "setup-token")
         monkeypatch.setattr(comicarr, "SIGNAL", None)
 
         result = system_service.initial_setup(ctx, "admin", "password123", "setup-token")
@@ -409,7 +409,7 @@ class TestInitialSetup:
         assert ctx.config.HTTP_USERNAME is None
         assert ctx.config.HTTP_PASSWORD is None
         assert ctx.setup_token == "setup-token"
-        assert comicarr.SETUP_TOKEN == "setup-token"
+        assert runtime.current().setup_token == "setup-token"
         assert ctx.signal is None
         assert comicarr.SIGNAL is None
 
@@ -420,7 +420,7 @@ class TestInitialSetup:
         ctx.config.HTTP_USERNAME = None
         ctx.config.HTTP_PASSWORD = None
         mock_encrypted.hash_password.side_effect = RuntimeError("hash failed")
-        monkeypatch.setattr(comicarr, "SETUP_TOKEN", "setup-token")
+        monkeypatch.setattr(runtime.current(), "setup_token", "setup-token")
         monkeypatch.setattr(comicarr, "SIGNAL", None)
 
         result = system_service.initial_setup(ctx, "admin", "password123", "setup-token")
@@ -428,7 +428,7 @@ class TestInitialSetup:
         assert result == {"success": False, "error": "Failed to persist initial credentials"}
         ctx.config.apply_transaction.assert_not_called()
         assert ctx.setup_token == "setup-token"
-        assert comicarr.SETUP_TOKEN == "setup-token"
+        assert runtime.current().setup_token == "setup-token"
         assert ctx.signal is None
         assert comicarr.SIGNAL is None
 
@@ -1412,7 +1412,7 @@ class TestConfigService:
         """A display-only scheduler read has a stable empty-list contract."""
         scheduler = MagicMock()
         scheduler.get_jobs.return_value = []
-        monkeypatch.setattr(comicarr, "SCHED", scheduler)
+        monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
 
         assert system_service.job_management(write=False) == []
 
@@ -1528,7 +1528,7 @@ class TestConfigService:
         job = WeeklyJob()
         scheduler = MagicMock()
         scheduler.get_jobs.return_value = [job]
-        monkeypatch.setattr(comicarr, "SCHED", scheduler)
+        monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
         monkeypatch.setattr(runtime.current(), "weekly_status", "Waiting")
         monkeypatch.setattr(runtime.current(), "sched_weekly_last", None)
         monkeypatch.setattr(runtime.current(), "force_status", {})
@@ -1555,7 +1555,7 @@ class TestConfigService:
         job.__str__.return_value = "Weekly Pullist (trigger: interval], next run at: 2026-07-10 16:00:00 UTC)"
         scheduler = MagicMock()
         scheduler.get_jobs.return_value = [job]
-        monkeypatch.setattr(comicarr, "SCHED", scheduler)
+        monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
         monkeypatch.setattr(runtime.current(), "weekly_status", "Waiting")
         monkeypatch.setattr(runtime.current(), "sched_weekly_last", None)
         monkeypatch.setattr(runtime.current(), "force_status", {})

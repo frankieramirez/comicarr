@@ -1158,7 +1158,7 @@ class GC(object):
         filename = None
         ddl_lock.acquire()
         try:
-            comicarr.DDL_QUEUED.add(id)
+            runtime.current().ddl_queued.add(id)
             self.cookie_receipt()
             with requests.Session():
                 if resume is not None:

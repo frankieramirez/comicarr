@@ -1078,8 +1078,8 @@ def ignored_publisher_check(publisher):
 
 def _process_search_command(command):
     """Process one validated command or raise to the queue owner."""
-    if command.issueid in comicarr.PACK_ISSUEIDS_DONT_QUEUE:
-        if comicarr.PACK_ISSUEIDS_DONT_QUEUE[command.issueid] in comicarr.DDL_QUEUED:
+    if command.issueid in runtime.current().pack_issueids_dont_queue:
+        if runtime.current().pack_issueids_dont_queue[command.issueid] in runtime.current().ddl_queued:
             logger.fdebug(
                 "[SEARCH-QUEUE-PACK-DETECTION] %s already queued to download via pack...Ignoring" % command.issueid
             )

@@ -86,7 +86,7 @@ def run_refresh_queue(queue, ledger=None, maintenance=None):
                 if ledger_item["state"] == ItemOutcome.RUNNING.value:
                     continue
 
-            if r_mode is None and comicarr.IMPORTLOCK:
+            if r_mode is None and runtime.current().import_lock:
                 queue.put(item)
                 logger.info("[MASS-REFRESH] Import is active; deliberately requeued %s before claim" % comicid)
                 time.sleep(1)
@@ -161,7 +161,7 @@ def run_refresh_queue(queue, ledger=None, maintenance=None):
 
 
 def refresh_series_list(ComicIDList=None, calledfrom=None, sched=False):
-    if comicarr.IMPORTLOCK:
+    if runtime.current().import_lock:
         logger.info("Import is currently running - deferring this until the next scheduled run sequence.")
         return
     if ComicIDList is None:

@@ -30,7 +30,7 @@ from comicarr.app.downloads.ddl_commands import DDLCommand
 
 @pytest.fixture(autouse=True)
 def _reset_ddl_process_ownership(monkeypatch):
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", set(), raising=False)
+    monkeypatch.setattr(runtime.current(), "ddl_queued", set(), raising=False)
 
 
 def _complete_ddl_payload(**overrides):
@@ -133,7 +133,7 @@ def test_direct_processing_returns_http_conflict_while_owned(tmp_path, monkeypat
 def test_folder_monitor_defers_when_processing_is_busy(tmp_path, monkeypatch):
     from comicarr.app.downloads.folder_monitor import FolderCheck
 
-    monkeypatch.setattr(comicarr, "IMPORTLOCK", False)
+    monkeypatch.setattr(runtime.current(), "import_lock", False)
     lock = threading.Lock()
     lock.acquire()
     monkeypatch.setattr(runtime.current(), "api_lock", lock)
@@ -459,7 +459,7 @@ def test_nzb_downloaded_persistence_failure_never_hands_unowned_pp(sqlite_ddl_db
 
 
 def test_queue_ddl_persists_reconstructable_command_before_enqueue(monkeypatch):
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", set())
+    monkeypatch.setattr(runtime.current(), "ddl_queued", set())
     operations = []
     persisted = {}
     queued = MagicMock()
@@ -563,7 +563,7 @@ def test_queue_ddl_router_returns_400_for_non_runnable_legacy_payload(monkeypatc
 
 
 def test_requeue_reconstructs_and_enqueues_persisted_command(monkeypatch):
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", set())
+    monkeypatch.setattr(runtime.current(), "ddl_queued", set())
     row = _complete_ddl_payload()
     row.update(
         {
@@ -620,7 +620,7 @@ def test_requeue_rejects_active_downloading_status(monkeypatch):
 def test_recover_skips_ids_already_owned_by_this_process(sqlite_ddl_db, monkeypatch):
     command = _complete_ddl_payload()
     _persist_queued_command(command)
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", {"ddl-1"})
+    monkeypatch.setattr(runtime.current(), "ddl_queued", {"ddl-1"})
     recovered_queue = queue.Queue()
 
     result = service.recover_queued_ddl_commands(recovered_queue)
@@ -649,7 +649,7 @@ def test_requeue_does_not_mark_incomplete_persisted_item_queued(monkeypatch):
 
 
 def test_requeue_keeps_durable_queued_status_when_handoff_fails(monkeypatch):
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", set())
+    monkeypatch.setattr(runtime.current(), "ddl_queued", set())
     row = _complete_ddl_payload()
     row.update(
         {
@@ -713,7 +713,7 @@ def _persist_queued_command(command):
 def test_startup_sweep_recovers_persisted_and_prejournal_crash(sqlite_ddl_db, monkeypatch):
     command = _complete_ddl_payload()
     _persist_queued_command(command)
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", set())
+    monkeypatch.setattr(runtime.current(), "ddl_queued", set())
 
     first_process_queue = queue.Queue()
     first_result = service.recover_queued_ddl_commands(first_process_queue)
@@ -723,7 +723,7 @@ def test_startup_sweep_recovers_persisted_and_prejournal_crash(sqlite_ddl_db, mo
     assert dequeued_before_journal == command
 
     # Simulate process restart: in-memory ownership is lost, durable Queued remains.
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", set())
+    monkeypatch.setattr(runtime.current(), "ddl_queued", set())
     restarted_process_queue = queue.Queue()
     second_result = service.recover_queued_ddl_commands(restarted_process_queue)
 
@@ -732,7 +732,7 @@ def test_startup_sweep_recovers_persisted_and_prejournal_crash(sqlite_ddl_db, mo
 
 
 def test_startup_sweep_excludes_downloading_rows(sqlite_ddl_db, monkeypatch):
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", set())
+    monkeypatch.setattr(runtime.current(), "ddl_queued", set())
     """Only Queued rows are recovered; Downloading belongs to journal recovery."""
     queued = _complete_ddl_payload(id="ddl-queued")
     downloading = _complete_ddl_payload(id="ddl-downloading")
@@ -755,7 +755,7 @@ def test_startup_sweep_excludes_downloading_rows(sqlite_ddl_db, monkeypatch):
 
 
 def test_startup_sweep_marks_invalid_legacy_row_failed(sqlite_ddl_db, monkeypatch):
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", set())
+    monkeypatch.setattr(runtime.current(), "ddl_queued", set())
     with sqlite_ddl_db.begin() as conn:
         conn.execute(
             insert(ddl_info).values(
@@ -777,7 +777,7 @@ def test_startup_sweep_marks_invalid_legacy_row_failed(sqlite_ddl_db, monkeypatc
 
 
 def test_startup_sweep_queue_failure_keeps_row_recoverable(sqlite_ddl_db, monkeypatch):
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", set())
+    monkeypatch.setattr(runtime.current(), "ddl_queued", set())
     command = _complete_ddl_payload()
     _persist_queued_command(command)
     unavailable_queue = MagicMock()
@@ -946,8 +946,8 @@ def test_worker_marks_poison_item_failed_and_continues_to_shutdown(monkeypatch):
     work.put("exit")
     statuses = []
     monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False)
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", {"ddl-bad"})
-    monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", {"ddl-bad"})
+    monkeypatch.setattr(runtime.current(), "ddl_queued", {"ddl-bad"})
+    monkeypatch.setattr(runtime.current(), "ddl_stuck_notified", {"ddl-bad"})
     monkeypatch.setattr(
         service.db,
         "upsert",
@@ -957,8 +957,8 @@ def test_worker_marks_poison_item_failed_and_continues_to_shutdown(monkeypatch):
     service.ddl_downloader(work)
 
     assert statuses[-1][1]["status"] == "Failed"
-    assert "ddl-bad" not in comicarr.DDL_QUEUED
-    assert "ddl-bad" not in comicarr.DDL_STUCK_NOTIFIED
+    assert "ddl-bad" not in runtime.current().ddl_queued
+    assert "ddl-bad" not in runtime.current().ddl_stuck_notified
     assert work.empty()
 
 
@@ -966,7 +966,7 @@ def _drive_ddl_worker(monkeypatch, ddzstat, *, on_parse=None, link_type_failure=
     """Run one DDL item through the worker loop, then shut down.
 
     Calls _ddl_downloader_loop directly rather than ddl_downloader: the public
-    wrapper swallows any exception and discards DDL_QUEUED as poison recovery,
+    wrapper swallows any exception and discards ddl_queued as poison recovery,
     which would mask whether the terminal branch released ownership itself.
     """
 
@@ -986,8 +986,8 @@ def _drive_ddl_worker(monkeypatch, ddzstat, *, on_parse=None, link_type_failure=
     work.put("exit")
 
     monkeypatch.setattr(runtime.current().ddl_lock, "locked", lambda: False)
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", {"ddl-1"})
-    monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", {"ddl-1"})
+    monkeypatch.setattr(runtime.current(), "ddl_queued", {"ddl-1"})
+    monkeypatch.setattr(runtime.current(), "ddl_stuck_notified", {"ddl-1"})
     monkeypatch.setattr(runtime.current(), "config", SimpleNamespace(POST_PROCESSING=False), raising=False)
 
     statuses = []
@@ -1024,8 +1024,8 @@ def test_worker_releases_queue_ownership_when_links_are_exhausted(monkeypatch):
     )
 
     assert statuses[-1][1]["status"] == "Failed"
-    assert "ddl-1" not in comicarr.DDL_QUEUED
-    assert "ddl-1" not in comicarr.DDL_STUCK_NOTIFIED
+    assert "ddl-1" not in runtime.current().ddl_queued
+    assert "ddl-1" not in runtime.current().ddl_stuck_notified
 
 
 def test_worker_handles_links_exhausted_on_the_first_attempt(monkeypatch):
@@ -1044,21 +1044,21 @@ def test_worker_handles_links_exhausted_on_the_first_attempt(monkeypatch):
     )
 
     assert statuses[-1][1]["status"] == "Failed"
-    assert "ddl-1" not in comicarr.DDL_QUEUED
-    assert "ddl-1" not in comicarr.DDL_STUCK_NOTIFIED
+    assert "ddl-1" not in runtime.current().ddl_queued
+    assert "ddl-1" not in runtime.current().ddl_stuck_notified
 
 
 def test_worker_releases_queue_ownership_before_retrying_remaining_links(monkeypatch):
     """The retry re-queues the same id, so ownership must be released first (#784).
 
     getcomics._queue_download_batch reuses item_id when a result has a single
-    link, so if DDL_QUEUED still held the id here _enqueue_ddl_queue_item would
+    link, so if ddl_queued still held the id here _enqueue_ddl_queue_item would
     dedupe the retry away and the item would sit in Queued forever.
     """
     owned_during_retry = {}
 
     def _record():
-        owned_during_retry["value"] = "ddl-1" in comicarr.DDL_QUEUED
+        owned_during_retry["value"] = "ddl-1" in runtime.current().ddl_queued
 
     _drive_ddl_worker(
         monkeypatch,
@@ -1108,7 +1108,7 @@ def _downloader(monkeypatch, tmp_path, *, response=None):
     downloader.cookie_receipt = MagicMock()
     lock = _TrackingLock()
     monkeypatch.setattr(runtime.current(), "ddl_lock", lock)
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", set())
+    monkeypatch.setattr(runtime.current(), "ddl_queued", set())
     monkeypatch.setattr(
         runtime.current(),
         "config",

@@ -28,7 +28,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy import create_engine, select
 
-import comicarr
 from comicarr.app.core import runtime
 from comicarr.app.core.tables import comics, metadata
 from comicarr.app.manga import add as manga_add
@@ -173,7 +172,7 @@ class TestMangaDexAddRecordsItsId:
         engine = create_engine("sqlite://")
         metadata.create_all(engine)
         monkeypatch.setattr(comic_add.db, "get_engine", lambda: engine)
-        monkeypatch.setattr(comicarr, "COMICSORT", None, raising=False)
+        monkeypatch.setattr(runtime.current(), "comic_sort", None, raising=False)
         monkeypatch.setattr(
             runtime.current(),
             "config",

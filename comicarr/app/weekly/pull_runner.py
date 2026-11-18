@@ -21,28 +21,11 @@
 import datetime
 import threading
 
-import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.core import logger, runtime
 from comicarr.app.core.workers import start_background_thread
 from comicarr.app.system import service as system_service
 from comicarr.app.weekly import pull_list
-
-
-def _weekly_runtime_context():
-    """Return the canonical context when lifecycle startup has completed."""
-    from comicarr.app.core.runtime import get_runtime_if_initialized
-
-    ctx = get_runtime_if_initialized()
-    return ctx if ctx is not None and not ctx.disposed else None
-
-
-def _get_weekly_runtime_value(context_field, legacy_name):
-    """Read canonical weekly state, with a pre-factory legacy fallback."""
-    ctx = _weekly_runtime_context()
-    if ctx is not None:
-        return getattr(ctx, context_field)
-    return getattr(comicarr, legacy_name)
 
 
 def _restore_manual_next_run():
@@ -58,7 +41,7 @@ def _restore_manual_next_run():
         return
 
     try:
-        scheduler = _get_weekly_runtime_value("scheduler", "SCHED")
+        scheduler = runtime.current().scheduler
         job = scheduler.get_job("weekly") if scheduler is not None else None
         if job is not None:
             job.modify(next_run_time=scheduled_run)
@@ -95,7 +78,7 @@ def _queue_recommendations_after_pull():
     """Hand off recommendation I/O after the weekly lock and status are released."""
     global _recommendation_active, _recommendation_pending
 
-    if _get_weekly_runtime_value("ai_client", "AI_CLIENT") is None:
+    if runtime.current().ai_client is None:
         return
     with _recommendation_lock:
         if _recommendation_active:
@@ -137,7 +120,7 @@ def _honor_upstream_retry(retry_after):
         return
     seconds = max(seconds, 60)
     try:
-        scheduler = _get_weekly_runtime_value("scheduler", "SCHED")
+        scheduler = runtime.current().scheduler
         job = scheduler.get_job("weekly") if scheduler is not None else None
         if job is None:
             return

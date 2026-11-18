@@ -17,7 +17,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import insert, select
 
-import comicarr
 from comicarr.app.core import db, runtime
 from comicarr.app.core.tables import ddl_info, issues, metadata, nzblog, pipeline_journal
 from comicarr.app.downloads import journal, service
@@ -73,8 +72,8 @@ def health_db(tmp_path, monkeypatch):
     metadata.create_all(engine)
     monkeypatch.setattr(runtime.current(), "config", _health_config(), raising=False)
     monkeypatch.setattr(runtime.current(), "ddl_queue", queue.Queue(), raising=False)
-    monkeypatch.setattr(comicarr, "DDL_QUEUED", set(), raising=False)
-    monkeypatch.setattr(comicarr, "DDL_STUCK_NOTIFIED", set(), raising=False)
+    monkeypatch.setattr(runtime.current(), "ddl_queued", set(), raising=False)
+    monkeypatch.setattr(runtime.current(), "ddl_stuck_notified", set(), raising=False)
     monkeypatch.setitem(service._ACTIVE_DDL_ITEM, "id", None)
     notified = []
     monkeypatch.setattr(
@@ -259,7 +258,7 @@ def test_active_item_is_never_changed_and_notified_once(health_db, link):
 
 def test_item_queued_for_this_worker_is_left_alone(health_db, link):
     _insert_downloading()
-    comicarr.DDL_QUEUED.add("ddl-1")
+    runtime.current().ddl_queued.add("ddl-1")
 
     service.ddl_health_check()
 
@@ -297,7 +296,7 @@ def test_restart_does_not_renotify_a_reconciled_row(health_db, link):
     _insert_journal(journal.SNATCHED)
 
     service.ddl_health_check()
-    comicarr.DDL_STUCK_NOTIFIED.clear()
+    runtime.current().ddl_stuck_notified.clear()
     service.ddl_health_check()
 
     assert _ddl_status() == "Failed"
