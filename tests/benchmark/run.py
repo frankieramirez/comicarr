@@ -130,9 +130,9 @@ def initialize(data_dir):
     import comicarr
 
     runtime.current().data_dir = str(data_dir)
-    comicarr.CONFIG_FILE = str(Path(data_dir) / "config.ini")
+    runtime.current().config_file = str(Path(data_dir) / "config.ini")
     runtime.current().db_file = str(Path(data_dir) / "comicarr.db")
-    comicarr.initialize(comicarr.CONFIG_FILE)
+    comicarr.initialize(runtime.current().config_file)
 
 
 def api_client():

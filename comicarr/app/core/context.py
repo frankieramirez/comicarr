@@ -42,6 +42,7 @@ Type annotations are an explicit exception to the project's "no type hints"
 rule — structured shared-state objects where types genuinely pay for themselves.
 """
 
+import platform
 import queue
 import threading
 from dataclasses import dataclass, field
@@ -137,6 +138,17 @@ class AppContext:
     maintenance_update: list = field(default_factory=list)
     maintenance_db_total: int = 0
     maintenance_db_count: int = 0
+    # Process and command-line state, set by Comicarr.py and initialize().
+    full_path: str = None
+    args: list = field(default_factory=list)
+    config_file: str = None
+    daemon: bool = False
+    pidfile: str = None
+    createpid: bool = False
+    sys_encoding: str = None
+    os_detect: str = field(default_factory=platform.system)
+    user_agent: str = None
+    umask: int = None
     ddl_queued: set = field(default_factory=set)
     ddl_stuck_notified: set = field(default_factory=set)
     pack_issueids_dont_queue: dict = field(default_factory=dict)

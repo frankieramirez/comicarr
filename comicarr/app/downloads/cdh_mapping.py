@@ -23,7 +23,6 @@ import re
 import requests
 from packaging.version import parse as parse_version
 
-import comicarr
 from comicarr.app.core import logger, runtime
 
 
@@ -39,7 +38,7 @@ class CDH_MAP(object):
             dst_dir = runtime.current().config.NZBGET_DIRECTORY
             self.server = nzbget_server
 
-        if comicarr.OS_DETECT == "Windows":
+        if runtime.current().os_detect == "Windows":
             if pathlib.Path(dst_dir).is_absolute():
                 self.sab_dir = pathlib.PureWindowsPath(dst_dir)
             else:

@@ -404,7 +404,7 @@ def get_safe_config(ctx):
     result["torznab"] = _safe_provider_projection(ctx.config, "torznab")
     # Settings and About print where this install keeps its files; without
     # these the UI fell back to a Docker-shaped "/config/config.ini".
-    config_file = getattr(ctx.config, "_config_file", None) or getattr(comicarr, "CONFIG_FILE", None)
+    config_file = getattr(ctx.config, "_config_file", None) or runtime.current().config_file
     if isinstance(config_file, (str, os.PathLike)):
         result["config_path"] = str(config_file)
     data_dir = getattr(ctx, "data_dir", None)

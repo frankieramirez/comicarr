@@ -185,7 +185,6 @@ def _configured_ownership(config):
 
 
 def _new_artifact_policy():
-    import comicarr
 
     config = runtime.current().config
     if bool(getattr(config, "ENFORCE_PERMS", False)):
@@ -195,7 +194,7 @@ def _new_artifact_policy():
             _configured_ownership(config),
         )
 
-    captured_umask = _permission_mode(getattr(comicarr, "UMASK", None), None)
+    captured_umask = _permission_mode(runtime.current().umask, None)
     if captured_umask is None:
         return 0o600, 0o700, None
     return 0o666 & ~captured_umask, 0o777 & ~captured_umask, None

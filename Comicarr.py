@@ -61,25 +61,25 @@ def main():
 
     # Fixed paths to comicarr
     if hasattr(sys, "frozen"):
-        comicarr.FULL_PATH = os.path.abspath(sys.executable)
+        runtime.current().full_path = os.path.abspath(sys.executable)
     else:
-        comicarr.FULL_PATH = os.path.abspath(__file__)
+        runtime.current().full_path = os.path.abspath(__file__)
 
-    runtime.current().prog_dir = os.path.dirname(comicarr.FULL_PATH)
-    comicarr.ARGS = sys.argv[1:]
+    runtime.current().prog_dir = os.path.dirname(runtime.current().full_path)
+    runtime.current().args = sys.argv[1:]
 
     # From sickbeard
-    comicarr.SYS_ENCODING = None
+    runtime.current().sys_encoding = None
 
     try:
         locale.setlocale(locale.LC_ALL, "")
-        comicarr.SYS_ENCODING = locale.getpreferredencoding()
+        runtime.current().sys_encoding = locale.getpreferredencoding()
     except (locale.Error, IOError):
         pass
 
     # for OSes that are poorly configured I'll just force UTF-8
-    if not comicarr.SYS_ENCODING or comicarr.SYS_ENCODING in ("ANSI_X3.4-1968", "US-ASCII", "ASCII"):
-        comicarr.SYS_ENCODING = "UTF-8"
+    if not runtime.current().sys_encoding or runtime.current().sys_encoding in ("ANSI_X3.4-1968", "US-ASCII", "ASCII"):
+        runtime.current().sys_encoding = "UTF-8"
 
     # Set up and gather command line arguments
     parser = argparse.ArgumentParser(description="Automated Comic Book Downloader")
@@ -223,8 +223,6 @@ def main():
     args_pidfile = args.get("pidfile")
     args_datadir = args.get("datadir")
     args_config = args.get("config")
-    args_safe = args.get("safe")
-    args_noweekly = args.get("noweekly")
     args_port = args.get("port")
     args_nolaunch = args.get("nolaunch")
     args_backup = args.get("backup")
@@ -329,24 +327,24 @@ def main():
         if sys.platform == "win32":
             print("Daemonize not supported under Windows, starting normally")
         else:
-            comicarr.DAEMON = True
+            runtime.current().daemon = True
 
     if args_pidfile:
-        comicarr.PIDFILE = str(args_pidfile)
+        runtime.current().pidfile = str(args_pidfile)
 
         # If the pidfile already exists, comicarr may still be running, so exit
-        if os.path.exists(comicarr.PIDFILE):
-            if check_stale_pidfile(comicarr.PIDFILE):
-                os.unlink(comicarr.PIDFILE)
+        if os.path.exists(runtime.current().pidfile):
+            if check_stale_pidfile(runtime.current().pidfile):
+                os.unlink(runtime.current().pidfile)
             else:
-                sys.exit("PID file '" + comicarr.PIDFILE + "' already exists. Exiting.")
+                sys.exit("PID file '" + runtime.current().pidfile + "' already exists. Exiting.")
 
         # The pidfile is only useful in daemon mode, make sure we can write the file properly
-        if comicarr.DAEMON:
-            comicarr.CREATEPID = True
+        if runtime.current().daemon:
+            runtime.current().createpid = True
             curpid = os.getpid()
             try:
-                open(comicarr.PIDFILE, "w").write(f"{curpid}\n")
+                open(runtime.current().pidfile, "w").write(f"{curpid}\n")
             except IOError as e:
                 raise SystemExit("Unable to write PID file: %s [%d]" % (e.strerror, e.errno)) from e
         else:
@@ -358,19 +356,9 @@ def main():
         runtime.current().data_dir = runtime.current().prog_dir
 
     if args_config:
-        comicarr.CONFIG_FILE = args_config
+        runtime.current().config_file = args_config
     else:
-        comicarr.CONFIG_FILE = os.path.join(runtime.current().data_dir, "config.ini")
-
-    if args_safe:
-        comicarr.SAFESTART = True
-    else:
-        comicarr.SAFESTART = False
-
-    if args_noweekly:
-        comicarr.NOWEEKLY = True
-    else:
-        comicarr.NOWEEKLY = False
+        runtime.current().config_file = os.path.join(runtime.current().data_dir, "config.ini")
 
     try:
         backup = False
@@ -398,7 +386,7 @@ def main():
         print("Initializing startup sequence....")
 
     # try:
-    comicarr.initialize(comicarr.CONFIG_FILE)
+    comicarr.initialize(runtime.current().config_file)
     # except Exception as e:
     #    print e
     #    raise SystemExit('FATAL ERROR')
@@ -444,7 +432,7 @@ def main():
     # Rename the main thread
     threading.current_thread().name = "MAIN"
 
-    if comicarr.DAEMON:
+    if runtime.current().daemon:
         comicarr.daemonize()
 
     if runtime.current().maintenance is True and (

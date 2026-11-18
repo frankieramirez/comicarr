@@ -809,7 +809,9 @@ def versionload(cli_values=None, carepackage_call=False):
     else:
         vers = "NONE"
 
-    comicarr.USER_AGENT = "Comicarr/" + str(hash) + "(" + vers + ") +https://github.com/frankieramirez/comicarr/"
+    runtime.current().user_agent = (
+        "Comicarr/" + str(hash) + "(" + vers + ") +https://github.com/frankieramirez/comicarr/"
+    )
 
     logger.info(
         "Version information: %s [%s]" % (runtime.current().config.GIT_BRANCH, runtime.current().current_version)

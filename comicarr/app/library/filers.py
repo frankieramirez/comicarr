@@ -28,7 +28,6 @@ import time
 
 from sqlalchemy import or_, select
 
-import comicarr
 from comicarr.app.common import configured as configured
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common import strings as common_strings
@@ -109,7 +108,7 @@ class FileHandlers(object):
         publisher = re.sub("!", "", self.comic["ComicPublisher"])
         publisher = common_strings.filesafe(publisher)
 
-        if comicarr.OS_DETECT == "Windows":
+        if runtime.current().os_detect == "Windows":
             if "/" in folder_format:
                 folder_format = re.sub("/", "\\", folder_format).strip()
         else:
@@ -259,7 +258,7 @@ class FileHandlers(object):
                         newpath = os.path.join(spath, dir_parts[t])
                         t += 1
                     com_base = newpath
-            if comicarr.OS_DETECT == "Windows":
+            if runtime.current().os_detect == "Windows":
                 p_path = pathlib.PureWindowsPath(ccdir)
             else:
                 p_path = pathlib.PurePosixPath(ccdir)
@@ -291,7 +290,7 @@ class FileHandlers(object):
             bb2 = bb[0]
             bb.pop(0)
             bb_tuple = pathlib.PurePath(os.path.sep.join(bb))
-            if comicarr.OS_DETECT == "Windows":
+            if runtime.current().os_detect == "Windows":
                 p_path = pathlib.PureWindowsPath(pathlib.PurePath(bb2).joinpath(bb_tuple))
             else:
                 p_path = pathlib.PurePosixPath(pathlib.PurePath(bb2).joinpath(bb_tuple))

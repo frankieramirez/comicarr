@@ -25,7 +25,6 @@ import getpass
 import os
 import platform
 
-import comicarr
 from comicarr.app.core import logger, runtime
 
 if "windows" not in platform.system().lower():
@@ -88,7 +87,7 @@ def validateAndCreateDirectory(dir, create=False, module=None, dmode=None):
 
 def setperms(path, dir=False):
 
-    if "windows" not in comicarr.OS_DETECT.lower():
+    if "windows" not in runtime.current().os_detect.lower():
         try:
             os.umask(0)
             if runtime.current().config.CHGROUP:

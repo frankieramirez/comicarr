@@ -1535,7 +1535,7 @@ def NZB_SEARCH(
                             logger.fdebug("local domain bypass for %s is active." % name_newznab)
                             localbypass = True
 
-                    headers = {"User-Agent": str(comicarr.USER_AGENT)}
+                    headers = {"User-Agent": str(runtime.current().user_agent)}
                     payload = None
 
                     if findurl.startswith("https:") and verify is False:
@@ -3266,7 +3266,7 @@ def searcher(
         filen = None
         nzbhydra = False
         payload = None
-        headers = {"User-Agent": str(comicarr.USER_AGENT)}
+        headers = {"User-Agent": str(runtime.current().user_agent)}
         if provider_stat["type"] == "newznab":
             if provider_stat["type"] == "newznab":
                 host_newznab = newznab[1].rstrip()
