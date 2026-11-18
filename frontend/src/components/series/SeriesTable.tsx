@@ -34,6 +34,7 @@ import SeriesFilters, {
   type StatusFilter,
 } from "./SeriesFilters";
 import SeriesGrid from "./SeriesGrid";
+import { HaveBreakdown, SeriesTitlePreview } from "./SeriesRowPopovers";
 import {
   getIsAllSelected,
   toggleAllSelected,
@@ -624,9 +625,9 @@ interface SeriesRowProps {
 function SeriesRow({ row, onClick }: SeriesRowProps) {
   const comic = row.original;
   const kind = seriesKindOf(comic);
-  const kindLabel = (
-    kind === "manga" ? t`Manga` : kind === "magazine" ? t`Magazine` : t`Comic`
-  ).toUpperCase();
+  const kindText =
+    kind === "manga" ? t`Manga` : kind === "magazine" ? t`Magazine` : t`Comic`;
+  const kindLabel = kindText.toUpperCase();
   const have = parseInt(String(comic.Have)) || 0;
   const total = parseInt(String(comic.Total)) || 0;
   const progress = getProgressPercentage(comic);
@@ -664,14 +665,16 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
         <div className="flex min-w-0 items-center gap-2">
           {/* flex-1 + min-w-0 keeps the title the flexible primary and stops
               the kind badge from starving truncate to 0px width (#414). */}
-          <Link
-            to={`/library/${comic.ComicID}`}
-            data-testid="series-row-title"
-            className="min-w-0 flex-1 truncate font-medium hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {comic.ComicName}
-          </Link>
+          <SeriesTitlePreview comic={comic} kindLabel={kindText}>
+            <Link
+              to={`/library/${comic.ComicID}`}
+              data-testid="series-row-title"
+              className="min-w-0 flex-1 truncate font-medium hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {comic.ComicName}
+            </Link>
+          </SeriesTitlePreview>
           <span className="shrink-0 rounded-md border border-border-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
             {kindLabel}
           </span>
@@ -691,9 +694,11 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
         <StatusBadge variant="dot" status={status || "unknown"} />
       </div>
 
-      <div className={`${DESKTOP_COL} font-mono text-xs tabular-nums`}>
-        <span>{have}</span>
-        <span className="text-muted-foreground"> / {total}</span>
+      <div className={DESKTOP_COL}>
+        <HaveBreakdown comic={comic}>
+          <span>{have}</span>
+          <span className="text-muted-foreground"> / {total}</span>
+        </HaveBreakdown>
       </div>
 
       <div className={`${DESKTOP_COL} flex items-center gap-2`}>

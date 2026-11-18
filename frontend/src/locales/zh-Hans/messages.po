@@ -703,6 +703,10 @@ msgstr "{groupCount} · 已选 {fileCount}"
 msgid "{groups, plural, one {# group} other {# groups}}"
 msgstr "{groups, plural, other {# 个分组}}"
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "{have} of {total}"
+msgstr "{have} / {total}"
+
 #: src/components/dashboard/NeedsAttentionBand.tsx
 #: src/pages/AttentionPage.tsx
 msgid "{head} {skipped_for_cap} left for another go (max {cap} at a time)."
@@ -1116,7 +1120,12 @@ msgstr "{totalIssues, plural, other {这些系列将添加到你的书库，此�
 msgid "{totalTokens, plural, one {# token} other {# tokens}}"
 msgstr "{totalTokens, plural, other {# 个令牌}}"
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "{volumesOwned} of {volumesTotal}"
+msgstr "{volumesOwned} / {volumesTotal}"
+
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 msgid "{volumesOwned} of {volumesTotal} volumes, {chapterFiles} chapter files"
 msgstr "{volumesTotal} 卷中已有 {volumesOwned} 卷，{chapterFiles} 个单话文件"
 
@@ -1721,6 +1730,10 @@ msgstr "年刊 {number}"
 msgid "annuals"
 msgstr "年刊"
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "Annuals included"
+msgstr "包含的年刊"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "annuals: {annualCount}"
 msgstr "年刊：{annualCount}"
@@ -2304,6 +2317,7 @@ msgid "chapter files"
 msgstr "单话文件"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 msgid "Chapter files"
 msgstr "单话文件"
 
@@ -2318,6 +2332,10 @@ msgstr "章节"
 #: src/lib/importUtils.ts
 msgid "Chapters {first}-{last}"
 msgstr "第 {first}-{last} 章"
+
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "Chapters inside those volumes"
+msgstr "这些卷中的章节"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Chapters only"
@@ -3480,6 +3498,7 @@ msgid "downloader unreachable"
 msgstr "无法访问下载器"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/lib/releaseState.ts
 msgid "Downloading"
 msgstr "下载中"
@@ -4417,6 +4436,7 @@ msgid "Hasn't run yet"
 msgstr "尚未运行"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Have"
@@ -5029,6 +5049,10 @@ msgstr "上次同步：{when}"
 #: src/lib/releaseWeek.ts
 msgid "Last week"
 msgstr "上周"
+
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "Latest release"
+msgstr "最新发行"
 
 #: src/pages/SearchPage.tsx
 msgid "Latest Upload"
@@ -5666,6 +5690,7 @@ msgid "missing before your latest chapter"
 msgstr "在你最新一话之前缺失"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 msgid "Missing before your latest chapter"
 msgstr "在你最新一话之前缺失"
 
@@ -6360,6 +6385,7 @@ msgid "Not Tracked"
 msgstr "未跟踪"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Not wanted"
 msgstr "不需要"
@@ -9061,6 +9087,10 @@ msgstr "归档无法打开"
 msgid "The best guess scored {best}%, under your {confidence_bar}% auto-import bar."
 msgstr "最佳猜测得分为 {best}%，低于你的 {confidence_bar}% 自动导入门槛。"
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "The breakdown could not be loaded."
+msgstr "无法加载明细。"
+
 #: src/components/releases/pullAttempts.ts
 msgid "The built-in release calendar could not be reached. It needs no setup, and Comicarr tries it again on the next refresh."
 msgstr "无法连接内置的发行日历。它无需设置，Comicarr 会在下次刷新时重试。"
@@ -9971,6 +10001,7 @@ msgstr "卷"
 msgid "volumes"
 msgstr "卷"
 
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Volumes"
 msgstr "卷"
@@ -10027,6 +10058,7 @@ msgstr "待获取"
 #: src/components/releases/IndustryReleasesView.tsx
 #: src/components/series/IssueStatusMenu.tsx
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/components/storyarcs/ArcIssueRow.tsx
 #: src/lib/statusTone.ts
 #: src/pages/SeriesDetailPage.tsx
@@ -10103,6 +10135,10 @@ msgstr "发生了什么"
 #: src/components/ai/ChatExamplePrompts.tsx
 msgid "What landed in the last seven days?"
 msgstr "最近七天到了什么？"
+
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "What you have of {name}"
+msgstr "你拥有的 {name} 内容"
 
 #: src/components/layout/VersionChip.tsx
 #: src/components/settings/AboutTab.tsx

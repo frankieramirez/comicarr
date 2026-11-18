@@ -703,6 +703,10 @@ msgstr "{groupCount} · {fileCount} ausgewählt"
 msgid "{groups, plural, one {# group} other {# groups}}"
 msgstr "{groups, plural, one {# Gruppe} other {# Gruppen}}"
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "{have} of {total}"
+msgstr "{have} von {total}"
+
 #: src/components/dashboard/NeedsAttentionBand.tsx
 #: src/pages/AttentionPage.tsx
 msgid "{head} {skipped_for_cap} left for another go (max {cap} at a time)."
@@ -1116,7 +1120,12 @@ msgstr "{totalIssues, plural, one {Diese Serien werden deiner Bibliothek hinzuge
 msgid "{totalTokens, plural, one {# token} other {# tokens}}"
 msgstr "{totalTokens, plural, one {# Token} other {# Token}}"
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "{volumesOwned} of {volumesTotal}"
+msgstr "{volumesOwned} von {volumesTotal}"
+
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 msgid "{volumesOwned} of {volumesTotal} volumes, {chapterFiles} chapter files"
 msgstr "{volumesOwned} von {volumesTotal} Bänden, {chapterFiles} Kapiteldateien"
 
@@ -1721,6 +1730,10 @@ msgstr "Annual {number}"
 msgid "annuals"
 msgstr "Annuals"
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "Annuals included"
+msgstr "Annuals enthalten"
+
 #: src/pages/SeriesDetailPage.tsx
 msgid "annuals: {annualCount}"
 msgstr "Annuals: {annualCount}"
@@ -2304,6 +2317,7 @@ msgid "chapter files"
 msgstr "Kapiteldateien"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 msgid "Chapter files"
 msgstr "Kapiteldateien"
 
@@ -2318,6 +2332,10 @@ msgstr "Kapitel"
 #: src/lib/importUtils.ts
 msgid "Chapters {first}-{last}"
 msgstr "Kapitel {first}-{last}"
+
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "Chapters inside those volumes"
+msgstr "Kapitel in diesen Bänden"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "Chapters only"
@@ -3480,6 +3498,7 @@ msgid "downloader unreachable"
 msgstr "Downloader nicht erreichbar"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/lib/releaseState.ts
 msgid "Downloading"
 msgstr "Wird heruntergeladen"
@@ -4417,6 +4436,7 @@ msgid "Hasn't run yet"
 msgstr "Noch nicht gelaufen"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Have"
@@ -5029,6 +5049,10 @@ msgstr "zuletzt synchronisiert {when}"
 #: src/lib/releaseWeek.ts
 msgid "Last week"
 msgstr "Letzte Woche"
+
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "Latest release"
+msgstr "Neueste Veröffentlichung"
 
 #: src/pages/SearchPage.tsx
 msgid "Latest Upload"
@@ -5666,6 +5690,7 @@ msgid "missing before your latest chapter"
 msgstr "fehlen vor deinem neuesten Kapitel"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 msgid "Missing before your latest chapter"
 msgstr "Fehlen vor deinem neuesten Kapitel"
 
@@ -6360,6 +6385,7 @@ msgid "Not Tracked"
 msgstr "Nicht verfolgt"
 
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Not wanted"
 msgstr "Nicht gesucht"
@@ -9061,6 +9087,10 @@ msgstr "das Archiv ließ sich nicht öffnen"
 msgid "The best guess scored {best}%, under your {confidence_bar}% auto-import bar."
 msgstr "Die beste Vermutung erreichte {best} %, unter deiner Schwelle für automatischen Import von {confidence_bar} %."
 
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "The breakdown could not be loaded."
+msgstr "Die Aufschlüsselung konnte nicht geladen werden."
+
 #: src/components/releases/pullAttempts.ts
 msgid "The built-in release calendar could not be reached. It needs no setup, and Comicarr tries it again on the next refresh."
 msgstr "Der eingebaute Veröffentlichungskalender ist nicht erreichbar. Er braucht keine Einrichtung, und Comicarr versucht es bei der nächsten Aktualisierung erneut."
@@ -9971,6 +10001,7 @@ msgstr "Band"
 msgid "volumes"
 msgstr "Bände"
 
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Volumes"
 msgstr "Bände"
@@ -10027,6 +10058,7 @@ msgstr "gesucht"
 #: src/components/releases/IndustryReleasesView.tsx
 #: src/components/series/IssueStatusMenu.tsx
 #: src/components/series/MangaVolumes.tsx
+#: src/components/series/SeriesRowPopovers.tsx
 #: src/components/storyarcs/ArcIssueRow.tsx
 #: src/lib/statusTone.ts
 #: src/pages/SeriesDetailPage.tsx
@@ -10103,6 +10135,10 @@ msgstr "Was passiert ist"
 #: src/components/ai/ChatExamplePrompts.tsx
 msgid "What landed in the last seven days?"
 msgstr "Was ist in den letzten sieben Tagen eingetroffen?"
+
+#: src/components/series/SeriesRowPopovers.tsx
+msgid "What you have of {name}"
+msgstr "Was du von {name} hast"
 
 #: src/components/layout/VersionChip.tsx
 #: src/components/settings/AboutTab.tsx
