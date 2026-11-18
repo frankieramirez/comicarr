@@ -633,6 +633,12 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
   const progress = getProgressPercentage(comic);
   const status = (comic.Status || "").toLowerCase();
   const isSelected = row.getIsSelected();
+  const haveCount = (
+    <>
+      <span>{have}</span>
+      <span className="text-muted-foreground"> / {total}</span>
+    </>
+  );
 
   const mobileMeta = [
     comic.ComicPublisher,
@@ -694,11 +700,12 @@ function SeriesRow({ row, onClick }: SeriesRowProps) {
         <StatusBadge variant="dot" status={status || "unknown"} />
       </div>
 
-      <div className={DESKTOP_COL}>
-        <HaveBreakdown comic={comic}>
-          <span>{have}</span>
-          <span className="text-muted-foreground"> / {total}</span>
-        </HaveBreakdown>
+      <div className={`${DESKTOP_COL} font-mono text-xs tabular-nums`}>
+        {kind === "manga" ? (
+          <HaveBreakdown comic={comic}>{haveCount}</HaveBreakdown>
+        ) : (
+          haveCount
+        )}
       </div>
 
       <div className={`${DESKTOP_COL} flex items-center gap-2`}>

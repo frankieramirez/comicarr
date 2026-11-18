@@ -66,7 +66,8 @@ function HaveBreakdownBody({ comicId }: { comicId: string }) {
       </div>
     );
   }
-  if (isError || !data) {
+  const progress = data?.manga?.progress;
+  if (isError || !progress) {
     return (
       <p className="text-muted-foreground">
         <Trans>The breakdown could not be loaded.</Trans>
@@ -74,95 +75,59 @@ function HaveBreakdownBody({ comicId }: { comicId: string }) {
     );
   }
 
-  const summary = data.summary ?? {};
-  const progress = data.manga?.progress;
   const number = (value: number | undefined) => formatNumber(value ?? 0);
-  const inFlight = summary.inFlight ?? 0;
-  const wanted = summary.wantedMissing ?? 0;
-  const notWanted = summary.notWanted ?? 0;
-
-  if (progress) {
-    const volumesOwned = formatNumber(progress.volumesOwned);
-    const volumesTotal = formatNumber(progress.volumesTotal);
-    const chapterFiles = progress.chaptersOwned;
-    return (
-      <>
-        <dl className="space-y-1.5">
+  const inFlight = data?.summary?.inFlight ?? 0;
+  const volumesOwned = formatNumber(progress.volumesOwned);
+  const volumesTotal = formatNumber(progress.volumesTotal);
+  const chapterFiles = progress.chaptersOwned;
+  return (
+    <>
+      <dl className="space-y-1.5">
+        <Line
+          label={t`Volumes`}
+          value={t`${volumesOwned} of ${volumesTotal}`}
+        />
+        <Line
+          label={t`Chapters inside those volumes`}
+          value={number(data?.summary?.covered)}
+          color="var(--status-downloaded)"
+          faded
+        />
+        <Line
+          label={t`Chapter files`}
+          value={number(chapterFiles)}
+          color="var(--status-downloaded)"
+        />
+        {inFlight > 0 && (
           <Line
-            label={t`Volumes`}
-            value={t`${volumesOwned} of ${volumesTotal}`}
-          />
-          <Line
-            label={t`Chapters inside those volumes`}
-            value={number(summary.covered)}
-            color="var(--status-downloaded)"
-            faded
-          />
-          <Line
-            label={t`Chapter files`}
-            value={number(chapterFiles)}
-            color="var(--status-downloaded)"
-          />
-          {inFlight > 0 && (
-            <Line
-              label={t`Downloading`}
-              value={number(inFlight)}
-              color="var(--in-flight)"
-            />
-          )}
-          {progress.chaptersGap > 0 && (
-            <Line
-              label={t`Missing before your latest chapter`}
-              value={number(progress.chaptersGap)}
-              color="var(--status-paused)"
-            />
-          )}
-        </dl>
-        {progress.segments.length > 0 && (
-          <MangaCoverageStrip
-            progress={progress}
-            className="mt-3 h-1.5"
-            label={t`${volumesOwned} of ${volumesTotal} volumes, ${chapterFiles} chapter files`}
+            label={t`Downloading`}
+            value={number(inFlight)}
+            color="var(--in-flight)"
           />
         )}
-      </>
-    );
-  }
-
-  return (
-    <dl className="space-y-1.5">
-      <Line
-        label={t`Have`}
-        value={number(summary.owned)}
-        color="var(--status-downloaded)"
-      />
-      {inFlight > 0 && (
-        <Line
-          label={t`Downloading`}
-          value={number(inFlight)}
-          color="var(--in-flight)"
+        {progress.chaptersGap > 0 && (
+          <Line
+            label={t`Missing before your latest chapter`}
+            value={number(progress.chaptersGap)}
+            color="var(--status-paused)"
+          />
+        )}
+      </dl>
+      {progress.segments.length > 0 && (
+        <MangaCoverageStrip
+          progress={progress}
+          className="mt-3 h-1.5"
+          label={t`${volumesOwned} of ${volumesTotal} volumes, ${chapterFiles} chapter files`}
         />
       )}
-      <Line
-        label={t`Wanted`}
-        value={number(wanted)}
-        color="var(--status-wanted)"
-      />
-      {notWanted > 0 && (
-        <Line
-          label={t`Not wanted`}
-          value={number(notWanted)}
-          color="var(--surface-3)"
-        />
-      )}
-      {(summary.annuals ?? 0) > 0 && (
-        <Line label={t`Annuals included`} value={number(summary.annuals)} />
-      )}
-    </dl>
+    </>
   );
 }
 
-/** The Have count as a button that opens what the number is made of. */
+/**
+ * A manga series' Have count as a button that opens what the number is made
+ * of: volume files and chapter files. A comic's count needs no breakdown.
+ */
 export function HaveBreakdown({
   comic,
   children,
@@ -218,8 +183,6 @@ export function SeriesTitlePreview({
 }) {
   const cover = seriesCoverSrc(comic.ComicID);
   const [coverFailed, setCoverFailed] = useState(false);
-  const have = formatNumber(Number(comic.Have) || 0);
-  const total = formatNumber(Number(comic.Total) || 0);
   const wanted = Number(comic.Wanted) || 0;
   const latest = releaseDate(comic.LatestDate);
   const meta = [comic.ComicPublisher, comic.ComicYear]
@@ -263,13 +226,14 @@ export function SeriesTitlePreview({
             ) : null}
           </div>
         </div>
-        <dl className="mt-3 space-y-1.5 border-t border-border-subtle pt-2.5">
-          <Line label={t`Have`} value={t`${have} of ${total}`} />
-          {wanted > 0 && (
-            <Line label={t`Wanted`} value={formatNumber(wanted)} />
-          )}
-          {latest && <Line label={t`Latest release`} value={latest} />}
-        </dl>
+        {(wanted > 0 || latest) && (
+          <dl className="mt-3 space-y-1.5 border-t border-border-subtle pt-2.5">
+            {wanted > 0 && (
+              <Line label={t`Wanted`} value={formatNumber(wanted)} />
+            )}
+            {latest && <Line label={t`Latest release`} value={latest} />}
+          </dl>
+        )}
       </HoverCardContent>
     </HoverCard>
   );

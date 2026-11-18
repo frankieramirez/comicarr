@@ -702,10 +702,6 @@ msgstr "{groupCount} · {fileCount} selected"
 msgid "{groups, plural, one {# group} other {# groups}}"
 msgstr "{groups, plural, one {# group} other {# groups}}"
 
-#: src/components/series/SeriesRowPopovers.tsx
-msgid "{have} of {total}"
-msgstr "{have} of {total}"
-
 #: src/components/dashboard/NeedsAttentionBand.tsx
 #: src/pages/AttentionPage.tsx
 msgid "{head} {skipped_for_cap} left for another go (max {cap} at a time)."
@@ -1728,10 +1724,6 @@ msgstr "Annual {number}"
 #: src/components/ai/ChatActionCard.tsx
 msgid "annuals"
 msgstr "annuals"
-
-#: src/components/series/SeriesRowPopovers.tsx
-msgid "Annuals included"
-msgstr "Annuals included"
 
 #: src/pages/SeriesDetailPage.tsx
 msgid "annuals: {annualCount}"
@@ -4435,7 +4427,6 @@ msgid "Hasn't run yet"
 msgstr "Hasn't run yet"
 
 #: src/components/series/MangaVolumes.tsx
-#: src/components/series/SeriesRowPopovers.tsx
 #: src/components/series/SeriesTable.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Have"
@@ -6384,7 +6375,6 @@ msgid "Not Tracked"
 msgstr "Not Tracked"
 
 #: src/components/series/MangaVolumes.tsx
-#: src/components/series/SeriesRowPopovers.tsx
 #: src/pages/SeriesDetailPage.tsx
 msgid "Not wanted"
 msgstr "Not wanted"

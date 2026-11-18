@@ -145,6 +145,19 @@ describe("SeriesTable", () => {
     expect(window.location.pathname).toBe("/library");
   });
 
+  it("leaves a comic's Have count as plain text", () => {
+    window.history.pushState({}, "", "/library");
+
+    render(
+      <NuqsAdapter>
+        <SeriesTable data={series(1)} />
+      </NuqsAdapter>,
+    );
+
+    expect(screen.getByText("Series 1")).toBeTruthy();
+    expect(screen.queryByTestId("have-breakdown-trigger")).toBeNull();
+  });
+
   it("shows the next page when pagination advances", async () => {
     const user = userEvent.setup();
     window.history.pushState({}, "", "/library");
