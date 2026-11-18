@@ -3,7 +3,6 @@ import { Trans } from "@lingui/react/macro";
 import { useMemo } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import {
-  BookOpen,
   CircleDot,
   Download,
   FileText,
@@ -16,7 +15,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -317,18 +315,14 @@ export function useUpcomingColumns(
               <DropdownMenu>
                 <DropdownMenuTrigger
                   aria-label={t`Actions for ${ph({ series: issue.ComicName ?? "" })} ${ph({ release: releaseNumber(issue) })}`}
-                  onClick={(event) => event.stopPropagation()}
                   className={cn(
                     buttonVariants({ variant: "ghost", size: "icon" }),
-                    "-me-2 size-10 text-foreground-2 md:hidden",
+                    "text-foreground-2 md:hidden",
                   )}
                 >
                   <MoreHorizontal />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="min-w-[12rem] [&_[role=menuitem]]:py-2.5"
-                >
+                <DropdownMenuContent align="end">
                   {fix && (
                     <DropdownMenuItem render={<Link to={fix.href} />}>
                       <Wrench />
@@ -359,21 +353,12 @@ export function useUpcomingColumns(
                       <Trans>Skip</Trans>
                     </DropdownMenuItem>
                   )}
-                  {(fix || canReview || canWant || canSkip) && (
-                    <DropdownMenuSeparator />
-                  )}
                   {issueHref && (
                     <DropdownMenuItem render={<Link to={issueHref} />}>
                       <FileText />
                       <Trans>Open issue</Trans>
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem
-                    render={<Link to={`/library/${issue.ComicID}`} />}
-                  >
-                    <BookOpen />
-                    <Trans>Open series</Trans>
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

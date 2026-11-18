@@ -6619,7 +6619,6 @@ msgid "Open search settings"
 msgstr "Sucheinstellungen öffnen"
 
 #: src/components/ai/ChatActionCard.tsx
-#: src/components/queue/upcomingColumns.tsx
 msgid "Open series"
 msgstr "Serie öffnen"
 

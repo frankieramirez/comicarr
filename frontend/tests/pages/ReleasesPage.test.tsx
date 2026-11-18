@@ -537,7 +537,7 @@ describe("ReleasesPage", () => {
       render(<ReleasesPage />);
 
       // The desktop buttons sit in a phone-hidden group; the menu is the
-      // phone's way in, and it also opens the issue and the series.
+      // phone's way in, and it also opens the issue.
       const trigger = await screen.findByRole("button", {
         name: "Actions for Absolute Batman #19",
       });
@@ -545,9 +545,6 @@ describe("ReleasesPage", () => {
       await user.click(trigger);
       expect(
         await screen.findByRole("menuitem", { name: "Open issue" }),
-      ).toBeTruthy();
-      expect(
-        screen.getByRole("menuitem", { name: "Open series" }),
       ).toBeTruthy();
       await user.click(screen.getByRole("menuitem", { name: "Want" }));
       await waitFor(() => expect(queued).toBe("issue-19"));
