@@ -7,7 +7,7 @@
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 
-from comicarr import search
+from comicarr.app.search import engine as search
 
 
 def test_unfiltered_pass_inactive_by_default():

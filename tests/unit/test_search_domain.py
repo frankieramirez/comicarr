@@ -36,7 +36,7 @@ def test_force_search_reports_blocked_when_no_viable_route(monkeypatch):
         },
     )
     search_for_issue = MagicMock()
-    monkeypatch.setattr(comicarr, "search", SimpleNamespace(searchforissue=search_for_issue), raising=False)
+    monkeypatch.setattr(comicarr.app.search, "engine", SimpleNamespace(searchforissue=search_for_issue), raising=False)
 
     result = search_service.force_search(_ctx())
 
@@ -64,7 +64,7 @@ def test_force_search_accepts_when_route_is_ready(monkeypatch):
     monkeypatch.setattr("comicarr.app.acquisition.runs.RunLedger", lambda: ledger)
     monkeypatch.setattr("comicarr.app.search.service.uuid.uuid4", lambda: "manual-run")
     search_for_issue = MagicMock(return_value={"status": "QUEUED", "queued_count": 2})
-    monkeypatch.setattr(comicarr, "search", SimpleNamespace(searchforissue=search_for_issue), raising=False)
+    monkeypatch.setattr(comicarr.app.search, "engine", SimpleNamespace(searchforissue=search_for_issue), raising=False)
 
     result = search_service.force_search(_ctx())
 
@@ -94,7 +94,7 @@ def test_force_search_reports_no_match_with_a_terminal_empty_run(monkeypatch):
     monkeypatch.setattr("comicarr.app.acquisition.runs.RunLedger", lambda: ledger)
     monkeypatch.setattr("comicarr.app.search.service.uuid.uuid4", lambda: "manual-run")
     search_for_issue = MagicMock(return_value={"status": "QUEUED", "queued_count": 0})
-    monkeypatch.setattr(comicarr, "search", SimpleNamespace(searchforissue=search_for_issue), raising=False)
+    monkeypatch.setattr(comicarr.app.search, "engine", SimpleNamespace(searchforissue=search_for_issue), raising=False)
 
     result = search_service.force_search(_ctx())
 
@@ -125,7 +125,7 @@ def test_force_search_reports_partial_when_some_wanted_handoffs_fail(monkeypatch
     monkeypatch.setattr("comicarr.app.acquisition.runs.RunLedger", lambda: ledger)
     monkeypatch.setattr("comicarr.app.search.service.uuid.uuid4", lambda: "manual-run")
     search_for_issue = MagicMock(return_value={"status": "QUEUED", "queued_count": 2, "error_count": 1})
-    monkeypatch.setattr(comicarr, "search", SimpleNamespace(searchforissue=search_for_issue), raising=False)
+    monkeypatch.setattr(comicarr.app.search, "engine", SimpleNamespace(searchforissue=search_for_issue), raising=False)
 
     result = search_service.force_search(_ctx())
 
@@ -163,7 +163,7 @@ def test_force_search_closes_rejected_empty_runs(monkeypatch, search_result, exp
         search_for_issue.side_effect = search_result
     else:
         search_for_issue.return_value = search_result
-    monkeypatch.setattr(comicarr, "search", SimpleNamespace(searchforissue=search_for_issue), raising=False)
+    monkeypatch.setattr(comicarr.app.search, "engine", SimpleNamespace(searchforissue=search_for_issue), raising=False)
 
     result = search_service.force_search(_ctx())
 

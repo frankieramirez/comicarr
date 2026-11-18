@@ -70,7 +70,7 @@ class TestMangaCheck:
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
     @patch("comicarr.app.search.rss_feeds.series_service")
     @patch("comicarr.app.search.rss_feeds.db")
-    @patch("comicarr.search.search_init")
+    @patch("comicarr.app.search.engine.search_init")
     def test_skips_when_no_manga_series(self, mock_search_init, mock_db, mock_helpers):
         mock_db.select_all.return_value = []
 
@@ -81,7 +81,7 @@ class TestMangaCheck:
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
     @patch("comicarr.app.search.rss_feeds.series_service")
     @patch("comicarr.app.search.rss_feeds.db")
-    @patch("comicarr.search.search_init")
+    @patch("comicarr.app.search.engine.search_init")
     def test_triggers_search_for_wanted_chapters(self, mock_search_init, mock_db, mock_helpers):
         series = _make_series()
         chapter = _make_chapter()
@@ -103,7 +103,7 @@ class TestMangaCheck:
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
     @patch("comicarr.app.search.rss_feeds.series_service")
     @patch("comicarr.app.search.rss_feeds.db")
-    @patch("comicarr.search.search_init")
+    @patch("comicarr.app.search.engine.search_init")
     def test_skips_already_downloaded_chapters(self, mock_search_init, mock_db, mock_helpers):
         series = _make_series()
         chapter = _make_chapter()
@@ -122,7 +122,7 @@ class TestMangaCheck:
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
     @patch("comicarr.app.search.rss_feeds.series_service")
     @patch("comicarr.app.search.rss_feeds.db")
-    @patch("comicarr.search.search_init")
+    @patch("comicarr.app.search.engine.search_init")
     def test_handles_search_error_gracefully(self, mock_search_init, mock_db, mock_helpers):
         series = _make_series()
         ch1 = _make_chapter(ch_num="100", issue_id="md-abc123-ch100")
@@ -143,7 +143,7 @@ class TestMangaCheck:
     @patch("comicarr.CONFIG", MagicMock(FAILED_DOWNLOAD_HANDLING=False, FAILED_AUTO=False))
     @patch("comicarr.app.search.rss_feeds.series_service")
     @patch("comicarr.app.search.rss_feeds.db")
-    @patch("comicarr.search.search_init")
+    @patch("comicarr.app.search.engine.search_init")
     def test_skips_series_with_no_wanted_chapters(self, mock_search_init, mock_db, mock_helpers):
         series = _make_series()
 
@@ -202,7 +202,7 @@ class TestMangaCheckRssdb:
         )
         with (
             patch("comicarr.app.search.rss_feeds.series_service") as mock_helpers,
-            patch("comicarr.search.search_init", search_init),
+            patch("comicarr.app.search.engine.search_init", search_init),
         ):
             mock_helpers.issue_status.return_value = False
             mangaCheck()

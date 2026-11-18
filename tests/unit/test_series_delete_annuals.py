@@ -14,8 +14,8 @@ from sqlalchemy import func, select
 
 from comicarr.app.core import db
 from comicarr.app.core.tables import annuals, comics, issues, metadata, storyarcs, upcoming
+from comicarr.app.search.engine import searchforissue_checker
 from comicarr.app.series import queries as series_queries
-from comicarr.search import searchforissue_checker
 
 
 @pytest.fixture(autouse=True)

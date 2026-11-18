@@ -158,7 +158,7 @@ def test_scheduled_search_failure_is_supervised_and_propagated(monkeypatch):
     monkeypatch.setattr(system_service, "job_management", job_management)
     monkeypatch.setattr(common_dates, "utctimestamp", lambda: 123.0)
     failure = RuntimeError("provider down")
-    monkeypatch.setattr(comicarr.search, "searchforissue", MagicMock(side_effect=failure))
+    monkeypatch.setattr(comicarr.app.search.engine, "searchforissue", MagicMock(side_effect=failure))
 
     with pytest.raises(RuntimeError, match="provider down"):
         search_service.run_scheduled_search()

@@ -69,7 +69,7 @@ def test_metadata_only_add_is_unmonitored_and_never_acquires_or_places_files(met
     search = MagicMock()
     rescan = MagicMock()
     move = MagicMock()
-    monkeypatch.setattr("comicarr.search.searchforissue", search)
+    monkeypatch.setattr("comicarr.app.search.engine.searchforissue", search)
     monkeypatch.setattr("comicarr.app.series.folder_rescan.force_rescan", rescan)
     monkeypatch.setattr("comicarr.app.library.moveit.movefiles", move)
 

@@ -817,7 +817,7 @@ class TestBoundedDrainExceeded:
 
         assert found == allowed_thread_constructors
 
-        search_source = (project_root / "comicarr/search.py").read_text(encoding="utf-8")
+        search_source = (project_root / "comicarr/app/search/engine.py").read_text(encoding="utf-8")
         assert "submit_background_future(" in search_source
         assert "executor.submit(" not in search_source
 

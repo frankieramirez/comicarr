@@ -174,7 +174,7 @@ def test_runtime_resume_replays_obligations_starts_queues_and_resumes_jobs(monke
 def test_snatched_queue_starts_for_every_client_the_searcher_enqueues(monkeypatch, downloader, expected, flag):
     """The producer and consumer of SNATCHED_QUEUE must agree on eligibility.
 
-    comicarr/search.py enqueues whenever torrent_monitor can poll the client.
+    comicarr/app/search/engine.py enqueues whenever torrent_monitor can poll the client.
     If this consumer gate is narrower, releases pile up on a queue nothing
     reads -- silently, and for the life of the process.
     """

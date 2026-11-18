@@ -16,11 +16,11 @@ from contextlib import nullcontext
 
 from sqlalchemy import select
 
-from comicarr import search
 from comicarr.app.common.redaction import redact_sensitive_text
 from comicarr.app.core import db, logger
 from comicarr.app.core.tables import comics, storyarcs
 from comicarr.app.core.workers import start_background_thread
+from comicarr.app.search import engine as search
 from comicarr.app.search import progress
 from comicarr.app.search import routes as search_routes
 from comicarr.app.search import service as search_service

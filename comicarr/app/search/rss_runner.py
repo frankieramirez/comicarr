@@ -77,7 +77,7 @@ class tehMain:
             from comicarr.app.search.backlog import mark_rssdb_refreshed
 
             mark_rssdb_refreshed()
-            comicarr.search.searchforissue(rsschecker="yes")
+            comicarr.app.search.engine.searchforissue(rsschecker="yes")
             logger.fdebug("[RSS-FEEDS] RSS dbsearch/matching took: %s" % (datetime.datetime.now() - rss_start))
             logger.info("[RSS-FEEDS] Watchlist Check complete.")
             if forcerss:

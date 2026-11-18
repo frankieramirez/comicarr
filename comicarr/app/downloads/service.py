@@ -1506,7 +1506,7 @@ def _ddl_downloader_loop(queue, link_type_failure, active_item):
                         conn.execute(delete(ddl_info).where(ddl_info.c.ID == item["id"]))
                     comicarr.DDL_QUEUED.discard(item["id"])
                     comicarr.DDL_STUCK_NOTIFIED.discard(item["id"])
-                    comicarr.search.FailedMark(
+                    comicarr.app.search.engine.FailedMark(
                         item["issueid"],
                         item["comicid"],
                         item["id"],

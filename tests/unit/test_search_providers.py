@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 import comicarr
-from comicarr import search
+from comicarr.app.search import engine as search
 from comicarr.app.search import service as search_service
 from comicarr.app.search.providers import effective_provider_plan
 from comicarr.app.series import queries as series_queries

@@ -16,9 +16,9 @@ import pytest
 from sqlalchemy import insert
 
 import comicarr
-from comicarr import search
 from comicarr.app.core import db
 from comicarr.app.core.tables import activity_events, issues, metadata, pipeline_journal
+from comicarr.app.search import engine as search
 from comicarr.app.search import search_history
 from comicarr.app.search.evaluation import EvaluationSession
 from comicarr.app.series import issue_story

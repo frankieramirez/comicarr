@@ -16,8 +16,8 @@ import pytest
 import requests
 
 import comicarr
-from comicarr import search
 from comicarr.app.config.ini import Config
+from comicarr.app.search import engine as search
 from comicarr.app.search import prowlarr
 from comicarr.app.search._release_identity import generate_id
 from comicarr.app.search.evaluation import EvaluationSession

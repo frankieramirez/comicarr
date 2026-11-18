@@ -49,9 +49,7 @@ VENDOR_DIR = "comicarr/_vendor"
 SKIP_DIR_NAMES = {"__pycache__"}
 
 # Root module -> the GitHub issue that retires it (all children of #1402).
-ROOT_MODULES: dict[str, int] = {
-    "search": 1422,
-}
+ROOT_MODULES: dict[str, int] = {}
 
 # Directory under comicarr/ other than app/ -> retiring issue.
 ROOT_PACKAGES: dict[str, int] = {}

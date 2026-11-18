@@ -23,7 +23,7 @@ import requests
 from urllib3.exceptions import MaxRetryError, NewConnectionError
 
 import comicarr
-from comicarr import search
+from comicarr.app.search import engine as search
 from comicarr.app.search import failures, interactive, progress
 from comicarr.app.search import service as search_service
 from comicarr.app.search.evaluation import EvaluationSession

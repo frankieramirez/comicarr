@@ -9,7 +9,7 @@
 
 import pytest
 
-from comicarr import search
+from comicarr.app.search import engine as search
 from comicarr.app.search.packs import pack_shaped
 
 

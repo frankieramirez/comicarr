@@ -97,7 +97,7 @@ def test_add_series_metadata_only_stores_paused_series_and_skipped_issues(librar
     )
     monkeypatch.setattr("comicarr.app.library.filers.FileHandlers.series_folder_collision_detection", lambda *a: None)
     search = MagicMock()
-    monkeypatch.setattr("comicarr.search.searchforissue", search)
+    monkeypatch.setattr("comicarr.app.search.engine.searchforissue", search)
 
     result = series_add.add_series("4050-123", metadata_only=True)
 

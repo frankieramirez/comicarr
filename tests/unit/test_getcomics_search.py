@@ -22,8 +22,8 @@ from types import SimpleNamespace
 import pytest
 
 import comicarr
-from comicarr import search
 from comicarr.app.downloads import getcomics
+from comicarr.app.search import engine as search
 
 
 def _post(post_id, title, link, date="2026-09-23T10:00:00", size="47 MB", year="2026"):

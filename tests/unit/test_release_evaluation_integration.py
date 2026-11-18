@@ -327,7 +327,7 @@ def test_getcomics_caller_uses_the_supplied_evaluation_session(monkeypatch, revi
 
 
 def test_provider_search_collects_real_evaluations_without_handoff(monkeypatch):
-    from comicarr import search
+    from comicarr.app.search import engine as search
 
     monkeypatch.setattr(search.rsscheck, "ddl_dbsearch", lambda *_args: {"entries": [entry()]})
     monkeypatch.setattr(search.rsscheck, "ddlrss_pack_detect", lambda *_args: None)
