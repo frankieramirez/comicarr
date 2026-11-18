@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.64.0
+
+### Minor Changes
+
+- 12550f0: You can now act on your releases from a phone. On Releases > Mine, each row has a menu with Review releases, Want, Skip, and a link to the issue. Before, phones showed the list with no way to change anything.
+
+### Patch Changes
+
+- cb58ad2: Three API routes that duplicated other routes are removed. A script that called one should switch: `POST /api/metadata/search` to `POST /api/search/comics`, `POST /api/metadata/search/manga` to `POST /api/search/manga` (same request body for both), and `POST /api/ai/chat/stream` to `POST /api/ai/chat/turns/stream`. The Comicarr web app never used the removed routes, so nothing changes there.
+- 9744563: Fix searches stopping early when the old Experimental search setting is still on. Comicarr removed Experimental (NZBIndex) search in an earlier release, but a saved setting still put it in the search order, and reaching it ended the whole search for that issue before any provider after it ran. Comicarr now ignores the setting, so every other provider is searched again. Activity > Health still shows the notice that Experimental search is gone; add a Usenet indexer through Prowlarr or as a Newznab provider instead.
+
 ## 0.63.0
 
 ### Minor Changes
