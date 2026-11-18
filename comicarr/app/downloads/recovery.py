@@ -10,7 +10,7 @@
 """
 Startup recovery replay orchestrator.
 
-Runs ONCE at startup, AFTER ``comicarr.start()`` returns (init_lock released)
+Runs ONCE at startup, AFTER ``lifecycle.start()`` returns (init_lock released)
 and AFTER credential decryption, and BEFORE ``uvicorn.run()``. Re-drives every
 open pipeline_journal obligation through its remaining stages, exactly once,
 with no operator action. Idempotent and re-runnable.
@@ -861,7 +861,7 @@ def _resolve_row(snapshot_row, probes=None):
 @postprocessing._recovery_pass
 def replay_pipeline(probes=None):
     """Idempotent, re-runnable startup recovery replay. Invoked from
-    Comicarr.py AFTER comicarr.start() returns (init_lock released) and AFTER
+    Comicarr.py AFTER lifecycle.start() returns (init_lock released) and AFTER
     credential decryption, BEFORE uvicorn.run(). Does NOT acquire init_lock
     (so it can never deadlock/starve a concurrent SIGTERM halt()).
 

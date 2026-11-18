@@ -1,9 +1,9 @@
 # Runtime context ownership
 
 `AppContext` is the one runtime owner for a Comicarr process. It is created
-once by `comicarr.app.core.runtime.create_runtime()` after `comicarr.initialize`
+once by `comicarr.app.core.runtime.create_runtime()` after `lifecycle.initialize`
 has loaded configuration, applied schema readiness checks, and decrypted or
-generated startup secrets. `Comicarr.py` creates it before `comicarr.start()`
+generated startup secrets. `Comicarr.py` creates it before `lifecycle.start()`
 can start a scheduler or worker. FastAPI lifespan attaches that existing
 instance to `app.state.ctx`; it does not construct a second view.
 
@@ -57,14 +57,14 @@ instance to `app.state.ctx`; it does not construct a second view.
 
 ## Lifecycle
 
-1. `comicarr.initialize()` establishes config, schema/migration state, and
+1. `lifecycle.initialize()` (`comicarr/app/core/lifecycle.py`) establishes config, schema/migration state, and
    secrets. A schema or maintenance failure closes the acquisition gate but
    still permits authenticated diagnostics.
 2. `create_runtime()` copies the bootstrap context exactly once, shallowly,
    so every object keeps its identity. It also builds the AI
    client bundle and loads the persisted JWT signing key at this lifecycle
    boundary.
-3. `comicarr.start(runtime)` rejects a missing or divergent context before
+3. `lifecycle.start(ctx)` rejects a missing or divergent context before
    starting scheduler/worker activity. Worker pool references are written
    on that context so the shutdown owner sees the same pools.
 4. FastAPI lifespan stores that instance on `app.state.ctx`, sets the event-bus

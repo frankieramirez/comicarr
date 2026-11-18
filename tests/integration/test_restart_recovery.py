@@ -16,7 +16,7 @@ with the real ``pipeline_journal`` / ``snatched`` / ``nzblog`` tables. A
 "process restart" is simulated by building durable journal/snatched/nzblog
 state (as if a prior process had written it and then died), then calling
 ``recovery.replay_pipeline()`` exactly as ``Comicarr.py`` does after
-``comicarr.start()`` returns (AE1–AE4), or by driving the real U7 FastAPI
+``lifecycle.start()`` returns (AE1–AE4), or by driving the real U7 FastAPI
 lifespan ordered drain and then a subsequent ``replay_pipeline()`` (AE5).
 
 ONLY the external downloader clients (via the U5 ``probes=`` injection

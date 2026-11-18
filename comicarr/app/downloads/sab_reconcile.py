@@ -65,7 +65,7 @@ def sab_client_post_processing_enabled():
     """Post-processing is on and SABnzbd is the NZB client handing off completed jobs.
 
     The one definition of "SABnzbd completed-download handling is on", shared
-    by the scheduler (``comicarr.ensure_sab_completed_reconcile``) and the sweep.
+    by the scheduler (``lifecycle.ensure_sab_completed_reconcile``) and the sweep.
     """
     config = runtime.current().config
     if config is None:

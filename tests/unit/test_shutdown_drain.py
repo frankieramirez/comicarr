@@ -22,7 +22,7 @@ pre-collapse topology was:
                  executor.shutdown(wait=False)     (main.py:209)
                  if not runtime.current().signal: signal='shutdown'
             -> uvicorn.run() returns
-            -> main thread (Comicarr.py:574-579) -> comicarr.shutdown()
+            -> main thread (Comicarr.py:574-579) -> lifecycle.shutdown()
                  -> halt(): scheduler.shutdown(wait=False)
                             queue_schedule('all','shutdown')
                               -> per pool: queue.put('exit'); pool.join(5)
@@ -68,7 +68,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy import select
 
 import comicarr
-from comicarr.app.core import runtime
+from comicarr.app.core import lifecycle, runtime
 from comicarr.app.core.context import AppContext
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.events import EventBus
@@ -217,9 +217,7 @@ class TestCharacterization:
         )
 
     def test_queue_schedule_assertion_landmine_removed(self):
-        from comicarr import queue_schedule
-
-        src = inspect.getsource(queue_schedule)
+        src = inspect.getsource(lifecycle.queue_schedule)
         # Strip comments/strings: only executable statements matter.
         code_only = "\n".join(line.split("#", 1)[0] for line in src.splitlines())
         assert "os._exit" not in code_only, (
@@ -227,7 +225,7 @@ class TestCharacterization:
         )
 
     def test_halt_no_longer_drains_queues_or_scheduler(self):
-        src = inspect.getsource(comicarr.halt)
+        src = inspect.getsource(lifecycle.halt)
         tree = ast.parse(src.lstrip())
         fn = tree.body[0]
         # Drop the docstring node; unparse only the executable body.
@@ -239,7 +237,7 @@ class TestCharacterization:
         assert "scheduler.shutdown" not in code_only, "halt() must not shut the scheduler"
 
     def test_shutdown_keeps_terminal_branch(self):
-        src = inspect.getsource(comicarr.shutdown)
+        src = inspect.getsource(lifecycle.shutdown)
         assert "os.execv" in src, "shutdown() keeps the restart os.execv branch"
         assert "os._exit" in src, "shutdown() keeps the terminal os._exit branch"
 
@@ -777,7 +775,7 @@ class TestBoundedDrainExceeded:
     def test_detached_first_party_workers_use_the_shutdown_registry(self):
         project_root = Path(__file__).resolve().parents[2]
         allowed_thread_constructors = {
-            "comicarr/__init__.py": 2,
+            "comicarr/app/core/lifecycle.py": 2,
             "comicarr/app/core/workers.py": 1,
             "comicarr/app/series/add_workers.py": 2,
         }
@@ -879,19 +877,19 @@ class TestRestartIntentPreserved:
         assert runtime.current().signal == intent
 
         # halt() must remain idempotent and preserve the signal too.
-        with patch.object(comicarr, "_INITIALIZED", True, create=True):
-            comicarr.halt()
+        with patch.object(lifecycle, "_INITIALIZED", True, create=True):
+            lifecycle.halt()
         assert runtime.current().signal == intent
 
         # shutdown(restart=True) reaches os.execv, NOT os._exit, for a restart.
         with (
-            patch("comicarr.os.execv") as m_execv,
-            patch("comicarr.os._exit"),
+            patch("comicarr.app.core.lifecycle.os.execv") as m_execv,
+            patch("comicarr.app.core.lifecycle.os._exit"),
             patch.object(runtime.current(), "createpid", False, create=True),
             patch.object(runtime.current(), "args", [], create=True),
             patch.object(runtime.current(), "full_path", "/tmp/Comicarr.py", create=True),
         ):
-            comicarr.shutdown(restart=True)
+            lifecycle.shutdown(restart=True)
         assert m_execv.called, "restart MUST reach os.execv (not degrade to a stop)"
         # os._exit may be called as the unconditional non-blocking backstop,
         # but only AFTER os.execv was attempted.
@@ -917,7 +915,7 @@ class TestAssertionLandmineRemoved:
             patch.object(ctx, "search_pool", None),
             patch.object(ctx, "pp_pool", None),
             patch.object(ctx, "ddl_pool", None),
-            patch("comicarr.os._exit") as m_exit,
+            patch("comicarr.app.core.lifecycle.os._exit") as m_exit,
             patch.object(
                 get_engine(),
                 "dispose",
@@ -961,13 +959,13 @@ class TestHardKillLiveness:
         def _run():
             with (
                 patch.object(runtime.current(), "sn_pool", _WedgedPool()),
-                patch.object(comicarr, "_INITIALIZED", True, create=True),
-                patch("comicarr.os._exit") as m_exit,
-                patch("comicarr.os.execv") as m_execv,
+                patch.object(lifecycle, "_INITIALIZED", True, create=True),
+                patch("comicarr.app.core.lifecycle.os._exit") as m_exit,
+                patch("comicarr.app.core.lifecycle.os.execv") as m_execv,
                 patch.object(runtime.current(), "createpid", False, create=True),
             ):
-                comicarr.halt()
-                comicarr.shutdown()
+                lifecycle.halt()
+                lifecycle.shutdown()
                 result["exit"] = m_exit.called
                 result["execv"] = m_execv.called
 

@@ -28,9 +28,11 @@ import threading
 from comicarr.app.core import runtime
 
 try:
-    import comicarr  # noqa: E402
     from comicarr.app.config import log_level as log_level_source  # noqa: E402
-    from comicarr.app.core import logger
+    from comicarr.app.core import (
+        lifecycle,  # noqa: E402
+        logger,
+    )
     from comicarr.app.core.pidfile import check_stale_pidfile  # noqa: E402
     from comicarr.app.library import filechecker
     from comicarr.app.system import carepackage, maintenance, versioncheck  # noqa: E402
@@ -386,7 +388,7 @@ def main():
         print("Initializing startup sequence....")
 
     # try:
-    comicarr.initialize(runtime.current().config_file)
+    lifecycle.initialize(runtime.current().config_file)
     # except Exception as e:
     #    print e
     #    raise SystemExit('FATAL ERROR')
@@ -433,7 +435,7 @@ def main():
     threading.current_thread().name = "MAIN"
 
     if runtime.current().daemon:
-        comicarr.daemonize()
+        lifecycle.daemonize()
 
     if runtime.current().maintenance is True and (
         runtime.current().maintenance_update
@@ -470,7 +472,7 @@ def main():
             if args_update is True:
                 logger.info("%s Attempting to update Comicarr so things can work again..." % loggermode)
                 try:
-                    comicarr.shutdown(restart=True, update=True, maintenance=True)
+                    lifecycle.shutdown(restart=True, update=True, maintenance=True)
                 except Exception as e:
                     sys.exit("%s Comicarr failed to update: %s" % (loggermode, e))
 
@@ -520,7 +522,7 @@ def main():
 
         # restart automatically after maintenance has completed...
 
-        comicarr.shutdown(restart=restart_method, maintenance=True)
+        lifecycle.shutdown(restart=restart_method, maintenance=True)
 
     # Force the http port if neccessary
     if args_port > 0:
@@ -554,10 +556,10 @@ def main():
     ctx = create_runtime()
 
     if runtime.current().config.LAUNCH_BROWSER and not args_nolaunch:
-        comicarr.launch_browser(runtime.current().config.HTTP_HOST, http_port, runtime.current().config.HTTP_ROOT)
+        lifecycle.launch_browser(runtime.current().config.HTTP_HOST, http_port, runtime.current().config.HTTP_ROOT)
 
     # Start the background threads
-    comicarr.start(ctx)
+    lifecycle.start(ctx)
 
     # Register the SIGTERM handler before startup replay: replay_pipeline()
     # below can spend real time probing downloaders and inline-redriving PP,
@@ -565,11 +567,11 @@ def main():
     # pending restart/update intent (handler_sigterm guards runtime.current().signal).
     signal.signal(signal.SIGTERM, handler_sigterm)
 
-    # Startup recovery replay (U6). MUST run here: after comicarr.start()
+    # Startup recovery replay (U6). MUST run here: after lifecycle.start()
     # returns (start() is one unbroken `with init_lock:` block, so the lock is
     # now released — replay never acquires init_lock and cannot starve a
     # concurrent SIGTERM halt()), and after credential decryption (encrypt_items
-    # ran inside comicarr.initialize() above, so downloader-client creds are no
+    # ran inside lifecycle.initialize() above, so downloader-client creds are no
     # longer ciphertext), and before uvicorn.run() (workers are already running
     # so re-enqueued/STILL items are picked up by the live monitors). Idempotent
     # and re-runnable; a per-row failure is logged and skipped, never fatal.
@@ -603,11 +605,11 @@ def main():
     )
 
     if runtime.current().signal == "restart":
-        comicarr.shutdown(restart=True)
+        lifecycle.shutdown(restart=True)
     elif runtime.current().signal == "update":
-        comicarr.shutdown(restart=True, update=True)
+        lifecycle.shutdown(restart=True, update=True)
     else:
-        comicarr.shutdown()
+        lifecycle.shutdown()
 
     return
 

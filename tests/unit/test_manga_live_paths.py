@@ -25,7 +25,7 @@ from comicarr.app.search.engine import _build_manga_search_terms, manga_volume_s
 from comicarr.app.search.evaluation import manga_volume_satisfies
 from comicarr.app.search.rss_feeds import mangaCheck
 
-_INIT_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "__init__.py"
+_LIFECYCLE_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "app" / "core" / "lifecycle.py"
 _SEARCH_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "app" / "search" / "engine.py"
 _FILECHECKER_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "app" / "library" / "filechecker.py"
 
@@ -84,8 +84,8 @@ def test_arm_manga_sync_job_modifies_next_run_unless_paused():
 
 
 def test_init_arms_manga_sync_after_pause():
-    tree = ast.parse(_INIT_PATH.read_text(encoding="utf-8"))
-    source = _INIT_PATH.read_text(encoding="utf-8")
+    tree = ast.parse(_LIFECYCLE_PATH.read_text(encoding="utf-8"))
+    source = _LIFECYCLE_PATH.read_text(encoding="utf-8")
     assert "manga_sync_job.pause()" in source
     assert "arm_manga_sync_job" in source
     helper_ids = set()

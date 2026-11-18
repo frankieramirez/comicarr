@@ -25,7 +25,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import comicarr
-from comicarr.app.core import runtime
+from comicarr.app.core import lifecycle, runtime
 from comicarr.app.core.context import AppContext, get_context
 from comicarr.app.core.runtime import (
     RuntimeNotInitializedError,
@@ -266,10 +266,10 @@ def test_worker_bootstrap_refuses_to_start_before_a_runtime_exists(monkeypatch):
     """A missing context is rejected before scheduler/worker bootstrap can run."""
     scheduler = MagicMock(name="scheduler")
     monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
-    monkeypatch.setattr(comicarr, "_INITIALIZED", True)
+    monkeypatch.setattr(lifecycle, "_INITIALIZED", True)
 
     with pytest.raises(RuntimeNotInitializedError, match="before an active runtime"):
-        comicarr.start(None)
+        lifecycle.start(None)
 
     scheduler.add_job.assert_not_called()
     scheduler.start.assert_not_called()

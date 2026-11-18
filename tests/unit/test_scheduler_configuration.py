@@ -24,11 +24,11 @@ from apscheduler.events import (
 import comicarr
 from comicarr.app.common import dates as common_dates
 from comicarr.app.common.dates import normalize_utc_datetime, utc_date_to_local
-from comicarr.app.core import runtime
+from comicarr.app.core import lifecycle, runtime
 from comicarr.app.search import service as search_service
 from comicarr.app.system import service as system_service
 
-_INIT_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "__init__.py"
+_LIFECYCLE_PATH = Path(__file__).resolve().parents[2] / "comicarr" / "app" / "core" / "lifecycle.py"
 _RECURRING_JOB_IDS = {
     "dbupdater",
     "search",
@@ -59,7 +59,7 @@ def test_add_recurring_job_sets_single_instance_options(monkeypatch):
     job_func = object()
     monkeypatch.setattr(runtime.current(), "scheduler", scheduler)
 
-    result = comicarr._add_recurring_job(func=job_func, id="example")
+    result = lifecycle._add_recurring_job(func=job_func, id="example")
 
     assert result is scheduler.calls[0]
     assert scheduler.calls[0]["func"] is job_func
@@ -69,7 +69,7 @@ def test_add_recurring_job_sets_single_instance_options(monkeypatch):
 
 
 def test_listed_recurring_jobs_use_recurring_helper():
-    tree = ast.parse(_INIT_PATH.read_text(encoding="utf-8"))
+    tree = ast.parse(_LIFECYCLE_PATH.read_text(encoding="utf-8"))
     helper_job_ids = set()
     direct_interval_job_ids = []
 

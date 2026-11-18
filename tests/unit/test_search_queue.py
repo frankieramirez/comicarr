@@ -21,7 +21,7 @@ import comicarr
 from comicarr.app.acquisition.maintenance import MaintenanceBlocked, MaintenanceController, ensure_acquisition_schema
 from comicarr.app.acquisition.models import ItemOutcome
 from comicarr.app.acquisition.runs import MAX_RECOVERY_ATTEMPTS, RunLedger
-from comicarr.app.core import runtime
+from comicarr.app.core import lifecycle, runtime
 from comicarr.app.core.db import get_engine, shutdown_engine
 from comicarr.app.core.tables import annuals, comics, issues, metadata
 from comicarr.app.search import service
@@ -772,7 +772,7 @@ def test_startup_replays_search_and_refresh_before_workers(monkeypatch):
     monkeypatch.setattr(commands, "replay_search_obligations", search_replay)
     monkeypatch.setattr(add_workers, "replay_refresh_obligations", refresh_replay)
 
-    result = comicarr.replay_acquisition_obligations()
+    result = lifecycle.replay_acquisition_obligations()
 
     assert result == {"search": 2, "refresh": 3}
     search_replay.assert_called_once_with(work_queue=runtime.current().search_queue)
