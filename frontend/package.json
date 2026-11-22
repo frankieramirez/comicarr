@@ -81,7 +81,7 @@
     "happy-dom": "^21.0.4",
     "msw": "^2.15.0",
     "portless": "^0.15.7",
-    "postcss": "^8.5.32",
+    "postcss": "^8.5.33",
     "prettier": "^3.9.6",
     "tailwindcss": "^4.1.18",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
